@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https: http://localhost:*; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-eval'; img-src 'self' data:; worker-src 'self' blob: cockpit:">
+  <title>Cockpit IDE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="xterm.css">
+</head>
+<body>
+  <div id="app">
+    <div id="titlebar">
+      <div id="titlebar-drag">
+        <img class="brand-logo" src="../../public/icon.svg" alt="Cockpit IDE">
+        <div class="menu-bar" id="menu-bar"></div>
+      </div>
+      <div id="titlebar-controls">
+        <button class="tb-btn" id="tb-min" title="Minimize">─</button>
+        <button class="tb-btn" id="tb-max" title="Maximize">□</button>
+        <button class="tb-btn tb-close" id="tb-close" title="Close">✕</button>
+      </div>
+    </div>
+    <div id="canvas"></div>
+    <div id="statusbar"></div>
+  </div>
+  <script src="index.js"></script>
+</body>
+</html>

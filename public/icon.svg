@@ -1,0 +1,7 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <title>Cockpit IDE</title>
+  <circle cx="72"  cy="72"  r="56" fill="#eeeeee" stroke="#1a1a1a" stroke-width="1.5"/>
+  <circle cx="72"  cy="184" r="56" fill="#6a6a6a"  stroke="#1a1a1a" stroke-width="1.5"/>
+  <circle cx="184" cy="72"  r="56" fill="#2a2a2a"  stroke="#1a1a1a" stroke-width="1.5"/>
+  <circle cx="184" cy="184" r="56" fill="#4a4a4a"  stroke="#6a6a6a" stroke-width="1.5"/>
+</svg>

@@ -1,0 +1,104 @@
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+const { stamp, restore } = require('./version');
+
+const root = path.join(__dirname, '..');
+
+const d = new Date();
+const origPkg = stamp();
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+console.log(`[pack] Version: ${pkg.version}`);
+
+function findMakensis() {
+  try { execSync('makensis /VERSION', { stdio: 'ignore', shell: true }); return 'makensis'; } catch {}
+  const def = 'C:\\Program Files (x86)\\NSIS\\makensis.exe';
+  if (fs.existsSync(def)) return `"${def}"`;
+  return null;
+}
+
+function ensureMakensis() {
+  let bin = findMakensis();
+  if (bin) return bin;
+  console.log('[pack] NSIS not found — installing via winget...');
+  execSync(
+    'winget install NSIS.NSIS --silent --accept-package-agreements --accept-source-agreements',
+    { stdio: 'inherit', shell: true }
+  );
+  bin = findMakensis();
+  if (!bin) throw new Error('NSIS install failed. Install manually from https://nsis.sourceforge.io/');
+  return bin;
+}
+
+async function main() {
+  execSync('npm run build:prod', { cwd: root, stdio: 'inherit', shell: true, env: { ...process.env, NODE_ENV: 'production' } });
+
+  const { packager } = require('@electron/packager');
+  const appPaths = await packager({
+    dir: root,
+    name: 'CockpitIDE',
+    platform: 'win32',
+    arch: 'x64',
+    out: path.join(root, 'out'),
+    overwrite: true,
+    icon: path.join(root, 'public', 'cockpit_ide_icon.ico'),
+    extraResource: [path.join(root, 'public', 'cockpit_ide_icon.ico')],
+    asar: {
+      unpack: '**/node_modules/node-pty/**',
+    },
+    ignore: [
+      /^\/src\b/,
+      /^\/scripts\b/,
+      /^\/\.github\b/,
+      /^\/release\b/,
+      /^\/out\b/,
+      /^\/\.git\b/,
+      /^\/tsconfig/,
+      /^\/Makefile$/,
+      /^\/vitest\.config/,
+      /^\/dev\.js/,
+      /^\/node_modules\/node-pty\/prebuilds\/win32-arm64\b/,
+      /\.pdb$/,
+    ],
+    appCopyright: `Copyright © ${d.getFullYear()} Cockpit IDE`,
+    win32metadata: {
+      CompanyName: 'Cockpit IDE',
+      FileDescription: 'The IDE for developers who thinks spatially',
+      OriginalFilename: 'CockpitIDE.exe',
+      ProductName: 'Cockpit IDE',
+    },
+    executableName: 'CockpitIDE',
+  });
+
+  const srcDir = appPaths[0];
+
+  // Strip bloat from Electron distribution
+  const localesDir = path.join(srcDir, 'locales');
+  if (fs.existsSync(localesDir)) {
+    for (const f of fs.readdirSync(localesDir)) {
+      if (f !== 'en-US.pak') fs.rmSync(path.join(localesDir, f));
+    }
+    console.log('[pack] Stripped non-en-US locales');
+  }
+const outDir = path.join(root, 'out');
+  const nsiScript = path.join(root, 'scripts', 'installer.nsi');
+  const iconPath = path.join(root, 'public', 'cockpit_ide_icon.ico');
+
+  console.log(`[pack] Packaged to: ${srcDir}`);
+  console.log('[pack] Building installer...');
+
+  const makensis = ensureMakensis();
+  execSync(
+    `${makensis} /DVERSION="${pkg.version}" /DOUTDIR="${outDir}" /DSRCDIR="${srcDir}" /DICONPATH="${iconPath}" "${nsiScript}"`,
+    { cwd: root, stdio: 'inherit', shell: true }
+  );
+
+  console.log(`[pack] Done: out/CockpitIDESetup-${pkg.version}.exe`);
+}
+
+main().then(() => restore()).catch((err) => {
+  restore();
+  console.error('[pack] Error:', err.message || err);
+  process.exit(1);
+});
