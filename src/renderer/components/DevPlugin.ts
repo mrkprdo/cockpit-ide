@@ -44,9 +44,11 @@ export class DevPlugin {
     // Init editor first so explorer can send files to it
     this.editor = new MonacoEditorPlugin(editorCol);
 
-    new FileExplorerPlugin(this.explorerCol, wsPath, (filePath) => {
+    const explorer = new FileExplorerPlugin(this.explorerCol, wsPath, (filePath) => {
       this.editor.openFile(filePath);
     });
+    // Retry once after 1s in case DOM wasn't ready
+    setTimeout(() => explorer.refresh(), 1000);
   }
 
   getEditorState(): { openFiles: string[]; activeFile: string } | null {

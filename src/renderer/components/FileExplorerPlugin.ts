@@ -17,6 +17,12 @@ export class FileExplorerPlugin {
 
   private normalize(p: string): string { return p.replace(/\\/g, '/'); }
 
+  refresh(): void {
+    this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Loading...</div>';
+    this.expanded.clear();
+    this.loadDir(this.rootPath, this.treeEl, 0);
+  }
+
   private async loadDir(dirPath: string, parentEl: HTMLElement, depth: number): Promise<void> {
     dirPath = this.normalize(dirPath);
     // For root level, validate path
