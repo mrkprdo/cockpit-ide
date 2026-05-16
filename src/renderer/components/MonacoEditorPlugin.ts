@@ -1,6 +1,8 @@
 interface Tab { filePath: string; name: string; }
 
 export class MonacoEditorPlugin {
+  onStateChange: (() => void) | null = null;
+
   private el: HTMLDivElement;
   private editorEl: HTMLDivElement;
   tabs: Tab[] = [];
@@ -132,6 +134,7 @@ export class MonacoEditorPlugin {
       return;
     }
 
+
     // Load content
     const content = await window.electronAPI?.fs.readFile(filePath) || '';
     this.fileContents.set(filePath, content);
@@ -139,21 +142,39 @@ export class MonacoEditorPlugin {
     // Add tab
     this.tabs.push({ filePath, name });
     this.switchTab(filePath);
+    this.onStateChange?.();
   }
+
+  private savedCursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> = {};
 
   switchTab(filePath: string): void {
     const tab = this.tabs.find(t => t.filePath === filePath);
     if (!tab) return;
 
     if (this.editor) {
-      // Save current content BEFORE switching activeTab
+      // Save current content + cursor BEFORE switching
       if (this.editor.getValue && this.activeTab) {
         this.fileContents.set(this.activeTab, this.editor.getValue());
+        const pos = this.editor.getPosition();
+        if (pos) {
+          this.savedCursors[this.activeTab] = {
+            lineNumber: pos.lineNumber,
+            column: pos.column,
+            scrollTop: this.editor.getScrollTop() || 0,
+          };
+        }
       }
       this.activeTab = filePath;
 
       const content = this.fileContents.get(filePath) || '';
       this.editor.setValue(content);
+
+      // Restore cursor position for this tab
+      const saved = this.savedCursors[filePath];
+      if (saved) {
+        this.editor.setPosition({ lineNumber: saved.lineNumber, column: saved.column });
+        this.editor.setScrollTop(saved.scrollTop);
+      }
 
       const ext = (tab.name.split('.').pop() || '').toLowerCase();
       const m = (window as any).monaco;
@@ -255,27 +276,23 @@ export class MonacoEditorPlugin {
 
   getState(): { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
     if (this.tabs.length === 0) return null;
-    const cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> = {};
-    for (const tab of this.tabs) {
-      const model = (window as any).monaco?.editor.getModel?.();
-      // We store cursor per file by reading editor position when switching
-      // For now, read current position for active tab
-      if (tab.filePath === this.activeTab && this.editor) {
-        const pos = this.editor.getPosition();
-        const scroll = this.editor.getScrollTop();
-        cursors[tab.filePath] = {
-          lineNumber: pos?.lineNumber || 1,
-          column: pos?.column || 1,
-          scrollTop: scroll || 0,
+
+    // Save current active tab's cursor before reading state
+    if (this.activeTab && this.editor) {
+      const pos = this.editor.getPosition();
+      if (pos) {
+        this.savedCursors[this.activeTab] = {
+          lineNumber: pos.lineNumber,
+          column: pos.column,
+          scrollTop: this.editor.getScrollTop() || 0,
         };
-      } else {
-        cursors[tab.filePath] = { lineNumber: 1, column: 1, scrollTop: 0 };
       }
     }
+
     return {
       openFiles: this.tabs.map(t => t.filePath),
       activeFile: this.activeTab || '',
-      cursors,
+      cursors: { ...this.savedCursors },
     };
   }
 

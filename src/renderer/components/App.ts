@@ -57,11 +57,6 @@ export class App {
   private async promptWorkspace(): Promise<void> {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
-    const savedPath = await ws.getPath();
-    if (savedPath) {
-      await this.loadWorkspace(savedPath);
-      return;
-    }
     const modal = new WelcomeModal();
     const path = await modal.open();
     if (!path) {
@@ -101,17 +96,6 @@ export class App {
       this.canvas.setView({ zoom: state.zoom, panX: state.panX, panY: state.panY });
     } else {
       this.canvas.centerView();
-    }
-
-    // Restore editor state (open files, active tab, cursor positions)
-    if (state?.editor) {
-      const tryRestore = () => {
-        if (this.canvas.devPlugin) {
-          this.canvas.devPlugin.restoreEditorState(state.editor);
-        }
-      };
-      tryRestore();
-      setTimeout(tryRestore, 500);
     }
 
     this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;

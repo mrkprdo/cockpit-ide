@@ -1,5 +1,6 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
-export type SaveState = { plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }[]; editor: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null; zOrder: string[]; zoom: number; panX: number; panY: number };
+export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } };
+export type SaveState = { plugins: PluginEntry[]; editor: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null; zOrder: string[]; zoom: number; panX: number; panY: number };
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
@@ -164,7 +165,11 @@ export class CanvasArea {
     const byZ = [...this.cards].sort((a, b) => parseInt(a.card.el.style.zIndex || '1') - parseInt(b.card.el.style.zIndex || '1'));
     const editorState = this.devPlugin ? this.devPlugin.getEditorState() : null;
     return {
-      plugins: this.cards.map(c => ({ uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen })),
+      plugins: this.cards.map(c => {
+        const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen };
+        if (c.savedTitle === 'DEV' && editorState) base.editorState = editorState;
+        return base;
+      }),
       editor: editorState,
       zOrder: byZ.map(c => c.card.uuid),
       zoom: this.scale, panX: this.panX, panY: this.panY,
@@ -258,6 +263,11 @@ export class CanvasArea {
             body.style.alignItems = 'stretch';
             body.style.justifyContent = 'stretch';
             this.devPlugin = new DevPlugin(body, wsPath);
+            // Restore editor state from plugin entry
+            if (p.editorState) {
+              const es = p.editorState;
+              setTimeout(() => this.devPlugin?.restoreEditorState(es), 500);
+            }
           }
         }
       }
