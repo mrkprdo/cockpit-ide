@@ -127,6 +127,20 @@ html, body {
   margin: 4px 8px;
 }
 
+.menu-dropdown-nested {
+  display: none;
+  position: absolute;
+  top: -4px;
+  left: 100%;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  z-index: 101;
+}
+.menu-item-nested:hover > .menu-dropdown-nested { display: block; }
+
 .tb-btn {
   width: 46px;
   height: 100%;

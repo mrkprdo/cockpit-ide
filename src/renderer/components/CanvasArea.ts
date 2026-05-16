@@ -1,5 +1,5 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
-export type SaveState = { plugins: { title: string; x: number; y: number; width: number; height: number }[]; zoom: number; panX: number; panY: number };
+export type SaveState = { plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }[]; zoom: number; panX: number; panY: number };
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
@@ -11,10 +11,17 @@ interface CardState {
   card: PluginCard;
   worldX: number;
   worldY: number;
+  isOpen: boolean;
+  savedTitle: string;
+  savedWidth: number;
+  savedHeight: number;
+  savedWX: number;
+  savedWY: number;
 }
 
 export class CanvasArea {
   onStateChange: (() => void) | null = null;
+  onTerminalsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   private patternSize = 28;
   private patternDataURL = '';
   private cards: CardState[] = [];
@@ -30,6 +37,7 @@ export class CanvasArea {
   private rafId = 0;
   private gridStyle: GridStyle = 'dots';
   private originDot: HTMLElement;
+  private terminalCounter = 0;
   workspaceName = 'no workspace';
 
   constructor(private el: HTMLElement) {
@@ -71,15 +79,19 @@ export class CanvasArea {
     const card = new PluginCard(this.el, {
       title, subtitle, x: 0, y: 0, width: sw, height: sh,
       onClose: () => {
-        const i = this.cards.findIndex(c => c.card === card);
-        if (i !== -1) this.cards.splice(i, 1);
+        const cs = this.cards.find(c => c.card === card);
+        if (cs) {
+          cs.isOpen = false;
+          cs.card.el.style.display = 'none';
+          this.notifyTerminalsChanged();
+        }
       },
       onDragEnd: (worldX: number, worldY: number) => {
         const cs = this.cards.find(c => c.card === card);
         if (cs) { cs.worldX = worldX; cs.worldY = worldY; }
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
-    const cs: CardState = { card, worldX: sx, worldY: sy };
+    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -141,7 +153,7 @@ export class CanvasArea {
 
   getSaveState(): SaveState {
     return {
-      plugins: this.cards.map(c => ({ title: c.card.opts.title, x: c.worldX, y: c.worldY, width: c.card.opts.width, height: c.card.opts.height })),
+      plugins: this.cards.map(c => ({ uuid: c.card.uuid, title: c.savedTitle, x: c.savedWX, y: c.savedWY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen })),
       zoom: this.scale, panX: this.panX, panY: this.panY,
     };
   }
@@ -173,7 +185,9 @@ export class CanvasArea {
   }
 
   addTerminal(cwd?: string): void {
-    const cs = this.addCard('TERMINAL', '', 80, 80, 560, 420);
+    this.terminalCounter++;
+    const name = `Terminal ${this.terminalCounter}`;
+    const cs = this.addCard(name, '', 80, 80, 560, 420);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {
@@ -182,7 +196,39 @@ export class CanvasArea {
         cs.card.onDestroy = () => term.destroy();
         cs.card.opts.onResizeEnd = () => term.fit();
       }
+      this.notifyTerminalsChanged();
     });
+  }
+
+  focusTerminal(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && c.isOpen);
+    if (cs) this.focusCard(cs.card.opts.title);
+  }
+
+  focusCard(title: string): void {
+    let base = 10;
+    for (const cs of this.cards) {
+      cs.card.el.style.zIndex = String(base++);
+      if (cs.card.opts.title === title) cs.card.el.style.zIndex = String(base + 100);
+    }
+  }
+
+  reopenTerminal(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
+    if (!cs) return;
+    cs.isOpen = true;
+    cs.card.el.style.display = '';
+    // Restore saved position
+    cs.worldX = cs.savedWX;
+    cs.worldY = cs.savedWY;
+    this.positionCard(cs);
+    this.notifyTerminalsChanged();
+  }
+
+  private notifyTerminalsChanged(): void {
+    const list = this.cards.filter(c => c.savedTitle.startsWith('Terminal'))
+      .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
+    this.onTerminalsChanged?.(list);
   }
 
   setView(state: { zoom: number; panX: number; panY: number }): void {

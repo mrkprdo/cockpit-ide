@@ -7,17 +7,35 @@ interface TopBarCallbacks {
   onNewTerminal?: () => void;
   onNewExplorer?: () => void;
   onNewEditor?: () => void;
+  onFocusTerminal?: (uuid: string) => void;
+  onReopenTerminal?: (uuid: string) => void;
 }
+
+interface TermItem { uuid: string; title: string; isOpen: boolean; }
 
 export class TopBar {
   private callbacks: TopBarCallbacks;
+  private termItems: TermItem[] = [];
 
   constructor(private el: HTMLElement, callbacks: TopBarCallbacks) {
     this.callbacks = callbacks;
     this.render();
   }
 
+  setTerminalItems(items: TermItem[]): void {
+    this.termItems = items;
+    this.render();
+  }
+
   private render(): void {
+    const termSubHtml = this.termItems.length === 0
+      ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">New</div>'
+      : '<div class="menu-dropdown-item" id="menu-new-terminal">New</div>'
+        + '<div class="menu-dropdown-separator"></div>'
+        + this.termItems.map(t =>
+            `<div class="menu-dropdown-item term-instance" data-term-uuid="${t.uuid}" data-term-open="${t.isOpen}" style="${t.isOpen ? '' : 'opacity:0.45'}">${t.title}</div>`
+          ).join('');
+
     this.el.innerHTML = `
       <div class="menu-item">
         File
@@ -38,7 +56,12 @@ export class TopBar {
       <div class="menu-item">
         View
         <div class="menu-dropdown">
-          <div class="menu-dropdown-item" id="menu-new-terminal">Terminal</div>
+          <div class="menu-item menu-item-nested" style="position:relative;padding:6px 12px;border-radius:4px;display:flex;align-items:center;justify-content:space-between">
+            <span>Terminal</span><span style="color:var(--tertiary);font-size:10px">▸</span>
+            <div class="menu-dropdown-nested" id="terminal-submenu">
+              ${termSubHtml}
+            </div>
+          </div>
           <div class="menu-dropdown-item" id="menu-new-explorer">Explorer</div>
           <div class="menu-dropdown-item" id="menu-new-editor">Editor</div>
           <div class="menu-dropdown-separator"></div>
@@ -87,6 +110,21 @@ export class TopBar {
 
     document.getElementById('menu-new-editor')?.addEventListener('click', () => {
       this.callbacks.onNewEditor?.();
+    });
+
+    // Terminal instances — click to focus (open) or reopen (closed)
+    this.el.querySelectorAll('.term-instance').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const target = e.currentTarget as HTMLElement;
+        const uuid = target.dataset.termUuid || '';
+        const isOpen = target.dataset.termOpen === 'true';
+        if (isOpen) {
+          this.callbacks.onFocusTerminal?.(uuid);
+        } else {
+          this.callbacks.onReopenTerminal?.(uuid);
+        }
+      });
     });
 
     document.getElementById('theme-toggle')?.addEventListener('click', () => {

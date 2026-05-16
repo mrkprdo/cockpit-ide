@@ -20,6 +20,7 @@ const SNAP = 28;
 export class PluginCard {
   readonly el: HTMLDivElement;
   readonly opts: CardOptions;
+  readonly uuid: string;
   onDestroy: (() => void) | null = null;
   private header: HTMLElement;
   private body: HTMLElement;
@@ -34,6 +35,7 @@ export class PluginCard {
 
   constructor(private parent: HTMLElement, opts: CardOptions, private getTransform: () => { scale: number; panX: number; panY: number }) {
     this.opts = opts;
+    this.uuid = crypto.randomUUID();
     this.el = document.createElement('div');
     this.el.className = 'card';
 

@@ -6,6 +6,7 @@ import { WelcomeModal } from './WelcomeModal';
 export class App {
   private canvas: CanvasArea;
   private prefs: PreferencesModal;
+  private topBar: TopBar;
   private lastSaved = '';
   private wsPath = '';
 
@@ -15,19 +16,22 @@ export class App {
     this.canvas = new CanvasArea(document.getElementById('canvas')!);
 
     this.canvas.onStateChange = () => this.trySave();
+    this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
 
     this.prefs = new PreferencesModal((style) => {
       this.canvas.setGridStyle(style);
       this.saveNow();
     });
 
-    new TopBar(document.getElementById('menu-bar')!, {
+    this.topBar = new TopBar(document.getElementById('menu-bar')!, {
       onOpenPreferences: () => this.prefs.open(),
       onThemeToggle: () => this.canvas.refresh(),
       onOpenWorkspace: () => this.openWorkspace(),
       onNewTerminal: () => this.canvas.addTerminal(this.wsPath),
       onNewExplorer: () => this.canvas.addExplorer(this.wsPath),
       onNewEditor: () => this.canvas.addEditor(),
+      onFocusTerminal: (uuid) => this.canvas.focusTerminal(uuid),
+      onReopenTerminal: (uuid) => this.canvas.reopenTerminal(uuid),
     });
 
     this.initWindowControls();
@@ -35,6 +39,7 @@ export class App {
   }
 
   private trySave(): void {
+    if (!this.wsPath) return;
     const state = this.canvas.getSaveState();
     const key = JSON.stringify(state);
     if (key === this.lastSaved) return;
@@ -43,6 +48,7 @@ export class App {
   }
 
   private async saveNow(): Promise<void> {
+    if (!this.wsPath) return;
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
     const state = this.canvas.getSaveState();
