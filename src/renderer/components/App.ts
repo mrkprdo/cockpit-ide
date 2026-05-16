@@ -87,6 +87,7 @@ export class App {
     const state = await ws.load();
     if (state) {
       this.canvas.setView({ zoom: state.zoom, panX: state.panX, panY: state.panY });
+      this.canvas.restoreZOrder(state.zOrder);
     }
     this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;
     this.canvas.addTerminal(path);

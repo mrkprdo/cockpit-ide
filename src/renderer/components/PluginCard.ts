@@ -13,6 +13,7 @@ export interface CardOptions {
   onClose?: () => void;
   onDragEnd?: (worldX: number, worldY: number) => void;
   onResizeEnd?: (width: number, height: number) => void;
+  onFocus?: () => void;
 }
 
 const SNAP = 28;
@@ -71,6 +72,8 @@ export class PluginCard {
       this.remove();
       this.opts.onClose?.();
     });
+
+    this.el.addEventListener('mousedown', () => this.opts.onFocus?.());
 
     parent.appendChild(this.el);
   }

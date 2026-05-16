@@ -1,5 +1,5 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
-export type SaveState = { plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }[]; zoom: number; panX: number; panY: number };
+export type SaveState = { plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }[]; zOrder: string[]; zoom: number; panX: number; panY: number };
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
@@ -90,6 +90,7 @@ export class CanvasArea {
         const cs = this.cards.find(c => c.card === card);
         if (cs) { cs.worldX = worldX; cs.worldY = worldY; }
       },
+      onFocus: () => this.bringToFront(card),
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
     const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy };
     this.cards.push(cs);
@@ -152,10 +153,30 @@ export class CanvasArea {
   }
 
   getSaveState(): SaveState {
+    // Sort by current z-index to get bottom-to-top order
+    const byZ = [...this.cards].sort((a, b) => parseInt(a.card.el.style.zIndex || '1') - parseInt(b.card.el.style.zIndex || '1'));
     return {
       plugins: this.cards.map(c => ({ uuid: c.card.uuid, title: c.savedTitle, x: c.savedWX, y: c.savedWY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen })),
+      zOrder: byZ.map(c => c.card.uuid),
       zoom: this.scale, panX: this.panX, panY: this.panY,
     };
+  }
+
+  private nextZ = 10;
+
+  private bringToFront(card: PluginCard): void {
+    this.nextZ++;
+    card.el.style.zIndex = String(this.nextZ);
+  }
+
+  restoreZOrder(order: string[]): void {
+    if (!order || order.length === 0) return;
+    // Assign z-index based on array order (bottom first → low z, top last → high z)
+    this.nextZ = 10;
+    for (const uuid of order) {
+      const cs = this.cards.find(c => c.card.uuid === uuid);
+      if (cs) cs.card.el.style.zIndex = String(this.nextZ++);
+    }
   }
 
   private activeEditor: EditorPlugin | null = null;
