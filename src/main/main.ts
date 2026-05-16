@@ -63,13 +63,10 @@ function stopWatching(): void {
 
 if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
 
-// Persist workspace path across restarts
-const lastWsFile = path.join(app.getPath('userData'), 'last-workspace.txt');
-
+let lastWsFile: string;
 function saveLastWorkspace(p: string): void {
   try { fs.writeFileSync(lastWsFile, p, 'utf-8'); } catch {}
 }
-
 function loadLastWorkspace(): string | null {
   try { return fs.readFileSync(lastWsFile, 'utf-8').trim() || null; } catch { return null; }
 }
@@ -108,11 +105,16 @@ function createWindow(): void {
   });
 }
 
-// Restore last workspace on startup
-workspacePath = loadLastWorkspace();
-if (workspacePath) startWatching(workspacePath);
-
 app.whenReady().then(() => {
+  // Initialize storage paths and restore last workspace
+  lastWsFile = path.join(app.getPath('userData'), 'last-workspace.txt');
+  try {
+    const saved = loadLastWorkspace();
+    if (saved) {
+      workspacePath = saved;
+      startWatching(saved);
+    }
+  } catch {} // noop if userData not available
   ipcMain.on('window:minimize', () => mainWindow?.minimize());
   ipcMain.on('window:maximize', () => {
     if (mainWindow?.isMaximized()) mainWindow.unmaximize();

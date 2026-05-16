@@ -249,16 +249,13 @@ export class CanvasArea {
         });
 
         if (p.isOpen) {
-          // Double rAF to ensure layout is settled
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            const body = cs.card.el.querySelector('.card-body') as HTMLElement;
-            if (body) {
-              body.style.padding = '0';
-              body.style.alignItems = 'stretch';
-              body.style.justifyContent = 'stretch';
-              new DevPlugin(body, wsPath);
-            }
-          }));
+          const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+          if (body) {
+            body.style.padding = '0';
+            body.style.alignItems = 'stretch';
+            body.style.justifyContent = 'stretch';
+            new DevPlugin(body, wsPath);
+          }
         }
       }
     }

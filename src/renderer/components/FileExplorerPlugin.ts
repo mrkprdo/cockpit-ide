@@ -9,6 +9,7 @@ export class FileExplorerPlugin {
     this.el = document.createElement('div');
     this.el.style.cssText = 'width:100%;height:100%;overflow:auto;background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:12px';
     this.treeEl = document.createElement('div');
+    this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Loading...</div>';
     this.el.appendChild(this.treeEl);
     container.appendChild(this.el);
     this.loadDir(rootPath, this.treeEl, 0);
@@ -18,8 +19,18 @@ export class FileExplorerPlugin {
 
   private async loadDir(dirPath: string, parentEl: HTMLElement, depth: number): Promise<void> {
     dirPath = this.normalize(dirPath);
+    // For root level, validate path
+    if (depth === 0 && !dirPath) {
+      parentEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">No workspace</div>';
+      return;
+    }
     const entries = await window.electronAPI?.fs.readDir(dirPath);
-    if (!entries) return;
+    if (!entries) {
+      if (depth === 0) {
+        parentEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Unable to read directory</div>';
+      }
+      return;
+    }
     entries.sort((a, b) => {
       if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
       return a.name.localeCompare(b.name);
