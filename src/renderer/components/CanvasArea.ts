@@ -90,6 +90,12 @@ export class CanvasArea {
       onDragEnd: (worldX: number, worldY: number) => {
         const cs = this.cards.find(c => c.card === card);
         if (cs) { cs.worldX = worldX; cs.worldY = worldY; }
+        this.onStateChange?.();
+      },
+      onResizeEnd: (w: number, h: number) => {
+        const cs = this.cards.find(c => c.card === card);
+        if (cs) { cs.savedWidth = w; cs.savedHeight = h; }
+        this.onStateChange?.();
       },
       onFocus: () => this.bringToFront(card),
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));

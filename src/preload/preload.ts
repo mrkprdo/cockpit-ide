@@ -34,5 +34,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),
     readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
     writeFile: (filePath: string, content: string) => ipcRenderer.invoke('fs:writeFile', filePath, content),
+    watch: (dir: string) => ipcRenderer.invoke('file:watch', dir),
+    unwatch: () => ipcRenderer.invoke('file:unwatch'),
+    onChanged: (callback: (filePath: string) => void) => {
+      const handler = (_event: any, filePath: string) => callback(filePath);
+      ipcRenderer.on('file:changed', handler);
+      return () => ipcRenderer.removeListener('file:changed', handler);
+    },
   },
 });

@@ -26,6 +26,41 @@ function cockpitDir(dir: string): void {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
+// File watcher
+let watcher: fs.FSWatcher | null = null;
+let watchDebounce: ReturnType<typeof setTimeout> | null = null;
+const watchedFiles = new Set<string>();
+
+function startWatching(dir: string): void {
+  stopWatching();
+  try {
+    watcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
+      if (!filename) return;
+      const fullPath = path.resolve(dir, filename);
+      // Ignore .git, node_modules, and the .cockpit folder
+      const parts = filename.split(/[\\/]/);
+      if (parts.some(p => p === '.git' || p === 'node_modules' || p === '.cockpit')) return;
+      // Only care about file changes (not directories)
+      try {
+        if (fs.statSync(fullPath).isDirectory()) return;
+      } catch { return; }
+
+      if (watchDebounce) clearTimeout(watchDebounce);
+      watchDebounce = setTimeout(() => {
+        mainWindow?.webContents.send('file:changed', fullPath);
+      }, 100);
+    });
+  } catch (e) {
+    console.error('file:watch error', e);
+  }
+}
+
+function stopWatching(): void {
+  if (watcher) { watcher.close(); watcher = null; }
+  if (watchDebounce) { clearTimeout(watchDebounce); watchDebounce = null; }
+  watchedFiles.clear();
+}
+
 if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
 
 function createWindow(): void {
@@ -111,6 +146,17 @@ app.whenReady().then(() => {
   });
 
   // Workspace
+  // File watcher
+  ipcMain.handle('file:watch', async (_event, dir: string) => {
+    startWatching(dir);
+    return true;
+  });
+
+  ipcMain.handle('file:unwatch', async () => {
+    stopWatching();
+    return true;
+  });
+
   ipcMain.handle('workspace:select', async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       properties: ['openDirectory'],
@@ -120,6 +166,7 @@ app.whenReady().then(() => {
     const wsPath = result.filePaths[0];
     cockpitDir(path.join(wsPath, '.cockpit'));
     workspacePath = wsPath;
+    startWatching(wsPath);
     return wsPath;
   });
 
@@ -144,6 +191,7 @@ app.whenReady().then(() => {
   createWindow();
 
   app.on('window-all-closed', () => {
+    stopWatching();
     for (const pty of ptyProcesses.values()) pty.kill();
     ptyProcesses.clear();
     if (process.platform !== 'darwin') app.quit();

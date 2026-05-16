@@ -35,6 +35,9 @@ interface Window {
       readDir: (dirPath: string) => Promise<DirEntry[] | null>;
       readFile: (filePath: string) => Promise<string | null>;
       writeFile: (filePath: string, content: string) => Promise<boolean>;
+      watch: (dir: string) => Promise<boolean>;
+      unwatch: () => Promise<boolean>;
+      onChanged: (callback: (filePath: string) => void) => () => void;
     };
   };
 }

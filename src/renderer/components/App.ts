@@ -85,6 +85,9 @@ export class App {
     if (!ws) return;
     const state = await ws.load();
 
+    // Start file watcher
+    window.electronAPI?.fs.watch(path);
+
     if (state && state.plugins && state.plugins.length > 0) {
       // Restore saved plugins with positions
       this.canvas.restorePlugins(state, path);

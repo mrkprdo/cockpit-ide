@@ -11,6 +11,8 @@ export class MonacoEditorPlugin {
   private tabContainer: HTMLDivElement;
   private ready: Promise<void>;
 
+  private unsubFileChanged: (() => void) | null = null;
+
   constructor(container: HTMLElement) {
     this.el = document.createElement('div');
     this.el.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;background:transparent';
@@ -18,6 +20,11 @@ export class MonacoEditorPlugin {
     // Top bar with tabs
     this.bar = document.createElement('div');
     this.bar.style.cssText = 'display:flex;align-items:center;font-size:11px;font-family:"Space Mono","Courier New",monospace;border-bottom:1px solid var(--border);flex-shrink:0;height:30px;overflow:hidden';
+
+    // Listen for external file changes
+    this.unsubFileChanged = window.electronAPI?.fs.onChanged((filePath) => {
+      this.reloadIfOpen(filePath);
+    }) || null;
 
     this.tabContainer = document.createElement('div');
     this.tabContainer.style.cssText = 'display:flex;align-items:stretch;height:100%;flex:1;overflow-x:auto;overflow-y:hidden';
@@ -98,6 +105,19 @@ export class MonacoEditorPlugin {
       go: 'go', rb: 'ruby', php: 'php', swift: 'swift', kt: 'kotlin',
     };
     return map[ext] || 'plaintext';
+  }
+
+  /** Reload file content if this file is open in a tab */
+  async reloadIfOpen(filePath: string): Promise<void> {
+    const tab = this.tabs.find(t => t.filePath === filePath);
+    if (!tab) return;
+    const content = await window.electronAPI?.fs.readFile(filePath);
+    if (content !== undefined) {
+      this.fileContents.set(filePath, content);
+      if (this.activeTab === filePath && this.editor) {
+        this.editor.setValue(content);
+      }
+    }
   }
 
   async openFile(filePath: string): Promise<void> {
