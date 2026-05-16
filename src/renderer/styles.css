@@ -155,23 +155,7 @@ html, body {
   flex: 1;
   position: relative;
   overflow: hidden;
-}
-
-.canvas-world {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 3000px;
-  height: 3000px;
-  transform-origin: 0 0;
-  will-change: transform;
-}
-
-.canvas-bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
+  background-repeat: repeat;
 }
 
 /* ===== Status Bar ===== */
