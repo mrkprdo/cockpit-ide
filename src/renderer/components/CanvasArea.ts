@@ -5,7 +5,7 @@ import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
 import { TerminalPlugin } from './TerminalPlugin';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
-import { EditorPlugin } from './EditorPlugin';
+import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -179,10 +179,10 @@ export class CanvasArea {
     }
   }
 
-  private activeEditor: EditorPlugin | null = null;
+  private activeEditor: MonacoEditorPlugin | null = null;
 
   addExplorer(wsPath: string): void {
-    const cs = this.addCard('EXPLORER', '', 80, 560, 300, 420);
+    const cs = this.addCard('EXPLORER', '', 0, 0, 300, 420);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {
@@ -195,12 +195,12 @@ export class CanvasArea {
   }
 
   addEditor(): void {
-    const cs = this.addCard('EDITOR', '', 400, 560, 500, 420);
+    const cs = this.addCard('EDITOR', '', 0, 0, 500, 420);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {
         (body as HTMLElement).style.padding = '0';
-        this.activeEditor = new EditorPlugin(body as HTMLElement);
+        this.activeEditor = new MonacoEditorPlugin(body as HTMLElement);
       }
     });
   }
@@ -208,7 +208,7 @@ export class CanvasArea {
   addTerminal(cwd?: string): void {
     this.terminalCounter++;
     const name = `Terminal ${this.terminalCounter}`;
-    const cs = this.addCard(name, '', 80, 80, 560, 420);
+    const cs = this.addCard(name, '', 0, 0, 560, 420);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {

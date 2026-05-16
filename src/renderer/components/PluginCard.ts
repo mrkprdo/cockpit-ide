@@ -73,7 +73,7 @@ export class PluginCard {
       this.opts.onClose?.();
     });
 
-    this.el.addEventListener('mousedown', () => this.opts.onFocus?.());
+    this.el.addEventListener('mousedown', () => this.opts.onFocus?.(), true);
 
     parent.appendChild(this.el);
   }
