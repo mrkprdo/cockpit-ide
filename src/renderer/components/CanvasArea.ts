@@ -1,6 +1,6 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
 export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } };
-export type SaveState = { plugins: PluginEntry[]; editor: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null; zOrder: string[]; zoom: number; panX: number; panY: number };
+export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number };
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
@@ -170,7 +170,6 @@ export class CanvasArea {
         if (c.savedTitle === 'DEV' && editorState) base.editorState = editorState;
         return base;
       }),
-      editor: editorState,
       zOrder: byZ.map(c => c.card.uuid),
       zoom: this.scale, panX: this.panX, panY: this.panY,
     };

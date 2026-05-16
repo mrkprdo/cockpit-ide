@@ -64,11 +64,22 @@ function stopWatching(): void {
 if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
 
 let lastWsFile: string;
+let recentWsFile: string;
 function saveLastWorkspace(p: string): void {
   try { fs.writeFileSync(lastWsFile, p, 'utf-8'); } catch {}
 }
 function loadLastWorkspace(): string | null {
   try { return fs.readFileSync(lastWsFile, 'utf-8').trim() || null; } catch { return null; }
+}
+
+function getRecentWorkspaces(): string[] {
+  try { return JSON.parse(fs.readFileSync(recentWsFile, 'utf-8')); } catch { return []; }
+}
+function addRecentWorkspace(p: string): void {
+  const list = getRecentWorkspaces().filter(w => w !== p);
+  list.unshift(p);
+  if (list.length > 5) list.length = 5;
+  try { fs.writeFileSync(recentWsFile, JSON.stringify(list, null, 2)); } catch {}
 }
 
 function createWindow(): void {
@@ -108,6 +119,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   // Initialize storage paths and restore last workspace
   lastWsFile = path.join(app.getPath('userData'), 'last-workspace.txt');
+  recentWsFile = path.join(app.getPath('userData'), 'recent-workspaces.json');
   try {
     const saved = loadLastWorkspace();
     if (saved) {
@@ -184,6 +196,7 @@ app.whenReady().then(() => {
     cockpitDir(path.join(wsPath, '.cockpit'));
     workspacePath = wsPath;
     saveLastWorkspace(wsPath);
+    addRecentWorkspace(wsPath);
     startWatching(wsPath);
     return wsPath;
   });
@@ -205,6 +218,9 @@ app.whenReady().then(() => {
       return true;
     } catch (e) { console.error('workspace:save error', e); return false; }
   });
+
+  ipcMain.handle('workspace:getRecent', () => getRecentWorkspaces());
+  ipcMain.handle('workspace:addRecent', (_event, p: string) => { addRecentWorkspace(p); });
 
   createWindow();
 

@@ -19,6 +19,7 @@ export class WelcomeModal {
         <button class="welcome-btn" id="welcome-open">Open Workspace</button>
         <button class="welcome-btn-secondary" id="welcome-close">Close</button>
       </div>
+      <div class="welcome-recent" id="welcome-recent"></div>
     `;
 
     this.overlay.appendChild(this.el);
@@ -34,8 +35,24 @@ export class WelcomeModal {
     this.el.querySelector('#welcome-close')?.addEventListener('click', () => this.close(null));
   }
 
-  open(): Promise<string | null> {
+  async open(): Promise<string | null> {
     this.overlay.style.display = 'flex';
+    // Load recent workspaces
+    const recent = await window.electronAPI?.workspace.getRecent() || [];
+    const container = this.el.querySelector('#welcome-recent') as HTMLElement;
+    if (recent.length > 0) {
+      container.innerHTML = '<div class="welcome-recent-title">Recent</div>'
+        + recent.map(p => {
+          const name = p.split(/[\\/]/).pop() || p;
+          return `<div class="welcome-recent-item" data-path="${p}">${name}</div>`;
+        }).join('');
+      container.querySelectorAll('.welcome-recent-item').forEach(item => {
+        item.addEventListener('click', async () => {
+          const path = (item as HTMLElement).dataset.path || '';
+          if (path) this.close(path);
+        });
+      });
+    }
     return new Promise((resolve) => { this.resolve = resolve; });
   }
 

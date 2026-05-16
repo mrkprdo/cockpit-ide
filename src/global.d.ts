@@ -6,7 +6,6 @@ interface EditorState {
 
 interface WorkspaceState {
   plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState }[];
-  editor: EditorState | null;
   zOrder: string[];
   zoom: number;
   panX: number;
@@ -37,6 +36,8 @@ interface Window {
       getPath: () => Promise<string | null>;
       load: () => Promise<WorkspaceState | null>;
       save: (state: WorkspaceState) => Promise<void>;
+      getRecent: () => Promise<string[]>;
+      addRecent: (p: string) => Promise<void>;
     };
     fs: {
       readDir: (dirPath: string) => Promise<DirEntry[] | null>;

@@ -25,6 +25,7 @@ export class FileExplorerPlugin {
 
   private async loadDir(dirPath: string, parentEl: HTMLElement, depth: number): Promise<void> {
     dirPath = this.normalize(dirPath);
+    if (depth === 0) parentEl.innerHTML = ''; // Clear loading text
     // For root level, validate path
     if (depth === 0 && !dirPath) {
       parentEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">No workspace</div>';

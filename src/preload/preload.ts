@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getPath: () => ipcRenderer.invoke('workspace:getPath'),
     load: () => ipcRenderer.invoke('workspace:load'),
     save: (state: any) => ipcRenderer.invoke('workspace:save', state),
+    getRecent: () => ipcRenderer.invoke('workspace:getRecent'),
+    addRecent: (p: string) => ipcRenderer.invoke('workspace:addRecent', p),
   },
   fs: {
     readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),
