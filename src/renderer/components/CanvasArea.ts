@@ -25,14 +25,25 @@ export class CanvasArea {
   private panStartPanY = 0;
   private rafId = 0;
   private gridStyle: GridStyle = 'dots';
+  private originDot: HTMLElement;
 
   constructor(private el: HTMLElement) {
+    this.originDot = document.createElement('div');
+    this.originDot.style.cssText = 'position:absolute;width:6px;height:6px;border-radius:50%;border:1px solid #FF1744;background:transparent;z-index:5;pointer-events:none;transform:translate(-50%,-50%)';
+    this.el.appendChild(this.originDot);
     this.generatePattern();
     this.applyGrid();
     this.initZoomPan();
     this.updateStatusBar();
 
-    const termCard = this.addCard('TERMINAL', '', 80, 80, 476, 420);
+    // Center view on origin after first layout
+    requestAnimationFrame(() => {
+      this.panX = this.el.clientWidth / 2;
+      this.panY = this.el.clientHeight / 2;
+      this.scheduleTransform();
+    });
+
+    const termCard = this.addCard('TERMINAL', '', 80, 80, 560, 420);
     requestAnimationFrame(() => {
       const body = termCard.card.el.querySelector('.card-body');
       if (body) {
@@ -70,12 +81,9 @@ export class CanvasArea {
         const i = this.cards.findIndex(c => c.card === card);
         if (i !== -1) this.cards.splice(i, 1);
       },
-      onDragEnd: (screenX: number, screenY: number) => {
+      onDragEnd: (worldX: number, worldY: number) => {
         const cs = this.cards.find(c => c.card === card);
-        if (cs) {
-          cs.worldX = (screenX - this.panX) / this.scale;
-          cs.worldY = (screenY - this.panY) / this.scale;
-        }
+        if (cs) { cs.worldX = worldX; cs.worldY = worldY; }
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
     const cs: CardState = { card, worldX: sx, worldY: sy };
@@ -146,6 +154,9 @@ export class CanvasArea {
       this.repositionAllCards();
       this.applyGrid();
       for (const cs of this.cards) cs.card.renderTitle();
+      const half = this.patternSize / 2;
+      this.originDot.style.left = `${this.panX + half * this.scale}px`;
+      this.originDot.style.top = `${this.panY + half * this.scale}px`;
       this.updateStatusBar();
     });
   }
