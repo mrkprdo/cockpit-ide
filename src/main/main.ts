@@ -40,12 +40,16 @@ function createWindow(): void {
     backgroundColor: '#0A0E14',
     frame: false,
     icon: iconPath,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  mainWindow.maximize();
+  mainWindow.show();
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 

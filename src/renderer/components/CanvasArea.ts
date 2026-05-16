@@ -1,5 +1,5 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
-export type SaveState = { plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }[]; zOrder: string[]; zoom: number; panX: number; panY: number };
+export type SaveState = { plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }[]; editor: { openFiles: string[]; activeFile: string } | null; zOrder: string[]; zoom: number; panX: number; panY: number };
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
@@ -181,6 +181,85 @@ export class CanvasArea {
   }
 
   private activeEditor: MonacoEditorPlugin | null = null;
+  private wsPath = '';
+
+  private createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onClose?: () => void }): CardState {
+    const card = new PluginCard(this.el, {
+      title: p.title, subtitle: '', x: 0, y: 0, width: p.width, height: p.height,
+      onClose: callbacks.onClose,
+      onDragEnd: (worldX, worldY) => {
+        const cs = this.cards.find(c => c.card === card);
+        if (cs) { cs.worldX = worldX; cs.worldY = worldY; }
+      },
+      onFocus: () => this.bringToFront(card),
+    }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
+
+    const cs: CardState = { card, worldX: p.x, worldY: p.y, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: p.x, savedWY: p.y };
+    this.cards.push(cs);
+
+    if (!p.isOpen) card.el.style.display = 'none';
+    return cs;
+  }
+
+  restorePlugins(state: SaveState, wsPath: string): void {
+    this.wsPath = wsPath;
+    for (const cs of [...this.cards]) cs.card.el.remove();
+    this.cards = [];
+    this.terminalCounter = 0;
+
+    // Find highest terminal number for counter
+    let highestTerm = 0;
+    for (const p of state.plugins) {
+      const m = p.title.match(/^Terminal (\d+)$/);
+      if (m) highestTerm = Math.max(highestTerm, parseInt(m[1]));
+    }
+    this.terminalCounter = highestTerm;
+
+    for (const p of state.plugins) {
+      if (p.title.startsWith('Terminal')) {
+        const cs = this.createCardFromDef(p, {
+          onClose: () => {
+            cs.isOpen = false;
+            cs.card.el.style.display = 'none';
+            this.notifyTerminalsChanged();
+          },
+        });
+
+        if (p.isOpen) {
+          requestAnimationFrame(() => {
+            const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+            if (body) {
+              body.style.padding = '0';
+              const term = new TerminalPlugin(body, cs.card.uuid, wsPath);
+              cs.card.onDestroy = () => term.destroy();
+              cs.card.opts.onResizeEnd = () => term.fit();
+            }
+            this.notifyTerminalsChanged();
+          });
+        }
+      } else if (p.title === 'DEV') {
+        const cs = this.createCardFromDef(p, {
+          onClose: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; },
+        });
+
+        if (p.isOpen) {
+          requestAnimationFrame(() => {
+            const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+            if (body) {
+              body.style.padding = '0';
+              body.style.alignItems = 'stretch';
+              body.style.justifyContent = 'stretch';
+              new DevPlugin(body, wsPath);
+            }
+          });
+        }
+      }
+    }
+
+    this.restoreZOrder(state.zOrder);
+    this.terminalCounter = highestTerm;
+    this.repositionAllCards();
+  }
 
   addExplorer(wsPath: string): void {
     const cs = this.addCard('EXPLORER', '', 0, 0, 300, 420);
@@ -209,10 +288,12 @@ export class CanvasArea {
   addDev(wsPath: string): void {
     const cs = this.addCard('DEV', '', 0, 0, 800, 500);
     requestAnimationFrame(() => {
-      const body = cs.card.el.querySelector('.card-body');
+      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {
-        (body as HTMLElement).style.padding = '0';
-        new DevPlugin(body as HTMLElement, wsPath);
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        new DevPlugin(body, wsPath);
       }
     });
   }

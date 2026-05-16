@@ -84,13 +84,20 @@ export class App {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
     const state = await ws.load();
+
+    if (state && state.plugins && state.plugins.length > 0) {
+      // Restore saved plugins with positions
+      this.canvas.restorePlugins(state, path);
+    } else {
+      // First time — create default plugins
+      this.canvas.addDev(path);
+      this.canvas.addTerminal(path);
+    }
+
     if (state) {
       this.canvas.setView({ zoom: state.zoom, panX: state.panX, panY: state.panY });
-      this.canvas.restoreZOrder(state.zOrder);
     }
     this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;
-    this.canvas.addDev(path);
-    this.canvas.addTerminal(path);
     this.canvas.refresh();
     this.saveNow();
   }

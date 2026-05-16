@@ -3,8 +3,8 @@ interface Tab { filePath: string; name: string; }
 export class MonacoEditorPlugin {
   private el: HTMLDivElement;
   private editorEl: HTMLDivElement;
-  private tabs: Tab[] = [];
-  private activeTab: string | null = null;
+  tabs: Tab[] = [];
+  activeTab: string | null = null;
   private fileContents = new Map<string, string>();
   private editor: any = null;
   private bar: HTMLDivElement;
@@ -121,17 +121,16 @@ export class MonacoEditorPlugin {
     this.switchTab(filePath);
   }
 
-  private switchTab(filePath: string): void {
-    this.activeTab = filePath;
+  switchTab(filePath: string): void {
     const tab = this.tabs.find(t => t.filePath === filePath);
     if (!tab) return;
 
     if (this.editor) {
-      // Save current content if switching away
-      if (this.editor.getValue) {
-        const oldPath = this.activeTab;
-        if (oldPath) this.fileContents.set(oldPath, this.editor.getValue());
+      // Save current content BEFORE switching activeTab
+      if (this.editor.getValue && this.activeTab) {
+        this.fileContents.set(this.activeTab, this.editor.getValue());
       }
+      this.activeTab = filePath;
 
       const content = this.fileContents.get(filePath) || '';
       this.editor.setValue(content);

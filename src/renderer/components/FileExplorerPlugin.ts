@@ -14,7 +14,10 @@ export class FileExplorerPlugin {
     this.loadDir(rootPath, this.treeEl, 0);
   }
 
+  private normalize(p: string): string { return p.replace(/\\/g, '/'); }
+
   private async loadDir(dirPath: string, parentEl: HTMLElement, depth: number): Promise<void> {
+    dirPath = this.normalize(dirPath);
     const entries = await window.electronAPI?.fs.readDir(dirPath);
     if (!entries) return;
     entries.sort((a, b) => {
@@ -29,15 +32,16 @@ export class FileExplorerPlugin {
       item.addEventListener('mouseenter', () => item.style.background = 'var(--panel)');
       item.addEventListener('mouseleave', () => item.style.background = 'transparent');
 
-      const icon = entry.isDirectory ? (this.expanded.has(dirPath + '/' + entry.name) ? '▾' : '▸') : ' ';
+      const fullKey = dirPath + '/' + entry.name;
+      const icon = entry.isDirectory ? (this.expanded.has(fullKey) ? '▾' : '▸') : ' ';
       item.innerHTML = `<span style="color:var(--tertiary);width:12px">${icon}</span><span>${entry.name}</span>`;
 
       if (entry.isDirectory) {
         const childContainer = document.createElement('div');
-        childContainer.style.display = this.expanded.has(dirPath + '/' + entry.name) ? '' : 'none';
+        childContainer.style.display = this.expanded.has(fullKey) ? '' : 'none';
         item.addEventListener('click', async (e) => {
           e.stopPropagation();
-          const fullPath = dirPath + '/' + entry.name;
+          const fullPath = this.normalize(dirPath + '/' + entry.name);
           if (this.expanded.has(fullPath)) {
             this.expanded.delete(fullPath);
             childContainer.style.display = 'none';
@@ -47,19 +51,22 @@ export class FileExplorerPlugin {
             childContainer.innerHTML = '';
             await this.loadDir(fullPath, childContainer, depth + 1);
             childContainer.style.display = '';
+            if (!childContainer.parentNode) {
+              parentEl.insertBefore(childContainer, item.nextSibling);
+            }
             item.innerHTML = `<span style="color:var(--tertiary);width:12px">▾</span><span>${entry.name}</span>`;
           }
         });
         parentEl.appendChild(item);
-        if (this.expanded.has(dirPath + '/' + entry.name)) {
-          parentEl.appendChild(childContainer);
+        if (this.expanded.has(fullKey)) {
+          parentEl.insertBefore(childContainer, item.nextSibling);
         }
       } else {
         const isText = /\.(ts|js|json|html|css|md|txt|py|rs|toml|yaml|yml|xml|svg|sh|bat|ps1)$/i.test(entry.name);
         (item as HTMLElement).style.opacity = isText ? '1' : '0.4';
         item.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.onFileOpen(dirPath + '/' + entry.name);
+          this.onFileOpen(this.normalize(dirPath + '/' + entry.name));
         });
         parentEl.appendChild(item);
       }
