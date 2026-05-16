@@ -28,8 +28,7 @@ export class App {
       onThemeToggle: () => this.canvas.refresh(),
       onOpenWorkspace: () => this.openWorkspace(),
       onNewTerminal: () => this.canvas.addTerminal(this.wsPath),
-      onNewExplorer: () => this.canvas.addExplorer(this.wsPath),
-      onNewEditor: () => this.canvas.addEditor(),
+      onNewDev: () => this.canvas.addDev(this.wsPath),
       onFocusTerminal: (uuid) => this.canvas.focusTerminal(uuid),
       onReopenTerminal: (uuid) => this.canvas.reopenTerminal(uuid),
     });
@@ -90,9 +89,8 @@ export class App {
       this.canvas.restoreZOrder(state.zOrder);
     }
     this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;
+    this.canvas.addDev(path);
     this.canvas.addTerminal(path);
-    this.canvas.addExplorer(path);
-    this.canvas.addEditor();
     this.canvas.refresh();
     this.saveNow();
   }

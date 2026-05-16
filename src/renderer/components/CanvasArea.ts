@@ -6,6 +6,7 @@ import { TextRenderer } from './TextRenderer';
 import { TerminalPlugin } from './TerminalPlugin';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
+import { DevPlugin } from './DevPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -201,6 +202,17 @@ export class CanvasArea {
       if (body) {
         (body as HTMLElement).style.padding = '0';
         this.activeEditor = new MonacoEditorPlugin(body as HTMLElement);
+      }
+    });
+  }
+
+  addDev(wsPath: string): void {
+    const cs = this.addCard('DEV', '', 0, 0, 800, 500);
+    requestAnimationFrame(() => {
+      const body = cs.card.el.querySelector('.card-body');
+      if (body) {
+        (body as HTMLElement).style.padding = '0';
+        new DevPlugin(body as HTMLElement, wsPath);
       }
     });
   }

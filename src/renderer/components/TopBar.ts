@@ -7,6 +7,7 @@ interface TopBarCallbacks {
   onNewTerminal?: () => void;
   onNewExplorer?: () => void;
   onNewEditor?: () => void;
+  onNewDev?: () => void;
   onFocusTerminal?: (uuid: string) => void;
   onReopenTerminal?: (uuid: string) => void;
 }
@@ -62,8 +63,7 @@ export class TopBar {
               ${termSubHtml}
             </div>
           </div>
-          <div class="menu-dropdown-item" id="menu-new-explorer">Explorer</div>
-          <div class="menu-dropdown-item" id="menu-new-editor">Editor</div>
+          <div class="menu-dropdown-item" id="menu-new-dev">Dev</div>
           <div class="menu-dropdown-separator"></div>
           <div class="menu-item menu-item-nested" style="position:relative;padding:6px 12px;border-radius:4px;display:flex;align-items:center;justify-content:space-between">
             <span>Zoom</span><span style="color:var(--tertiary);font-size:10px">▸</span>
@@ -109,12 +109,8 @@ export class TopBar {
       this.callbacks.onNewTerminal?.();
     });
 
-    document.getElementById('menu-new-explorer')?.addEventListener('click', () => {
-      this.callbacks.onNewExplorer?.();
-    });
-
-    document.getElementById('menu-new-editor')?.addEventListener('click', () => {
-      this.callbacks.onNewEditor?.();
+    document.getElementById('menu-new-dev')?.addEventListener('click', () => {
+      this.callbacks.onNewDev?.();
     });
 
     // Terminal instances — click to focus (open) or reopen (closed)

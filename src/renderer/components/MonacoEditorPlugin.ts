@@ -28,9 +28,8 @@ export class MonacoEditorPlugin {
     // Check if Monaco is already loaded
     if ((window as any).monaco) return;
 
-    // Determine path to vs/loader.js relative to this HTML file
-    const base = document.querySelector('script[src*="index.js"]')?.getAttribute('src')?.replace(/\/[^/]+$/, '') || '.';
-    const vsPath = base + '/../vs';
+    // Monaco is deployed to dist/vs/ (relative to dist/renderer/ → ../vs/)
+    const vsPath = '../vs';
 
     // Load the CSS
     const link = document.createElement('link');
