@@ -1,8 +1,10 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
 import * as path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
 let ptyProcess: any = null;
+
+if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -13,6 +15,7 @@ function createWindow(): void {
     title: 'Cockpit IDE',
     backgroundColor: '#0A0E14',
     frame: false,
+    icon: nativeImage.createFromPath(path.join(__dirname, '..', '..', 'public', 'cockpit_ide_icon.ico')),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
@@ -42,7 +45,14 @@ app.whenReady().then(() => {
 
   // Terminal PTY
   ipcMain.handle('terminal:create', async () => {
-    const nodePty = await import('node-pty');
+    let nodePty: any;
+    try {
+      // Suppress node-pty's noisy console attach errors
+      const origErr = process.stderr.write.bind(process.stderr);
+      process.stderr.write = () => true;
+      nodePty = await import('node-pty');
+      process.stderr.write = origErr;
+    } catch { return false; }
     const shell = process.env.COMSPEC || 'cmd.exe';
     ptyProcess = nodePty.spawn(shell, [], {
       name: 'xterm-color',
