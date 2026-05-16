@@ -4,6 +4,9 @@ interface TopBarCallbacks {
   onOpenPreferences: () => void;
   onThemeToggle?: () => void;
   onOpenWorkspace?: () => void;
+  onNewTerminal?: () => void;
+  onNewExplorer?: () => void;
+  onNewEditor?: () => void;
 }
 
 export class TopBar {
@@ -35,6 +38,11 @@ export class TopBar {
       <div class="menu-item">
         View
         <div class="menu-dropdown">
+          <div class="menu-dropdown-separator" style="margin:2px 8px">PLUGINS</div>
+          <div class="menu-dropdown-item" id="menu-new-terminal">+ Terminal</div>
+          <div class="menu-dropdown-item" id="menu-new-explorer">+ Explorer</div>
+          <div class="menu-dropdown-item" id="menu-new-editor">+ Editor</div>
+          <div class="menu-dropdown-separator"></div>
           <div class="menu-dropdown-item">Zoom In</div>
           <div class="menu-dropdown-item">Zoom Out</div>
           <div class="menu-dropdown-item">Reset View</div>
@@ -68,6 +76,18 @@ export class TopBar {
 
     document.getElementById('menu-open-workspace')?.addEventListener('click', () => {
       this.callbacks.onOpenWorkspace?.();
+    });
+
+    document.getElementById('menu-new-terminal')?.addEventListener('click', () => {
+      this.callbacks.onNewTerminal?.();
+    });
+
+    document.getElementById('menu-new-explorer')?.addEventListener('click', () => {
+      this.callbacks.onNewExplorer?.();
+    });
+
+    document.getElementById('menu-new-editor')?.addEventListener('click', () => {
+      this.callbacks.onNewEditor?.();
     });
 
     document.getElementById('theme-toggle')?.addEventListener('click', () => {

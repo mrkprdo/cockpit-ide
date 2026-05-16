@@ -7,6 +7,7 @@ export class App {
   private canvas: CanvasArea;
   private prefs: PreferencesModal;
   private lastSaved = '';
+  private wsPath = '';
 
   constructor() {
     document.title = 'Cockpit IDE';
@@ -24,6 +25,9 @@ export class App {
       onOpenPreferences: () => this.prefs.open(),
       onThemeToggle: () => this.canvas.refresh(),
       onOpenWorkspace: () => this.openWorkspace(),
+      onNewTerminal: () => this.canvas.addTerminal(this.wsPath),
+      onNewExplorer: () => this.canvas.addExplorer(this.wsPath),
+      onNewEditor: () => this.canvas.addEditor(),
     });
 
     this.initWindowControls();
@@ -71,6 +75,7 @@ export class App {
   }
 
   private async loadWorkspace(path: string): Promise<void> {
+    this.wsPath = path;
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
     const state = await ws.load();
