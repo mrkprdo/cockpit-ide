@@ -2,6 +2,7 @@ import { theme } from '../theme';
 
 interface TopBarCallbacks {
   onOpenPreferences: () => void;
+  onThemeToggle?: () => void;
 }
 
 export class TopBar {
@@ -66,6 +67,7 @@ export class TopBar {
 
     document.getElementById('theme-toggle')?.addEventListener('click', () => {
       theme.toggle();
+      this.callbacks.onThemeToggle?.();
     });
   }
 }

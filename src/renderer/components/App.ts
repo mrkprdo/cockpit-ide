@@ -17,6 +17,7 @@ export class App {
 
     new TopBar(document.getElementById('menu-bar')!, {
       onOpenPreferences: () => this.prefs.open(),
+      onThemeToggle: () => this.canvas.refresh(),
     });
 
     this.initWindowControls();

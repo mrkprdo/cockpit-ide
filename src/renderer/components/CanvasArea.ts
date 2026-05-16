@@ -31,7 +31,7 @@ export class CanvasArea {
     this.initZoomPan();
     this.updateStatusBar();
 
-    this.addCard('TERMINAL', 'shell', 80, 80, 480, 320);
+    this.addCard('TERMINAL', '', 80, 80, 480, 320);
   }
 
   setGridStyle(style: GridStyle): void {
@@ -126,12 +126,14 @@ export class CanvasArea {
     this.el.style.backgroundPosition = `${this.panX}px ${this.panY}px`;
   }
 
+  refresh(): void { this.scheduleTransform(); }
   private scheduleTransform(): void {
     if (this.rafId) return;
     this.rafId = requestAnimationFrame(() => {
       this.rafId = 0;
       this.repositionAllCards();
       this.applyGrid();
+      for (const cs of this.cards) cs.card.renderTitle();
       this.updateStatusBar();
     });
   }

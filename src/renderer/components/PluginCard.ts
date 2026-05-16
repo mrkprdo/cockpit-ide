@@ -37,7 +37,6 @@ export class PluginCard {
 
     this.el.innerHTML = `
       <div class="card-header">
-        <span class="card-dot"></span>
         <div class="card-title-area">
           <canvas class="card-title-canvas" height="28"></canvas>
         </div>
@@ -72,17 +71,18 @@ export class PluginCard {
     parent.appendChild(this.el);
   }
 
-  private renderTitle(): void {
+  renderTitle(): void {
     const dpr = window.devicePixelRatio || 1;
     const w = this.opts.width - 80;
+    const h = 18;
     this.headerCanvas.width = w * dpr;
-    this.headerCanvas.height = 28 * dpr;
+    this.headerCanvas.height = h * dpr;
     this.headerCanvas.style.width = `${w}px`;
-    this.headerCanvas.style.height = '28px';
+    this.headerCanvas.style.height = `${h}px`;
 
     const ctx = this.headerCanvas.getContext('2d')!;
     ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, w, 28);
+    ctx.clearRect(0, 0, w, h);
 
     const font = '700 13px "Space Mono", "Courier New", monospace';
     const prepared = prepareWithSegments(this.opts.title, font);
@@ -90,22 +90,11 @@ export class PluginCard {
 
     ctx.font = font;
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'middle';
+    const y = h / 2;
 
     for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i].text, 0, i * 18);
-    }
-
-    if (this.opts.subtitle) {
-      const subFont = '400 9px "Space Mono", "Courier New", monospace';
-      const subPrepared = prepareWithSegments(this.opts.subtitle, subFont);
-      const { lines: subLines } = layoutWithLines(subPrepared, w, 14);
-
-      ctx.font = subFont;
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--tertiary').trim();
-      for (let i = 0; i < subLines.length; i++) {
-        ctx.fillText(subLines[i].text, 0, 18 + i * 14);
-      }
+      ctx.fillText(lines[i].text, 0, y + (i - (lines.length - 1) / 2) * 18);
     }
   }
 

@@ -201,18 +201,11 @@ html, body {
   border-bottom: 1px solid var(--border);
 }
 
-.card-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--tertiary);
-  flex-shrink: 0;
-}
-
 .card-title-area {
   flex: 1;
   min-width: 0;
-  height: 28px;
+  display: flex;
+  align-items: center;
 }
 
 .card-title-canvas {
