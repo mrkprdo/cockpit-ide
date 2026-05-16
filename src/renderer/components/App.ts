@@ -22,19 +22,28 @@ export class App {
     });
 
     this.initWindowControls();
-    this.tryRestoreWorkspace();
+    this.promptWorkspace();
   }
 
-  private async tryRestoreWorkspace(): Promise<void> {
+  private async promptWorkspace(): Promise<void> {
     const ws = window.electronAPI?.workspace;
-    const path = await ws?.getPath();
-    if (path) await this.loadWorkspace(path);
+    if (!ws) return;
+    const savedPath = await ws.getPath();
+    if (savedPath) {
+      await this.loadWorkspace(savedPath);
+      return;
+    }
+    const path = await ws.select();
+    if (!path) {
+      window.close();
+      return;
+    }
+    await this.loadWorkspace(path);
   }
 
   private async openWorkspace(): Promise<void> {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
-    // Save current state before switching
     await this.saveWorkspace();
     const path = await ws.select();
     if (path) await this.loadWorkspace(path);
@@ -44,7 +53,6 @@ export class App {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
     const state = this.canvas.getSaveState();
-    // Load existing state and merge saved plugins with current
     const existing = await ws.load() || { plugins: [] };
     existing.zoom = state.zoom;
     existing.panX = state.panX;
@@ -60,8 +68,7 @@ export class App {
     if (state) {
       this.canvas.setView({ zoom: state.zoom, panX: state.panX, panY: state.panY });
     }
-    const name = path.split(/[\\/]/).pop() || path;
-    this.canvas.workspaceName = name;
+    this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;
     this.canvas.refresh();
   }
 

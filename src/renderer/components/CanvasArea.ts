@@ -3,7 +3,6 @@ export type SaveState = { plugins: { title: string; x: number; y: number; width:
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
-import { TerminalPlugin } from './TerminalPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -38,22 +37,10 @@ export class CanvasArea {
     this.initZoomPan();
     this.updateStatusBar();
 
-    // Center view on origin after first layout
     requestAnimationFrame(() => {
       this.panX = this.el.clientWidth / 2;
       this.panY = this.el.clientHeight / 2;
       this.scheduleTransform();
-    });
-
-    const termCard = this.addCard('TERMINAL', '', 80, 80, 560, 420);
-    requestAnimationFrame(() => {
-      const body = termCard.card.el.querySelector('.card-body');
-      if (body) {
-        body.style.padding = '0';
-        const term = new TerminalPlugin(body as HTMLElement);
-        termCard.card.onDestroy = () => term.destroy();
-        termCard.card.opts.onResizeEnd = () => term.fit();
-      }
     });
   }
 
