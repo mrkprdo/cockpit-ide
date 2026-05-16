@@ -16,15 +16,19 @@ export class DevPlugin {
     this.explorerCol = document.createElement('div');
     this.explorerCol.style.cssText = 'width:260px;height:100%;overflow:hidden;flex-shrink:0';
 
-    const resizeHandle = document.createElement('div');
-    resizeHandle.style.cssText = 'width:4px;height:100%;cursor:col-resize;background:var(--border);flex-shrink:0';
+    let startX = 0;
+    let startW = 260;
     resizeHandle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
       e.preventDefault();
       this.isDragging = true;
+      startX = e.clientX;
+      startW = this.explorerCol.offsetWidth;
     });
     document.addEventListener('mousemove', (e) => {
       if (!this.isDragging) return;
-      const newW = Math.max(120, Math.min(600, e.clientX - this.splitEl.getBoundingClientRect().left));
+      const dx = e.clientX - startX;
+      const newW = Math.max(120, Math.min(600, startW + dx));
       this.explorerCol.style.width = newW + 'px';
     });
     document.addEventListener('mouseup', () => { this.isDragging = false; });

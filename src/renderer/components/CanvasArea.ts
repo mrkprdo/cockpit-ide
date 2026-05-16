@@ -163,7 +163,7 @@ export class CanvasArea {
     // Sort by current z-index to get bottom-to-top order
     const byZ = [...this.cards].sort((a, b) => parseInt(a.card.el.style.zIndex || '1') - parseInt(b.card.el.style.zIndex || '1'));
     return {
-      plugins: this.cards.map(c => ({ uuid: c.card.uuid, title: c.savedTitle, x: c.savedWX, y: c.savedWY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen })),
+      plugins: this.cards.map(c => ({ uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen })),
       zOrder: byZ.map(c => c.card.uuid),
       zoom: this.scale, panX: this.panX, panY: this.panY,
     };
@@ -249,7 +249,8 @@ export class CanvasArea {
         });
 
         if (p.isOpen) {
-          requestAnimationFrame(() => {
+          // Double rAF to ensure layout is settled
+          requestAnimationFrame(() => requestAnimationFrame(() => {
             const body = cs.card.el.querySelector('.card-body') as HTMLElement;
             if (body) {
               body.style.padding = '0';
@@ -257,7 +258,7 @@ export class CanvasArea {
               body.style.justifyContent = 'stretch';
               new DevPlugin(body, wsPath);
             }
-          });
+          }));
         }
       }
     }

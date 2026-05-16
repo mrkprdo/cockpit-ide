@@ -63,6 +63,17 @@ function stopWatching(): void {
 
 if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
 
+// Persist workspace path across restarts
+const lastWsFile = path.join(app.getPath('userData'), 'last-workspace.txt');
+
+function saveLastWorkspace(p: string): void {
+  try { fs.writeFileSync(lastWsFile, p, 'utf-8'); } catch {}
+}
+
+function loadLastWorkspace(): string | null {
+  try { return fs.readFileSync(lastWsFile, 'utf-8').trim() || null; } catch { return null; }
+}
+
 function createWindow(): void {
   const iconPath = path.join(app.getAppPath(), 'public', 'cockpit_ide_icon.ico');
 
@@ -96,6 +107,10 @@ function createWindow(): void {
     mainWindow = null;
   });
 }
+
+// Restore last workspace on startup
+workspacePath = loadLastWorkspace();
+if (workspacePath) startWatching(workspacePath);
 
 app.whenReady().then(() => {
   ipcMain.on('window:minimize', () => mainWindow?.minimize());
@@ -166,11 +181,12 @@ app.whenReady().then(() => {
     const wsPath = result.filePaths[0];
     cockpitDir(path.join(wsPath, '.cockpit'));
     workspacePath = wsPath;
+    saveLastWorkspace(wsPath);
     startWatching(wsPath);
     return wsPath;
   });
 
-  ipcMain.handle('workspace:getPath', () => workspacePath);
+  ipcMain.handle('workspace:getPath', () => workspacePath || loadLastWorkspace());
 
   ipcMain.handle('workspace:load', () => {
     if (!workspacePath) return null;
