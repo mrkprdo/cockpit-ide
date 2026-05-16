@@ -52,7 +52,7 @@ app.whenReady().then(() => {
   ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
 
   // Terminal PTY
-  ipcMain.handle('terminal:create', async () => {
+  ipcMain.handle('terminal:create', async (_event, cwd?: string) => {
     let nodePty: any;
     try {
       // Suppress node-pty's noisy console attach errors
@@ -66,7 +66,7 @@ app.whenReady().then(() => {
       name: 'xterm-color',
       cols: 80,
       rows: 24,
-      cwd: process.env.HOME || process.env.USERPROFILE,
+      cwd: cwd || process.env.USERPROFILE || process.env.HOME,
       env: process.env as { [key: string]: string },
     });
 
@@ -106,15 +106,15 @@ app.whenReady().then(() => {
 
   ipcMain.handle('workspace:load', () => {
     if (!workspacePath) return null;
-    const stateFile = path.join(workspacePath, '.cockpit', 'state.json');
-    try { return JSON.parse(fs.readFileSync(stateFile, 'utf-8')); } catch { return null; }
+    const f = path.join(workspacePath, '.cockpit', 'window.json');
+    try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch { return null; }
   });
 
   ipcMain.handle('workspace:save', (_event, state: any) => {
     if (!workspacePath) return;
     const dir = path.join(workspacePath, '.cockpit');
     cockpitDir(dir);
-    fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(state, null, 2));
+    fs.writeFileSync(path.join(dir, 'window.json'), JSON.stringify(state, null, 2));
   });
 
   createWindow();

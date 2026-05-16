@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   },
   terminal: {
-    create: () => ipcRenderer.invoke('terminal:create'),
+    create: (cwd?: string) => ipcRenderer.invoke('terminal:create', cwd),
     write: (data: string) => ipcRenderer.send('terminal:write', data),
     resize: (cols: number, rows: number) => ipcRenderer.send('terminal:resize', cols, rows),
     kill: () => ipcRenderer.send('terminal:kill'),

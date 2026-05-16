@@ -3,6 +3,7 @@ export type SaveState = { plugins: { title: string; x: number; y: number; width:
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
+import { TerminalPlugin } from './TerminalPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -11,6 +12,7 @@ interface CardState {
 }
 
 export class CanvasArea {
+  onStateChange: (() => void) | null = null;
   private patternSize = 28;
   private patternDataURL = '';
   private cards: CardState[] = [];
@@ -142,6 +144,19 @@ export class CanvasArea {
     };
   }
 
+  addTerminal(cwd?: string): void {
+    const cs = this.addCard('TERMINAL', '', 80, 80, 560, 420);
+    requestAnimationFrame(() => {
+      const body = cs.card.el.querySelector('.card-body');
+      if (body) {
+        (body as HTMLElement).style.padding = '0';
+        const term = new TerminalPlugin(body as HTMLElement, cwd);
+        cs.card.onDestroy = () => term.destroy();
+        cs.card.opts.onResizeEnd = () => term.fit();
+      }
+    });
+  }
+
   setView(state: { zoom: number; panX: number; panY: number }): void {
     this.scale = state.zoom; this.panX = state.panX; this.panY = state.panY;
     this.scheduleTransform();
@@ -159,6 +174,7 @@ export class CanvasArea {
       this.originDot.style.left = `${this.panX + half * this.scale}px`;
       this.originDot.style.top = `${this.panY + half * this.scale}px`;
       this.updateStatusBar();
+      this.onStateChange?.();
     });
   }
 

@@ -16,7 +16,7 @@ interface Window {
       isMaximized: () => Promise<boolean>;
     };
     terminal: {
-      create: () => Promise<boolean>;
+      create: (cwd?: string) => Promise<boolean>;
       write: (data: string) => void;
       resize: (cols: number, rows: number) => void;
       kill: () => void;

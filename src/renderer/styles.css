@@ -351,20 +351,6 @@ html, body {
   padding: 32px 24px 16px;
   position: relative;
 }
-.welcome-x {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  color: var(--tertiary);
-  font-size: 14px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.welcome-x:hover { color: var(--primary); background: var(--panel); }
 .welcome-title {
   font-size: 16px;
   font-weight: 700;
@@ -398,3 +384,18 @@ html, body {
   transition: opacity 0.15s;
 }
 .welcome-btn:hover { opacity: 0.85; }
+
+.welcome-btn-secondary {
+  display: block;
+  margin: 12px auto 0;
+  padding: 6px 16px;
+  background: transparent;
+  color: var(--tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.welcome-btn-secondary:hover { background: var(--panel); color: var(--primary); }

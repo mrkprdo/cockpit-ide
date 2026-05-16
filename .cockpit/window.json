@@ -1,0 +1,14 @@
+{
+  "plugins": [
+    {
+      "title": "TERMINAL",
+      "x": 70,
+      "y": 70,
+      "width": 560,
+      "height": 420
+    }
+  ],
+  "zoom": 1,
+  "panX": 279,
+  "panY": 203
+}

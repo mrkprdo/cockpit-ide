@@ -12,12 +12,12 @@ export class WelcomeModal {
     this.el.className = 'welcome-modal';
     this.el.innerHTML = `
       <div class="welcome-header">
-        <button class="welcome-x" id="welcome-close">✕</button>
         <div class="welcome-title">COCKPIT IDE</div>
         <div class="welcome-sub">Open a workspace to start</div>
       </div>
       <div class="welcome-body">
         <button class="welcome-btn" id="welcome-open">Open Workspace</button>
+        <button class="welcome-btn-secondary" id="welcome-close">Close</button>
       </div>
     `;
 
@@ -26,13 +26,12 @@ export class WelcomeModal {
 
     this.el.querySelector('#welcome-open')?.addEventListener('click', async () => {
       const ws = window.electronAPI?.workspace;
-      if (!ws) return;
+      if (!ws) { this.close(null); return; }
       const path = await ws.select();
-      if (path) this.close(path);
+      this.close(path);
     });
 
     this.el.querySelector('#welcome-close')?.addEventListener('click', () => this.close(null));
-    this.overlay.addEventListener('click', (e) => { if (e.target === this.overlay) this.close(null); });
   }
 
   open(): Promise<string | null> {

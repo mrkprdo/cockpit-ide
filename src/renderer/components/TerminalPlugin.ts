@@ -5,7 +5,10 @@ export class TerminalPlugin {
   private el: HTMLDivElement;
   private cleanup: (() => void) | null = null;
 
-  constructor(container: HTMLElement) {
+  private cwd: string | undefined;
+
+  constructor(container: HTMLElement, cwd?: string) {
+    this.cwd = cwd;
     this.el = document.createElement('div');
     this.el.style.cssText = 'width:100%;height:100%;background:#0A0E14';
     container.appendChild(this.el);
@@ -49,7 +52,7 @@ export class TerminalPlugin {
     const api = window.electronAPI?.terminal;
     if (!api) return;
 
-    await api.create();
+    await api.create(this.cwd);
 
     this.cleanup = api.onData((data) => {
       this.term.write(data);

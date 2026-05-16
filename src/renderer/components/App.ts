@@ -6,11 +6,14 @@ import { WelcomeModal } from './WelcomeModal';
 export class App {
   private canvas: CanvasArea;
   private prefs: PreferencesModal;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     document.title = 'Cockpit IDE';
 
     this.canvas = new CanvasArea(document.getElementById('canvas')!);
+
+    this.canvas.onStateChange = () => this.scheduleSave();
 
     this.prefs = new PreferencesModal((style) => {
       this.canvas.setGridStyle(style);
@@ -24,6 +27,11 @@ export class App {
 
     this.initWindowControls();
     this.promptWorkspace();
+  }
+
+  private scheduleSave(): void {
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => this.saveWorkspace(), 500);
   }
 
   private async promptWorkspace(): Promise<void> {
@@ -71,6 +79,7 @@ export class App {
       this.canvas.setView({ zoom: state.zoom, panX: state.panX, panY: state.panY });
     }
     this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;
+    this.canvas.addTerminal(path);
     this.canvas.refresh();
   }
 
