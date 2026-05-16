@@ -45,7 +45,7 @@ export class MonacoEditorPlugin {
 
   private initTabDummies(): void {
     const empty = document.createElement('span');
-    empty.style.cssText = 'padding:0 12px;color:var(--tertiary);font-size:10px;white-space:nowrap';
+    empty.style.cssText = 'padding:0 12px;color:var(--tertiary);font-size:10px;white-space:nowrap;line-height:30px';
     empty.textContent = 'No file selected';
     this.tabContainer.appendChild(empty);
   }

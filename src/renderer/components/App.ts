@@ -99,6 +99,8 @@ export class App {
 
     if (state) {
       this.canvas.setView({ zoom: state.zoom, panX: state.panX, panY: state.panY });
+    } else {
+      this.canvas.centerView();
     }
     this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;
     this.canvas.refresh();

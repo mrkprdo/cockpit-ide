@@ -16,6 +16,9 @@ export class DevPlugin {
     this.explorerCol = document.createElement('div');
     this.explorerCol.style.cssText = 'width:260px;height:100%;overflow:hidden;flex-shrink:0';
 
+    const resizeHandle = document.createElement('div');
+    resizeHandle.style.cssText = 'width:4px;height:100%;cursor:col-resize;background:var(--border);flex-shrink:0';
+
     let startX = 0;
     let startW = 260;
     resizeHandle.addEventListener('mousedown', (e) => {

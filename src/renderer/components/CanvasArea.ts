@@ -49,12 +49,12 @@ export class CanvasArea {
     this.applyGrid();
     this.initZoomPan();
     this.updateStatusBar();
+  }
 
-    requestAnimationFrame(() => {
-      this.panX = this.el.clientWidth / 2;
-      this.panY = this.el.clientHeight / 2;
-      this.scheduleTransform();
-    });
+  private centerView(): void {
+    this.panX = this.el.clientWidth / 2;
+    this.panY = this.el.clientHeight / 2;
+    this.scheduleTransform();
   }
 
   setGridStyle(style: GridStyle): void {
