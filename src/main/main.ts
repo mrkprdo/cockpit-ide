@@ -111,10 +111,13 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('workspace:save', (_event, state: any) => {
-    if (!workspacePath) return;
+    if (!workspacePath) { console.error('workspace:save — no workspacePath'); return false; }
     const dir = path.join(workspacePath, '.cockpit');
-    cockpitDir(dir);
-    fs.writeFileSync(path.join(dir, 'window.json'), JSON.stringify(state, null, 2));
+    try {
+      cockpitDir(dir);
+      fs.writeFileSync(path.join(dir, 'window.json'), JSON.stringify(state, null, 2));
+      return true;
+    } catch (e) { console.error('workspace:save error', e); return false; }
   });
 
   createWindow();
