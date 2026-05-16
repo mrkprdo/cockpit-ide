@@ -1,8 +1,17 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
 
+import { PluginCard } from './PluginCard';
+
+interface CardState {
+  card: PluginCard;
+  worldX: number;
+  worldY: number;
+}
+
 export class CanvasArea {
   private patternSize = 28;
   private patternDataURL = '';
+  private cards: CardState[] = [];
 
   private scale = 1;
   private panX = 0;
@@ -20,12 +29,34 @@ export class CanvasArea {
     this.applyGrid();
     this.initZoomPan();
     this.updateStatusBar();
+
+    this.addCard('TERMINAL', 'shell', 80, 80, 480, 320);
   }
 
   setGridStyle(style: GridStyle): void {
     this.gridStyle = style;
     this.generatePattern();
     this.applyGrid();
+  }
+
+  private addCard(title: string, subtitle: string, x: number, y: number, w: number, h: number): void {
+    const card = new PluginCard(this.el, { title, subtitle, x: 0, y: 0, width: w, height: h, onClose: () => {
+      const i = this.cards.findIndex(c => c.card === card);
+      if (i !== -1) this.cards.splice(i, 1);
+    }}, () => this.scale);
+    this.cards.push({ card, worldX: x, worldY: y });
+    this.positionCard(this.cards[this.cards.length - 1]);
+  }
+
+  private positionCard(cs: CardState): void {
+    cs.card.el.style.left = `${cs.worldX * this.scale + this.panX}px`;
+    cs.card.el.style.top = `${cs.worldY * this.scale + this.panY}px`;
+    cs.card.el.style.transform = `scale(${this.scale})`;
+    cs.card.el.style.transformOrigin = '0 0';
+  }
+
+  private repositionAllCards(): void {
+    for (const cs of this.cards) this.positionCard(cs);
   }
 
   private resolveCSSVar(name: string): string {
@@ -65,20 +96,14 @@ export class CanvasArea {
     }
     this.el.style.backgroundImage = `url(${this.patternDataURL})`;
     this.el.style.backgroundRepeat = 'repeat';
-  }
-
-  private applyTransform(): void {
-    if (this.gridStyle === 'none') { this.el.style.backgroundPosition = ''; return; }
     this.el.style.backgroundSize = `${this.patternSize * this.scale}px ${this.patternSize * this.scale}px`;
-    this.el.style.backgroundPosition = `${this.panX}px ${this.panY}px`;
   }
 
   private scheduleTransform(): void {
     if (this.rafId) return;
     this.rafId = requestAnimationFrame(() => {
       this.rafId = 0;
-      this.applyTransform();
-      this.generatePattern();
+      this.repositionAllCards();
       this.applyGrid();
       this.updateStatusBar();
     });

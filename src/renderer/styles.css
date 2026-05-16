@@ -155,8 +155,8 @@ html, body {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background-repeat: repeat;
 }
+
 
 /* ===== Status Bar ===== */
 #statusbar {
@@ -175,55 +175,81 @@ html, body {
 .status-item { display: flex; align-items: center; gap: 4px; }
 .status-sep { width: 1px; height: 14px; background: var(--border); }
 
-/* ===== Plugin Card ===== */
-.plugin-card {
+/* ===== Card ===== */
+.card {
   position: absolute;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
   cursor: default;
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
-  overflow: hidden;
-}
-.plugin-card:hover {
-  transform: translateY(-4px);
-  box-shadow: rgba(0,0,0,0.40) 0 10px 30px, rgba(0,0,0,0.25) 0 4px 14px;
-}
-
-.plugin-card-header {
-  height: 56px;
-  padding: 0 24px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.card:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.card-header {
+  height: 38px;
+  padding: 0 10px 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  cursor: grab;
   border-bottom: 1px solid var(--border);
-  border-bottom-opacity: 0.1;
-  position: relative;
 }
 
-.plugin-card-title {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--primary);
+.card-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--tertiary);
+  flex-shrink: 0;
 }
 
-.plugin-card-subtitle {
-  font-size: 9px;
-  letter-spacing: 1px;
+.card-title-area {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+}
+
+.card-title-canvas {
+  display: block;
+}
+
+.card-close {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
   color: var(--tertiary);
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.1s, color 0.1s;
 }
+.card:hover .card-close { opacity: 1; }
+.card-close:hover { background: var(--panel); color: var(--primary); }
 
-.plugin-card-content {
+.card-body {
   flex: 1;
   padding: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+
+.card-glyph {
   color: var(--border);
-  font-size: 48px;
-  opacity: 0.3;
+  font-size: 36px;
+  opacity: 0.2;
 }
 
 /* ===== Modal ===== */
