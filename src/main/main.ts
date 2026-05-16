@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
@@ -7,6 +7,8 @@ let ptyProcess: any = null;
 if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
 
 function createWindow(): void {
+  const iconPath = path.join(app.getAppPath(), 'public', 'cockpit_ide_icon.ico');
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -15,7 +17,7 @@ function createWindow(): void {
     title: 'Cockpit IDE',
     backgroundColor: '#0A0E14',
     frame: false,
-    icon: nativeImage.createFromPath(path.join(__dirname, '..', '..', 'public', 'cockpit_ide_icon.ico')),
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
