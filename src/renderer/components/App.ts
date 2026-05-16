@@ -1,6 +1,7 @@
 import { TopBar } from './TopBar';
 import { CanvasArea } from './CanvasArea';
 import { PreferencesModal } from './PreferencesModal';
+import { WelcomeModal } from './WelcomeModal';
 
 export class App {
   private canvas: CanvasArea;
@@ -33,7 +34,8 @@ export class App {
       await this.loadWorkspace(savedPath);
       return;
     }
-    const path = await ws.select();
+    const modal = new WelcomeModal();
+    const path = await modal.open();
     if (!path) {
       window.close();
       return;
