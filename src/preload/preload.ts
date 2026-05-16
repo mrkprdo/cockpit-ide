@@ -30,4 +30,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     load: () => ipcRenderer.invoke('workspace:load'),
     save: (state: any) => ipcRenderer.invoke('workspace:save', state),
   },
+  fs: {
+    readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),
+    readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
+    writeFile: (filePath: string, content: string) => ipcRenderer.invoke('fs:writeFile', filePath, content),
+  },
 });

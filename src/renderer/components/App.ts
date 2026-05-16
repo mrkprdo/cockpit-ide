@@ -79,6 +79,8 @@ export class App {
     }
     this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;
     this.canvas.addTerminal(path);
+    this.canvas.addExplorer(path);
+    this.canvas.addEditor();
     this.canvas.refresh();
     this.saveNow();
   }

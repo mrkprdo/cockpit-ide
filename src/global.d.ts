@@ -5,6 +5,8 @@ interface WorkspaceState {
   panY: number;
 }
 
+interface DirEntry { name: string; isDirectory: boolean; }
+
 interface Window {
   electronAPI: {
     platform: string;
@@ -27,6 +29,11 @@ interface Window {
       getPath: () => Promise<string | null>;
       load: () => Promise<WorkspaceState | null>;
       save: (state: WorkspaceState) => Promise<void>;
+    };
+    fs: {
+      readDir: (dirPath: string) => Promise<DirEntry[] | null>;
+      readFile: (filePath: string) => Promise<string | null>;
+      writeFile: (filePath: string, content: string) => Promise<boolean>;
     };
   };
 }

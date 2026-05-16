@@ -4,6 +4,8 @@ export type SaveState = { plugins: { title: string; x: number; y: number; width:
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
 import { TerminalPlugin } from './TerminalPlugin';
+import { FileExplorerPlugin } from './FileExplorerPlugin';
+import { EditorPlugin } from './EditorPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -142,6 +144,32 @@ export class CanvasArea {
       plugins: this.cards.map(c => ({ title: c.card.opts.title, x: c.worldX, y: c.worldY, width: c.card.opts.width, height: c.card.opts.height })),
       zoom: this.scale, panX: this.panX, panY: this.panY,
     };
+  }
+
+  private activeEditor: EditorPlugin | null = null;
+
+  addExplorer(wsPath: string): void {
+    const cs = this.addCard('EXPLORER', '', 80, 560, 300, 420);
+    requestAnimationFrame(() => {
+      const body = cs.card.el.querySelector('.card-body');
+      if (body) {
+        (body as HTMLElement).style.padding = '0';
+        new FileExplorerPlugin(body as HTMLElement, wsPath, (filePath) => {
+          this.activeEditor?.openFile(filePath);
+        });
+      }
+    });
+  }
+
+  addEditor(): void {
+    const cs = this.addCard('EDITOR', '', 400, 560, 500, 420);
+    requestAnimationFrame(() => {
+      const body = cs.card.el.querySelector('.card-body');
+      if (body) {
+        (body as HTMLElement).style.padding = '0';
+        this.activeEditor = new EditorPlugin(body as HTMLElement);
+      }
+    });
   }
 
   addTerminal(cwd?: string): void {

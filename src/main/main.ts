@@ -6,6 +6,22 @@ let mainWindow: BrowserWindow | null = null;
 let ptyProcess: any = null;
 let workspacePath: string | null = null;
 
+// File system IPC
+ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    return entries.map(e => ({ name: e.name, isDirectory: e.isDirectory() }));
+  } catch { return null; }
+});
+
+ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
+  try { return fs.readFileSync(filePath, 'utf-8'); } catch { return null; }
+});
+
+ipcMain.handle('fs:writeFile', async (_event, filePath: string, content: string) => {
+  try { fs.writeFileSync(filePath, content, 'utf-8'); return true; } catch { return false; }
+});
+
 function cockpitDir(dir: string): void {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
