@@ -1,13 +1,14 @@
 import { Terminal } from '@xterm/xterm';
 
 export class TerminalPlugin {
+  readonly uuid: string;
   private term: Terminal;
   private el: HTMLDivElement;
   private cleanup: (() => void) | null = null;
-
   private cwd: string | undefined;
 
-  constructor(container: HTMLElement, cwd?: string) {
+  constructor(container: HTMLElement, uuid: string, cwd?: string) {
+    this.uuid = uuid;
     this.cwd = cwd;
     this.el = document.createElement('div');
     this.el.style.cssText = 'width:100%;height:100%;background:#0A0E14';
@@ -52,18 +53,18 @@ export class TerminalPlugin {
     const api = window.electronAPI?.terminal;
     if (!api) return;
 
-    await api.create(this.cwd);
+    await api.create(this.uuid, this.cwd);
 
-    this.cleanup = api.onData((data) => {
-      this.term.write(data);
+    this.cleanup = api.onData((termUuid, data) => {
+      if (termUuid === this.uuid) this.term.write(data);
     });
 
     this.term.onData((data) => {
-      api.write(data);
+      api.write(this.uuid, data);
     });
 
     this.term.onResize(({ cols, rows }) => {
-      api.resize(cols, rows);
+      api.resize(this.uuid, cols, rows);
     });
 
     // Fit on next frame
@@ -75,13 +76,13 @@ export class TerminalPlugin {
     const rows = Math.floor(this.el.clientHeight / 20);
     if (cols > 0 && rows > 0) {
       this.term.resize(cols, rows);
-      window.electronAPI?.terminal.resize(cols, rows);
+      window.electronAPI?.terminal.resize(this.uuid, cols, rows);
     }
   }
 
   destroy(): void {
     this.cleanup?.();
-    window.electronAPI?.terminal.kill();
+    window.electronAPI?.terminal.kill(this.uuid);
     this.term.dispose();
   }
 }

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
-let ptyProcess: any = null;
+const ptyProcesses = new Map<string, any>();
 let workspacePath: string | null = null;
 
 // File system IPC
@@ -67,18 +67,17 @@ app.whenReady().then(() => {
   ipcMain.on('window:close', () => mainWindow?.close());
   ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
 
-  // Terminal PTY
-  ipcMain.handle('terminal:create', async (_event, cwd?: string) => {
+  // Terminal PTY — multi-session
+  ipcMain.handle('terminal:create', async (_event, uuid: string, cwd?: string) => {
     let nodePty: any;
     try {
-      // Suppress node-pty's noisy console attach errors
       const origErr = process.stderr.write.bind(process.stderr);
       process.stderr.write = () => true;
       nodePty = await import('node-pty');
       process.stderr.write = origErr;
     } catch { return false; }
     const shell = process.env.COMSPEC || 'cmd.exe';
-    ptyProcess = nodePty.spawn(shell, [], {
+    const pty = nodePty.spawn(shell, [], {
       name: 'xterm-color',
       cols: 80,
       rows: 24,
@@ -86,23 +85,25 @@ app.whenReady().then(() => {
       env: process.env as { [key: string]: string },
     });
 
-    ptyProcess.onData((data: string) => {
-      mainWindow?.webContents.send('terminal:data', data);
+    pty.onData((data: string) => {
+      mainWindow?.webContents.send('terminal:data', uuid, data);
     });
 
+    ptyProcesses.set(uuid, pty);
     return true;
   });
 
-  ipcMain.on('terminal:write', (_event, data: string) => {
-    ptyProcess?.write(data);
+  ipcMain.on('terminal:write', (_event, uuid: string, data: string) => {
+    ptyProcesses.get(uuid)?.write(data);
   });
 
-  ipcMain.on('terminal:resize', (_event, cols: number, rows: number) => {
-    ptyProcess?.resize(cols, rows);
+  ipcMain.on('terminal:resize', (_event, uuid: string, cols: number, rows: number) => {
+    ptyProcesses.get(uuid)?.resize(cols, rows);
   });
 
-  ipcMain.on('terminal:kill', () => {
-    if (ptyProcess) { ptyProcess.kill(); ptyProcess = null; }
+  ipcMain.on('terminal:kill', (_event, uuid: string) => {
+    const pty = ptyProcesses.get(uuid);
+    if (pty) { pty.kill(); ptyProcesses.delete(uuid); }
   });
 
   // Workspace
@@ -139,7 +140,8 @@ app.whenReady().then(() => {
   createWindow();
 
   app.on('window-all-closed', () => {
-    if (ptyProcess) { ptyProcess.kill(); ptyProcess = null; }
+    for (const pty of ptyProcesses.values()) pty.kill();
+    ptyProcesses.clear();
     if (process.platform !== 'darwin') app.quit();
   });
 

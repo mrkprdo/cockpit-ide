@@ -14,12 +14,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   },
   terminal: {
-    create: (cwd?: string) => ipcRenderer.invoke('terminal:create', cwd),
-    write: (data: string) => ipcRenderer.send('terminal:write', data),
-    resize: (cols: number, rows: number) => ipcRenderer.send('terminal:resize', cols, rows),
-    kill: () => ipcRenderer.send('terminal:kill'),
-    onData: (callback: (data: string) => void) => {
-      const handler = (_event: any, data: string) => callback(data);
+    create: (uuid: string, cwd?: string) => ipcRenderer.invoke('terminal:create', uuid, cwd),
+    write: (uuid: string, data: string) => ipcRenderer.send('terminal:write', uuid, data),
+    resize: (uuid: string, cols: number, rows: number) => ipcRenderer.send('terminal:resize', uuid, cols, rows),
+    kill: (uuid: string) => ipcRenderer.send('terminal:kill', uuid),
+    onData: (callback: (uuid: string, data: string) => void) => {
+      const handler = (_event: any, uuid: string, data: string) => callback(uuid, data);
       ipcRenderer.on('terminal:data', handler);
       return () => ipcRenderer.removeListener('terminal:data', handler);
     },

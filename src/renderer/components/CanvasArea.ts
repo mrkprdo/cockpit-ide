@@ -192,7 +192,7 @@ export class CanvasArea {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {
         (body as HTMLElement).style.padding = '0';
-        const term = new TerminalPlugin(body as HTMLElement, cwd);
+        const term = new TerminalPlugin(body as HTMLElement, cs.card.uuid, cwd);
         cs.card.onDestroy = () => term.destroy();
         cs.card.opts.onResizeEnd = () => term.fit();
       }

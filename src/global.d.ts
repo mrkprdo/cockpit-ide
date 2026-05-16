@@ -18,11 +18,11 @@ interface Window {
       isMaximized: () => Promise<boolean>;
     };
     terminal: {
-      create: (cwd?: string) => Promise<boolean>;
-      write: (data: string) => void;
-      resize: (cols: number, rows: number) => void;
-      kill: () => void;
-      onData: (callback: (data: string) => void) => () => void;
+      create: (uuid: string, cwd?: string) => Promise<boolean>;
+      write: (uuid: string, data: string) => void;
+      resize: (uuid: string, cols: number, rows: number) => void;
+      kill: (uuid: string) => void;
+      onData: (callback: (uuid: string, data: string) => void) => () => void;
     };
     workspace: {
       select: () => Promise<string | null>;
