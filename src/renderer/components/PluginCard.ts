@@ -2,6 +2,7 @@ import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
 import { TextRenderer } from './TextRenderer';
 
 export interface CardOptions {
+  onDestroy?: () => void;
   title: string;
   subtitle?: string;
   x: number;
@@ -19,6 +20,7 @@ const SNAP = 28;
 export class PluginCard {
   readonly el: HTMLDivElement;
   readonly opts: CardOptions;
+  onDestroy: (() => void) | null = null;
   private header: HTMLElement;
   private body: HTMLElement;
   private headerCanvas: HTMLCanvasElement;
@@ -212,6 +214,7 @@ export class PluginCard {
   }
 
   remove(): void {
+    this.onDestroy?.();
     this.el.remove();
   }
 }

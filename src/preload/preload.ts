@@ -13,4 +13,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => ipcRenderer.send('window:close'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   },
+  terminal: {
+    create: () => ipcRenderer.invoke('terminal:create'),
+    write: (data: string) => ipcRenderer.send('terminal:write', data),
+    resize: (cols: number, rows: number) => ipcRenderer.send('terminal:resize', cols, rows),
+    kill: () => ipcRenderer.send('terminal:kill'),
+    onData: (callback: (data: string) => void) => {
+      const handler = (_event: any, data: string) => callback(data);
+      ipcRenderer.on('terminal:data', handler);
+      return () => ipcRenderer.removeListener('terminal:data', handler);
+    },
+  },
 });

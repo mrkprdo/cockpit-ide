@@ -2,6 +2,7 @@ export type GridStyle = 'none' | 'dots' | 'grid';
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
+import { TerminalPlugin } from './TerminalPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -31,7 +32,16 @@ export class CanvasArea {
     this.initZoomPan();
     this.updateStatusBar();
 
-    this.addCard('TERMINAL', '', 80, 80, 480, 320);
+    const termCard = this.addCard('TERMINAL', '', 80, 80, 476, 420);
+    requestAnimationFrame(() => {
+      const body = termCard.card.el.querySelector('.card-body');
+      if (body) {
+        body.style.padding = '0';
+        const term = new TerminalPlugin(body as HTMLElement);
+        termCard.card.onDestroy = () => term.destroy();
+        termCard.card.opts.onResizeEnd = () => term.fit();
+      }
+    });
   }
 
   setGridStyle(style: GridStyle): void {
@@ -49,7 +59,7 @@ export class CanvasArea {
     return Math.max(this.patternSize, Math.round(v / this.patternSize) * this.patternSize);
   }
 
-  private addCard(title: string, subtitle: string, x: number, y: number, w: number, h: number): void {
+  private addCard(title: string, subtitle: string, x: number, y: number, w: number, h: number): CardState {
     const sx = this.snap(x);
     const sy = this.snap(y);
     const sw = this.snapSize(w);
@@ -68,8 +78,10 @@ export class CanvasArea {
         }
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
-    this.cards.push({ card, worldX: sx, worldY: sy });
-    this.positionCard(this.cards[this.cards.length - 1]);
+    const cs: CardState = { card, worldX: sx, worldY: sy };
+    this.cards.push(cs);
+    this.positionCard(cs);
+    return cs;
   }
 
   private positionCard(cs: CardState): void {

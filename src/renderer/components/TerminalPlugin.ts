@@ -1,0 +1,84 @@
+import { Terminal } from '@xterm/xterm';
+
+export class TerminalPlugin {
+  private term: Terminal;
+  private el: HTMLDivElement;
+  private cleanup: (() => void) | null = null;
+
+  constructor(container: HTMLElement) {
+    this.el = document.createElement('div');
+    this.el.style.cssText = 'width:100%;height:100%;background:#0A0E14';
+    container.appendChild(this.el);
+
+    this.term = new Terminal({
+      cursorBlink: true,
+      cursorStyle: 'bar',
+      fontSize: 13,
+      fontFamily: '"Space Mono", "Courier New", monospace',
+      theme: {
+        background: '#0A0E14',
+        foreground: '#C8D6E5',
+        cursor: '#C8D6E5',
+        selectionBackground: '#2A3A4A',
+        black: '#0A0E14',
+        red: '#FF1744',
+        green: '#00E676',
+        yellow: '#FFAB00',
+        blue: '#00E5FF',
+        magenta: '#7C4DFF',
+        cyan: '#00E5FF',
+        white: '#C8D6E5',
+        brightBlack: '#546E7A',
+        brightRed: '#FF1744',
+        brightGreen: '#00E676',
+        brightYellow: '#FFAB00',
+        brightBlue: '#00E5FF',
+        brightMagenta: '#7C4DFF',
+        brightCyan: '#00E5FF',
+        brightWhite: '#ECEFF1',
+      },
+    });
+
+    this.term.open(this.el);
+    this.term.focus();
+
+    this.init();
+  }
+
+  private async init(): Promise<void> {
+    const api = window.electronAPI?.terminal;
+    if (!api) return;
+
+    await api.create();
+
+    this.cleanup = api.onData((data) => {
+      this.term.write(data);
+    });
+
+    this.term.onData((data) => {
+      api.write(data);
+    });
+
+    this.term.onResize(({ cols, rows }) => {
+      api.resize(cols, rows);
+    });
+
+    // Fit on next frame
+    requestAnimationFrame(() => this.fit());
+  }
+
+  fit(): void {
+    const cols = Math.floor(this.el.clientWidth / 9);
+    const rows = Math.floor(this.el.clientHeight / 20);
+    if (cols > 0 && rows > 0) {
+      this.term.resize(cols, rows);
+      window.electronAPI?.terminal.resize(cols, rows);
+    }
+  }
+
+  destroy(): void {
+    this.cleanup?.();
+    window.electronAPI?.terminal.kill();
+    this.term.dispose();
+  }
+}
