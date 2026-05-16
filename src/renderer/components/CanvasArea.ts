@@ -1,6 +1,7 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
 
 import { PluginCard } from './PluginCard';
+import { TextRenderer } from './TextRenderer';
 
 interface CardState {
   card: PluginCard;
@@ -39,18 +40,43 @@ export class CanvasArea {
     this.applyGrid();
   }
 
+  private snap(v: number): number {
+    const half = this.patternSize / 2;
+    return Math.round((v - half) / this.patternSize) * this.patternSize + half;
+  }
+
+  private snapSize(v: number): number {
+    return Math.max(this.patternSize, Math.round(v / this.patternSize) * this.patternSize);
+  }
+
   private addCard(title: string, subtitle: string, x: number, y: number, w: number, h: number): void {
-    const card = new PluginCard(this.el, { title, subtitle, x: 0, y: 0, width: w, height: h, onClose: () => {
-      const i = this.cards.findIndex(c => c.card === card);
-      if (i !== -1) this.cards.splice(i, 1);
-    }}, () => this.scale);
-    this.cards.push({ card, worldX: x, worldY: y });
+    const sx = this.snap(x);
+    const sy = this.snap(y);
+    const sw = this.snapSize(w);
+    const sh = this.snapSize(h);
+    const card = new PluginCard(this.el, {
+      title, subtitle, x: 0, y: 0, width: sw, height: sh,
+      onClose: () => {
+        const i = this.cards.findIndex(c => c.card === card);
+        if (i !== -1) this.cards.splice(i, 1);
+      },
+      onDragEnd: (screenX: number, screenY: number) => {
+        const cs = this.cards.find(c => c.card === card);
+        if (cs) {
+          cs.worldX = (screenX - this.panX) / this.scale;
+          cs.worldY = (screenY - this.panY) / this.scale;
+        }
+      },
+    }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
+    this.cards.push({ card, worldX: sx, worldY: sy });
     this.positionCard(this.cards[this.cards.length - 1]);
   }
 
   private positionCard(cs: CardState): void {
-    cs.card.el.style.left = `${cs.worldX * this.scale + this.panX}px`;
-    cs.card.el.style.top = `${cs.worldY * this.scale + this.panY}px`;
+    const left = cs.worldX * this.scale + this.panX;
+    const top = cs.worldY * this.scale + this.panY;
+    cs.card.el.style.left = `${left}px`;
+    cs.card.el.style.top = `${top}px`;
     cs.card.el.style.transform = `scale(${this.scale})`;
     cs.card.el.style.transformOrigin = '0 0';
   }
@@ -97,6 +123,7 @@ export class CanvasArea {
     this.el.style.backgroundImage = `url(${this.patternDataURL})`;
     this.el.style.backgroundRepeat = 'repeat';
     this.el.style.backgroundSize = `${this.patternSize * this.scale}px ${this.patternSize * this.scale}px`;
+    this.el.style.backgroundPosition = `${this.panX}px ${this.panY}px`;
   }
 
   private scheduleTransform(): void {
@@ -152,13 +179,27 @@ export class CanvasArea {
   private updateStatusBar(): void {
     const sb = document.getElementById('statusbar');
     if (!sb) return;
-    sb.innerHTML = `
-      <span class="status-item">Zoom: ${Math.round(this.scale * 100)}%</span>
-      <span class="status-sep"></span>
-      <span class="status-item">Pan: (${Math.round(this.panX)}, ${Math.round(this.panY)})</span>
-      <span class="status-sep"></span>
-      <span class="status-item">COCKPIT IDE v1.0</span>
-      <span style="flex:1"></span>
-    `;
+
+    const col = getComputedStyle(document.documentElement).getPropertyValue('--tertiary').trim();
+    const font = '400 10px "Space Mono", "Courier New", monospace';
+
+    const zoomText = `Zoom: ${Math.round(this.scale * 100)}%`;
+    const panText = `Pan: (${Math.round(this.panX)}, ${Math.round(this.panY)})`;
+
+    const c1 = TextRenderer.createCanvas(zoomText, 140, 20, { font, color: col, lineHeight: 18 });
+    const c2 = TextRenderer.createCanvas(panText, 200, 20, { font, color: col, lineHeight: 18 });
+    const c3 = TextRenderer.createCanvas('COCKPIT IDE v1.0', 200, 20, { font, color: col, lineHeight: 18 });
+
+    c1.style.cssText = 'height:20px;flex-shrink:0';
+    c2.style.cssText = 'height:20px;flex-shrink:0';
+    c3.style.cssText = 'height:20px;flex-shrink:0';
+
+    sb.innerHTML = '';
+    sb.appendChild(c1);
+    const sep1 = document.createElement('span'); sep1.className = 'status-sep'; sb.appendChild(sep1);
+    sb.appendChild(c2);
+    const sep2 = document.createElement('span'); sep2.className = 'status-sep'; sb.appendChild(sep2);
+    sb.appendChild(c3);
+    const fill = document.createElement('span'); fill.style.cssText = 'flex:1'; sb.appendChild(fill);
   }
 }

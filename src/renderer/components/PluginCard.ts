@@ -1,4 +1,5 @@
 import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
+import { TextRenderer } from './TextRenderer';
 
 export interface CardOptions {
   title: string;
@@ -9,7 +10,11 @@ export interface CardOptions {
   height: number;
   content?: string;
   onClose?: () => void;
+  onDragEnd?: (worldX: number, worldY: number) => void;
+  onResizeEnd?: (width: number, height: number) => void;
 }
+
+const SNAP = 28;
 
 export class PluginCard {
   readonly el: HTMLDivElement;
@@ -20,10 +25,12 @@ export class PluginCard {
   private isDragging = false;
   private dragOffsetX = 0;
   private dragOffsetY = 0;
-  private startX = 0;
-  private startY = 0;
+  private startWorldX = 0;
+  private startWorldY = 0;
+  private startPanX = 0;
+  private startPanY = 0;
 
-  constructor(private parent: HTMLElement, opts: CardOptions, private getScale: () => number) {
+  constructor(private parent: HTMLElement, opts: CardOptions, private getTransform: () => { scale: number; panX: number; panY: number }) {
     this.opts = opts;
     this.el = document.createElement('div');
     this.el.className = 'card';
@@ -36,7 +43,10 @@ export class PluginCard {
         </div>
         <button class="card-close">✕</button>
       </div>
-      <div class="card-body">${opts.content || '<span class="card-glyph">⏣</span>'}</div>
+      <div class="card-body"></div>
+      <div class="card-edge card-edge-e"></div>
+      <div class="card-edge card-edge-s"></div>
+      <div class="card-edge card-edge-se"></div>
     `;
 
     this.el.style.left = `${opts.x}px`;
@@ -49,7 +59,9 @@ export class PluginCard {
     this.headerCanvas = this.el.querySelector('.card-title-canvas')!;
 
     this.renderTitle();
+    this.renderBody();
     this.initDrag();
+    this.initResize();
 
     this.el.querySelector('.card-close')?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -97,8 +109,21 @@ export class PluginCard {
     }
   }
 
+  private renderBody(): void {
+  }
+
   setContent(html: string): void {
-    this.body.innerHTML = html;
+    this.body.innerHTML = '';
+    const canvas = TextRenderer.createCanvas(html, this.opts.width - 40, this.opts.height - 70, {
+      font: '400 13px "Space Mono", "Courier New", monospace',
+      color: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
+      lineHeight: 20,
+    });
+    this.body.appendChild(canvas);
+  }
+
+  private snap(v: number): number {
+    return Math.round(v / SNAP) * SNAP;
   }
 
   private initDrag(): void {
@@ -108,22 +133,91 @@ export class PluginCard {
       this.isDragging = true;
       this.dragOffsetX = e.clientX;
       this.dragOffsetY = e.clientY;
-      this.startX = this.el.offsetLeft;
-      this.startY = this.el.offsetTop;
+      const t = this.getTransform();
+      this.startWorldX = (this.el.offsetLeft - t.panX) / t.scale;
+      this.startWorldY = (this.el.offsetTop - t.panY) / t.scale;
+      this.startPanX = t.panX;
+      this.startPanY = t.panY;
       this.el.style.transition = 'none';
     });
 
     document.addEventListener('mousemove', (e) => {
       if (!this.isDragging) return;
-      const s = this.getScale();
-      this.el.style.left = `${this.startX + (e.clientX - this.dragOffsetX) / s}px`;
-      this.el.style.top = `${this.startY + (e.clientY - this.dragOffsetY) / s}px`;
+      const t = this.getTransform();
+      const worldRawX = this.startWorldX + (e.clientX - this.dragOffsetX - t.panX + this.startPanX) / t.scale;
+      const worldRawY = this.startWorldY + (e.clientY - this.dragOffsetY - t.panY + this.startPanY) / t.scale;
+      const half = SNAP / 2;
+      const snappedWorldX = Math.round((worldRawX - half) / SNAP) * SNAP + half;
+      const snappedWorldY = Math.round((worldRawY - half) / SNAP) * SNAP + half;
+      this.el.style.left = `${snappedWorldX * t.scale + t.panX}px`;
+      this.el.style.top = `${snappedWorldY * t.scale + t.panY}px`;
     });
 
     document.addEventListener('mouseup', () => {
       if (this.isDragging) {
         this.isDragging = false;
         this.el.style.transition = '';
+        const t = this.getTransform();
+        const left = parseFloat(this.el.style.left);
+        const top = parseFloat(this.el.style.top);
+        this.opts.onDragEnd?.(
+          (left - t.panX) / t.scale,
+          (top - t.panY) / t.scale,
+        );
+      }
+    });
+  }
+
+  private initResize(): void {
+    type Dir = 'e' | 's' | 'se';
+    let dir: Dir = 'se';
+    let resizing = false;
+    let startW = 0, startH = 0, startX = 0, startY = 0;
+
+    const handlers: Record<Dir, HTMLElement> = {
+      e: this.el.querySelector('.card-edge-e')!,
+      s: this.el.querySelector('.card-edge-s')!,
+      se: this.el.querySelector('.card-edge-se')!,
+    };
+
+    for (const [d, h] of Object.entries(handlers)) {
+      h.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        dir = d as Dir;
+        resizing = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        const t = this.getTransform();
+        startW = this.opts.width;
+        startH = this.opts.height;
+      });
+    }
+
+    document.addEventListener('mousemove', (e) => {
+      if (!resizing) return;
+      const t = this.getTransform();
+      const dw = (e.clientX - startX) / t.scale;
+      const dh = (e.clientY - startY) / t.scale;
+      const half = SNAP / 2;
+      let newW = this.opts.width;
+      let newH = this.opts.height;
+      if (dir === 'e' || dir === 'se') {
+        newW = Math.max(SNAP, Math.round((startW + dw) / SNAP) * SNAP);
+      }
+      if (dir === 's' || dir === 'se') {
+        newH = Math.max(SNAP, Math.round((startH + dh) / SNAP) * SNAP);
+      }
+      this.opts.width = newW;
+      this.opts.height = newH;
+      this.el.style.width = `${newW}px`;
+      this.el.style.height = `${newH}px`;
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (resizing) {
+        resizing = false;
+        this.opts.onResizeEnd?.(this.opts.width, this.opts.height);
       }
     });
   }
