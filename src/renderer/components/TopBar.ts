@@ -38,10 +38,9 @@ export class TopBar {
       <div class="menu-item">
         View
         <div class="menu-dropdown">
-          <div class="menu-dropdown-separator" style="margin:2px 8px">PLUGINS</div>
-          <div class="menu-dropdown-item" id="menu-new-terminal">+ Terminal</div>
-          <div class="menu-dropdown-item" id="menu-new-explorer">+ Explorer</div>
-          <div class="menu-dropdown-item" id="menu-new-editor">+ Editor</div>
+          <div class="menu-dropdown-item" id="menu-new-terminal">Terminal</div>
+          <div class="menu-dropdown-item" id="menu-new-explorer">Explorer</div>
+          <div class="menu-dropdown-item" id="menu-new-editor">Editor</div>
           <div class="menu-dropdown-separator"></div>
           <div class="menu-dropdown-item">Zoom In</div>
           <div class="menu-dropdown-item">Zoom Out</div>
