@@ -1,5 +1,5 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
-export type SaveState = { plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }[]; editor: { openFiles: string[]; activeFile: string } | null; zOrder: string[]; zoom: number; panX: number; panY: number };
+export type SaveState = { plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }[]; editor: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null; zOrder: string[]; zoom: number; panX: number; panY: number };
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
@@ -162,8 +162,10 @@ export class CanvasArea {
   getSaveState(): SaveState {
     // Sort by current z-index to get bottom-to-top order
     const byZ = [...this.cards].sort((a, b) => parseInt(a.card.el.style.zIndex || '1') - parseInt(b.card.el.style.zIndex || '1'));
+    const editorState = this.devPlugin ? this.devPlugin.getEditorState() : null;
     return {
       plugins: this.cards.map(c => ({ uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen })),
+      editor: editorState,
       zOrder: byZ.map(c => c.card.uuid),
       zoom: this.scale, panX: this.panX, panY: this.panY,
     };
@@ -187,6 +189,7 @@ export class CanvasArea {
   }
 
   private activeEditor: MonacoEditorPlugin | null = null;
+  devPlugin: DevPlugin | null = null;
   private wsPath = '';
 
   private createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onClose?: () => void }): CardState {
@@ -254,7 +257,7 @@ export class CanvasArea {
             body.style.padding = '0';
             body.style.alignItems = 'stretch';
             body.style.justifyContent = 'stretch';
-            new DevPlugin(body, wsPath);
+            this.devPlugin = new DevPlugin(body, wsPath);
           }
         }
       }
@@ -297,7 +300,7 @@ export class CanvasArea {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        new DevPlugin(body, wsPath);
+        this.devPlugin = new DevPlugin(body, wsPath);
       }
     });
   }

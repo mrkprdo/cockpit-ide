@@ -54,27 +54,12 @@ export class DevPlugin {
     setTimeout(() => explorer.refresh(), 1000);
   }
 
-  getEditorState(): { openFiles: string[]; activeFile: string } | null {
-    // MonacoEditorPlugin stores open files in internal tabs array
-    // We read via a window reference or expose the data
-    const editor = this.editor as any;
-    const tabs = editor.tabs as { filePath: string }[] | undefined;
-    if (!tabs || tabs.length === 0) return null;
-    return {
-      openFiles: tabs.map((t: any) => t.filePath),
-      activeFile: editor.activeTab || tabs[0].filePath,
-    };
+  getEditorState(): { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
+    return this.editor.getState();
   }
 
-  async restoreEditorState(state: { openFiles: string[]; activeFile: string } | null): Promise<void> {
+  async restoreEditorState(state: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null): Promise<void> {
     if (!state || !state.openFiles.length) return;
-    for (const f of state.openFiles) {
-      await this.editor.openFile(f);
-    }
-    // Switch to the active file (openFile opens tabs, last one is active)
-    // We need to swap to the saved activeFile
-    if (state.activeFile) {
-      (this.editor as any).switchTab?.(state.activeFile);
-    }
+    await this.editor.restoreState(state);
   }
 }

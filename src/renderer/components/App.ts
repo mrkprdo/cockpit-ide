@@ -102,6 +102,18 @@ export class App {
     } else {
       this.canvas.centerView();
     }
+
+    // Restore editor state (open files, active tab, cursor positions)
+    if (state?.editor) {
+      const tryRestore = () => {
+        if (this.canvas.devPlugin) {
+          this.canvas.devPlugin.restoreEditorState(state.editor);
+        }
+      };
+      tryRestore();
+      setTimeout(tryRestore, 500);
+    }
+
     this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;
     this.canvas.refresh();
     this.saveNow();

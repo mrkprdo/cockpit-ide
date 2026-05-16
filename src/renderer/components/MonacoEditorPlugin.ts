@@ -252,4 +252,52 @@ export class MonacoEditorPlugin {
       document.head.appendChild(s);
     });
   }
+
+  getState(): { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
+    if (this.tabs.length === 0) return null;
+    const cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> = {};
+    for (const tab of this.tabs) {
+      const model = (window as any).monaco?.editor.getModel?.();
+      // We store cursor per file by reading editor position when switching
+      // For now, read current position for active tab
+      if (tab.filePath === this.activeTab && this.editor) {
+        const pos = this.editor.getPosition();
+        const scroll = this.editor.getScrollTop();
+        cursors[tab.filePath] = {
+          lineNumber: pos?.lineNumber || 1,
+          column: pos?.column || 1,
+          scrollTop: scroll || 0,
+        };
+      } else {
+        cursors[tab.filePath] = { lineNumber: 1, column: 1, scrollTop: 0 };
+      }
+    }
+    return {
+      openFiles: this.tabs.map(t => t.filePath),
+      activeFile: this.activeTab || '',
+      cursors,
+    };
+  }
+
+  async restoreState(state: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> }): Promise<void> {
+    // Save activeTab reference before opening files (openFile sets activeTab on each call)
+    const targetActive = state.activeFile;
+    for (const f of state.openFiles) {
+      await this.openFile(f);
+    }
+    // Switch to the correct active file
+    if (targetActive && targetActive !== this.activeTab) {
+      this.switchTab(targetActive);
+    }
+    // Restore cursor positions
+    requestAnimationFrame(() => {
+      for (const [filePath, pos] of Object.entries(state.cursors)) {
+        if (filePath === this.activeTab && this.editor) {
+          this.editor.setPosition({ lineNumber: pos.lineNumber, column: pos.column });
+          this.editor.setScrollTop(pos.scrollTop);
+          this.editor.revealPositionInCenter({ lineNumber: pos.lineNumber, column: pos.column });
+        }
+      }
+    });
+  }
 }

@@ -1,5 +1,6 @@
 interface WorkspaceState {
   plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }[];
+  editor: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null;
   zOrder: string[];
   zoom: number;
   panX: number;
