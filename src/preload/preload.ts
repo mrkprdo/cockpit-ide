@@ -24,4 +24,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('terminal:data', handler);
     },
   },
+  workspace: {
+    select: () => ipcRenderer.invoke('workspace:select'),
+    getPath: () => ipcRenderer.invoke('workspace:getPath'),
+    load: () => ipcRenderer.invoke('workspace:load'),
+    save: (state: any) => ipcRenderer.invoke('workspace:save', state),
+  },
 });

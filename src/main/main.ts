@@ -1,8 +1,14 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import * as fs from 'fs';
 import * as path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
 let ptyProcess: any = null;
+let workspacePath: string | null = null;
+
+function cockpitDir(dir: string): void {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
 
 if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
 
@@ -81,6 +87,34 @@ app.whenReady().then(() => {
 
   ipcMain.on('terminal:kill', () => {
     if (ptyProcess) { ptyProcess.kill(); ptyProcess = null; }
+  });
+
+  // Workspace
+  ipcMain.handle('workspace:select', async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openDirectory'],
+      title: 'Open Workspace',
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    const wsPath = result.filePaths[0];
+    cockpitDir(path.join(wsPath, '.cockpit'));
+    workspacePath = wsPath;
+    return wsPath;
+  });
+
+  ipcMain.handle('workspace:getPath', () => workspacePath);
+
+  ipcMain.handle('workspace:load', () => {
+    if (!workspacePath) return null;
+    const stateFile = path.join(workspacePath, '.cockpit', 'state.json');
+    try { return JSON.parse(fs.readFileSync(stateFile, 'utf-8')); } catch { return null; }
+  });
+
+  ipcMain.handle('workspace:save', (_event, state: any) => {
+    if (!workspacePath) return;
+    const dir = path.join(workspacePath, '.cockpit');
+    cockpitDir(dir);
+    fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(state, null, 2));
   });
 
   createWindow();

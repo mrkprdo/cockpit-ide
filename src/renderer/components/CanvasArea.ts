@@ -1,4 +1,5 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
+export type SaveState = { plugins: { title: string; x: number; y: number; width: number; height: number }[]; zoom: number; panX: number; panY: number };
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
@@ -26,6 +27,7 @@ export class CanvasArea {
   private rafId = 0;
   private gridStyle: GridStyle = 'dots';
   private originDot: HTMLElement;
+  workspaceName = 'no workspace';
 
   constructor(private el: HTMLElement) {
     this.originDot = document.createElement('div');
@@ -146,6 +148,18 @@ export class CanvasArea {
     this.el.style.backgroundPosition = `${this.panX}px ${this.panY}px`;
   }
 
+  getSaveState(): SaveState {
+    return {
+      plugins: this.cards.map(c => ({ title: c.card.opts.title, x: c.worldX, y: c.worldY, width: c.card.opts.width, height: c.card.opts.height })),
+      zoom: this.scale, panX: this.panX, panY: this.panY,
+    };
+  }
+
+  setView(state: { zoom: number; panX: number; panY: number }): void {
+    this.scale = state.zoom; this.panX = state.panX; this.panY = state.panY;
+    this.scheduleTransform();
+  }
+
   refresh(): void { this.scheduleTransform(); }
   private scheduleTransform(): void {
     if (this.rafId) return;
@@ -213,7 +227,7 @@ export class CanvasArea {
 
     const c1 = TextRenderer.createCanvas(zoomText, 140, 20, { font, color: col, lineHeight: 18 });
     const c2 = TextRenderer.createCanvas(panText, 200, 20, { font, color: col, lineHeight: 18 });
-    const c3 = TextRenderer.createCanvas('COCKPIT IDE v1.0', 200, 20, { font, color: col, lineHeight: 18 });
+    const c3 = TextRenderer.createCanvas(this.workspaceName, 200, 20, { font, color: col, lineHeight: 18 });
 
     c1.style.cssText = 'height:20px;flex-shrink:0';
     c2.style.cssText = 'height:20px;flex-shrink:0';

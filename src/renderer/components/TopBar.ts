@@ -3,6 +3,7 @@ import { theme } from '../theme';
 interface TopBarCallbacks {
   onOpenPreferences: () => void;
   onThemeToggle?: () => void;
+  onOpenWorkspace?: () => void;
 }
 
 export class TopBar {
@@ -19,7 +20,7 @@ export class TopBar {
         File
         <div class="menu-dropdown">
           <div class="menu-dropdown-item">New Project</div>
-          <div class="menu-dropdown-item">Open...</div>
+          <div class="menu-dropdown-item" id="menu-open-workspace">Open Workspace...</div>
           <div class="menu-dropdown-item">Save</div>
           <div class="menu-dropdown-separator"></div>
           <div class="menu-dropdown-item">Exit</div>
@@ -63,6 +64,10 @@ export class TopBar {
 
     document.getElementById('menu-preferences')?.addEventListener('click', () => {
       this.callbacks.onOpenPreferences();
+    });
+
+    document.getElementById('menu-open-workspace')?.addEventListener('click', () => {
+      this.callbacks.onOpenWorkspace?.();
     });
 
     document.getElementById('theme-toggle')?.addEventListener('click', () => {
