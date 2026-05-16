@@ -1,0 +1,301 @@
+/* ===== Design System (Noir × Art Nouveau × Floating) ===== */
+:root {
+  --bg: #0A0E14;
+  --surface: #121820;
+  --panel: #1A2430;
+  --primary: #C8D6E5;
+  --secondary: #78909C;
+  --tertiary: #546E7A;
+  --border: #2A3A4A;
+  --accent: #00E5FF;
+  --accent2: #7C4DFF;
+  --green: #00E676;
+  --amber: #FFAB00;
+  --red: #FF1744;
+
+  --font: 'Space Mono', 'Courier New', monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --shadow: rgba(0,0,0,0.30) 0 6px 20px, rgba(0,0,0,0.20) 0 3px 10px;
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--font);
+  color: var(--primary);
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Custom Title Bar ===== */
+#titlebar {
+  height: 40px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  z-index: 10;
+}
+#titlebar-drag {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  gap: 8px;
+  -webkit-app-region: drag;
+}
+#titlebar-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.brand-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--bg);
+  flex-shrink: 0;
+}
+
+.menu-bar {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.menu-item {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--secondary);
+  transition: background 0.1s, color 0.1s;
+  user-select: none;
+}
+.menu-item:hover {
+  background: var(--panel);
+  color: var(--primary);
+}
+
+.menu-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  z-index: 100;
+}
+.menu-item.open .menu-dropdown { display: block; }
+
+.menu-dropdown-item {
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+  color: var(--primary);
+}
+.menu-dropdown-item:hover { background: var(--panel); }
+.menu-dropdown-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
+
+.tb-btn {
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--secondary);
+  font-size: 12px;
+  font-family: var(--font);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+.tb-btn:hover { background: var(--panel); color: var(--primary); }
+.tb-close:hover { background: #e81123; color: #fff; }
+
+/* ===== Canvas ===== */
+#canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3000px;
+  height: 3000px;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.canvas-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== Status Bar ===== */
+#statusbar {
+  height: 28px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-family: var(--font);
+  color: var(--tertiary);
+}
+.status-item { display: flex; align-items: center; gap: 4px; }
+.status-sep { width: 1px; height: 14px; background: var(--border); }
+
+/* ===== Plugin Card ===== */
+.plugin-card {
+  position: absolute;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  cursor: default;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
+  overflow: hidden;
+}
+.plugin-card:hover {
+  transform: translateY(-4px);
+  box-shadow: rgba(0,0,0,0.40) 0 10px 30px, rgba(0,0,0,0.25) 0 4px 14px;
+}
+
+.plugin-card-header {
+  height: 56px;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-bottom: 1px solid var(--border);
+  border-bottom-opacity: 0.1;
+  position: relative;
+}
+
+.plugin-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--primary);
+}
+
+.plugin-card-subtitle {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--tertiary);
+}
+
+.plugin-card-content {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--border);
+  font-size: 48px;
+  opacity: 0.3;
+}
+
+/* ===== Modal ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 380px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--primary);
+  font-family: var(--font);
+}
+.modal-body {
+  padding: 20px;
+}
+.modal-section {
+  margin-bottom: 16px;
+}
+.modal-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--secondary);
+  margin-bottom: 12px;
+  font-family: var(--font);
+}
+.modal-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.1s;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--primary);
+}
+.modal-radio:hover { background: var(--panel); }
+.modal-radio input { accent-color: var(--primary); }
