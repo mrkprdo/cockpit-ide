@@ -265,7 +265,7 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px;
-  z-index: 300;
+  z-index: 9999;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
 }
 .ctx-item {
