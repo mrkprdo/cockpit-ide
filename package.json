@@ -9,7 +9,11 @@
     "dev": "electron . --dev",
     "dev:watch": "concurrently -k \"tsc -p tsconfig.main.json --watch\" \"esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife --watch\" \"copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && npx wait-on dist/main/main.js && copyfiles -u 1 node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ && if not exist dist\\vs xcopy /s /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul\"",
     "prod": "electron .",
-    "clean": "rm -rf dist"
+    "pack": "npm run build && electron-builder --config package.json",
+    "pack:win": "npm run build && electron-builder --win --config package.json",
+    "pack:mac": "npm run build && electron-builder --mac --config package.json",
+    "pack:linux": "npm run build && electron-builder --linux --config package.json",
+    "clean": "rm -rf dist release"
   },
   "devDependencies": {
     "chokidar": "^5.0.0",
@@ -20,6 +24,37 @@
     "esbuild": "^0.28.0",
     "typescript": "^5.8.0",
     "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "com.cockpit.ide",
+    "productName": "Cockpit IDE",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "public/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/cockpit_ide_icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/cockpit_ide_icon.ico",
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/cockpit_ide_icon.ico",
+      "category": "Development"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "keywords": [],
   "author": "",
