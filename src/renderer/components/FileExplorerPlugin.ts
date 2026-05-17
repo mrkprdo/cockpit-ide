@@ -1,4 +1,5 @@
 import { ContextMenu } from './ContextMenu';
+import { ConfirmModal } from './ConfirmModal';
 
 export class FileExplorerPlugin {
   private el: HTMLDivElement;
@@ -46,24 +47,59 @@ export class FileExplorerPlugin {
     this.loadDir(this.rootPath, this.treeEl, 0);
   }
 
-  private async createFile(parentDir: string): Promise<void> {
-    const name = prompt('File name:');
-    if (!name) return;
-    const fullPath = parentDir + '/' + name;
-    await window.electronAPI?.fs.writeFile(fullPath, '');
-    this.refresh();
+  private showInlineInput(parentDir: string, isFolder: boolean): void {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 4px';
+    row.style.paddingLeft = '12px';
+
+    const input = document.createElement('input');
+    input.style.cssText = 'flex:1;border:1px solid var(--border);outline:none;background:var(--panel);font-size:12px;font-family:"Space Mono","Courier New",monospace;color:var(--primary);padding:1px 4px;border-radius:3px';
+    input.placeholder = isFolder ? 'folder name' : 'file name';
+    input.autofocus = true;
+
+    const icon = document.createElement('span');
+    icon.textContent = isFolder ? '▸' : ' ';
+    icon.style.cssText = 'color:var(--tertiary);width:12px;flex-shrink:0';
+
+    row.appendChild(icon);
+    row.appendChild(input);
+    this.treeEl.appendChild(row);
+    input.focus();
+
+    const commit = async () => {
+      const name = input.value.trim();
+      if (!name) { row.remove(); return; }
+      const fullPath = parentDir + '/' + name;
+      if (isFolder) {
+        await window.electronAPI?.fs.writeFile(fullPath + '/.gitkeep', '');
+      } else {
+        await window.electronAPI?.fs.writeFile(fullPath, '');
+      }
+      row.remove();
+      this.refresh();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { e.preventDefault(); row.remove(); }
+    });
+    // Blur also commits
+    input.addEventListener('blur', () => commit());
   }
 
-  private async createFolder(parentDir: string): Promise<void> {
-    const name = prompt('Folder name:');
-    if (!name) return;
-    const fullPath = parentDir + '/' + name;
-    await window.electronAPI?.fs.writeFile(fullPath + '/.gitkeep', '');
-    this.refresh();
+  private createFile(parentDir: string): void {
+    this.showInlineInput(parentDir, false);
+  }
+
+  private createFolder(parentDir: string): void {
+    this.showInlineInput(parentDir, true);
   }
 
   private async deletePath(targetPath: string): Promise<void> {
-    if (!confirm(`Delete ${targetPath.split(/[\\/]/).pop()}?`)) return;
+    const name = targetPath.split(/[\\/]/).pop() || 'this item';
+    const modal = new ConfirmModal(`Delete <b>${name}</b>?`, 'Delete');
+    const ok = await modal.open();
+    if (!ok) return;
     await window.electronAPI?.fs.delete(targetPath);
     this.refresh();
   }
