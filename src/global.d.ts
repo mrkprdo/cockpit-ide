@@ -32,6 +32,7 @@ interface Window {
       resize: (uuid: string, cols: number, rows: number) => void;
       kill: (uuid: string) => void;
       onData: (callback: (uuid: string, data: string) => void) => () => void;
+      onExit: (callback: (uuid: string) => void) => () => void;
     };
     workspace: {
       select: () => Promise<string | null>;
@@ -43,6 +44,10 @@ interface Window {
     };
     shell: {
       openExternal: (url: string) => Promise<boolean>;
+    };
+    prefs: {
+      load: () => Promise<any>;
+      save: (prefs: any) => Promise<boolean>;
     };
     fs: {
       readDir: (dirPath: string) => Promise<DirEntry[] | null>;

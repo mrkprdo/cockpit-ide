@@ -139,8 +139,7 @@ export class CanvasArea {
   }
 
   private snap(v: number): number {
-    const half = this.patternSize / 2;
-    return Math.round((v - half) / this.patternSize) * this.patternSize + half;
+    return Math.round(v / this.patternSize) * this.patternSize;
   }
 
   private snapSize(v: number): number {
@@ -210,7 +209,7 @@ export class CanvasArea {
       ctx.fillStyle = color;
       ctx.globalAlpha = 0.5;
       ctx.beginPath();
-      ctx.arc(s / 2, s / 2, 1, 0, Math.PI * 2);
+      ctx.arc(0, 0, 1, 0, Math.PI * 2);
       ctx.fill();
     } else {
       ctx.strokeStyle = color;
@@ -339,6 +338,7 @@ export class CanvasArea {
             if (body) {
               body.style.padding = '0';
               const term = new TerminalPlugin(body, cs.card.uuid, wsPath);
+              term.onExit = () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyTerminalsChanged(); };
               cs.card.onDestroy = () => term.destroy();
               cs.card.opts.onResizeEnd = () => term.fit();
             }
@@ -425,6 +425,7 @@ export class CanvasArea {
       if (body) {
         (body as HTMLElement).style.padding = '0';
         const term = new TerminalPlugin(body as HTMLElement, cs.card.uuid, cwd);
+        term.onExit = () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyTerminalsChanged(); };
         cs.card.onDestroy = () => term.destroy();
         cs.card.opts.onResizeEnd = () => term.fit();
       }
@@ -548,8 +549,8 @@ export class CanvasArea {
       this.applyGrid();
       for (const cs of this.cards) cs.card.renderTitle();
       const half = this.patternSize / 2;
-      this.originDot.style.left = `${this.panX + half * this.scale}px`;
-      this.originDot.style.top = `${this.panY + half * this.scale}px`;
+      this.originDot.style.left = `${this.panX}px`;
+      this.originDot.style.top = `${this.panY}px`;
       this.updateStatusBar();
       this.onStateChange?.();
     });

@@ -23,6 +23,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('terminal:data', handler);
       return () => ipcRenderer.removeListener('terminal:data', handler);
     },
+    onExit: (callback: (uuid: string) => void) => {
+      const handler = (_event: any, uuid: string) => callback(uuid);
+      ipcRenderer.on('terminal:exit', handler);
+      return () => ipcRenderer.removeListener('terminal:exit', handler);
+    },
   },
   workspace: {
     select: () => ipcRenderer.invoke('workspace:select'),
@@ -34,6 +39,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  },
+  prefs: {
+    load: () => ipcRenderer.invoke('prefs:load'),
+    save: (prefs: any) => ipcRenderer.invoke('prefs:save', prefs),
   },
   fs: {
     readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),

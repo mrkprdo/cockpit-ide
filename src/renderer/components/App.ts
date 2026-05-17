@@ -1,13 +1,11 @@
 import { TopBar } from './TopBar';
 import { CanvasArea, SaveState } from './CanvasArea';
-import { PreferencesModal } from './PreferencesModal';
 import { WelcomeModal } from './WelcomeModal';
 import { AboutModal } from './AboutModal';
 import { theme } from '../theme';
 
 export class App {
   private canvas: CanvasArea;
-  private prefs: PreferencesModal;
   private topBar: TopBar;
   private about: AboutModal;
   private lastSaved = '';
@@ -22,15 +20,13 @@ export class App {
     this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
     this.canvas.onDevsChanged = (items) => this.topBar.setDevItems(items);
 
-    this.prefs = new PreferencesModal((style) => {
-      this.canvas.setGridStyle(style);
-      this.saveNow();
-    });
-
     this.about = new AboutModal();
 
     this.topBar = new TopBar(document.getElementById('menu-bar')!, {
-      onOpenPreferences: () => this.prefs.open(),
+      onGridChange: (style) => {
+        this.canvas.setGridStyle(style);
+        window.electronAPI?.prefs.save({ gridStyle: style });
+      },
       onThemeToggle: () => {
         this.canvas.refresh();
         this.canvas.devPlugin?.updateTheme();
@@ -117,6 +113,10 @@ export class App {
     } else {
       this.canvas.centerView();
     }
+
+    // Restore user preferences
+    const prefs = await window.electronAPI?.prefs.load();
+    if (prefs?.gridStyle) this.canvas.setGridStyle(prefs.gridStyle);
 
     this.canvas.workspaceName = path;
     this.canvas.refresh();

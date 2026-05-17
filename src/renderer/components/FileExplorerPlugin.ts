@@ -190,7 +190,14 @@ export class FileExplorerPlugin {
 
       if (entry.isDirectory) {
         const childContainer = document.createElement('div');
-        childContainer.style.display = this.expanded.has(fullKey) ? '' : 'none';
+        const isExpanded = this.expanded.has(fullKey);
+        childContainer.style.display = isExpanded ? '' : 'none';
+
+        // Pre-load children if already expanded
+        if (isExpanded) {
+          await this.loadDir(fullPath, childContainer, depth + 1);
+        }
+
         item.addEventListener('click', async (e) => {
           e.stopPropagation();
           if (this.expanded.has(fullKey)) {
@@ -208,7 +215,7 @@ export class FileExplorerPlugin {
           }
         });
         parentEl.appendChild(item);
-        if (this.expanded.has(fullKey)) {
+        if (isExpanded) {
           parentEl.appendChild(childContainer);
         }
       } else {

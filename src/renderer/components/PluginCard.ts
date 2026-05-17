@@ -142,9 +142,8 @@ export class PluginCard {
       const t = this.getTransform();
       const worldRawX = this.startWorldX + (e.clientX - this.dragOffsetX - t.panX + this.startPanX) / t.scale;
       const worldRawY = this.startWorldY + (e.clientY - this.dragOffsetY - t.panY + this.startPanY) / t.scale;
-      const half = SNAP / 2;
-      const snappedWorldX = Math.round((worldRawX - half) / SNAP) * SNAP + half;
-      const snappedWorldY = Math.round((worldRawY - half) / SNAP) * SNAP + half;
+      const snappedWorldX = Math.round(worldRawX / SNAP) * SNAP;
+      const snappedWorldY = Math.round(worldRawY / SNAP) * SNAP;
       this.el.style.left = `${snappedWorldX * t.scale + t.panX}px`;
       this.el.style.top = `${snappedWorldY * t.scale + t.panY}px`;
     });

@@ -2,9 +2,11 @@ import { Terminal } from '@xterm/xterm';
 
 export class TerminalPlugin {
   readonly uuid: string;
+  onExit: (() => void) | null = null;
   private term: Terminal;
   private el: HTMLDivElement;
   private cleanup: (() => void) | null = null;
+  private exitCleanup: (() => void) | null = null;
   private cwd: string | undefined;
 
   constructor(container: HTMLElement, uuid: string, cwd?: string) {
@@ -57,6 +59,13 @@ export class TerminalPlugin {
 
     this.cleanup = api.onData((termUuid, data) => {
       if (termUuid === this.uuid) this.term.write(data);
+    });
+
+    this.exitCleanup = api.onExit((termUuid) => {
+      if (termUuid === this.uuid) {
+        this.term.write('\r\n\x1b[31m[Process exited]\x1b[0m\r\n');
+        this.onExit?.();
+      }
     });
 
     this.term.onData((data) => {

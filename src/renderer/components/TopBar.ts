@@ -1,7 +1,9 @@
 import { theme } from '../theme';
 
+type GridStyle = 'none' | 'dots' | 'grid';
+
 interface TopBarCallbacks {
-  onOpenPreferences: () => void;
+  onGridChange: (style: GridStyle) => void;
   onThemeToggle?: () => void;
   onOpenWorkspace?: () => void;
   onNewTerminal?: () => void;
@@ -25,8 +27,15 @@ export class TopBar {
   private termItems: TermItem[] = [];
   private devItems: TermItem[] = [];
 
+  private gridStyle: GridStyle = 'dots';
+
   constructor(private el: HTMLElement, callbacks: TopBarCallbacks) {
     this.callbacks = callbacks;
+    this.render();
+  }
+
+  setGridStyle(style: GridStyle): void {
+    this.gridStyle = style;
     this.render();
   }
 
@@ -61,12 +70,6 @@ export class TopBar {
         </div>
       </div>
       <div class="menu-item">
-        Edit
-        <div class="menu-dropdown">
-          <div class="menu-dropdown-item" id="menu-preferences">Preferences</div>
-        </div>
-      </div>
-      <div class="menu-item">
         View
         <div class="menu-dropdown">
           <div class="menu-item-nested">
@@ -84,6 +87,15 @@ export class TopBar {
                 ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">(none)</div>'
                 : this.devItems.map(d => `<div class="menu-dropdown-item dev-instance" data-dev-uuid="${d.uuid}" data-dev-open="${d.isOpen}" style="${d.isOpen ? '' : 'opacity:0.45'}">${d.title}</div>`).join('')
               }
+            </div>
+          </div>
+          <div class="menu-dropdown-separator"></div>
+          <div class="menu-item-nested">
+            <span>Canvas</span><span class="arrow">▸</span>
+            <div class="menu-dropdown-nested">
+              <div class="menu-dropdown-item" data-grid="dots">${this.gridStyle === 'dots' ? '✓ ' : ''}Dot</div>
+              <div class="menu-dropdown-item" data-grid="grid">${this.gridStyle === 'grid' ? '✓ ' : ''}Grid</div>
+              <div class="menu-dropdown-item" data-grid="none">${this.gridStyle === 'none' ? '✓ ' : ''}None</div>
             </div>
           </div>
           <div class="menu-dropdown-separator"></div>
@@ -138,10 +150,6 @@ export class TopBar {
     // Close on click outside
     document.addEventListener('click', () => closeAll());
 
-    document.getElementById('menu-preferences')?.addEventListener('click', () => {
-      this.callbacks.onOpenPreferences();
-    });
-
     document.getElementById('menu-open-workspace')?.addEventListener('click', () => {
       this.callbacks.onOpenWorkspace?.();
     });
@@ -168,6 +176,16 @@ export class TopBar {
 
     document.getElementById('menu-reset-view')?.addEventListener('click', () => {
       this.callbacks.onResetView?.();
+    });
+
+    this.el.querySelectorAll('[data-grid]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const val = (e.currentTarget as HTMLElement).dataset.grid as GridStyle;
+        this.gridStyle = val;
+        this.callbacks.onGridChange(val);
+        this.render();
+      });
     });
 
     // Terminal instances — click to focus (open) or reopen (closed)

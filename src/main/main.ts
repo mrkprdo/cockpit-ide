@@ -48,31 +48,32 @@ function cockpitDir(dir: string): void {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-// File watcher
-let watcher: fs.FSWatcher | null = null;
+// File watcher (using chokidar for reliable cross-platform watching)
+let watcher: any = null;
 let watchDebounce: ReturnType<typeof setTimeout> | null = null;
-const watchedFiles = new Set<string>();
 
 function startWatching(dir: string): void {
   stopWatching();
   try {
-    watcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
-      if (!filename) return;
-      const fullPath = path.resolve(dir, filename);
-      // Ignore .git, node_modules, and the .cockpit folder
-      const parts = filename.split(/[\\/]/);
-      if (parts.some(p => p === '.git' || p === 'node_modules' || p === '.cockpit')) return;
-      // Only care about file changes (not directories)
-      // If stat fails, file was deleted — still send the event
-      try {
-        if (fs.statSync(fullPath).isDirectory()) return;
-      } catch { /* file deleted — proceed to send event */ }
+    const chokidar = require('chokidar');
+    watcher = chokidar.watch(dir, {
+      ignored: /(^|[\/\\])(\.git|node_modules|\.cockpit)([\/\\]|$)/,
+      persistent: true,
+      ignoreInitial: true,
+      depth: 20,
+    });
 
+    const sendChange = (filePath: string) => {
       if (watchDebounce) clearTimeout(watchDebounce);
       watchDebounce = setTimeout(() => {
-        mainWindow?.webContents.send('file:changed', fullPath);
+        mainWindow?.webContents.send('file:changed', filePath);
       }, 100);
-    });
+    };
+
+    watcher.on('add', sendChange);
+    watcher.on('change', sendChange);
+    watcher.on('unlink', sendChange);
+    watcher.on('addDir', () => {});
   } catch (e) {
     console.error('file:watch error', e);
   }
@@ -81,7 +82,6 @@ function startWatching(dir: string): void {
 function stopWatching(): void {
   if (watcher) { watcher.close(); watcher = null; }
   if (watchDebounce) { clearTimeout(watchDebounce); watchDebounce = null; }
-  watchedFiles.clear();
 }
 
 if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
@@ -180,6 +180,11 @@ app.whenReady().then(() => {
       mainWindow?.webContents.send('terminal:data', uuid, data);
     });
 
+    pty.onExit(() => {
+      mainWindow?.webContents.send('terminal:exit', uuid);
+      ptyProcesses.delete(uuid);
+    });
+
     ptyProcesses.set(uuid, pty);
     return true;
   });
@@ -247,6 +252,15 @@ app.whenReady().then(() => {
 
   ipcMain.handle('shell:openExternal', async (_event, url: string) => {
     try { await shell.openExternal(url); return true; } catch { return false; }
+  });
+
+  // User preferences (saved to userData, not workspace-specific)
+  const prefsFile = path.join(app.getPath('userData'), 'preferences.json');
+  ipcMain.handle('prefs:load', () => {
+    try { return JSON.parse(fs.readFileSync(prefsFile, 'utf-8')); } catch { return {}; }
+  });
+  ipcMain.handle('prefs:save', (_event, prefs: any) => {
+    try { fs.writeFileSync(prefsFile, JSON.stringify(prefs, null, 2)); return true; } catch { return false; }
   });
 
   createWindow();
