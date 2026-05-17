@@ -173,7 +173,8 @@ app.whenReady().then(() => {
       nodePty = await import('node-pty');
       process.stderr.write = origErr;
     } catch { return false; }
-    const shell = process.env.COMSPEC || 'cmd.exe';
+    const isWin = process.platform === 'win32';
+    const shell = isWin ? (process.env.COMSPEC || 'cmd.exe') : (process.env.SHELL || 'bash');
     const pty = nodePty.spawn(shell, [], {
       name: 'xterm-color',
       cols: 80,
