@@ -266,8 +266,16 @@ export class CanvasArea {
   private nextZ = 10;
 
   private bringToFront(card: PluginCard): void {
+    if (this.nextZ >= 9998) this.rebalanceZ();
     this.nextZ++;
     card.el.style.zIndex = String(this.nextZ);
+  }
+
+  private rebalanceZ(): void {
+    this.nextZ = 10;
+    for (const cs of this.cards) {
+      cs.card.el.style.zIndex = String(this.nextZ++);
+    }
   }
 
   restoreZOrder(order: string[]): void {
@@ -434,6 +442,8 @@ export class CanvasArea {
           this.activeEditor?.openFile(filePath);
         });
       }
+      this.bringToFront(cs.card);
+      this.panToCard(cs);
     });
   }
 
@@ -445,6 +455,8 @@ export class CanvasArea {
         (body as HTMLElement).style.padding = '0';
         this.activeEditor = new MonacoEditorPlugin(body as HTMLElement);
       }
+      this.bringToFront(cs.card);
+      this.panToCard(cs);
     });
   }
 
@@ -463,6 +475,8 @@ export class CanvasArea {
         this.devPlugin = dev;
         dev.setContextOpeners(this.getContextLabels(), (filePath, label) => this.openInContext(filePath, label));
         this.notifyDevsChanged();
+        this.bringToFront(cs.card);
+        this.panToCard(cs);
       }
     });
   }
@@ -487,6 +501,8 @@ export class CanvasArea {
             if (i !== -1) this.contextPlugins.splice(i, 1);
           };
           this.notifyContextsChanged();
+          this.bringToFront(cs.card);
+          this.panToCard(cs);
           resolve(ctx);
         } else {
           resolve(null);
@@ -527,6 +543,8 @@ export class CanvasArea {
         };
       }
       this.notifyTerminalsChanged();
+      this.bringToFront(cs.card);
+      this.panToCard(cs);
     });
   }
 
