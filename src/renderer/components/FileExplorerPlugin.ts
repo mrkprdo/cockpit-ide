@@ -38,10 +38,7 @@ export class FileExplorerPlugin {
     // Watch for external file changes and refresh tree
     this.unsubFiles = window.electronAPI?.fs.onChanged(() => {
       if (this.refreshTimer) clearTimeout(this.refreshTimer);
-      this.refreshTimer = setTimeout(() => {
-        this.treeEl.innerHTML = '';
-        this.loadDir(this.rootPath, this.treeEl, 0);
-      }, 500);
+      this.refreshTimer = setTimeout(() => this.reload(), 500);
     }) || null;
   }
 
@@ -52,15 +49,20 @@ export class FileExplorerPlugin {
     this.onOpenInContext = callback;
   }
 
-  refresh(): void {
+  async refresh(): Promise<void> {
     this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Loading...</div>';
     this.expanded.clear();
-    this.loadDir(this.rootPath, this.treeEl, 0);
+    const temp = document.createElement('div');
+    await this.loadDir(this.rootPath, temp, 0);
+    this.treeEl.innerHTML = '';
+    while (temp.firstChild) this.treeEl.appendChild(temp.firstChild);
   }
 
-  private reload(): void {
+  private async reload(): Promise<void> {
+    const temp = document.createElement('div');
+    await this.loadDir(this.rootPath, temp, 0);
     this.treeEl.innerHTML = '';
-    this.loadDir(this.rootPath, this.treeEl, 0);
+    while (temp.firstChild) this.treeEl.appendChild(temp.firstChild);
   }
 
   private showInlineInput(parentDir: string, isFolder: boolean): void {
