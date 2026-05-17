@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, nativeImage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -113,6 +113,11 @@ function addRecentWorkspace(p: string): void {
 
 function createWindow(): void {
   const iconPath = path.join(app.getAppPath(), 'public', 'cockpit_ide_icon.ico');
+  let winIcon: string = iconPath;
+  try {
+    const img = nativeImage.createFromPath(iconPath);
+    if (!img.isEmpty()) winIcon = img as any;
+  } catch {}
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -122,7 +127,7 @@ function createWindow(): void {
     title: 'Cockpit IDE',
     backgroundColor: '#0A0E14',
     frame: false,
-    icon: iconPath,
+    icon: winIcon,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
@@ -133,6 +138,12 @@ function createWindow(): void {
 
   mainWindow.maximize();
   mainWindow.show();
+
+  // Force icon after show (Windows taskbar sometimes ignores constructor icon)
+  try {
+    const img = nativeImage.createFromPath(iconPath);
+    if (!img.isEmpty()) mainWindow.setIcon(img);
+  } catch {}
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
