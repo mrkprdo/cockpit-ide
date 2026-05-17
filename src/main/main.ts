@@ -53,9 +53,10 @@ function startWatching(dir: string): void {
       const parts = filename.split(/[\\/]/);
       if (parts.some(p => p === '.git' || p === 'node_modules' || p === '.cockpit')) return;
       // Only care about file changes (not directories)
+      // If stat fails, file was deleted — still send the event
       try {
         if (fs.statSync(fullPath).isDirectory()) return;
-      } catch { return; }
+      } catch { /* file deleted — proceed to send event */ }
 
       if (watchDebounce) clearTimeout(watchDebounce);
       watchDebounce = setTimeout(() => {

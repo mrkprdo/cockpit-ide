@@ -24,8 +24,9 @@ export class MonacoEditorPlugin {
     this.bar.style.cssText = 'display:flex;align-items:center;font-size:11px;font-family:"Space Mono","Courier New",monospace;border-bottom:1px solid var(--border);flex-shrink:0;height:30px;overflow:hidden';
 
     // Listen for external file changes
-    this.unsubFileChanged = window.electronAPI?.fs.onChanged((filePath) => {
-      this.reloadIfOpen(filePath);
+    this.unsubFileChanged = window.electronAPI?.fs.onChanged((rawPath) => {
+      const normalized = rawPath.replace(/\\/g, '/');
+      this.reloadIfOpen(normalized);
     }) || null;
 
     this.tabContainer = document.createElement('div');
@@ -114,7 +115,10 @@ export class MonacoEditorPlugin {
     const tab = this.tabs.find(t => t.filePath === filePath);
     if (!tab) return;
     const content = await window.electronAPI?.fs.readFile(filePath);
-    if (content !== undefined) {
+    if (content === null) {
+      // File was deleted — close the tab
+      this.closeTab(filePath);
+    } else if (content !== undefined) {
       this.fileContents.set(filePath, content);
       if (this.activeTab === filePath && this.editor) {
         this.editor.setValue(content);
