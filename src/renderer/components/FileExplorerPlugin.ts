@@ -211,12 +211,13 @@ export class FileExplorerPlugin {
               await this.loadDir(fullPath, childContainer, depth + 1);
             } catch {}
             childContainer.style.display = childContainer.children.length > 0 ? '' : 'none';
+            if (!childContainer.parentNode) parentEl.insertBefore(childContainer, item.nextSibling);
             item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▾</span><span style="${nameStyle}">${entry.name}</span>`;
           }
         });
         parentEl.appendChild(item);
         if (isExpanded) {
-          parentEl.appendChild(childContainer);
+          parentEl.insertBefore(childContainer, item.nextSibling);
         }
       } else {
         item.addEventListener('click', (e) => {

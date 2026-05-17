@@ -372,6 +372,7 @@ export class CanvasArea {
     this.restoreZOrder(state.zOrder);
     this.terminalCounter = highestTerm;
     this.repositionAllCards();
+    this.notifyDevsChanged();
   }
 
   addExplorer(wsPath: string): void {
