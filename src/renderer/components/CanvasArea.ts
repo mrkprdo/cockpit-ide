@@ -426,30 +426,39 @@ export class CanvasArea {
     });
   }
 
+  private goOrigin(): void {
+    this.panX = this.el.clientWidth / 2;
+    this.panY = this.el.clientHeight / 2;
+    this.scheduleTransform();
+  }
+
   private updateStatusBar(): void {
     const sb = document.getElementById('statusbar');
     if (!sb) return;
 
-    const col = getComputedStyle(document.documentElement).getPropertyValue('--tertiary').trim();
-    const font = '400 10px "Space Mono", "Courier New", monospace';
-
     const zoomText = `Zoom: ${Math.round(this.scale * 100)}%`;
-    const panText = `Pan: (${Math.round(this.panX)}, ${Math.round(this.panY)})`;
-
-    const c1 = TextRenderer.createCanvas(zoomText, 140, 20, { font, color: col, lineHeight: 18 });
-    const c2 = TextRenderer.createCanvas(panText, 200, 20, { font, color: col, lineHeight: 18 });
-    const c3 = TextRenderer.createCanvas(this.workspaceName, 200, 20, { font, color: col, lineHeight: 18 });
-
-    c1.style.cssText = 'height:20px;flex-shrink:0';
-    c2.style.cssText = 'height:20px;flex-shrink:0';
-    c3.style.cssText = 'height:20px;flex-shrink:0';
+    const panText = `${Math.round(this.panX)}, ${Math.round(this.panY)}`;
 
     sb.innerHTML = '';
-    sb.appendChild(c1);
-    const sep1 = document.createElement('span'); sep1.className = 'status-sep'; sb.appendChild(sep1);
-    sb.appendChild(c2);
-    const sep2 = document.createElement('span'); sep2.className = 'status-sep'; sb.appendChild(sep2);
-    sb.appendChild(c3);
+    const add = (tag: string, text: string, cls = 'status-item'): HTMLElement => {
+      const el = document.createElement(tag);
+      el.className = cls;
+      el.textContent = text;
+      sb.appendChild(el);
+      return el;
+    };
+    const sep = (): void => { const s = document.createElement('span'); s.className = 'status-sep'; sb.appendChild(s); };
+
+    add('span', zoomText);
+    sep();
+    add('span', `Pan: ${panText}`);
+    sep();
+    add('span', this.workspaceName);
+
     const fill = document.createElement('span'); fill.style.cssText = 'flex:1'; sb.appendChild(fill);
+
+    sep();
+    const originBtn = add('button', '[origin]', 'status-btn');
+    originBtn.addEventListener('click', () => this.goOrigin());
   }
 }

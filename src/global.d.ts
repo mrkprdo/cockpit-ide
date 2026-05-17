@@ -39,6 +39,9 @@ interface Window {
       getRecent: () => Promise<string[]>;
       addRecent: (p: string) => Promise<void>;
     };
+    shell: {
+      openExternal: (url: string) => Promise<boolean>;
+    };
     fs: {
       readDir: (dirPath: string) => Promise<DirEntry[] | null>;
       readFile: (filePath: string) => Promise<string | null>;

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -221,6 +221,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('workspace:getRecent', () => getRecentWorkspaces());
   ipcMain.handle('workspace:addRecent', (_event, p: string) => { addRecentWorkspace(p); });
+
+  ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+    try { await shell.openExternal(url); return true; } catch { return false; }
+  });
 
   createWindow();
 

@@ -32,6 +32,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getRecent: () => ipcRenderer.invoke('workspace:getRecent'),
     addRecent: (p: string) => ipcRenderer.invoke('workspace:addRecent', p),
   },
+  shell: {
+    openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  },
   fs: {
     readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),
     readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
