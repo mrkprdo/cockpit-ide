@@ -14,6 +14,13 @@ export class App {
   constructor() {
     document.title = 'Cockpit IDE';
 
+    // Disable Ctrl+W (browser close tab shortcut)
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+      }
+    });
+
     this.canvas = new CanvasArea(document.getElementById('canvas')!);
 
     this.canvas.onStateChange = () => this.trySave();
@@ -107,9 +114,11 @@ export class App {
       // Restore saved plugins with positions
       this.canvas.restorePlugins(state, path);
     } else {
-      // First time — create default plugins
+      // First time — create default plugins side by side
       this.canvas.addDev(path);
       this.canvas.addTerminal(path);
+      // Reposition terminal to right of dev
+      this.canvas.offsetCard('Terminal 1', 840, 0);
     }
 
     if (state) {

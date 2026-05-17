@@ -79,9 +79,7 @@ export class TopBar {
       <div class="menu-item">
         File
         <div class="menu-dropdown">
-          <div class="menu-dropdown-item">New Project</div>
-          <div class="menu-dropdown-item" id="menu-open-workspace">Open Workspace...</div>
-          <div class="menu-dropdown-item">Save</div>
+          <div class="menu-dropdown-item" id="menu-open-workspace">Open Workspace</div>
           <div class="menu-dropdown-separator"></div>
           <div class="menu-dropdown-item">Exit</div>
         </div>

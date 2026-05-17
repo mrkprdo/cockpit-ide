@@ -1,5 +1,7 @@
 import { marked } from 'marked';
 
+export type ContextState = { loadedFile: string; scrollTop: number } | null;
+
 export class ContextPlugin {
   title = '';
   onDestroy: (() => void) | null = null;
@@ -7,6 +9,7 @@ export class ContextPlugin {
   private preview: HTMLDivElement;
   private loadedFile: string | null = null;
   private unsubFileChanged: (() => void) | null = null;
+  private fileDeleted = false;
 
   constructor(container: HTMLElement) {
     this.el = document.createElement('div');
@@ -21,11 +24,12 @@ export class ContextPlugin {
     this.el.appendChild(this.preview);
     container.appendChild(this.el);
 
-    // Watch for external file changes to reload
-    this.unsubFileChanged = window.electronAPI?.fs.onChanged((rawPath) => {
-      const normalized = rawPath.replace(/\\/g, '/').toLowerCase();
-      if (this.loadedFile && this.loadedFile.toLowerCase() === normalized) {
-        this.reload();
+    // Watch for external file changes to reload preview
+    this.unsubFileChanged = window.electronAPI?.fs.onChanged(async (rawPath: string) => {
+      if (!this.loadedFile) return;
+      const changed = rawPath.replace(/\\/g, '/').toLowerCase();
+      if (this.loadedFile === changed || this.loadedFile.split('/').pop() === changed.split('/').pop()) {
+        await this.reload();
       }
     }) || null;
   }
@@ -35,8 +39,21 @@ export class ContextPlugin {
     this.unsubFileChanged = null;
   }
 
+  getState(): ContextState {
+    if (!this.loadedFile) return null;
+    return { loadedFile: this.loadedFile, scrollTop: this.preview.scrollTop };
+  }
+
+  restoreState(state: ContextState): void {
+    if (!state) return;
+    this.loadedFile = state.loadedFile.replace(/\\/g, '/').toLowerCase();
+    this.preview.scrollTop = state.scrollTop || 0;
+    this.reload();
+  }
+
   async loadFile(filePath: string): Promise<void> {
-    this.loadedFile = filePath;
+    this.loadedFile = filePath.replace(/\\/g, '/').toLowerCase();
+    this.preview.scrollTop = 0;
     await this.reload();
   }
 
@@ -44,11 +61,14 @@ export class ContextPlugin {
     if (!this.loadedFile) return;
     const content = await window.electronAPI?.fs.readFile(this.loadedFile);
     if (content === null || content === undefined) {
-      this.loadedFile = null;
-      this.preview.innerHTML = '<div style="color:var(--tertiary);font-size:12px">File not found</div>';
+      this.fileDeleted = true;
+      this.preview.innerHTML = '<div style="color:var(--tertiary);font-size:12px">File deleted</div>';
       return;
     }
+    const prevScroll = this.preview.scrollTop;
+    this.fileDeleted = false;
     this.renderPreview(content);
+    this.preview.scrollTop = prevScroll;
   }
 
   private renderPreview(text: string): void {

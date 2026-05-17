@@ -1,6 +1,6 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
 export type EditorState = { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> };
-export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState };
+export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; contextState?: ContextState };
 export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number; isDark: boolean };
 
 import { PluginCard } from './PluginCard';
@@ -9,7 +9,7 @@ import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 import { DevPlugin } from './DevPlugin';
 import { ContextMenu } from './ContextMenu';
-import { ContextPlugin } from './ContextPlugin';
+import { ContextPlugin, ContextState } from './ContextPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -251,6 +251,10 @@ export class CanvasArea {
         c.savedHeight = h;
         const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: w, height: h, isOpen: c.isOpen };
         if (c.savedTitle.startsWith('Dev') && editorState) base.editorState = editorState;
+        if (c.savedTitle.startsWith('Context')) {
+          const ctx = this.contextPlugins.find(p => p.title === c.savedTitle);
+          if (ctx) base.contextState = ctx.getState();
+        }
         return base;
       }),
       zOrder: byZ.map(c => c.card.uuid),
@@ -400,6 +404,7 @@ export class CanvasArea {
               const ctx = new ContextPlugin(body);
               ctx.title = p.title;
               this.contextPlugins.push(ctx);
+              ctx.restoreState(p.contextState || null);
               cs.card.onDestroy = () => {
                 ctx.destroy();
                 const i = this.contextPlugins.indexOf(ctx);
@@ -650,6 +655,17 @@ export class CanvasArea {
     this.onContextsChanged?.(list);
   }
 
+  offsetCard(title: string, worldX: number, worldY: number): void {
+    const cs = this.cards.find(c => c.savedTitle === title);
+    if (!cs) return;
+    cs.worldX = worldX;
+    cs.worldY = worldY;
+    cs.savedWX = worldX;
+    cs.savedWY = worldY;
+    this.positionCard(cs);
+    this.onStateChange?.();
+  }
+
   zoomIn(): void {
     this.scale = Math.min(5, this.scale * 1.3);
     this.scheduleTransform();
@@ -689,7 +705,9 @@ export class CanvasArea {
   }
 
   private initZoomPan(): void {
+    // Canvas wheel zoom (only when over empty canvas area, not over cards)
     this.el.addEventListener('wheel', (e) => {
+      if (e.ctrlKey) return; // handled by global handler below
       e.preventDefault();
       const rect = this.el.getBoundingClientRect();
       const mx = e.clientX - rect.left;
@@ -703,6 +721,24 @@ export class CanvasArea {
       this.panY = my - worldY * this.scale;
       this.scheduleTransform();
     }, { passive: false });
+
+    // Global Ctrl+Wheel zoom — capture phase so it fires before child stopPropagation
+    document.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = this.el.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const oldScale = this.scale;
+      const delta = -e.deltaY * 0.001;
+      this.scale = Math.max(0.1, Math.min(5, this.scale * (1 + delta)));
+      const worldX = (mx - this.panX) / oldScale;
+      const worldY = (my - this.panY) / oldScale;
+      this.panX = mx - worldX * this.scale;
+      this.panY = my - worldY * this.scale;
+      this.scheduleTransform();
+    }, { capture: true, passive: false });
 
     this.el.addEventListener('mousedown', (e) => {
       if (e.button === 0 || e.button === 1) {

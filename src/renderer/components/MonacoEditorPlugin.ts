@@ -309,6 +309,13 @@ export class MonacoEditorPlugin {
           run: () => this.saveCurrentFile(),
         });
 
+        // Auto-save on content change (debounced 1.5s)
+        let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+        this.editor.onDidChangeModelContent(() => {
+          if (autoSaveTimer) clearTimeout(autoSaveTimer);
+          autoSaveTimer = setTimeout(() => this.saveCurrentFile(), 1500);
+        });
+
         resolve();
       });
     });

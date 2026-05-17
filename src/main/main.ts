@@ -51,6 +51,7 @@ function cockpitDir(dir: string): void {
 // File watcher (using chokidar for reliable cross-platform watching)
 let watcher: any = null;
 let watchDebounce: ReturnType<typeof setTimeout> | null = null;
+const pendingChanges = new Set<string>();
 
 function startWatching(dir: string): void {
   stopWatching();
@@ -63,16 +64,20 @@ function startWatching(dir: string): void {
       depth: 20,
     });
 
-    const sendChange = (filePath: string) => {
+    const queueChange = (filePath: string) => {
+      pendingChanges.add(filePath);
       if (watchDebounce) clearTimeout(watchDebounce);
       watchDebounce = setTimeout(() => {
-        mainWindow?.webContents.send('file:changed', filePath);
+        for (const p of pendingChanges) {
+          mainWindow?.webContents.send('file:changed', p);
+        }
+        pendingChanges.clear();
       }, 100);
     };
 
-    watcher.on('add', sendChange);
-    watcher.on('change', sendChange);
-    watcher.on('unlink', sendChange);
+    watcher.on('add', queueChange);
+    watcher.on('change', queueChange);
+    watcher.on('unlink', queueChange);
     watcher.on('addDir', () => {});
   } catch (e) {
     console.error('file:watch error', e);
@@ -82,6 +87,7 @@ function startWatching(dir: string): void {
 function stopWatching(): void {
   if (watcher) { watcher.close(); watcher = null; }
   if (watchDebounce) { clearTimeout(watchDebounce); watchDebounce = null; }
+  pendingChanges.clear();
 }
 
 if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
