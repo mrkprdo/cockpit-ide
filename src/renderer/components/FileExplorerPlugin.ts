@@ -5,6 +5,8 @@ export class FileExplorerPlugin {
   private treeEl: HTMLDivElement;
   private expanded = new Set<string>();
 
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(container: HTMLElement, private rootPath: string, private onFileOpen: (path: string) => void) {
     this.el = document.createElement('div');
     this.el.style.cssText = 'width:100%;height:100%;overflow:auto;background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:12px';
@@ -13,6 +15,15 @@ export class FileExplorerPlugin {
     this.el.appendChild(this.treeEl);
     container.appendChild(this.el);
     this.loadDir(rootPath, this.treeEl, 0);
+
+    // Watch for external file changes and refresh tree (preserving expanded state)
+    window.electronAPI?.fs.onChanged(() => {
+      if (this.refreshTimer) clearTimeout(this.refreshTimer);
+      this.refreshTimer = setTimeout(() => {
+        this.treeEl.innerHTML = '';
+        this.loadDir(this.rootPath, this.treeEl, 0);
+      }, 500);
+    });
   }
 
   private normalize(p: string): string { return p.replace(/\\/g, '/'); }

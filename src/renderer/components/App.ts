@@ -106,7 +106,7 @@ export class App {
       this.canvas.centerView();
     }
 
-    this.canvas.workspaceName = path.split(/[\\/]/).pop() || path;
+    this.canvas.workspaceName = path;
     this.canvas.refresh();
     this.saveNow();
   }

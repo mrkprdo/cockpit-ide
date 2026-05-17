@@ -294,6 +294,14 @@ export class MonacoEditorPlugin {
           padding: { top: 8 },
         });
 
+        // Ctrl+S to save current file
+        this.editor.addAction({
+          id: 'save-file',
+          label: 'Save File',
+          keybindings: [m.KeyMod.CtrlCmd | m.KeyCode.KeyS],
+          run: () => this.saveCurrentFile(),
+        });
+
         resolve();
       });
     });
@@ -307,6 +315,15 @@ export class MonacoEditorPlugin {
       s.onerror = reject;
       document.head.appendChild(s);
     });
+  }
+
+  saveCurrentFile(): void {
+    if (!this.activeTab || !this.editor) return;
+    const content = this.editor.getValue();
+    if (content === undefined) return;
+    window.electronAPI?.fs.writeFile(this.activeTab, content);
+    // Trigger auto-save of window state
+    this.onStateChange?.();
   }
 
   getState(): { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {

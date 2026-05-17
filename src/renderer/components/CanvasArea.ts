@@ -427,9 +427,23 @@ export class CanvasArea {
   }
 
   private goOrigin(): void {
-    this.panX = this.el.clientWidth / 2;
-    this.panY = this.el.clientHeight / 2;
-    this.scheduleTransform();
+    const startX = this.panX;
+    const startY = this.panY;
+    const targetX = this.el.clientWidth / 2;
+    const targetY = this.el.clientHeight / 2;
+    const duration = 300;
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      // Ease-out cubic
+      const ease = 1 - Math.pow(1 - t, 3);
+      this.panX = startX + (targetX - startX) * ease;
+      this.panY = startY + (targetY - startY) * ease;
+      this.scheduleTransform();
+      if (t < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
   }
 
   private updateStatusBar(): void {
@@ -458,7 +472,7 @@ export class CanvasArea {
     const fill = document.createElement('span'); fill.style.cssText = 'flex:1'; sb.appendChild(fill);
 
     sep();
-    const originBtn = add('button', '[origin]', 'status-btn');
+    const originBtn = add('button', 'origin', 'status-btn');
     originBtn.addEventListener('click', () => this.goOrigin());
   }
 }
