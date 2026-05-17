@@ -7,6 +7,7 @@ export class TerminalPlugin {
   private el: HTMLDivElement;
   private cleanup: (() => void) | null = null;
   private exitCleanup: (() => void) | null = null;
+  private pasteCleanup: (() => void) | null = null;
   private cwd: string | undefined;
 
   constructor(container: HTMLElement, uuid: string, cwd?: string) {
@@ -47,6 +48,17 @@ export class TerminalPlugin {
 
     this.term.open(this.el);
     this.term.focus();
+
+    const pasteHandler = (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData('text/plain');
+      if (text) {
+        e.stopPropagation();
+        e.preventDefault();
+        this.term.paste(text);
+      }
+    };
+    this.el.addEventListener('paste', pasteHandler, true);
+    this.pasteCleanup = () => this.el.removeEventListener('paste', pasteHandler, true);
 
     this.init();
   }
@@ -90,6 +102,7 @@ export class TerminalPlugin {
   }
 
   destroy(): void {
+    this.pasteCleanup?.();
     this.cleanup?.();
     window.electronAPI?.terminal.kill(this.uuid);
     this.term.dispose();
