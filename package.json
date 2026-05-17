@@ -31,6 +31,8 @@
     "directories": {
       "output": "release"
     },
+    "buildDependenciesFromSource": true,
+    "npmRebuild": true,
     "files": [
       "dist/**/*",
       "public/**/*",
