@@ -173,15 +173,26 @@ app.whenReady().then(() => {
       nodePty = await import('node-pty');
       process.stderr.write = origErr;
     } catch { return false; }
-    const isWin = process.platform === 'win32';
-    const shell = isWin ? (process.env.COMSPEC || 'cmd.exe') : (process.env.SHELL || 'bash');
-    const pty = nodePty.spawn(shell, [], {
-      name: 'xterm-color',
-      cols: 80,
-      rows: 24,
-      cwd: cwd || process.env.USERPROFILE || process.env.HOME,
-      env: process.env as { [key: string]: string },
-    });
+    const plat = process.platform;
+    let shell: string;
+    if (plat === 'win32') {
+      shell = process.env.COMSPEC || 'cmd.exe';
+    } else if (plat === 'darwin') {
+      shell = process.env.SHELL || '/bin/zsh';
+    } else {
+      shell = process.env.SHELL || '/bin/bash';
+    }
+    const home = process.env.USERPROFILE || process.env.HOME || '/tmp';
+    let pty: any;
+    try {
+      pty = nodePty.spawn(shell, [], {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 24,
+        cwd: cwd || home,
+        env: process.env as { [key: string]: string },
+      });
+    } catch { return false; }
 
     pty.onData((data: string) => {
       mainWindow?.webContents.send('terminal:data', uuid, data);
