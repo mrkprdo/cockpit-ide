@@ -41,17 +41,19 @@ export class WelcomeModal {
     const recent = await window.electronAPI?.workspace.getRecent() || [];
     const container = this.el.querySelector('#welcome-recent') as HTMLElement;
     if (recent.length > 0) {
+      container.style.display = 'block';
       container.innerHTML = '<div class="welcome-recent-title">Recent</div>'
-        + recent.map(p => {
-          const name = p.split(/[\\/]/).pop() || p;
-          return `<div class="welcome-recent-item" data-path="${p}">${name}</div>`;
-        }).join('');
+        + recent.map(p =>
+          `<div class="welcome-recent-item" data-path="${p}">${p}</div>`
+        ).join('');
       container.querySelectorAll('.welcome-recent-item').forEach(item => {
         item.addEventListener('click', async () => {
           const path = (item as HTMLElement).dataset.path || '';
           if (path) this.close(path);
         });
       });
+    } else {
+      container.style.display = 'none';
     }
     return new Promise((resolve) => { this.resolve = resolve; });
   }

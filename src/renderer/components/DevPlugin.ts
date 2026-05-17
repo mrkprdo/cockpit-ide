@@ -2,6 +2,7 @@ import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 
 export class DevPlugin {
+  onStateChange: (() => void) | null = null;
   editor: MonacoEditorPlugin;
   private splitEl: HTMLDivElement;
   private isDragging = false;
@@ -46,12 +47,17 @@ export class DevPlugin {
 
     // Init editor first so explorer can send files to it
     this.editor = new MonacoEditorPlugin(editorCol);
+    this.editor.onStateChange = () => this.onStateChange?.();
 
     const explorer = new FileExplorerPlugin(this.explorerCol, wsPath, (filePath) => {
       this.editor.openFile(filePath);
     });
     // Retry once after 1s in case DOM wasn't ready
     setTimeout(() => explorer.refresh(), 1000);
+  }
+
+  updateTheme(): void {
+    this.editor.updateTheme?.();
   }
 
   getEditorState(): { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {

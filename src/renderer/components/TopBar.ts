@@ -10,6 +10,7 @@ interface TopBarCallbacks {
   onNewDev?: () => void;
   onFocusTerminal?: (uuid: string) => void;
   onReopenTerminal?: (uuid: string) => void;
+  onAbout?: () => void;
 }
 
 interface TermItem { uuid: string; title: string; isOpen: boolean; }
@@ -78,7 +79,7 @@ export class TopBar {
       <div class="menu-item">
         Help
         <div class="menu-dropdown">
-          <div class="menu-dropdown-item">About Cockpit IDE</div>
+          <div class="menu-dropdown-item" id="menu-about">About Cockpit IDE</div>
         </div>
       </div>
       <div style="flex:1"></div>
@@ -111,6 +112,10 @@ export class TopBar {
 
     document.getElementById('menu-new-dev')?.addEventListener('click', () => {
       this.callbacks.onNewDev?.();
+    });
+
+    document.getElementById('menu-about')?.addEventListener('click', () => {
+      this.callbacks.onAbout?.();
     });
 
     // Terminal instances — click to focus (open) or reopen (closed)

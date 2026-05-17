@@ -448,11 +448,14 @@ html, body {
 }
 .welcome-recent-item {
   padding: 6px 8px;
-  font-size: 12px;
+  font-size: 11px;
   font-family: var(--font);
   color: var(--primary);
   cursor: pointer;
   border-radius: 4px;
   transition: background 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .welcome-recent-item:hover { background: var(--panel); }

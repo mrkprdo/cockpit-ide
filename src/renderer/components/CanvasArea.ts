@@ -261,7 +261,9 @@ export class CanvasArea {
             body.style.padding = '0';
             body.style.alignItems = 'stretch';
             body.style.justifyContent = 'stretch';
-            this.devPlugin = new DevPlugin(body, wsPath);
+            const dev = new DevPlugin(body, wsPath);
+            dev.onStateChange = () => this.onStateChange?.();
+            this.devPlugin = dev;
             // Restore editor state from plugin entry
             if (p.editorState) {
               const es = p.editorState;
@@ -309,7 +311,9 @@ export class CanvasArea {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        this.devPlugin = new DevPlugin(body, wsPath);
+        const dev = new DevPlugin(body, wsPath);
+        dev.onStateChange = () => this.onStateChange?.();
+        this.devPlugin = dev;
       }
     });
   }

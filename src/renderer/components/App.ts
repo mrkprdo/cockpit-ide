@@ -2,11 +2,13 @@ import { TopBar } from './TopBar';
 import { CanvasArea, SaveState } from './CanvasArea';
 import { PreferencesModal } from './PreferencesModal';
 import { WelcomeModal } from './WelcomeModal';
+import { AboutModal } from './AboutModal';
 
 export class App {
   private canvas: CanvasArea;
   private prefs: PreferencesModal;
   private topBar: TopBar;
+  private about: AboutModal;
   private lastSaved = '';
   private wsPath = '';
 
@@ -23,14 +25,20 @@ export class App {
       this.saveNow();
     });
 
+    this.about = new AboutModal();
+
     this.topBar = new TopBar(document.getElementById('menu-bar')!, {
       onOpenPreferences: () => this.prefs.open(),
-      onThemeToggle: () => this.canvas.refresh(),
+      onThemeToggle: () => {
+        this.canvas.refresh();
+        this.canvas.devPlugin?.updateTheme();
+      },
       onOpenWorkspace: () => this.openWorkspace(),
       onNewTerminal: () => this.canvas.addTerminal(this.wsPath),
       onNewDev: () => this.canvas.addDev(this.wsPath),
       onFocusTerminal: (uuid) => this.canvas.focusTerminal(uuid),
       onReopenTerminal: (uuid) => this.canvas.reopenTerminal(uuid),
+      onAbout: () => this.about.open(),
     });
 
     this.initWindowControls();

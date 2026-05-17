@@ -210,6 +210,22 @@ export class MonacoEditorPlugin {
   getCurrentFile(): string { return this.activeTab || ''; }
   getContent(): string { return this.editor?.getValue() || ''; }
 
+  private isLight(): boolean {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    return bg === '#f8f8f8' || bg === '#ffffff';
+  }
+
+  private cssVar(name: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  updateTheme(): void {
+    const m = (window as any).monaco;
+    if (!m || !this.editor) return;
+    const light = this.isLight();
+    m.editor.setTheme(light ? 'cockpit-light' : 'cockpit-dark');
+  }
+
   private async initMonaco(): Promise<void> {
     if ((window as any).monaco) return;
     const vsPath = '../vs';
@@ -226,6 +242,7 @@ export class MonacoEditorPlugin {
         const m = (window as any).monaco;
         if (!m) { resolve(); return; }
 
+        // Dark theme
         m.editor.defineTheme('cockpit-dark', {
           base: 'vs-dark', inherit: true, rules: [],
           colors: {
@@ -243,10 +260,28 @@ export class MonacoEditorPlugin {
           },
         });
 
+        // Light theme (Noir palette)
+        m.editor.defineTheme('cockpit-light', {
+          base: 'vs', inherit: true, rules: [],
+          colors: {
+            'editor.background': '#f8f8f8',
+            'editor.foreground': '#1a1a1a',
+            'editorCursor.foreground': '#1a1a1a',
+            'editor.selectionBackground': '#e0e0e0',
+            'editorLineNumber.foreground': '#6a6a6a',
+            'editorLineNumber.activeForeground': '#2a2a2a',
+            'editorWidget.background': '#eeeeee',
+            'editorWidget.border': '#1a1a1a',
+            'input.background': '#ffffff',
+            'input.border': '#1a1a1a',
+            'focusBorder': '#1a1a1a',
+          },
+        });
+
         this.editor = m.editor.create(this.editorEl, {
           value: '',
           language: 'plaintext',
-          theme: 'cockpit-dark',
+          theme: this.isLight() ? 'cockpit-light' : 'cockpit-dark',
           fontSize: 13,
           fontFamily: '"Space Mono", "Courier New", monospace',
           lineNumbers: 'on',
