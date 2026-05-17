@@ -73,16 +73,16 @@ export class CanvasArea {
     this.el.appendChild(zone);
 
     zone.addEventListener('mouseenter', () => this.showPluginList());
-    zone.addEventListener('mouseleave', (e) => {
+    zone.addEventListener('mouseleave', () => {
       setTimeout(() => {
-        if (!zone.matches(':hover') && !this.pluginListPanel.matches(':hover')) {
+        if (!this.contextMenuOpen && !zone.matches(':hover') && !this.pluginListPanel.matches(':hover')) {
           this.pluginListPanel.style.display = 'none';
         }
       }, 200);
     });
     this.pluginListPanel.addEventListener('mouseenter', () => { this.pluginListPanel.style.display = 'block'; });
     this.pluginListPanel.addEventListener('mouseleave', () => {
-      if (!this.contextMenuOpen) this.pluginListPanel.style.display = 'none';
+      if (!this.contextMenuOpen && !zone.matches(':hover')) this.pluginListPanel.style.display = 'none';
     });
 
     this.generatePattern();
