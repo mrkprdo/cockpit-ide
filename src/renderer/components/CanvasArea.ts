@@ -43,14 +43,61 @@ export class CanvasArea {
   private terminalCounter = 0;
   workspaceName = 'no workspace';
 
+  private pluginListPanel: HTMLDivElement;
+
   constructor(private el: HTMLElement) {
     this.originDot = document.createElement('div');
     this.originDot.style.cssText = 'position:absolute;width:6px;height:6px;border-radius:50%;border:1px solid #FF1744;background:transparent;z-index:5;pointer-events:none;transform:translate(-50%,-50%)';
     this.el.appendChild(this.originDot);
+
+    // Plugin list panel (lower-left hover zone)
+    const zone = document.createElement('div');
+    zone.className = 'pli-zone';
+    zone.textContent = '◺';
+
+    this.pluginListPanel = document.createElement('div');
+    this.pluginListPanel.className = 'plugin-list-panel';
+
+    zone.appendChild(this.pluginListPanel);
+    this.el.appendChild(zone);
+
+    zone.addEventListener('mouseenter', () => this.showPluginList());
+    zone.addEventListener('mouseleave', (e) => {
+      setTimeout(() => {
+        if (!zone.matches(':hover') && !this.pluginListPanel.matches(':hover')) {
+          this.pluginListPanel.style.display = 'none';
+        }
+      }, 200);
+    });
+    this.pluginListPanel.addEventListener('mouseenter', () => { this.pluginListPanel.style.display = 'block'; });
+    this.pluginListPanel.addEventListener('mouseleave', () => { this.pluginListPanel.style.display = 'none'; });
+
     this.generatePattern();
     this.applyGrid();
     this.initZoomPan();
     this.updateStatusBar();
+  }
+
+  private showPluginList(): void {
+    const panel = this.pluginListPanel;
+    panel.innerHTML = '';
+    if (this.cards.length === 0) {
+      panel.innerHTML = '<div class="pli-empty">No plugins</div>';
+    } else {
+      for (const cs of this.cards) {
+        const item = document.createElement('div');
+        item.className = 'pli-item';
+        item.textContent = cs.savedTitle + (cs.isOpen ? '' : ' (closed)');
+        item.addEventListener('click', () => {
+          if (cs.isOpen) {
+            this.focusCard(cs.card.opts.title);
+            this.panToCard(cs);
+          }
+        });
+        panel.appendChild(item);
+      }
+    }
+    panel.style.display = 'block';
   }
 
   private centerView(): void {
@@ -444,17 +491,12 @@ export class CanvasArea {
     });
   }
 
-  private goOrigin(): void {
+  private animatePan(targetX: number, targetY: number, duration = 300): void {
     const startX = this.panX;
     const startY = this.panY;
-    const targetX = this.el.clientWidth / 2;
-    const targetY = this.el.clientHeight / 2;
-    const duration = 300;
     const startTime = performance.now();
-
     const animate = (now: number) => {
       const t = Math.min((now - startTime) / duration, 1);
-      // Ease-out cubic
       const ease = 1 - Math.pow(1 - t, 3);
       this.panX = startX + (targetX - startX) * ease;
       this.panY = startY + (targetY - startY) * ease;
@@ -462,6 +504,18 @@ export class CanvasArea {
       if (t < 1) requestAnimationFrame(animate);
     };
     requestAnimationFrame(animate);
+  }
+
+  private goOrigin(): void {
+    this.animatePan(this.el.clientWidth / 2, this.el.clientHeight / 2);
+  }
+
+  private panToCard(cs: CardState): void {
+    const cx = this.el.clientWidth / 2;
+    const cy = this.el.clientHeight / 2;
+    const targetX = cx - cs.worldX * this.scale;
+    const targetY = cy - cs.worldY * this.scale;
+    this.animatePan(targetX, targetY);
   }
 
   private updateStatusBar(): void {

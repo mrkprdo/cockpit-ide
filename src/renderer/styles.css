@@ -185,6 +185,81 @@ html, body {
   overflow: hidden;
 }
 
+/* ===== Plugin List (lower-left) ===== */
+.pli-zone {
+  position: absolute;
+  left: 4px;
+  bottom: 2px;
+  width: 32px;
+  height: 28px;
+  z-index: 15;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  font-size: 18px;
+  color: var(--tertiary);
+  opacity: 0.35;
+  transition: opacity 0.15s, color 0.15s;
+}
+.pli-zone:hover { opacity: 1; color: var(--primary); }
+
+.plugin-list-panel {
+  display: none;
+  position: absolute;
+  left: 2px;
+  bottom: 28px;
+  min-width: 190px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  z-index: 16;
+}
+.pli-item {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--primary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+.pli-item:hover { background: var(--panel); }
+.pli-item:active { opacity: 0.7; }
+.pli-empty {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--tertiary);
+}
+
+/* ===== Context Menu ===== */
+.ctx-menu {
+  position: fixed;
+  min-width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  z-index: 300;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.ctx-item {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: var(--font);
+  color: var(--primary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+.ctx-item:hover { background: var(--panel); }
+.ctx-disabled { opacity: 0.35; cursor: default; }
+.ctx-disabled:hover { background: transparent; }
+.ctx-sep { height: 1px; background: var(--border); margin: 4px 8px; }
 
 /* ===== Status Bar ===== */
 #statusbar {

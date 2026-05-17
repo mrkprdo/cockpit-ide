@@ -22,6 +22,18 @@ ipcMain.handle('fs:writeFile', async (_event, filePath: string, content: string)
   try { fs.writeFileSync(filePath, content, 'utf-8'); return true; } catch { return false; }
 });
 
+ipcMain.handle('fs:delete', async (_event, targetPath: string) => {
+  try { fs.rmSync(targetPath, { recursive: true, force: true }); return true; } catch { return false; }
+});
+
+ipcMain.handle('fs:copy', async (_event, src: string, dest: string) => {
+  try { fs.cpSync(src, dest, { recursive: true }); return true; } catch { return false; }
+});
+
+ipcMain.handle('fs:rename', async (_event, oldPath: string, newPath: string) => {
+  try { fs.renameSync(oldPath, newPath); return true; } catch { return false; }
+});
+
 function cockpitDir(dir: string): void {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
