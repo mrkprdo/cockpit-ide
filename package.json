@@ -23,7 +23,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@chenglou/pretext": "^0.0.7",
     "@xterm/xterm": "^6.0.0",

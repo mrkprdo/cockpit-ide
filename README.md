@@ -1,81 +1,35 @@
 # Cockpit IDE
 
-**v1.0.0-alpha** — *Art Nouveau × Floating*
+Panels float. The canvas is infinite. Nothing is docked.
 
-An experimental, canvas-based desktop IDE built with Electron. Code editors, terminals, and file explorers exist as draggable, resizable plugin cards on an infinite canvas workspace.
+A spatial IDE built in Electron — drag your editor, terminal, and docs wherever they fit, stack them, zoom out to see everything at once. Open multiple instances of anything. Sessions restore exactly as you left them.
 
-## Features
+---
 
-- **Infinite Canvas** — Pan (drag) and zoom (scroll wheel) an infinite workspace. Configurable background grid (dots, grid lines, or none). Snap-to-grid for all cards (28px).
-- **Plugin Cards** — Draggable, resizable cards that host:
-  - **Dev** — Split-pane file explorer + Monaco code editor with multi-tab support, syntax highlighting for 30+ languages, and auto-save
-  - **Terminal** — Real PTY shell via `node-pty` with `@xterm/xterm`, multi-session support
-  - **Editor** — Standalone Monaco editor card
-  - **Explorer** — Standalone file tree browser card
-- **Workspace Persistence** — Auto-saves all card positions, sizes, open/closed state, zoom/pan, editor tabs and cursor positions to `.cockpit/window.json`
-- **File Watching** — Recursive file change detection with auto-reload in the editor
-- **Dark/Light Theme** — Noir palette with CSS custom properties, updates Monaco editor themes
-- **Custom Title Bar** — Frameless window with HTML/CSS title bar, menu bar, and window controls
-- **Recent Workspaces** — Remembers last 5 workspaces
+**Dev** — Monaco editor + resizable file explorer in one card  
+**Terminal** — Full PTY terminal via node-pty + xterm.js  
+**Context** — Tabbed markdown viewer with live file watching
 
-## Tech Stack
+---
 
-| Layer | Technology |
-|-------|-----------|
-| Runtime | Electron 35 |
-| Language | TypeScript 5.8 (ES2022) |
-| Bundler | esbuild (renderer), tsc (main/preload) |
-| Editor | Monaco Editor 0.55 |
-| Terminal | @xterm/xterm 6 + node-pty 1.1 |
-| Canvas Text | @chenglou/pretext |
+## Running
 
-## Quick Start
-
-```
+```bash
 npm install
-npm run start      # build + launch
-npm run dev        # launch with DevTools
-npm run prod       # launch without DevTools
+npm start          # build + launch
+npm run dev        # skip rebuild, launch directly
+npm run dev:watch  # watch mode for TypeScript + esbuild
 ```
 
-## Project Structure
+## Stack
 
-```
-src/
-├── main/              # Electron main process
-│   └── main.ts        #   window, PTY, filesystem, IPC
-├── preload/
-│   └── preload.ts     #   contextBridge (electronAPI)
-└── renderer/
-    ├── index.html     #   shell HTML (CSP, titlebar)
-    ├── index.ts       #   entry point
-    ├── styles.css     #   design system (476 lines)
-    ├── theme.ts       #   dark/light theme singleton
-    └── components/
-        ├── App.ts             #   root orchestrator
-        ├── TopBar.ts          #   menu bar + theme toggle
-        ├── CanvasArea.ts      #   infinite canvas engine
-        ├── PluginCard.ts      #   draggable/resizable card widget
-        ├── TerminalPlugin.ts  #   xterm.js terminal
-        ├── MonacoEditorPlugin.ts  #   Monaco code editor
-        ├── FileExplorerPlugin.ts  #   file tree browser
-        ├── DevPlugin.ts       #   split explorer + editor
-        ├── WelcomeModal.ts    #   startup workspace picker
-        ├── PreferencesModal.ts #   grid style settings
-        └── AboutModal.ts      #   version/credits dialog
-```
+Electron · Monaco Editor · xterm.js · TypeScript · esbuild
 
-## Architecture
+## Design
 
-Three-process Electron model with `contextIsolation: true` and `nodeIntegration: false`:
+Dark navy (`#0A0E14`) by default. Light mode available. Background: dots, grid, or none. Art Nouveau × Floating.
 
-```
-Main Process  ←→  Preload (contextBridge)  ←→  Renderer
-(IPC handlers)      (electron API proxy)       (canvas UI)
-```
+_Generated from [https://www.usedesign.md/?mash=1&p=noir&c=Art+Nouveau&s=Floating&b=dashed+border&r=8px&f=%27Space+Mono%27%2C+%27Courier+New%27%2C+monospace&sh=rgba%2858%2C106%2C232%2C0.08%29+0+4px+12px%2C+rgba%280%2C0%2C0%2C0.04%29+0+2px+4px&shs=noir&mode=dark](https://www.usedesign.md/?mash=1&p=noir&c=Art+Nouveau&s=Floating&b=dashed+border&r=8px&f=%27Space+Mono%27%2C+%27Courier+New%27%2C+monospace&sh=rgba%2858%2C106%2C232%2C0.08%29+0+4px+12px%2C+rgba%280%2C0%2C0%2C0.04%29+0+2px+4px&shs=noir&mode=dark)_
 
-See [ARCHITECT.md](ARCHITECT.md) for full architecture details and [DESIGN.md](DESIGN.md) for the design system.
+[![design.md](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNzEiIGhlaWdodD0iMjAiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0iREVTSUdOLk1EIEFydCBOb3V2ZWF1IMOXIEZsb2F0aW5nIj4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYnM2IiB4Mj0iMCIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmZmYiIHN0b3Atb3BhY2l0eT0iLjciLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIuMSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIuMSIvPgogICAgICA8c3RvcCBvZmZzZXQ9Ii45IiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9IjAiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii4xIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGNsaXBQYXRoIGlkPSJicjYiPgogICAgICA8cmVjdCB3aWR0aD0iMjcxIiBoZWlnaHQ9IjIwIiByeD0iMyIgZmlsbD0iI2ZmZiIvPgogICAgPC9jbGlwUGF0aD4KICAgIDxnIGNsaXAtcGF0aD0idXJsKCNicjYpIj4KICAgICAgPHJlY3Qgd2lkdGg9Ijc5IiBoZWlnaHQ9IjIwIiBmaWxsPSIjNTU1Ii8+CiAgICAgIDxyZWN0IHg9Ijc5IiB3aWR0aD0iMTkyIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMWExYTFhIi8+CiAgICAgIDxyZWN0IHdpZHRoPSIyNzEiIGhlaWdodD0iMjAiIGZpbGw9InVybCgjYnM2KSIvPgogICAgPC9nPgogICAgPGcgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InN5c3RlbS11aSxzYW5zLXNlcmlmIiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iNjAwIj4KICAgICAgPHRleHQgeD0iMzkuNSIgeT0iMTQiPkRFU0lHTi5NRDwvdGV4dD4KICAgICAgPHRleHQgeD0iMTc1IiB5PSIxNCI+QXJ0IE5vdXZlYXUgw5cgRmxvYXRpbmc8L3RleHQ+CiAgICA8L2c+CiAgPC9zdmc+)](/?mash=1&p=noir&c=Art+Nouveau&s=Floating&b=dashed+border&r=8px&f=%27Space+Mono%27%2C+%27Courier+New%27%2C+monospace&sh=rgba%280%2C0%2C0%2C0.06%29+0+2px+8px%2C+rgba%280%2C0%2C0%2C0.04%29+0+4px+16px&shs=noir&mode=light)
 
-## License
-
-ISC
