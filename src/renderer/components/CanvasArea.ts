@@ -1,7 +1,7 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
 export type EditorState = { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> };
 export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState };
-export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number };
+export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number; isDark: boolean };
 
 import { PluginCard } from './PluginCard';
 import { TextRenderer } from './TextRenderer';
@@ -9,6 +9,7 @@ import { TerminalPlugin } from './TerminalPlugin';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 import { DevPlugin } from './DevPlugin';
+import { ContextMenu } from './ContextMenu';
 
 interface CardState {
   card: PluginCard;
@@ -25,6 +26,7 @@ interface CardState {
 export class CanvasArea {
   onStateChange: (() => void) | null = null;
   onTerminalsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
+  onDevsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   private patternSize = 28;
   private patternDataURL = '';
   private cards: CardState[] = [];
@@ -45,6 +47,8 @@ export class CanvasArea {
 
   private pluginListPanel: HTMLDivElement;
 
+  private contextMenuOpen = false;
+
   constructor(private el: HTMLElement) {
     this.originDot = document.createElement('div');
     this.originDot.style.cssText = 'position:absolute;width:6px;height:6px;border-radius:50%;border:1px solid #FF1744;background:transparent;z-index:5;pointer-events:none;transform:translate(-50%,-50%)';
@@ -53,7 +57,10 @@ export class CanvasArea {
     // Plugin list panel (lower-left hover zone)
     const zone = document.createElement('div');
     zone.className = 'pli-zone';
-    zone.textContent = '◺';
+    const icon = document.createElement('span');
+    icon.className = 'pli-icon';
+    icon.textContent = '◣';
+    zone.appendChild(icon);
 
     this.pluginListPanel = document.createElement('div');
     this.pluginListPanel.className = 'plugin-list-panel';
@@ -70,7 +77,9 @@ export class CanvasArea {
       }, 200);
     });
     this.pluginListPanel.addEventListener('mouseenter', () => { this.pluginListPanel.style.display = 'block'; });
-    this.pluginListPanel.addEventListener('mouseleave', () => { this.pluginListPanel.style.display = 'none'; });
+    this.pluginListPanel.addEventListener('mouseleave', () => {
+      if (!this.contextMenuOpen) this.pluginListPanel.style.display = 'none';
+    });
 
     this.generatePattern();
     this.applyGrid();
@@ -87,7 +96,7 @@ export class CanvasArea {
       for (const cs of this.cards) {
         const item = document.createElement('div');
         item.className = 'pli-item';
-        item.textContent = cs.savedTitle + (cs.isOpen ? '' : ' (closed)');
+        item.textContent = cs.savedTitle + (cs.isOpen ? '' : ' (hidden)');
         item.addEventListener('click', () => {
           if (cs.isOpen) {
             this.focusCard(cs.card.opts.title);
@@ -95,6 +104,19 @@ export class CanvasArea {
           } else {
             this.reopenCard(cs);
           }
+        });
+        item.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          this.contextMenuOpen = true;
+          const menu = new ContextMenu([
+            { label: 'Show', action: () => {
+              if (cs.isOpen) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
+              else this.reopenCard(cs);
+            }},
+            { separator: true },
+            { label: 'Terminate', action: () => this.terminateCard(cs) },
+          ], e.clientX, e.clientY);
+          menu.onClose = () => { this.contextMenuOpen = false; };
         });
         panel.appendChild(item);
       }
@@ -136,6 +158,7 @@ export class CanvasArea {
           cs.isOpen = false;
           cs.card.el.style.display = 'none';
           this.notifyTerminalsChanged();
+          this.notifyDevsChanged();
         }
       },
       onDragEnd: (worldX: number, worldY: number) => {
@@ -222,6 +245,7 @@ export class CanvasArea {
       }),
       zOrder: byZ.map(c => c.card.uuid),
       zoom: this.scale, panX: this.panX, panY: this.panY,
+      isDark: this.resolveCSSVar('--bg').trim() === '#0A0E14',
     };
   }
 
@@ -364,6 +388,7 @@ export class CanvasArea {
         const dev = new DevPlugin(body, wsPath);
         dev.onStateChange = () => this.onStateChange?.();
         this.devPlugin = dev;
+        this.notifyDevsChanged();
       }
     });
   }
@@ -389,6 +414,11 @@ export class CanvasArea {
     if (cs) this.focusCard(cs.card.opts.title);
   }
 
+  focusDev(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && c.isOpen);
+    if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
+  }
+
   focusCard(title: string): void {
     let base = 10;
     for (const cs of this.cards) {
@@ -406,6 +436,11 @@ export class CanvasArea {
     cs.worldY = cs.savedWY;
     this.positionCard(cs);
     this.notifyTerminalsChanged();
+  }
+
+  reopenDev(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
+    if (cs) this.reopenCard(cs);
   }
 
   reopenCard(cs: CardState): void {
@@ -427,16 +462,36 @@ export class CanvasArea {
       cs.worldX = cs.savedWX;
       cs.worldY = cs.savedWY;
       this.positionCard(cs);
-      // Force a save so new DevPlugin's editor is registered
+      this.notifyDevsChanged();
       this.onStateChange?.();
     }
     this.panToCard(cs);
+  }
+
+  terminateCard(cs: CardState): void {
+    const idx = this.cards.indexOf(cs);
+    if (idx === -1) return;
+    // If terminal, kill its PTY
+    if (cs.savedTitle.startsWith('Terminal')) {
+      window.electronAPI?.terminal.kill(cs.card.uuid);
+    }
+    cs.card.remove();
+    this.cards.splice(idx, 1);
+    this.notifyTerminalsChanged();
+    this.notifyDevsChanged();
+    this.onStateChange?.();
   }
 
   private notifyTerminalsChanged(): void {
     const list = this.cards.filter(c => c.savedTitle.startsWith('Terminal'))
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.onTerminalsChanged?.(list);
+  }
+
+  private notifyDevsChanged(): void {
+    const list = this.cards.filter(c => c.savedTitle === 'Dev')
+      .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
+    this.onDevsChanged?.(list);
   }
 
   zoomIn(): void {

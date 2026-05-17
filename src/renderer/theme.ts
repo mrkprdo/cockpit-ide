@@ -34,6 +34,11 @@ class Theme {
   get isDark(): boolean { return this._isDark; }
   get colors(): ThemeColors { return this._isDark ? darkTheme : lightTheme; }
 
+  setDark(dark: boolean): void {
+    this._isDark = dark;
+    this.apply();
+  }
+
   toggle(): void {
     this._isDark = !this._isDark;
     this.apply();

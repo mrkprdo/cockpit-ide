@@ -3,6 +3,7 @@ import { CanvasArea, SaveState } from './CanvasArea';
 import { PreferencesModal } from './PreferencesModal';
 import { WelcomeModal } from './WelcomeModal';
 import { AboutModal } from './AboutModal';
+import { theme } from '../theme';
 
 export class App {
   private canvas: CanvasArea;
@@ -19,6 +20,7 @@ export class App {
 
     this.canvas.onStateChange = () => this.trySave();
     this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
+    this.canvas.onDevsChanged = (items) => this.topBar.setDevItems(items);
 
     this.prefs = new PreferencesModal((style) => {
       this.canvas.setGridStyle(style);
@@ -38,6 +40,8 @@ export class App {
       onNewDev: () => this.canvas.addDev(this.wsPath),
       onFocusTerminal: (uuid) => this.canvas.focusTerminal(uuid),
       onReopenTerminal: (uuid) => this.canvas.reopenTerminal(uuid),
+      onFocusDev: (uuid) => this.canvas.focusDev(uuid),
+      onReopenDev: (uuid) => this.canvas.reopenDev(uuid),
       onAbout: () => this.about.open(),
       onZoomIn: () => this.canvas.zoomIn(),
       onZoomOut: () => this.canvas.zoomOut(),
@@ -105,6 +109,11 @@ export class App {
 
     if (state) {
       this.canvas.setView({ zoom: state.zoom, panX: state.panX, panY: state.panY });
+      // Restore theme
+      if (state.isDark !== undefined) {
+        theme.setDark(state.isDark);
+        this.canvas.devPlugin?.updateTheme();
+      }
     } else {
       this.canvas.centerView();
     }

@@ -159,7 +159,23 @@ html, body {
   padding: 4px;
   z-index: 101;
 }
+.menu-item-nested {
+  position: relative;
+  padding: 6px 12px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-family: var(--font);
+  color: var(--primary);
+  transition: background 0.1s;
+}
+.menu-item-nested:hover { background: var(--panel); }
 .menu-item-nested:hover > .menu-dropdown-nested { display: block; }
+.menu-item-nested .arrow { color: var(--tertiary); font-size: 10px; margin-left: 8px; }
 
 .tb-btn {
   width: 46px;
@@ -197,12 +213,16 @@ html, body {
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.pli-zone:hover { opacity: 1; }
+.pli-icon {
   font-size: 18px;
   color: var(--tertiary);
-  opacity: 0.35;
-  transition: opacity 0.15s, color 0.15s;
+  transition: color 0.15s, transform 0.2s;
 }
-.pli-zone:hover { opacity: 1; color: var(--primary); }
+.pli-zone:hover .pli-icon { color: var(--primary); transform: rotate(180deg); }
 
 .plugin-list-panel {
   display: none;

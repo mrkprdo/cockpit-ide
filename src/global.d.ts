@@ -11,6 +11,7 @@ interface WorkspaceState {
   zoom: number;
   panX: number;
   panY: number;
+  isDark: boolean;
 }
 
 interface DirEntry { name: string; isDirectory: boolean; }

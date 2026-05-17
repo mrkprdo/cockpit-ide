@@ -45,7 +45,7 @@ export class PluginCard {
         <div class="card-title-area">
           <canvas class="card-title-canvas" height="28"></canvas>
         </div>
-        <button class="card-close">✕</button>
+        <button class="card-close">−</button>
       </div>
       <div class="card-body"></div>
       <div class="card-edge card-edge-e"></div>

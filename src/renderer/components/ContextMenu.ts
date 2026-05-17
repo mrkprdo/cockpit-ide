@@ -1,6 +1,6 @@
 export interface ContextMenuItem {
-  label: string;
-  action: () => void;
+  label?: string;
+  action?: () => void;
   disabled?: boolean;
   separator?: boolean;
 }
@@ -42,10 +42,13 @@ export class ContextMenu {
 
   private outsideClick = (): void => { this.remove(); };
 
-  private remove(): void {
+  onClose: (() => void) | null = null;
+
+  remove(): void {
     document.removeEventListener('click', this.outsideClick);
     const idx = ContextMenu.openMenus.indexOf(this);
     if (idx !== -1) ContextMenu.openMenus.splice(idx, 1);
     this.el.remove();
+    this.onClose?.();
   }
 }
