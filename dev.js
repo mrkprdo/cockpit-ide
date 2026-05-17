@@ -1,0 +1,68 @@
+/**
+ * Dev runner — watches src/ for changes, rebuilds, and restarts Electron
+ * Usage: node dev.js
+ */
+const { spawn, execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+let electron = null;
+let building = false;
+let pendingRestart = false;
+
+function startElectron() {
+  if (electron) {
+    try { electron.kill('SIGTERM'); } catch {}
+    electron = null;
+  }
+  const p = spawn(require('electron'), ['.', '--dev'], {
+    stdio: 'inherit',
+    shell: true,
+    env: { ...process.env, NODE_ENV: 'development' },
+  });
+  p.on('close', () => {
+    electron = null;
+    if (pendingRestart) { pendingRestart = false; startElectron(); }
+  });
+  electron = p;
+}
+
+function build() {
+  if (building) { pendingRestart = true; return; }
+  building = true;
+  console.log('\n[dev] Building...');
+  try {
+    execSync('tsc -p tsconfig.main.json', { stdio: 'inherit' });
+    execSync('esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife', { stdio: 'inherit' });
+    execSync('copy src\\renderer\\*.html dist\\renderer\\', { stdio: 'inherit' });
+    execSync('copy src\\renderer\\*.css dist\\renderer\\', { stdio: 'inherit' });
+    execSync('if not exist dist\\vs xcopy /s /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul', { stdio: 'inherit' });
+    console.log('[dev] Build complete');
+  } catch (e) {
+    console.error('[dev] Build failed:', e.message);
+  }
+  building = false;
+  if (electron) {
+    console.log('[dev] Reloading...');
+  } else {
+    startElectron();
+  }
+}
+
+// Watch source for changes
+const watchDirs = ['src/main', 'src/preload', 'src/renderer', 'src/renderer/components'];
+let debounce = null;
+
+for (const dir of watchDirs) {
+  const fullPath = path.join(__dirname, dir);
+  if (!fs.existsSync(fullPath)) continue;
+  fs.watch(fullPath, { recursive: true }, (event, filename) => {
+    if (!filename || filename.endsWith('.map')) return;
+    if (debounce) clearTimeout(debounce);
+    debounce = setTimeout(build, 200);
+  });
+}
+
+// Initial build
+console.log('[dev] Starting initial build...');
+build();

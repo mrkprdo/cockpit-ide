@@ -43,6 +43,7 @@ export class CanvasArea {
   private gridStyle: GridStyle = 'dots';
   private originDot: HTMLElement;
   private terminalCounter = 0;
+  private devCounter = 0;
   workspaceName = 'no workspace';
 
   private pluginListPanel: HTMLDivElement;
@@ -93,7 +94,8 @@ export class CanvasArea {
     if (this.cards.length === 0) {
       panel.innerHTML = '<div class="pli-empty">No plugins</div>';
     } else {
-      for (const cs of this.cards) {
+      const sorted = [...this.cards].sort((a, b) => a.savedTitle.localeCompare(b.savedTitle));
+      for (const cs of sorted) {
         const item = document.createElement('div');
         item.className = 'pli-item';
         item.textContent = cs.savedTitle + (cs.isOpen ? '' : ' (hidden)');
@@ -240,7 +242,7 @@ export class CanvasArea {
     return {
       plugins: this.cards.map(c => {
         const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen };
-        if (c.savedTitle === 'Dev' && editorState) base.editorState = editorState;
+        if (c.savedTitle.startsWith('Dev') && editorState) base.editorState = editorState;
         return base;
       }),
       zOrder: byZ.map(c => c.card.uuid),
@@ -277,6 +279,12 @@ export class CanvasArea {
       onDragEnd: (worldX, worldY) => {
         const cs = this.cards.find(c => c.card === card);
         if (cs) { cs.worldX = worldX; cs.worldY = worldY; }
+        this.onStateChange?.();
+      },
+      onResizeEnd: (w: number, h: number) => {
+        const cs = this.cards.find(c => c.card === card);
+        if (cs) { cs.savedWidth = w; cs.savedHeight = h; }
+        this.onStateChange?.();
       },
       onFocus: () => this.bringToFront(card),
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
@@ -293,14 +301,27 @@ export class CanvasArea {
     for (const cs of [...this.cards]) cs.card.el.remove();
     this.cards = [];
     this.terminalCounter = 0;
+    this.devCounter = 0;
 
-    // Find highest terminal number for counter
+    // Find highest numbers for counters
     let highestTerm = 0;
+    let highestDev = 0;
     for (const p of state.plugins) {
-      const m = p.title.match(/^Terminal (\d+)$/);
-      if (m) highestTerm = Math.max(highestTerm, parseInt(m[1]));
+      const tm = p.title.match(/^Terminal (\d+)$/);
+      if (tm) highestTerm = Math.max(highestTerm, parseInt(tm[1]));
+      const dm = p.title.match(/^Dev (\d+)$/);
+      if (dm) highestDev = Math.max(highestDev, parseInt(dm[1]));
     }
     this.terminalCounter = highestTerm;
+    this.devCounter = Math.max(highestDev, 1); // Ensure at least 1 for old "Dev" entries
+
+    // Normalize old "Dev" titles to "Dev 1"
+    for (const p of state.plugins) {
+      if (p.title === 'Dev') {
+        p.title = 'Dev 1';
+        this.devCounter = Math.max(this.devCounter, 1);
+      }
+    }
 
     for (const p of state.plugins) {
       if (p.title.startsWith('Terminal')) {
@@ -324,7 +345,7 @@ export class CanvasArea {
             this.notifyTerminalsChanged();
           });
         }
-      } else if (p.title === 'Dev') {
+      } else if (p.title.startsWith('Dev')) {
         const cs = this.createCardFromDef(p, {
           onClose: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; },
         });
@@ -378,7 +399,9 @@ export class CanvasArea {
   }
 
   addDev(wsPath: string): void {
-    const cs = this.addCard('Dev', '', 0, 0, 800, 500);
+    this.wsPath = wsPath;
+    this.devCounter++;
+    const cs = this.addCard(`Dev ${this.devCounter}`, '', 0, 0, 800, 500);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {
@@ -447,7 +470,7 @@ export class CanvasArea {
     if (cs.isOpen) return;
     if (cs.savedTitle.startsWith('Terminal')) {
       this.reopenTerminal(cs.card.uuid);
-    } else if (cs.savedTitle === 'Dev') {
+    } else if (cs.savedTitle.startsWith('Dev')) {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {
         body.style.padding = '0';
@@ -489,7 +512,7 @@ export class CanvasArea {
   }
 
   private notifyDevsChanged(): void {
-    const list = this.cards.filter(c => c.savedTitle === 'Dev')
+    const list = this.cards.filter(c => c.savedTitle.startsWith('Dev '))
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.onDevsChanged?.(list);
   }
@@ -594,22 +617,17 @@ export class CanvasArea {
   private panToCard(cs: CardState): void {
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
+    const margin = 80;
 
-    // Zoom out if card is wider than viewport, but don't zoom in
-    const cardScreenW = cs.savedWidth * this.scale;
-    const cardScreenH = cs.savedHeight * this.scale;
-    const margin = 40;
-    if (cardScreenW > cw - margin || cardScreenH > ch - margin) {
-      const fitX = (cw - margin) / cs.savedWidth;
-      const fitY = (ch - margin) / cs.savedHeight;
-      this.scale = Math.min(this.scale, Math.min(fitX, fitY));
-    }
+    // Force zoom to fit the card with margin (always zoom out, never zoom in past 0.1)
+    const fitX = (cw - margin) / cs.savedWidth;
+    const fitY = (ch - margin) / cs.savedHeight;
+    const targetScale = Math.min(fitX, fitY, 1);
+    this.scale = Math.max(0.1, targetScale);
 
-    // Center on card center (not top-left)
-    const cx = cw / 2;
-    const cy = ch / 2;
-    const targetX = cx - (cs.worldX + cs.savedWidth / 2) * this.scale;
-    const targetY = cy - (cs.worldY + cs.savedHeight / 2) * this.scale;
+    // Center on card center (not top-left) using the NEW scale
+    const targetX = cw / 2 - (cs.worldX + cs.savedWidth / 2) * this.scale;
+    const targetY = ch / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;
     this.animatePan(targetX, targetY);
   }
 

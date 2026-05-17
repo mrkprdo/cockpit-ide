@@ -15,10 +15,10 @@ export class DevPlugin {
     this.splitEl.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:row;background:transparent';
 
     this.explorerCol = document.createElement('div');
-    this.explorerCol.style.cssText = 'width:260px;height:100%;overflow-x:auto;overflow-y:hidden;flex-shrink:0';
+    this.explorerCol.style.cssText = 'width:260px;height:100%;overflow:hidden;flex-shrink:0';
 
     const resizeHandle = document.createElement('div');
-    resizeHandle.style.cssText = 'width:4px;height:100%;cursor:col-resize;background:var(--border);flex-shrink:0';
+    resizeHandle.style.cssText = 'width:2px;height:100%;cursor:col-resize;background:var(--border);flex-shrink:0';
 
     let startX = 0;
     let startW = 260;

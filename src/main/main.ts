@@ -2,6 +2,16 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Enable hot reload in dev mode — watches dist/ for changes
+if (process.argv.includes('--dev')) {
+  try {
+    require('electron-reload')(__dirname, {
+      electron: require('electron'),
+      hardResetMethod: 'exit',
+    });
+  } catch {}
+}
+
 let mainWindow: BrowserWindow | null = null;
 const ptyProcesses = new Map<string, any>();
 let workspacePath: string | null = null;

@@ -4,10 +4,10 @@ build:
 	npm run build
 
 dev: build
-	npm run dev
+	node dev.js
 
 prod: build
-	npm run prod
+	npx electron .
 
 clean:
 	if exist dist rmdir /s /q dist

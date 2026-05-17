@@ -7,13 +7,15 @@
     "build": "tsc -p tsconfig.main.json && esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife && copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && copy node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ && if not exist dist\\vs xcopy /s /i /y /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul",
     "start": "npm run build && electron .",
     "dev": "electron . --dev",
+    "dev:watch": "concurrently -k \"tsc -p tsconfig.main.json --watch\" \"esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife --watch\" \"copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && npx wait-on dist/main/main.js && copyfiles -u 1 node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ && if not exist dist\\vs xcopy /s /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul\"",
     "prod": "electron .",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
     "concurrently": "^9.0.0",
-    "electron": "^35.0.0",
-    "electron-builder": "^25.0.0",
+    "electron": "^42.1.0",
+    "electron-builder": "^26.8.1",
+    "electron-reload": "^2.0.0-alpha.1",
     "esbuild": "^0.28.0",
     "typescript": "^5.8.0",
     "wait-on": "^8.0.0"
@@ -24,7 +26,7 @@
   "dependencies": {
     "@chenglou/pretext": "^0.0.7",
     "@xterm/xterm": "^6.0.0",
-    "monaco-editor": "^0.55.1",
+    "monaco-editor": "^0.53.0",
     "node-pty": "^1.1.0",
     "xterm": "^5.3.0"
   }

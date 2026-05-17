@@ -7,6 +7,7 @@ export class FileExplorerPlugin {
   private expanded = new Set<string>();
   private copiedPath: string | null = null;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private unsubFiles: (() => void) | null = null;
 
   constructor(container: HTMLElement, private rootPath: string, private onFileOpen: (path: string) => void) {
     this.el = document.createElement('div');
@@ -30,13 +31,13 @@ export class FileExplorerPlugin {
     this.loadDir(rootPath, this.treeEl, 0);
 
     // Watch for external file changes and refresh tree
-    window.electronAPI?.fs.onChanged(() => {
+    this.unsubFiles = window.electronAPI?.fs.onChanged(() => {
       if (this.refreshTimer) clearTimeout(this.refreshTimer);
       this.refreshTimer = setTimeout(() => {
         this.treeEl.innerHTML = '';
         this.loadDir(this.rootPath, this.treeEl, 0);
       }, 500);
-    });
+    }) || null;
   }
 
   private normalize(p: string): string { return p.replace(/\\/g, '/'); }
@@ -197,10 +198,12 @@ export class FileExplorerPlugin {
             childContainer.style.display = 'none';
             item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▸</span><span style="${nameStyle}">${entry.name}</span>`;
           } else {
-            this.expanded.add(fullKey);
+            this.expanded.add(fullPath);
             childContainer.innerHTML = '';
-            await this.loadDir(fullPath, childContainer, depth + 1);
-            childContainer.style.display = '';
+            try {
+              await this.loadDir(fullPath, childContainer, depth + 1);
+            } catch {}
+            childContainer.style.display = childContainer.children.length > 0 ? '' : 'none';
             item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▾</span><span style="${nameStyle}">${entry.name}</span>`;
           }
         });
