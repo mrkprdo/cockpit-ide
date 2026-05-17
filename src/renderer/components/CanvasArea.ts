@@ -338,7 +338,7 @@ export class CanvasArea {
             if (body) {
               body.style.padding = '0';
               const term = new TerminalPlugin(body, cs.card.uuid, wsPath);
-              term.onExit = () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyTerminalsChanged(); };
+              term.onExit = () => this.terminateCard(cs);
               cs.card.onDestroy = () => term.destroy();
               cs.card.opts.onResizeEnd = () => term.fit();
             }
@@ -425,7 +425,7 @@ export class CanvasArea {
       if (body) {
         (body as HTMLElement).style.padding = '0';
         const term = new TerminalPlugin(body as HTMLElement, cs.card.uuid, cwd);
-        term.onExit = () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyTerminalsChanged(); };
+        term.onExit = () => this.terminateCard(cs);
         cs.card.onDestroy = () => term.destroy();
         cs.card.opts.onResizeEnd = () => term.fit();
       }

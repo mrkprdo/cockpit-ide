@@ -23,13 +23,18 @@ export class App {
     this.about = new AboutModal();
 
     this.topBar = new TopBar(document.getElementById('menu-bar')!, {
-      onGridChange: (style) => {
+      onGridChange: async (style) => {
         this.canvas.setGridStyle(style);
-        window.electronAPI?.prefs.save({ gridStyle: style });
+        const prefs = (await window.electronAPI?.prefs.load()) || {};
+        prefs.gridStyle = style;
+        window.electronAPI?.prefs.save(prefs);
       },
-      onThemeToggle: () => {
+      onThemeToggle: async () => {
         this.canvas.refresh();
         this.canvas.devPlugin?.updateTheme();
+        const prefs = (await window.electronAPI?.prefs.load()) || {};
+        prefs.isDark = theme.isDark;
+        window.electronAPI?.prefs.save(prefs);
       },
       onOpenWorkspace: () => this.openWorkspace(),
       onNewTerminal: () => this.canvas.addTerminal(this.wsPath),
@@ -117,6 +122,10 @@ export class App {
     // Restore user preferences
     const prefs = await window.electronAPI?.prefs.load();
     if (prefs?.gridStyle) this.canvas.setGridStyle(prefs.gridStyle);
+    if (prefs?.isDark !== undefined) {
+      theme.setDark(prefs.isDark);
+      this.canvas.devPlugin?.updateTheme();
+    }
 
     this.canvas.workspaceName = path;
     this.canvas.refresh();
