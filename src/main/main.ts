@@ -90,8 +90,6 @@ function stopWatching(): void {
   pendingChanges.clear();
 }
 
-if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
-
 let lastWsFile: string;
 let recentWsFile: string;
 function saveLastWorkspace(p: string): void {
@@ -113,11 +111,6 @@ function addRecentWorkspace(p: string): void {
 
 function createWindow(): void {
   const iconPath = path.join(app.getAppPath(), 'public', 'cockpit_ide_icon.ico');
-  let winIcon: string = iconPath;
-  try {
-    const img = nativeImage.createFromPath(iconPath);
-    if (!img.isEmpty()) winIcon = img as any;
-  } catch {}
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -127,7 +120,7 @@ function createWindow(): void {
     title: 'Cockpit IDE',
     backgroundColor: '#0A0E14',
     frame: false,
-    icon: winIcon,
+    icon: iconPath,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
@@ -136,14 +129,14 @@ function createWindow(): void {
     },
   });
 
-  mainWindow.maximize();
-  mainWindow.show();
-
-  // Force icon after show (Windows taskbar sometimes ignores constructor icon)
+  // Set icon via nativeImage after creation (more reliable on Windows taskbar)
   try {
     const img = nativeImage.createFromPath(iconPath);
     if (!img.isEmpty()) mainWindow.setIcon(img);
   } catch {}
+
+  mainWindow.maximize();
+  mainWindow.show();
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
