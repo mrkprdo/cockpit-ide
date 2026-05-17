@@ -121,7 +121,10 @@ export class MonacoEditorPlugin {
     } else if (content !== undefined) {
       this.fileContents.set(lcPath, content);
       if (this.activeTab === lcPath && this.editor) {
-        this.editor.setValue(content);
+        // Only update if content actually changed (avoids flicker from self-save)
+        if (this.editor.getValue() !== content) {
+          this.editor.setValue(content);
+        }
       }
     }
   }
@@ -336,8 +339,6 @@ export class MonacoEditorPlugin {
     const content = this.editor.getValue();
     if (content === undefined) return;
     window.electronAPI?.fs.writeFile(this.activeTab, content);
-    // Trigger auto-save of window state
-    this.onStateChange?.();
   }
 
   getState(): { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {

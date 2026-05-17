@@ -18,7 +18,7 @@ export class AboutModal {
       </div>
       <div class="welcome-body" style="padding-top:0;text-align:center">
         <div style="padding:12px 0;font-size:12px;font-family:var(--font);color:var(--secondary);line-height:1.6">
-          A canvas-based IDE with AI copilot.
+          A canvas-based IDE
         </div>
         <img src="${badgeSrc}" alt="DESIGN.MD Art Nouveau × Floating" style="display:inline-block;margin:4px 0 12px">
         <div style="font-size:10px;font-family:var(--font);color:var(--tertiary);margin-bottom:12px">
