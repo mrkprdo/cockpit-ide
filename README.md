@@ -4,6 +4,10 @@ Panels float. The canvas is infinite. Nothing is docked.
 
 A spatial IDE built in Electron — drag your editor, terminal, and docs wherever they fit, stack them, zoom out to see everything at once. Open multiple instances of anything. Sessions restore exactly as you left them.
 
+[![Cockpit IDE demo](https://img.youtube.com/vi/GoyIwmrYI58/maxresdefault.jpg)](https://youtu.be/GoyIwmrYI58)
+
+<video src="assets/teaser.mp4" controls width="100%"></video>
+
 ---
 
 **Dev** — Monaco editor + resizable file explorer in one card  
