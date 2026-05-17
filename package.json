@@ -9,10 +9,10 @@
     "dev": "electron . --dev",
     "dev:watch": "concurrently -k \"tsc -p tsconfig.main.json --watch\" \"esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife --watch\" \"copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && npx wait-on dist/main/main.js && copyfiles -u 1 node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ && if not exist dist\\vs xcopy /s /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul\"",
     "prod": "electron .",
-    "pack": "npm run build && electron-builder --config package.json",
-    "pack:win": "npm run build && electron-builder --win --config package.json",
-    "pack:mac": "npm run build && electron-builder --mac --config package.json",
-    "pack:linux": "npm run build && electron-builder --linux --config package.json",
+    "pack": "npm run build && electron-builder",
+    "pack:win": "npm run build && electron-builder --win",
+    "pack:mac": "npm run build && electron-builder --mac",
+    "pack:linux": "npm run build && electron-builder --linux",
     "clean": "rm -rf dist release"
   },
   "devDependencies": {
