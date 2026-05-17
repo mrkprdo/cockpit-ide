@@ -7,6 +7,8 @@ A spatial IDE built in Electron — drag your editor, terminal, and docs whereve
 
 <video src="assets/teaser.mp4" controls width="100%"></video>
 
+[![Cockpit IDE demo](https://img.youtube.com/vi/GoyIwmrYI58/maxresdefault.jpg)](https://youtu.be/GoyIwmrYI58)
+
 ---
 
 **Dev** — Monaco editor + resizable file explorer in one card  
