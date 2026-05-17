@@ -49,6 +49,9 @@ interface Window {
       load: () => Promise<any>;
       save: (prefs: any) => Promise<boolean>;
     };
+    clipboard: {
+      readText: () => string;
+    };
     fs: {
       readDir: (dirPath: string) => Promise<DirEntry[] | null>;
       readFile: (filePath: string) => Promise<string | null>;

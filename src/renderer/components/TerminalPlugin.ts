@@ -7,7 +7,6 @@ export class TerminalPlugin {
   private el: HTMLDivElement;
   private cleanup: (() => void) | null = null;
   private exitCleanup: (() => void) | null = null;
-  private pasteCleanup: (() => void) | null = null;
   private cwd: string | undefined;
 
   constructor(container: HTMLElement, uuid: string, cwd?: string) {
@@ -49,16 +48,19 @@ export class TerminalPlugin {
     this.term.open(this.el);
     this.term.focus();
 
-    const pasteHandler = (e: ClipboardEvent) => {
-      const text = e.clipboardData?.getData('text/plain');
-      if (text) {
-        e.stopPropagation();
-        e.preventDefault();
-        this.term.paste(text);
+    this.term.attachCustomKeyEventHandler((e) => {
+      if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey) {
+        const text = window.electronAPI?.clipboard.readText();
+        if (text) this.term.paste(text);
+        return false;
       }
-    };
-    this.el.addEventListener('paste', pasteHandler, true);
-    this.pasteCleanup = () => this.el.removeEventListener('paste', pasteHandler, true);
+      if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+        const text = window.electronAPI?.clipboard.readText();
+        if (text) this.term.paste(text);
+        return false;
+      }
+      return true;
+    });
 
     this.init();
   }
@@ -102,7 +104,6 @@ export class TerminalPlugin {
   }
 
   destroy(): void {
-    this.pasteCleanup?.();
     this.cleanup?.();
     window.electronAPI?.terminal.kill(this.uuid);
     this.term.dispose();

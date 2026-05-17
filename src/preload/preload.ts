@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => ipcRenderer.send('window:close'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   },
+  clipboard: {
+    readText: () => ipcRenderer.invoke('clipboard:readText'),
+  },
   terminal: {
     create: (uuid: string, cwd?: string) => ipcRenderer.invoke('terminal:create', uuid, cwd),
     write: (uuid: string, data: string) => ipcRenderer.send('terminal:write', uuid, data),

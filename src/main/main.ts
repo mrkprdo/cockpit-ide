@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -163,6 +163,7 @@ app.whenReady().then(() => {
   });
   ipcMain.on('window:close', () => mainWindow?.close());
   ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
+  ipcMain.handle('clipboard:readText', () => clipboard.readText());
 
   // Terminal PTY — multi-session
   ipcMain.handle('terminal:create', async (_event, uuid: string, cwd?: string) => {
