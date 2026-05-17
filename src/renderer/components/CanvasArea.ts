@@ -741,7 +741,8 @@ export class CanvasArea {
     }, { capture: true, passive: false });
 
     this.el.addEventListener('mousedown', (e) => {
-      if (e.button === 0 || e.button === 1) {
+      // Don't start panning if click is inside a card (allows text selection)
+      if ((e.button === 0 || e.button === 1) && !(e.target as HTMLElement)?.closest('.card')) {
         this.isPanning = true;
         this.panStartX = e.clientX;
         this.panStartY = e.clientY;
