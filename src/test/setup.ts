@@ -1,39 +1,83 @@
 import { vi } from 'vitest';
 
-// ─── Canvas mock for jsdom ───
-// HTMLCanvasElement.getContext returns null by default in jsdom.
-// We monkey-patch to return a real 2D context-like object via the `canvas` npm package.
-const originalGetContext = HTMLCanvasElement.prototype.getContext;
-const canvasLib = await import('canvas');
-const { createCanvas } = canvasLib;
+// ─── Lightweight Canvas2D mock (100x faster than node-canvas native addon) ───
+function createMockContext(): CanvasRenderingContext2D {
+  return {
+    canvas: null as any,
+    fillStyle: '',
+    strokeStyle: '',
+    font: '',
+    textBaseline: 'alphabetic' as CanvasTextBaseline,
+    globalAlpha: 1,
+    lineWidth: 1,
+    scale: vi.fn(),
+    clearRect: vi.fn(),
+    fillText: vi.fn(),
+    fillRect: vi.fn(),
+    beginPath: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    closePath: vi.fn(),
+    clip: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    translate: vi.fn(),
+    rotate: vi.fn(),
+    drawImage: vi.fn(),
+    getImageData: vi.fn().mockReturnValue({ data: new Uint8ClampedArray(), width: 0, height: 0, colorSpace: 'srgb' }),
+    putImageData: vi.fn(),
+    createImageData: vi.fn().mockReturnValue({ data: new Uint8ClampedArray(), width: 0, height: 0, colorSpace: 'srgb' }),
+    createLinearGradient: vi.fn().mockReturnValue({ addColorStop: vi.fn() }),
+    createRadialGradient: vi.fn().mockReturnValue({ addColorStop: vi.fn() }),
+    createPattern: vi.fn().mockReturnValue({}),
+    measureText: vi.fn().mockReturnValue({ width: 0, actualBoundingBoxAscent: 0, actualBoundingBoxDescent: 0 }),
+    isPointInPath: vi.fn().mockReturnValue(false),
+    isPointInStroke: vi.fn().mockReturnValue(false),
+    setTransform: vi.fn(),
+    transform: vi.fn(),
+    resetTransform: vi.fn(),
+    getContextAttributes: vi.fn().mockReturnValue({ alpha: true, desynchronized: false, colorSpace: 'srgb' }),
+    getTransform: vi.fn().mockReturnValue({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+    setLineDash: vi.fn(),
+    getLineDash: vi.fn().mockReturnValue([]),
+    lineDashOffset: 0,
+    globalCompositeOperation: 'source-over' as GlobalCompositeOperation,
+    shadowBlur: 0,
+    shadowColor: '',
+    shadowOffsetX: 0,
+    shadowOffsetY: 0,
+    imageSmoothingEnabled: true,
+    imageSmoothingQuality: 'low' as ImageSmoothingQuality,
+    filter: 'none',
+    // @ts-expect-error partial mock
+    roundRect: vi.fn(),
+    // @ts-expect-error partial mock
+    reset: vi.fn(),
+    // Non-standard but used by pretext
+    letterSpacing: '',
+    wordSpacing: '',
+  } as unknown as CanvasRenderingContext2D;
+}
 
+const origGetContext = HTMLCanvasElement.prototype.getContext;
 HTMLCanvasElement.prototype.getContext = function (
   contextId: string,
   options?: any,
 ) {
   if (contextId === '2d') {
-    // Use the actual canvas library to get a real 2D context
-    const offCanvas = createCanvas(this.width || 100, this.height || 100);
-    const ctx = offCanvas.getContext('2d');
-    if (ctx) {
-      // Override canvas reference so operations target the real canvas
-      (ctx as any).canvas = this;
-      return ctx;
-    }
+    const ctx = createMockContext();
+    (ctx as any).canvas = this;
+    return ctx;
   }
-  return originalGetContext.call(this, contextId, options);
+  return origGetContext.call(this, contextId, options);
 } as typeof HTMLCanvasElement.prototype.getContext;
 
-// toDataURL and toBlob
-const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
-HTMLCanvasElement.prototype.toDataURL = function (...args: any[]) {
-  try {
-    const offCanvas = createCanvas(this.width || 100, this.height || 100);
-    const ctx = offCanvas.getContext('2d');
-    return offCanvas.toDataURL(...args);
-  } catch {
-    return origToDataURL.call(this, ...args);
-  }
+// toDataURL mock
+HTMLCanvasElement.prototype.toDataURL = function () {
+  return 'data:image/png;base64,mock';
 };
 
 // ─── Crypto (used by PluginCard for uuid) ───
@@ -52,18 +96,17 @@ vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
   return id;
 });
 
-// devicePixelRatio
 Object.defineProperty(window, 'devicePixelRatio', { value: 1, writable: true });
 
 // ─── Mock @chenglou/pretext ───
 vi.mock('@chenglou/pretext', () => ({
   prepareWithSegments: (text: string) => ({ text, segments: [] }),
   layoutWithLines: (
-    prepared: any,
-    maxWidth: number,
+    _prepared: any,
+    _maxWidth: number,
     lineHeight: number,
   ) => ({
-    lines: [{ text: prepared.text }],
+    lines: [{ text: _prepared.text || '' }],
     height: lineHeight,
   }),
 }));
@@ -76,10 +119,9 @@ vi.mock('@xterm/xterm', () => {
     focus = vi.fn();
     resize = vi.fn();
     dispose = vi.fn();
-    paste = vi.fn();
-    attachCustomKeyEventHandler = vi.fn();
     onData = vi.fn().mockReturnValue({ dispose: vi.fn() });
     onResize = vi.fn().mockReturnValue({ dispose: vi.fn() });
+    attachCustomKeyEventHandler = vi.fn();
     constructor(_opts?: any) {}
   }
   return { Terminal: MockTerminal };
@@ -102,9 +144,6 @@ const mockElectronAPI = {
     kill: vi.fn(),
     onData: vi.fn().mockReturnValue(vi.fn()),
     onExit: vi.fn().mockReturnValue(vi.fn()),
-  },
-  clipboard: {
-    readText: vi.fn().mockReturnValue(''),
   },
   workspace: {
     select: vi.fn().mockResolvedValue('/test/workspace'),
@@ -149,7 +188,6 @@ rootStyle.setProperty('--font', '"Space Mono", "Courier New", monospace');
 rootStyle.setProperty('--accent', '#00E5FF');
 
 // ─── DOM scaffolding for App (auto-executes new App() on import) ───
-// App.ts line 157 runs `new App()` which needs these elements
 const canvas = document.createElement('div');
 canvas.id = 'canvas';
 canvas.style.cssText = 'width:1920px;height:1080px;position:relative';
@@ -166,16 +204,13 @@ document.body.appendChild(statusbar);
 const tbMin = document.createElement('button');
 tbMin.id = 'tb-min';
 document.body.appendChild(tbMin);
-
 const tbMax = document.createElement('button');
 tbMax.id = 'tb-max';
 document.body.appendChild(tbMax);
-
 const tbClose = document.createElement('button');
 tbClose.id = 'tb-close';
 document.body.appendChild(tbClose);
 
-// Suppress window.close() since App may call it when workspace is null
 (window as any).close = () => {};
 
 // ─── Export for tests to access mocks ───

@@ -1,4 +1,6 @@
-import './components/App';
+import { App } from './components/App';
+
+new App();
 
 // Theme toggle
 const toggle = document.getElementById('theme-toggle') as HTMLButtonElement;

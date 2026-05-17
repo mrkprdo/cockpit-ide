@@ -84,6 +84,13 @@ export class App {
   private async promptWorkspace(): Promise<void> {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
+
+    const existingPath = await ws.getPath();
+    if (existingPath) {
+      await this.loadWorkspace(existingPath);
+      return;
+    }
+
     const modal = new WelcomeModal();
     const path = await modal.open();
     if (!path) {
@@ -153,5 +160,3 @@ export class App {
     document.getElementById('tb-close')!.onclick = () => api.close();
   }
 }
-
-new App();
