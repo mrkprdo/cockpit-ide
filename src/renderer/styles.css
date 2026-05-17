@@ -65,12 +65,13 @@ html, body {
 
 /* ===== Custom Title Bar ===== */
 #titlebar {
+  position: relative;
   height: 40px;
   background: var(--surface);
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  z-index: 10;
+  z-index: 100;
 }
 #titlebar-drag {
   flex: 1;
