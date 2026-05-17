@@ -75,7 +75,7 @@ export class ContextPlugin {
     };
   }
 
-  restoreState(state: ContextState): void {
+  async restoreState(state: ContextState): Promise<void> {
     if (!state) return;
     // Handle legacy single-file format
     if ('loadedFile' in state && typeof (state as any).loadedFile === 'string') {
@@ -85,7 +85,7 @@ export class ContextPlugin {
       this.tabs.push({ filePath: lcPath, name });
       this.scrollTops[lcPath] = legacy.scrollTop || 0;
       this.renderTabs();
-      this.switchTab(lcPath);
+      await this.switchTab(lcPath);
       return;
     }
     this.scrollTops = {};
@@ -99,7 +99,7 @@ export class ContextPlugin {
       this.tabs.push({ filePath: normalized, name });
     }
     this.renderTabs();
-    if (targetActive) this.switchTab(targetActive);
+    if (targetActive) await this.switchTab(targetActive);
   }
 
   async loadFile(filePath: string): Promise<void> {
@@ -110,7 +110,7 @@ export class ContextPlugin {
     // If already open, just switch
     const existing = this.tabs.find(t => t.filePath === lcPath);
     if (existing) {
-      this.switchTab(lcPath);
+      await this.switchTab(lcPath);
       return;
     }
 
@@ -120,10 +120,10 @@ export class ContextPlugin {
 
     this.tabs.push({ filePath: lcPath, name });
     if (!this.scrollTops[lcPath]) this.scrollTops[lcPath] = 0;
-    this.switchTab(lcPath);
+    await this.switchTab(lcPath);
   }
 
-  private switchTab(filePath: string): void {
+  private async switchTab(filePath: string): Promise<void> {
     const lcPath = filePath.replace(/\\/g, '/').toLowerCase();
     const tab = this.tabs.find(t => t.filePath === lcPath);
     if (!tab) return;
@@ -134,7 +134,7 @@ export class ContextPlugin {
     }
 
     this.activeTab = lcPath;
-    this.reloadFile(lcPath);
+    await this.reloadFile(lcPath);
     this.preview.scrollTop = this.scrollTops[lcPath] || 0;
     this.renderTabs();
   }

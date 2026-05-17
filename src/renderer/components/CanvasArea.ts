@@ -395,7 +395,7 @@ export class CanvasArea {
         });
 
         if (p.isOpen) {
-          requestAnimationFrame(() => {
+          requestAnimationFrame(async () => {
             const body = cs.card.el.querySelector('.card-body') as HTMLElement;
             if (body) {
               body.style.padding = '0';
@@ -404,7 +404,7 @@ export class CanvasArea {
               const ctx = new ContextPlugin(body);
               ctx.title = p.title;
               this.contextPlugins.push(ctx);
-              ctx.restoreState(p.contextState || null);
+              await ctx.restoreState(p.contextState || null);
               cs.card.onDestroy = () => {
                 ctx.destroy();
                 const i = this.contextPlugins.indexOf(ctx);
