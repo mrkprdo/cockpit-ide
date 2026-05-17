@@ -10,6 +10,14 @@
 - **Editor:** Monaco Editor v0.53 (dynamically loaded via AMD `require()`)
 - **Markdown:** `marked` v18
 
+## Startup Flow
+
+1. Main process parses `process.argv` for a workspace path (packaged: `cockpit .`, dev: `electron . /path/to/workspace`)
+2. If a CLI path is provided and is a valid directory, it's set as `workspacePath` and saved to `last-workspace.txt`
+3. Otherwise, falls back to restoring the last workspace from `last-workspace.txt`
+4. Renderer starts, checks `workspace:getPath` IPC — if a path exists, loads it directly (skipping WelcomeModal)
+5. If no path exists, WelcomeModal prompts the user to pick a workspace
+
 ## Process Model
 
 ```

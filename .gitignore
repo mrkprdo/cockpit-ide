@@ -1,8 +1,8 @@
 node_modules/
 dist/
+build/
+release/
 .cockpit/
 *.log
 .DS_Store
 Thumbs.db
-
-.cockpit/

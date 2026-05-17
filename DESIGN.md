@@ -17,7 +17,6 @@ typography:
     fontSize: 22px
     fontWeight: 700
     lineHeight: 1.2
-  body:
     fontFamily: 'Space Mono', 'Courier New', monospace
     fontSize: 13px
     fontWeight: 400

@@ -26,6 +26,15 @@ npm run dev        # skip rebuild, launch directly
 npm run dev:watch  # watch mode for TypeScript + esbuild
 ```
 
+### From terminal (after installation)
+
+```bash
+cockpit .           # open current directory as workspace
+cockpit ~/projects  # open specific directory
+```
+
+When launched from terminal with a path argument, Cockpit opens directly into that workspace — no welcome prompt.
+
 ## Stack
 
 Electron · Monaco Editor · xterm.js · TypeScript · esbuild

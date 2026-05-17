@@ -2,6 +2,18 @@ import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron'
 import * as fs from 'fs';
 import * as path from 'path';
 
+function resolveCliWorkspace(): string | null {
+  const userArgs = app.isPackaged ? process.argv.slice(1) : process.argv.slice(2);
+  for (const arg of userArgs) {
+    if (arg.startsWith('-')) continue;
+    try {
+      const resolved = path.resolve(arg);
+      if (fs.statSync(resolved).isDirectory()) return resolved;
+    } catch {}
+  }
+  return null;
+}
+
 // Enable hot reload in dev mode — watches dist/ for changes
 if (process.argv.includes('--dev')) {
   try {
@@ -146,16 +158,27 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  // Initialize storage paths and restore last workspace
+  // Initialize storage paths
   lastWsFile = path.join(app.getPath('userData'), 'last-workspace.txt');
   recentWsFile = path.join(app.getPath('userData'), 'recent-workspaces.json');
-  try {
-    const saved = loadLastWorkspace();
-    if (saved) {
-      workspacePath = saved;
-      startWatching(saved);
-    }
-  } catch {} // noop if userData not available
+
+  // CLI workspace path takes precedence over saved state
+  const cliPath = resolveCliWorkspace();
+  if (cliPath) {
+    cockpitDir(path.join(cliPath, '.cockpit'));
+    workspacePath = cliPath;
+    saveLastWorkspace(cliPath);
+    addRecentWorkspace(cliPath);
+    startWatching(cliPath);
+  } else {
+    try {
+      const saved = loadLastWorkspace();
+      if (saved) {
+        workspacePath = saved;
+        startWatching(saved);
+      }
+    } catch {} // noop if userData not available
+  }
   ipcMain.on('window:minimize', () => mainWindow?.minimize());
   ipcMain.on('window:maximize', () => {
     if (mainWindow?.isMaximized()) mainWindow.unmaximize();
