@@ -11,6 +11,9 @@ interface TopBarCallbacks {
   onFocusTerminal?: (uuid: string) => void;
   onReopenTerminal?: (uuid: string) => void;
   onAbout?: () => void;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onResetView?: () => void;
 }
 
 interface TermItem { uuid: string; title: string; isOpen: boolean; }
@@ -52,7 +55,7 @@ export class TopBar {
       <div class="menu-item">
         Edit
         <div class="menu-dropdown">
-          <div class="menu-dropdown-item" id="menu-preferences">Preferences...</div>
+          <div class="menu-dropdown-item" id="menu-preferences">Preferences</div>
         </div>
       </div>
       <div class="menu-item">
@@ -69,9 +72,9 @@ export class TopBar {
           <div class="menu-item menu-item-nested" style="position:relative;padding:6px 12px;border-radius:4px;display:flex;align-items:center;justify-content:space-between">
             <span>Zoom</span><span style="color:var(--tertiary);font-size:10px">▸</span>
             <div class="menu-dropdown-nested">
-              <div class="menu-dropdown-item">Zoom In</div>
-              <div class="menu-dropdown-item">Zoom Out</div>
-              <div class="menu-dropdown-item">Reset View</div>
+              <div class="menu-dropdown-item" id="menu-zoom-in">Zoom In</div>
+              <div class="menu-dropdown-item" id="menu-zoom-out">Zoom Out</div>
+              <div class="menu-dropdown-item" id="menu-reset-view">Reset View</div>
             </div>
           </div>
         </div>
@@ -116,6 +119,18 @@ export class TopBar {
 
     document.getElementById('menu-about')?.addEventListener('click', () => {
       this.callbacks.onAbout?.();
+    });
+
+    document.getElementById('menu-zoom-in')?.addEventListener('click', () => {
+      this.callbacks.onZoomIn?.();
+    });
+
+    document.getElementById('menu-zoom-out')?.addEventListener('click', () => {
+      this.callbacks.onZoomOut?.();
+    });
+
+    document.getElementById('menu-reset-view')?.addEventListener('click', () => {
+      this.callbacks.onResetView?.();
     });
 
     // Terminal instances — click to focus (open) or reopen (closed)

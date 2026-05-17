@@ -1,5 +1,6 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
-export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } };
+export type EditorState = { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> };
+export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState };
 export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number };
 
 import { PluginCard } from './PluginCard';
@@ -167,7 +168,7 @@ export class CanvasArea {
     return {
       plugins: this.cards.map(c => {
         const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen };
-        if (c.savedTitle === 'DEV' && editorState) base.editorState = editorState;
+        if (c.savedTitle === 'Dev' && editorState) base.editorState = editorState;
         return base;
       }),
       zOrder: byZ.map(c => c.card.uuid),
@@ -250,7 +251,7 @@ export class CanvasArea {
             this.notifyTerminalsChanged();
           });
         }
-      } else if (p.title === 'DEV') {
+      } else if (p.title === 'Dev') {
         const cs = this.createCardFromDef(p, {
           onClose: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; },
         });
@@ -304,7 +305,7 @@ export class CanvasArea {
   }
 
   addDev(wsPath: string): void {
-    const cs = this.addCard('DEV', '', 0, 0, 800, 500);
+    const cs = this.addCard('Dev', '', 0, 0, 800, 500);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {
@@ -363,6 +364,23 @@ export class CanvasArea {
     const list = this.cards.filter(c => c.savedTitle.startsWith('Terminal'))
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.onTerminalsChanged?.(list);
+  }
+
+  zoomIn(): void {
+    this.scale = Math.min(5, this.scale * 1.3);
+    this.scheduleTransform();
+  }
+
+  zoomOut(): void {
+    this.scale = Math.max(0.1, this.scale / 1.3);
+    this.scheduleTransform();
+  }
+
+  resetView(): void {
+    this.scale = 1;
+    this.panX = this.el.clientWidth / 2;
+    this.panY = this.el.clientHeight / 2;
+    this.scheduleTransform();
   }
 
   setView(state: { zoom: number; panX: number; panY: number }): void {

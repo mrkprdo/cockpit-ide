@@ -15,7 +15,7 @@ export class DevPlugin {
     this.splitEl.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:row;background:transparent';
 
     this.explorerCol = document.createElement('div');
-    this.explorerCol.style.cssText = 'width:260px;height:100%;overflow:hidden;flex-shrink:0';
+    this.explorerCol.style.cssText = 'width:260px;height:100%;overflow-x:auto;overflow-y:hidden;flex-shrink:0';
 
     const resizeHandle = document.createElement('div');
     resizeHandle.style.cssText = 'width:4px;height:100%;cursor:col-resize;background:var(--border);flex-shrink:0';
@@ -35,7 +35,12 @@ export class DevPlugin {
       const newW = Math.max(120, Math.min(600, startW + dx));
       this.explorerCol.style.width = newW + 'px';
     });
-    document.addEventListener('mouseup', () => { this.isDragging = false; });
+    document.addEventListener('mouseup', () => {
+      if (this.isDragging) {
+        this.isDragging = false;
+        this.onStateChange?.();
+      }
+    });
 
     const editorCol = document.createElement('div');
     editorCol.style.cssText = 'flex:1;height:100%;overflow:hidden;min-width:200px';
@@ -60,12 +65,17 @@ export class DevPlugin {
     this.editor.updateTheme?.();
   }
 
-  getEditorState(): { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
-    return this.editor.getState();
+  getEditorState(): { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
+    const editorState = this.editor.getState();
+    if (!editorState) return null;
+    return { ...editorState, explorerWidth: this.explorerCol.offsetWidth };
   }
 
-  async restoreEditorState(state: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null): Promise<void> {
+  async restoreEditorState(state: { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null): Promise<void> {
     if (!state || !state.openFiles.length) return;
+    if (state.explorerWidth) {
+      this.explorerCol.style.width = state.explorerWidth + 'px';
+    }
     await this.editor.restoreState(state);
   }
 }

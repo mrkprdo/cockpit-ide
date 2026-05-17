@@ -39,6 +39,9 @@ export class App {
       onFocusTerminal: (uuid) => this.canvas.focusTerminal(uuid),
       onReopenTerminal: (uuid) => this.canvas.reopenTerminal(uuid),
       onAbout: () => this.about.open(),
+      onZoomIn: () => this.canvas.zoomIn(),
+      onZoomOut: () => this.canvas.zoomOut(),
+      onResetView: () => this.canvas.resetView(),
     });
 
     this.initWindowControls();

@@ -56,14 +56,14 @@ export class FileExplorerPlugin {
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
       const item = document.createElement('div');
-      item.style.cssText = `display:flex;align-items:center;gap:4px;padding:2px 4px;cursor:pointer;border-radius:3px;color:var(--primary)`;
+      item.style.cssText = `display:flex;align-items:center;gap:4px;padding:2px 4px;cursor:pointer;border-radius:3px;color:var(--primary);overflow:hidden;white-space:nowrap;text-overflow:ellipsis`;
       item.style.paddingLeft = `${12 + depth * 16}px`;
       item.addEventListener('mouseenter', () => item.style.background = 'var(--panel)');
       item.addEventListener('mouseleave', () => item.style.background = 'transparent');
 
       const fullKey = dirPath + '/' + entry.name;
       const icon = entry.isDirectory ? (this.expanded.has(fullKey) ? '▾' : '▸') : ' ';
-      item.innerHTML = `<span style="color:var(--tertiary);width:12px">${icon}</span><span>${entry.name}</span>`;
+      item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">${icon}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;display:block">${entry.name}</span>`;
 
       if (entry.isDirectory) {
         const childContainer = document.createElement('div');
@@ -74,7 +74,7 @@ export class FileExplorerPlugin {
           if (this.expanded.has(fullPath)) {
             this.expanded.delete(fullPath);
             childContainer.style.display = 'none';
-            item.innerHTML = `<span style="color:var(--tertiary);width:12px">▸</span><span>${entry.name}</span>`;
+            item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▸</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;display:block">${entry.name}</span>`;
           } else {
             this.expanded.add(fullPath);
             childContainer.innerHTML = '';
@@ -83,7 +83,7 @@ export class FileExplorerPlugin {
             if (!childContainer.parentNode) {
               parentEl.insertBefore(childContainer, item.nextSibling);
             }
-            item.innerHTML = `<span style="color:var(--tertiary);width:12px">▾</span><span>${entry.name}</span>`;
+            item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▾</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;display:block">${entry.name}</span>`;
           }
         });
         parentEl.appendChild(item);

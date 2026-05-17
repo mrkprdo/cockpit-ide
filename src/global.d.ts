@@ -1,6 +1,7 @@
 interface EditorState {
   openFiles: string[];
   activeFile: string;
+  explorerWidth: number;
   cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }>;
 }
 

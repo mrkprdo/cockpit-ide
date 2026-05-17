@@ -326,7 +326,7 @@ export class MonacoEditorPlugin {
     this.onStateChange?.();
   }
 
-  getState(): { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
+  getState(): { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
     if (this.tabs.length === 0) return null;
 
     // Save current active tab's cursor before reading state
@@ -344,11 +344,12 @@ export class MonacoEditorPlugin {
     return {
       openFiles: this.tabs.map(t => t.filePath),
       activeFile: this.activeTab || '',
+      explorerWidth: 260,
       cursors: { ...this.savedCursors },
     };
   }
 
-  async restoreState(state: { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> }): Promise<void> {
+  async restoreState(state: { openFiles: string[]; activeFile: string; explorerWidth?: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> }): Promise<void> {
     // Save activeTab reference before opening files (openFile sets activeTab on each call)
     const targetActive = state.activeFile;
     for (const f of state.openFiles) {
