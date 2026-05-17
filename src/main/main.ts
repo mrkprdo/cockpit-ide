@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -90,6 +90,8 @@ function stopWatching(): void {
   pendingChanges.clear();
 }
 
+if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
+
 let lastWsFile: string;
 let recentWsFile: string;
 function saveLastWorkspace(p: string): void {
@@ -128,12 +130,6 @@ function createWindow(): void {
       nodeIntegration: false,
     },
   });
-
-  // Set icon via nativeImage after creation (more reliable on Windows taskbar)
-  try {
-    const img = nativeImage.createFromPath(iconPath);
-    if (!img.isEmpty()) mainWindow.setIcon(img);
-  } catch {}
 
   mainWindow.maximize();
   mainWindow.show();
