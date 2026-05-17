@@ -1,6 +1,6 @@
 {
   "name": "cockpit-ide",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Cockpit IDE — Art Nouveau × Floating",
   "main": "dist/main/main.js",
   "scripts": {
