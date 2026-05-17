@@ -47,6 +47,11 @@ export class FileExplorerPlugin {
     this.loadDir(this.rootPath, this.treeEl, 0);
   }
 
+  private reload(): void {
+    this.treeEl.innerHTML = '';
+    this.loadDir(this.rootPath, this.treeEl, 0);
+  }
+
   private showInlineInput(parentDir: string, isFolder: boolean): void {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 4px';
@@ -76,7 +81,7 @@ export class FileExplorerPlugin {
         await window.electronAPI?.fs.writeFile(fullPath, '');
       }
       row.remove();
-      this.refresh();
+      this.reload();
     };
 
     input.addEventListener('keydown', (e) => {
@@ -138,8 +143,7 @@ export class FileExplorerPlugin {
       return a.name.localeCompare(b.name);
     });
     for (const entry of entries) {
-      if (entry.name.startsWith('.gitkeep')) continue;
-      if (entry.name.startsWith('.')) continue;
+      if (entry.name === '.gitkeep') continue;
       const item = document.createElement('div');
       item.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 4px;cursor:pointer;border-radius:3px;color:var(--primary);overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
       item.style.paddingLeft = `${12 + depth * 16}px`;
@@ -205,8 +209,6 @@ export class FileExplorerPlugin {
           parentEl.appendChild(childContainer);
         }
       } else {
-        const isText = /\.(ts|js|json|html|css|md|txt|py|rs|toml|yaml|yml|xml|svg|sh|bat|ps1)$/i.test(entry.name);
-        (item as HTMLElement).style.opacity = isText ? '1' : '0.4';
         item.addEventListener('click', (e) => {
           e.stopPropagation();
           this.onFileOpen(fullPath);

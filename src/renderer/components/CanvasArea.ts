@@ -92,6 +92,8 @@ export class CanvasArea {
           if (cs.isOpen) {
             this.focusCard(cs.card.opts.title);
             this.panToCard(cs);
+          } else {
+            this.reopenCard(cs);
           }
         });
         panel.appendChild(item);
@@ -400,11 +402,35 @@ export class CanvasArea {
     if (!cs) return;
     cs.isOpen = true;
     cs.card.el.style.display = '';
-    // Restore saved position
     cs.worldX = cs.savedWX;
     cs.worldY = cs.savedWY;
     this.positionCard(cs);
     this.notifyTerminalsChanged();
+  }
+
+  reopenCard(cs: CardState): void {
+    if (cs.isOpen) return;
+    if (cs.savedTitle.startsWith('Terminal')) {
+      this.reopenTerminal(cs.card.uuid);
+    } else if (cs.savedTitle === 'Dev') {
+      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+      if (body) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const dev = new DevPlugin(body, this.wsPath);
+        dev.onStateChange = () => this.onStateChange?.();
+        this.devPlugin = dev;
+      }
+      cs.isOpen = true;
+      cs.card.el.style.display = '';
+      cs.worldX = cs.savedWX;
+      cs.worldY = cs.savedWY;
+      this.positionCard(cs);
+      // Force a save so new DevPlugin's editor is registered
+      this.onStateChange?.();
+    }
+    this.panToCard(cs);
   }
 
   private notifyTerminalsChanged(): void {
@@ -511,10 +537,24 @@ export class CanvasArea {
   }
 
   private panToCard(cs: CardState): void {
-    const cx = this.el.clientWidth / 2;
-    const cy = this.el.clientHeight / 2;
-    const targetX = cx - cs.worldX * this.scale;
-    const targetY = cy - cs.worldY * this.scale;
+    const cw = this.el.clientWidth;
+    const ch = this.el.clientHeight;
+
+    // Zoom out if card is wider than viewport, but don't zoom in
+    const cardScreenW = cs.savedWidth * this.scale;
+    const cardScreenH = cs.savedHeight * this.scale;
+    const margin = 40;
+    if (cardScreenW > cw - margin || cardScreenH > ch - margin) {
+      const fitX = (cw - margin) / cs.savedWidth;
+      const fitY = (ch - margin) / cs.savedHeight;
+      this.scale = Math.min(this.scale, Math.min(fitX, fitY));
+    }
+
+    // Center on card center (not top-left)
+    const cx = cw / 2;
+    const cy = ch / 2;
+    const targetX = cx - (cs.worldX + cs.savedWidth / 2) * this.scale;
+    const targetY = cy - (cs.worldY + cs.savedHeight / 2) * this.scale;
     this.animatePan(targetX, targetY);
   }
 
