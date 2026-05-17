@@ -19,6 +19,7 @@ export class App {
     this.canvas.onStateChange = () => this.trySave();
     this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
     this.canvas.onDevsChanged = (items) => this.topBar.setDevItems(items);
+    this.canvas.onContextsChanged = (items) => this.topBar.setContextItems(items);
 
     this.about = new AboutModal();
 
@@ -39,10 +40,13 @@ export class App {
       onOpenWorkspace: () => this.openWorkspace(),
       onNewTerminal: () => this.canvas.addTerminal(this.wsPath),
       onNewDev: () => this.canvas.addDev(this.wsPath),
+      onNewContext: () => this.canvas.addContext(),
       onFocusTerminal: (uuid) => this.canvas.focusTerminal(uuid),
       onReopenTerminal: (uuid) => this.canvas.reopenTerminal(uuid),
       onFocusDev: (uuid) => this.canvas.focusDev(uuid),
       onReopenDev: (uuid) => this.canvas.reopenDev(uuid),
+      onFocusContext: (uuid) => this.canvas.focusContext(uuid),
+      onReopenContext: (uuid) => this.canvas.reopenContext(uuid),
       onAbout: () => this.about.open(),
       onZoomIn: () => this.canvas.zoomIn(),
       onZoomOut: () => this.canvas.zoomOut(),

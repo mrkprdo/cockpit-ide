@@ -8,6 +8,8 @@ export class FileExplorerPlugin {
   private copiedPath: string | null = null;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubFiles: (() => void) | null = null;
+  private contextLabels: string[] = [];
+  private onOpenInContext: ((filePath: string, label: string) => void) | null = null;
 
   constructor(container: HTMLElement, private rootPath: string, private onFileOpen: (path: string) => void) {
     this.el = document.createElement('div');
@@ -16,6 +18,9 @@ export class FileExplorerPlugin {
     this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Loading...</div>';
     this.el.appendChild(this.treeEl);
     container.appendChild(this.el);
+
+    // Stop wheel propagation so canvas doesn't zoom when scrolling the tree
+    this.el.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
 
     // Context menu on empty area: New File
     this.el.addEventListener('contextmenu', (e) => {
@@ -41,6 +46,11 @@ export class FileExplorerPlugin {
   }
 
   private normalize(p: string): string { return p.replace(/\\/g, '/'); }
+
+  setContextOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
+    this.contextLabels = labels;
+    this.onOpenInContext = callback;
+  }
 
   refresh(): void {
     this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Loading...</div>';
@@ -181,9 +191,27 @@ export class FileExplorerPlugin {
           const items: any[] = [
             { label: 'Copy', action: () => { this.copiedPath = fullPath; } },
             { label: 'Paste', action: () => this.pasteHere(dirPath), disabled: !this.copiedPath },
-            { separator: true },
-            { label: 'Delete', action: () => this.deletePath(fullPath) },
           ];
+          // If .md file, add context plugin options
+          const ext = entry.name.split('.').pop()?.toLowerCase();
+          if (ext === 'md') {
+            items.push({ separator: true });
+            if (this.contextLabels.length > 0) {
+              for (const label of this.contextLabels) {
+                items.push({
+                  label: `Open to ${label}`,
+                  action: () => this.onOpenInContext?.(fullPath, label),
+                });
+              }
+            } else {
+              items.push({
+                label: 'View in CONTEXT',
+                action: () => this.onOpenInContext?.(fullPath, ''),
+              });
+            }
+          }
+          items.push({ separator: true });
+          items.push({ label: 'Delete', action: () => this.deletePath(fullPath) });
           new ContextMenu(items, e.clientX, e.clientY);
         });
       }

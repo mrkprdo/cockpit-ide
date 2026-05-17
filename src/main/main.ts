@@ -57,7 +57,7 @@ function startWatching(dir: string): void {
   try {
     const chokidar = require('chokidar');
     watcher = chokidar.watch(dir, {
-      ignored: /(^|[\/\\])(\.git|node_modules|\.cockpit)([\/\\]|$)/,
+      ignored: /(^|[\/\\])(\.git|node_modules)([\/\\]|$)/,
       persistent: true,
       ignoreInitial: true,
       depth: 20,

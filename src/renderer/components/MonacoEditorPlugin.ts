@@ -1,4 +1,4 @@
-interface Tab { filePath: string; name: string; }
+interface Tab { filePath: string; name: string; originalPath: string; }
 
 export class MonacoEditorPlugin {
   onStateChange: (() => void) | null = null;
@@ -25,7 +25,7 @@ export class MonacoEditorPlugin {
 
     // Listen for external file changes
     this.unsubFileChanged = window.electronAPI?.fs.onChanged((rawPath) => {
-      const normalized = rawPath.replace(/\\/g, '/');
+      const normalized = rawPath.replace(/\\/g, '/').toLowerCase();
       this.reloadIfOpen(normalized);
     }) || null;
 
@@ -112,15 +112,15 @@ export class MonacoEditorPlugin {
 
   /** Reload file content if this file is open in a tab */
   async reloadIfOpen(filePath: string): Promise<void> {
-    const tab = this.tabs.find(t => t.filePath === filePath);
+    const lcPath = filePath.toLowerCase();
+    const tab = this.tabs.find(t => t.filePath === lcPath);
     if (!tab) return;
     const content = await window.electronAPI?.fs.readFile(filePath);
     if (content === null) {
-      // File was deleted — close the tab
-      this.closeTab(filePath);
+      this.closeTab(lcPath);
     } else if (content !== undefined) {
-      this.fileContents.set(filePath, content);
-      if (this.activeTab === filePath && this.editor) {
+      this.fileContents.set(lcPath, content);
+      if (this.activeTab === lcPath && this.editor) {
         this.editor.setValue(content);
       }
     }
@@ -128,31 +128,33 @@ export class MonacoEditorPlugin {
 
   async openFile(filePath: string): Promise<void> {
     await this.ready;
-    const name = filePath.split(/[\\/]/).pop() || filePath;
+    const normalized = filePath.replace(/\\/g, '/');
+    const lcPath = normalized.toLowerCase();
+    const name = normalized.split('/').pop() || normalized;
     const ext = (name.split('.').pop() || '').toLowerCase();
 
     // If already open, just switch to it
-    const existing = this.tabs.find(t => t.filePath === filePath);
+    const existing = this.tabs.find(t => t.filePath === lcPath);
     if (existing) {
-      this.switchTab(filePath);
+      this.switchTab(lcPath);
       return;
     }
 
-
     // Load content
-    const content = await window.electronAPI?.fs.readFile(filePath) || '';
-    this.fileContents.set(filePath, content);
+    const content = await window.electronAPI?.fs.readFile(lcPath) || '';
+    this.fileContents.set(lcPath, content);
 
     // Add tab
-    this.tabs.push({ filePath, name });
-    this.switchTab(filePath);
+    this.tabs.push({ filePath: lcPath, name, originalPath: normalized });
+    this.switchTab(lcPath);
     this.onStateChange?.();
   }
 
   private savedCursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> = {};
 
   switchTab(filePath: string): void {
-    const tab = this.tabs.find(t => t.filePath === filePath);
+    const lcPath = filePath.replace(/\\/g, '/').toLowerCase();
+    const tab = this.tabs.find(t => t.filePath === lcPath);
     if (!tab) return;
 
     if (this.editor) {
@@ -168,13 +170,13 @@ export class MonacoEditorPlugin {
           };
         }
       }
-      this.activeTab = filePath;
+      this.activeTab = lcPath;
 
-      const content = this.fileContents.get(filePath) || '';
+      const content = this.fileContents.get(lcPath) || '';
       this.editor.setValue(content);
 
       // Restore cursor position for this tab
-      const saved = this.savedCursors[filePath];
+      const saved = this.savedCursors[lcPath];
       if (saved) {
         this.editor.setPosition({ lineNumber: saved.lineNumber, column: saved.column });
         this.editor.setScrollTop(saved.scrollTop);
@@ -192,12 +194,13 @@ export class MonacoEditorPlugin {
   }
 
   private closeTab(filePath: string): void {
-    const idx = this.tabs.findIndex(t => t.filePath === filePath);
+    const lcPath = filePath.replace(/\\/g, '/').toLowerCase();
+    const idx = this.tabs.findIndex(t => t.filePath === lcPath);
     if (idx === -1) return;
     this.tabs.splice(idx, 1);
-    this.fileContents.delete(filePath);
+    this.fileContents.delete(lcPath);
 
-    if (this.activeTab === filePath) {
+    if (this.activeTab === lcPath) {
       if (this.tabs.length > 0) {
         const newIdx = Math.min(idx, this.tabs.length - 1);
         this.switchTab(this.tabs[newIdx].filePath);
@@ -346,7 +349,7 @@ export class MonacoEditorPlugin {
     }
 
     return {
-      openFiles: this.tabs.map(t => t.filePath),
+      openFiles: this.tabs.map(t => t.originalPath),
       activeFile: this.activeTab || '',
       explorerWidth: 260,
       cursors: { ...this.savedCursors },
@@ -354,18 +357,18 @@ export class MonacoEditorPlugin {
   }
 
   async restoreState(state: { openFiles: string[]; activeFile: string; explorerWidth?: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> }): Promise<void> {
-    // Save activeTab reference before opening files (openFile sets activeTab on each call)
-    const targetActive = state.activeFile;
+    const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+    const targetActive = norm(state.activeFile);
+    const cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> = {};
+    for (const [k, v] of Object.entries(state.cursors)) cursors[norm(k)] = v;
     for (const f of state.openFiles) {
       await this.openFile(f);
     }
-    // Switch to the correct active file
     if (targetActive && targetActive !== this.activeTab) {
       this.switchTab(targetActive);
     }
-    // Restore cursor positions
     requestAnimationFrame(() => {
-      for (const [filePath, pos] of Object.entries(state.cursors)) {
+      for (const [filePath, pos] of Object.entries(cursors)) {
         if (filePath === this.activeTab && this.editor) {
           this.editor.setPosition({ lineNumber: pos.lineNumber, column: pos.column });
           this.editor.setScrollTop(pos.scrollTop);

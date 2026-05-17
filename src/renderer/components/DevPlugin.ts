@@ -8,6 +8,7 @@ export class DevPlugin {
   private isDragging = false;
   private explorerCol: HTMLDivElement;
   private wsPath: string;
+  private explorer: FileExplorerPlugin;
 
   constructor(container: HTMLElement, wsPath: string) {
     this.wsPath = wsPath;
@@ -54,11 +55,15 @@ export class DevPlugin {
     this.editor = new MonacoEditorPlugin(editorCol);
     this.editor.onStateChange = () => this.onStateChange?.();
 
-    const explorer = new FileExplorerPlugin(this.explorerCol, wsPath, (filePath) => {
+    this.explorer = new FileExplorerPlugin(this.explorerCol, wsPath, (filePath) => {
       this.editor.openFile(filePath);
     });
     // Retry once after 1s in case DOM wasn't ready
-    setTimeout(() => explorer.refresh(), 1000);
+    setTimeout(() => this.explorer.refresh(), 1000);
+  }
+
+  setContextOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
+    this.explorer.setContextOpeners(labels, callback);
   }
 
   updateTheme(): void {

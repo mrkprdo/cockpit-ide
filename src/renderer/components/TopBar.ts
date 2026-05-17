@@ -3,17 +3,20 @@ import { theme } from '../theme';
 type GridStyle = 'none' | 'dots' | 'grid';
 
 interface TopBarCallbacks {
-  onGridChange: (style: GridStyle) => void;
+  onOpenPreferences: () => void;
   onThemeToggle?: () => void;
   onOpenWorkspace?: () => void;
   onNewTerminal?: () => void;
   onNewExplorer?: () => void;
   onNewEditor?: () => void;
   onNewDev?: () => void;
+  onNewContext?: () => void;
   onFocusTerminal?: (uuid: string) => void;
   onReopenTerminal?: (uuid: string) => void;
   onFocusDev?: (uuid: string) => void;
   onReopenDev?: (uuid: string) => void;
+  onFocusContext?: (uuid: string) => void;
+  onReopenContext?: (uuid: string) => void;
   onAbout?: () => void;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -26,16 +29,10 @@ export class TopBar {
   private callbacks: TopBarCallbacks;
   private termItems: TermItem[] = [];
   private devItems: TermItem[] = [];
-
-  private gridStyle: GridStyle = 'dots';
+  private ctxItems: TermItem[] = [];
 
   constructor(private el: HTMLElement, callbacks: TopBarCallbacks) {
     this.callbacks = callbacks;
-    this.render();
-  }
-
-  setGridStyle(style: GridStyle): void {
-    this.gridStyle = style;
     this.render();
   }
 
@@ -49,14 +46,34 @@ export class TopBar {
     this.render();
   }
 
+  setContextItems(items: TermItem[]): void {
+    this.ctxItems = items;
+    this.render();
+  }
+
+  setGridStyle(style: GridStyle): void {
+    this.gridStyle = style;
+    this.render();
+  }
+
   private render(): void {
-    const termSubHtml = this.termItems.length === 0
-      ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">New</div>'
-      : '<div class="menu-dropdown-item" id="menu-new-terminal">New</div>'
-        + '<div class="menu-dropdown-separator"></div>'
-        + this.termItems.map(t =>
-            `<div class="menu-dropdown-item term-instance" data-term-uuid="${t.uuid}" data-term-open="${t.isOpen}" style="${t.isOpen ? '' : 'opacity:0.45'}">${t.title}</div>`
-          ).join('');
+    const hideStyle = (isOpen: boolean) => isOpen ? '' : 'opacity:0.45';
+
+    const ctxSubHtml = '<div class="menu-dropdown-item" id="menu-new-context">New</div>'
+      + '<div class="menu-dropdown-separator"></div>'
+      + (this.ctxItems.length === 0
+        ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">(none)</div>'
+        : this.ctxItems.map(t =>
+            `<div class="menu-dropdown-item ctx-instance" data-ctx-uuid="${t.uuid}" data-ctx-open="${t.isOpen}" style="${hideStyle(t.isOpen)}">${t.title}</div>`
+          ).join(''));
+
+    const termSubHtml = '<div class="menu-dropdown-item" id="menu-new-terminal">New</div>'
+      + '<div class="menu-dropdown-separator"></div>'
+      + (this.termItems.length === 0
+        ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">(none)</div>'
+        : this.termItems.map(t =>
+            `<div class="menu-dropdown-item term-instance" data-term-uuid="${t.uuid}" data-term-open="${t.isOpen}" style="${hideStyle(t.isOpen)}">${t.title}</div>`
+          ).join(''));
 
     this.el.innerHTML = `
       <div class="menu-item">
@@ -87,6 +104,12 @@ export class TopBar {
                 ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">(none)</div>'
                 : this.devItems.map(d => `<div class="menu-dropdown-item dev-instance" data-dev-uuid="${d.uuid}" data-dev-open="${d.isOpen}" style="${d.isOpen ? '' : 'opacity:0.45'}">${d.title}</div>`).join('')
               }
+            </div>
+          </div>
+          <div class="menu-item-nested">
+            <span>Context</span><span class="arrow">▸</span>
+            <div class="menu-dropdown-nested">
+              ${ctxSubHtml}
             </div>
           </div>
           <div class="menu-dropdown-separator"></div>
@@ -216,6 +239,23 @@ export class TopBar {
           this.callbacks.onReopenDev?.(uuid);
         }
       });
+    });
+
+    // Context instances
+    this.el.querySelectorAll('.ctx-instance').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const target = e.currentTarget as HTMLElement;
+        const uuid = target.dataset.ctxUuid || '';
+        const isOpen = target.dataset.ctxOpen === 'true';
+        if (isOpen) this.callbacks.onFocusContext?.(uuid);
+        else this.callbacks.onReopenContext?.(uuid);
+      });
+    });
+
+    // "New" in context submenu
+    document.getElementById('menu-new-context')?.addEventListener('click', () => {
+      this.callbacks.onNewContext?.();
     });
 
     document.getElementById('theme-toggle')?.addEventListener('click', () => {

@@ -4,12 +4,12 @@ export type PluginEntry = { uuid: string; title: string; x: number; y: number; w
 export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number; isDark: boolean };
 
 import { PluginCard } from './PluginCard';
-import { TextRenderer } from './TextRenderer';
 import { TerminalPlugin } from './TerminalPlugin';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 import { DevPlugin } from './DevPlugin';
 import { ContextMenu } from './ContextMenu';
+import { ContextPlugin } from './ContextPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -27,10 +27,12 @@ export class CanvasArea {
   onStateChange: (() => void) | null = null;
   onTerminalsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onDevsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
+  onContextsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   private patternSize = 28;
   private patternDataURL = '';
   private cards: CardState[] = [];
 
+  private contextPlugins: ContextPlugin[] = [];
   private scale = 1;
   private panX = 0;
   private panY = 0;
@@ -44,6 +46,7 @@ export class CanvasArea {
   private originDot: HTMLElement;
   private terminalCounter = 0;
   private devCounter = 0;
+  private contextCounter = 0;
   workspaceName = 'no workspace';
 
   private pluginListPanel: HTMLDivElement;
@@ -160,6 +163,7 @@ export class CanvasArea {
           cs.card.el.style.display = 'none';
           this.notifyTerminalsChanged();
           this.notifyDevsChanged();
+          this.notifyContextsChanged();
         }
       },
       onDragEnd: (worldX: number, worldY: number) => {
@@ -240,7 +244,12 @@ export class CanvasArea {
     const editorState = this.devPlugin ? this.devPlugin.getEditorState() : null;
     return {
       plugins: this.cards.map(c => {
-        const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: c.savedWidth, height: c.savedHeight, isOpen: c.isOpen };
+        // Always read actual DOM dimensions as authoritative source
+        const w = parseFloat(c.card.el.style.width) || c.savedWidth;
+        const h = parseFloat(c.card.el.style.height) || c.savedHeight;
+        c.savedWidth = w;
+        c.savedHeight = h;
+        const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: w, height: h, isOpen: c.isOpen };
         if (c.savedTitle.startsWith('Dev') && editorState) base.editorState = editorState;
         return base;
       }),
@@ -301,18 +310,23 @@ export class CanvasArea {
     this.cards = [];
     this.terminalCounter = 0;
     this.devCounter = 0;
+    this.contextCounter = 0;
 
     // Find highest numbers for counters
     let highestTerm = 0;
     let highestDev = 0;
+    let highestCtx = 0;
     for (const p of state.plugins) {
       const tm = p.title.match(/^Terminal (\d+)$/);
       if (tm) highestTerm = Math.max(highestTerm, parseInt(tm[1]));
       const dm = p.title.match(/^Dev (\d+)$/);
       if (dm) highestDev = Math.max(highestDev, parseInt(dm[1]));
+      const cm = p.title.match(/^Context (\d+)$/);
+      if (cm) highestCtx = Math.max(highestCtx, parseInt(cm[1]));
     }
     this.terminalCounter = highestTerm;
-    this.devCounter = Math.max(highestDev, 1); // Ensure at least 1 for old "Dev" entries
+    this.devCounter = Math.max(highestDev, 1);
+    this.contextCounter = highestCtx;
 
     // Normalize old "Dev" titles to "Dev 1"
     for (const p of state.plugins) {
@@ -340,7 +354,11 @@ export class CanvasArea {
               const term = new TerminalPlugin(body, cs.card.uuid, wsPath);
               term.onExit = () => this.terminateCard(cs);
               cs.card.onDestroy = () => term.destroy();
-              cs.card.opts.onResizeEnd = () => term.fit();
+              const origResizeEnd = cs.card.opts.onResizeEnd;
+              cs.card.opts.onResizeEnd = (w: number, h: number) => {
+                origResizeEnd?.(w, h);
+                term.fit();
+              };
             }
             this.notifyTerminalsChanged();
           });
@@ -359,12 +377,37 @@ export class CanvasArea {
             const dev = new DevPlugin(body, wsPath);
             dev.onStateChange = () => this.onStateChange?.();
             this.devPlugin = dev;
+            dev.setContextOpeners(this.getContextLabels(), (filePath, label) => this.openInContext(filePath, label));
             // Restore editor state from plugin entry
             if (p.editorState) {
               const es = p.editorState;
               setTimeout(() => this.devPlugin?.restoreEditorState(es), 500);
             }
           }
+        }
+      } else if (p.title.startsWith('Context')) {
+        const cs = this.createCardFromDef(p, {
+          onClose: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyContextsChanged(); },
+        });
+
+        if (p.isOpen) {
+          requestAnimationFrame(() => {
+            const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+            if (body) {
+              body.style.padding = '0';
+              body.style.alignItems = 'stretch';
+              body.style.justifyContent = 'stretch';
+              const ctx = new ContextPlugin(body);
+              ctx.title = p.title;
+              this.contextPlugins.push(ctx);
+              cs.card.onDestroy = () => {
+                ctx.destroy();
+                const i = this.contextPlugins.indexOf(ctx);
+                if (i !== -1) this.contextPlugins.splice(i, 1);
+              };
+            }
+            this.notifyContextsChanged();
+          });
         }
       }
     }
@@ -373,6 +416,7 @@ export class CanvasArea {
     this.terminalCounter = highestTerm;
     this.repositionAllCards();
     this.notifyDevsChanged();
+    this.notifyContextsChanged();
   }
 
   addExplorer(wsPath: string): void {
@@ -412,9 +456,52 @@ export class CanvasArea {
         const dev = new DevPlugin(body, wsPath);
         dev.onStateChange = () => this.onStateChange?.();
         this.devPlugin = dev;
+        dev.setContextOpeners(this.getContextLabels(), (filePath, label) => this.openInContext(filePath, label));
         this.notifyDevsChanged();
       }
     });
+  }
+
+  addContext(): Promise<ContextPlugin | null> {
+    this.contextCounter++;
+    const name = `Context ${this.contextCounter}`;
+    const cs = this.addCard(name, '', 0, 0, 700, 500);
+    return new Promise(resolve => {
+      requestAnimationFrame(() => {
+        const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+        if (body) {
+          body.style.padding = '0';
+          body.style.alignItems = 'stretch';
+          body.style.justifyContent = 'stretch';
+          const ctx = new ContextPlugin(body);
+          ctx.title = name;
+          this.contextPlugins.push(ctx);
+          cs.card.onDestroy = () => {
+            ctx.destroy();
+            const i = this.contextPlugins.indexOf(ctx);
+            if (i !== -1) this.contextPlugins.splice(i, 1);
+          };
+          this.notifyContextsChanged();
+          resolve(ctx);
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  getContextLabels(): string[] {
+    return this.contextPlugins.map(c => c.title).filter(Boolean);
+  }
+
+  async openInContext(filePath: string, label?: string): Promise<void> {
+    let target = label
+      ? this.contextPlugins.find(c => c.title === label)
+      : this.contextPlugins[0];
+    if (!target) {
+      target = await this.addContext();
+    }
+    target?.loadFile(filePath);
   }
 
   addTerminal(cwd?: string): void {
@@ -428,7 +515,11 @@ export class CanvasArea {
         const term = new TerminalPlugin(body as HTMLElement, cs.card.uuid, cwd);
         term.onExit = () => this.terminateCard(cs);
         cs.card.onDestroy = () => term.destroy();
-        cs.card.opts.onResizeEnd = () => term.fit();
+        const origResizeEnd = cs.card.opts.onResizeEnd;
+        cs.card.opts.onResizeEnd = (w: number, h: number) => {
+          origResizeEnd?.(w, h);
+          term.fit();
+        };
       }
       this.notifyTerminalsChanged();
     });
@@ -440,6 +531,11 @@ export class CanvasArea {
   }
 
   focusDev(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && c.isOpen);
+    if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
+  }
+
+  focusContext(uuid: string): void {
     const cs = this.cards.find(c => c.card.uuid === uuid && c.isOpen);
     if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
   }
@@ -468,6 +564,11 @@ export class CanvasArea {
     if (cs) this.reopenCard(cs);
   }
 
+  reopenContext(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
+    if (cs) this.reopenCard(cs);
+  }
+
   reopenCard(cs: CardState): void {
     if (cs.isOpen) return;
     if (cs.savedTitle.startsWith('Terminal')) {
@@ -481,6 +582,7 @@ export class CanvasArea {
         const dev = new DevPlugin(body, this.wsPath);
         dev.onStateChange = () => this.onStateChange?.();
         this.devPlugin = dev;
+        dev.setContextOpeners(this.getContextLabels(), (filePath, label) => this.openInContext(filePath, label));
       }
       cs.isOpen = true;
       cs.card.el.style.display = '';
@@ -488,6 +590,28 @@ export class CanvasArea {
       cs.worldY = cs.savedWY;
       this.positionCard(cs);
       this.notifyDevsChanged();
+      this.onStateChange?.();
+    } else if (cs.savedTitle.startsWith('Context')) {
+      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+      if (body) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const ctx = new ContextPlugin(body);
+        ctx.title = cs.savedTitle;
+        this.contextPlugins.push(ctx);
+        cs.card.onDestroy = () => {
+          ctx.destroy();
+          const i = this.contextPlugins.indexOf(ctx);
+          if (i !== -1) this.contextPlugins.splice(i, 1);
+        };
+      }
+      cs.isOpen = true;
+      cs.card.el.style.display = '';
+      cs.worldX = cs.savedWX;
+      cs.worldY = cs.savedWY;
+      this.positionCard(cs);
+      this.notifyContextsChanged();
       this.onStateChange?.();
     }
     this.panToCard(cs);
@@ -504,6 +628,7 @@ export class CanvasArea {
     this.cards.splice(idx, 1);
     this.notifyTerminalsChanged();
     this.notifyDevsChanged();
+    this.notifyContextsChanged();
     this.onStateChange?.();
   }
 
@@ -517,6 +642,12 @@ export class CanvasArea {
     const list = this.cards.filter(c => c.savedTitle.startsWith('Dev '))
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.onDevsChanged?.(list);
+  }
+
+  private notifyContextsChanged(): void {
+    const list = this.cards.filter(c => c.savedTitle.startsWith('Context '))
+      .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
+    this.onContextsChanged?.(list);
   }
 
   zoomIn(): void {
