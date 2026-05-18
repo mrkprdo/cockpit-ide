@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron'
 import * as fs from 'fs';
 import * as path from 'path';
 
+process.noDeprecation = true;
+
 function resolveCliWorkspace(): string | null {
   const userArgs = app.isPackaged ? process.argv.slice(1) : process.argv.slice(2);
   for (const arg of userArgs) {
@@ -164,16 +166,18 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools();
   }
 
-  mainWindow.on('closed', () => {
+  mainWindow.on('close', () => {
     cleanupWindowTerminals(mainWindow!);
     mainWindow = null;
   });
 }
 
 function cleanupWindowTerminals(win: BrowserWindow): void {
+  let winId: number | undefined;
+  try { winId = win.webContents.id; } catch { /* window already destroyed */ }
   const ids = new Set<string>();
   for (const [uuid, sender] of terminalSenders) {
-    if (sender && (sender.id === win.webContents.id || sender.isDestroyed())) {
+    if (sender && (sender.id === winId || sender.isDestroyed())) {
       ids.add(uuid);
     }
   }
@@ -208,7 +212,7 @@ function createNewWindow(): void {
   if (process.argv.includes('--dev')) {
     win.webContents.openDevTools();
   }
-  win.on('closed', () => cleanupWindowTerminals(win));
+  win.on('close', () => cleanupWindowTerminals(win));
 }
 
 app.whenReady().then(() => {
