@@ -9,9 +9,9 @@ export interface ThemeColors {
 }
 
 export const darkTheme: ThemeColors = {
-  bg: '#0A0E14',
-  surface: '#121820',
-  panel: '#1A2430',
+  bg: '#161C24',
+  surface: '#1C2538',
+  panel: '#243248',
   primary: '#C8D6E5',
   secondary: '#78909C',
   tertiary: '#546E7A',

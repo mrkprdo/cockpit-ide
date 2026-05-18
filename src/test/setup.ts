@@ -121,6 +121,16 @@ if (isDOM) {
     return 'data:image/png;base64,mock';
   };
 
+  // ResizeObserver polyfill
+  class MockResizeObserver {
+    private cb: ResizeObserverCallback;
+    constructor(cb: ResizeObserverCallback) { this.cb = cb; }
+    observe(_target: Element) {}
+    unobserve(_target: Element) {}
+    disconnect() {}
+  }
+  vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
   // DOM environment stubs
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
     const id = Math.random();
@@ -181,9 +191,9 @@ if (isDOM) {
 
   // CSS custom properties
   const rootStyle = document.documentElement.style;
-  rootStyle.setProperty('--bg', '#0A0E14');
-  rootStyle.setProperty('--surface', '#121820');
-  rootStyle.setProperty('--panel', '#1A2430');
+  rootStyle.setProperty('--bg', '#161C24');
+  rootStyle.setProperty('--surface', '#1C2538');
+  rootStyle.setProperty('--panel', '#243248');
   rootStyle.setProperty('--primary', '#C8D6E5');
   rootStyle.setProperty('--secondary', '#78909C');
   rootStyle.setProperty('--tertiary', '#546E7A');
