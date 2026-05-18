@@ -346,7 +346,7 @@ describe('CanvasArea', () => {
       expect(new Set(positions).size).toBe(4);
     });
 
-    it('uses custom W×H tile size from two inputs', async () => {
+    it('uses custom W×H tile size from two inputs (in grid units)', async () => {
       canvas.addTerminal();
       canvas.addTerminal();
       await new Promise(r => setTimeout(r, 50));
@@ -354,9 +354,9 @@ describe('CanvasArea', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const inputs = document.querySelectorAll('.arr-input') as NodeListOf<HTMLInputElement>;
-      inputs[0].value = '300';
+      inputs[0].value = '10';
       inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
-      inputs[1].value = '200';
+      inputs[1].value = '7';
       inputs[1].dispatchEvent(new Event('input', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
       (items[1] as HTMLElement).click();
@@ -364,8 +364,8 @@ describe('CanvasArea', () => {
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(2);
       for (const p of state.plugins) {
-        expect(p.width).toBe(300);
-        expect(p.height).toBe(200);
+        expect(p.width).toBe(280);
+        expect(p.height).toBe(196);
       }
     });
 

@@ -52,8 +52,8 @@ export class CanvasArea {
 
   private pluginListPanel: HTMLDivElement;
   private arrPanel: HTMLDivElement;
-  private tileW = '640';
-  private tileH = '480';
+  private tileW = '23';
+  private tileH = '17';
 
   private contextMenuOpen = false;
 
@@ -179,10 +179,11 @@ export class CanvasArea {
 
     const row = document.createElement('div');
     row.className = 'arr-input-row';
+    const maxUnits = Math.floor(2000 / this.patternSize);
     const clamp = (v: string) => {
       const n = parseInt(v);
       if (isNaN(n) || n < 1) return '';
-      return String(Math.min(n, 2000));
+      return String(Math.min(n, maxUnits));
     };
     const inpW = document.createElement('input');
     inpW.className = 'arr-input';
@@ -249,11 +250,11 @@ export class CanvasArea {
 
       let cellW: number, cellH: number;
       let cols: number, rows: number;
-      const pw = Math.min(2000, parseInt(this.tileW));
-      const ph = Math.min(2000, parseInt(this.tileH));
-      if (pw > 0 && ph > 0) {
-        cellW = Math.max(gap, pw);
-        cellH = Math.max(gap, ph);
+    const pw = Math.min(2000, parseInt(this.tileW) * this.patternSize);
+    const ph = Math.min(2000, parseInt(this.tileH) * this.patternSize);
+    if (pw > 0 && ph > 0) {
+      cellW = Math.max(gap, pw);
+      cellH = Math.max(gap, ph);
         cols = Math.ceil(Math.sqrt(open.length));
         rows = Math.ceil(open.length / cols);
       } else {
