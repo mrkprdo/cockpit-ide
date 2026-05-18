@@ -5,6 +5,7 @@ export class TerminalPlugin {
   onExit: (() => void) | null = null;
   private term: Terminal;
   private el: HTMLDivElement;
+  private ro: ResizeObserver;
   private cleanup: (() => void) | null = null;
   private exitCleanup: (() => void) | null = null;
   private cwd: string | undefined;
@@ -47,6 +48,9 @@ export class TerminalPlugin {
 
     this.term.open(this.el);
     this.term.focus();
+
+    this.ro = new ResizeObserver(() => this.fit());
+    this.ro.observe(this.el);
 
     this.term.attachCustomKeyEventHandler((e) => {
       if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey) {
@@ -104,6 +108,7 @@ export class TerminalPlugin {
   }
 
   destroy(): void {
+    this.ro.disconnect();
     this.cleanup?.();
     window.electronAPI?.terminal.kill(this.uuid);
     this.term.dispose();

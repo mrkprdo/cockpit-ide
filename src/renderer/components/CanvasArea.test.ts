@@ -7,6 +7,10 @@ function makeCanvasEl(): HTMLElement {
   el.style.cssText = 'width:1920px;height:1080px;position:relative';
   document.body.appendChild(el);
 
+  // jsdom doesn't compute layout, so clientWidth/Height return 0
+  Object.defineProperty(el, 'clientWidth', { value: 1920, configurable: true });
+  Object.defineProperty(el, 'clientHeight', { value: 1080, configurable: true });
+
   const sb = document.createElement('div');
   sb.id = 'statusbar';
   document.body.appendChild(sb);
@@ -152,13 +156,14 @@ describe('CanvasArea', () => {
       expect(getPanel().style.display).toBe('none');
     });
 
-    it('panel contains Auto Arrange and Tile Plugins items', () => {
+    it('panel contains Fit All, Auto Arrange, and Tile Plugins items', () => {
       const zone = getZone();
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = queryArrItems();
-      expect(items.length).toBe(2);
-      expect(items[0].textContent).toBe('Auto Arrange');
-      expect(items[1].textContent).toBe('Tile Plugins');
+      expect(items.length).toBe(3);
+      expect(items[0].textContent).toBe('Fit All');
+      expect(items[1].textContent).toBe('Auto Arrange');
+      expect(items[2].textContent).toBe('Tile Plugins');
     });
 
     it('panel contains two input fields for W and H', () => {
@@ -194,6 +199,99 @@ describe('CanvasArea', () => {
     });
   });
 
+  describe('fit all', () => {
+    function clickFitAll(): void {
+      const zone = document.querySelector('.prr-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const items = document.querySelectorAll('.arr-item');
+      (items[0] as HTMLElement).click();
+    }
+
+    it('is a no-op with zero open cards', () => {
+      const before = canvas.getSaveState();
+      expect(() => clickFitAll()).not.toThrow();
+      // scale should be unchanged (still 1)
+      expect(canvas.getSaveState().zoom).toBe(1);
+    });
+
+    it('zooms out to fit a single large card', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+
+      // Make the card larger than the viewport so zoom-out is needed
+      const cs = (canvas as any).cards as any[];
+      cs[0].savedWidth = 3000;
+      cs[0].savedHeight = 2000;
+
+      clickFitAll();
+      await new Promise(r => setTimeout(r, 100));
+
+      const state = canvas.getSaveState();
+      // fitX = (1920-80)/3000 ≈ 0.613, fitY = (1080-80)/2000 = 0.5
+      expect(state.zoom).toBe(0.5);
+      // Pan should have moved from default (0,0)
+      expect(state.panX).not.toBe(0);
+      expect(state.panY).not.toBe(0);
+    });
+
+    it('fits multiple cards into the viewport', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+
+      // Spread cards wide so they don't fit in viewport at 1x
+      const cs = (canvas as any).cards as any[];
+      cs[0].worldX = 0;
+      cs[1].worldX = 2000;
+      cs[2].worldX = 4000;
+
+      clickFitAll();
+      await new Promise(r => setTimeout(r, 100));
+
+      const state = canvas.getSaveState();
+      // Should zoom out enough to see all cards
+      expect(state.zoom).toBeLessThan(1);
+      // Pan should have moved from default (0,0)
+      expect(state.panX).not.toBe(0);
+      expect(state.panY).not.toBe(0);
+    });
+
+    it('clamps zoom to minimum 0.1 for very spread-out cards', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+
+      const cs = (canvas as any).cards as any[];
+      cs[0].worldX = 0;
+      cs[0].worldY = 0;
+      cs[1].worldX = 50000;
+      cs[1].worldY = 50000;
+
+      clickFitAll();
+      await new Promise(r => setTimeout(r, 100));
+
+      expect(canvas.getSaveState().zoom).toBe(0.1);
+    });
+
+    it('never zooms in past 1x', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+
+      const cs = (canvas as any).cards as any[];
+      cs[0].worldX = 0;
+      cs[0].worldY = 0;
+      cs[0].savedWidth = 100;
+      cs[0].savedHeight = 80;
+
+      clickFitAll();
+      await new Promise(r => setTimeout(r, 100));
+
+      // Cards fit comfortably at 1x, should not zoom in
+      expect(canvas.getSaveState().zoom).toBe(1);
+    });
+  });
+
   describe('auto arrange', () => {
     it('positions open cards in a left-to-right grid', async () => {
       canvas.addTerminal();
@@ -207,7 +305,7 @@ describe('CanvasArea', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[0] as HTMLElement).click();
+      (items[1] as HTMLElement).click();
 
       const after = canvas.getSaveState();
       expect(after.plugins[0].x).toBe(0);
@@ -227,7 +325,7 @@ describe('CanvasArea', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[0] as HTMLElement).click();
+      (items[1] as HTMLElement).click();
 
       expect(onChange).toHaveBeenCalled();
     });
@@ -244,7 +342,7 @@ describe('CanvasArea', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[1] as HTMLElement).click();
+      (items[2] as HTMLElement).click();
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(4);
@@ -265,7 +363,7 @@ describe('CanvasArea', () => {
       inputs[1].value = '200';
       inputs[1].dispatchEvent(new Event('input', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[1] as HTMLElement).click();
+      (items[2] as HTMLElement).click();
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(2);
@@ -280,7 +378,7 @@ describe('CanvasArea', () => {
         const zone = document.querySelector('.prr-zone') as HTMLElement;
         zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
         const items = document.querySelectorAll('.arr-item');
-        (items[1] as HTMLElement).click();
+        (items[2] as HTMLElement).click();
       }).not.toThrow();
     });
 
@@ -294,7 +392,7 @@ describe('CanvasArea', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[1] as HTMLElement).click();
+      (items[2] as HTMLElement).click();
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(4);
@@ -302,5 +400,6 @@ describe('CanvasArea', () => {
       const cellH = state.plugins[0].height;
       expect(state.plugins[2].y).toBe(cellH + 28);
     });
+
   });
 });

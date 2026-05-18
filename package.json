@@ -9,10 +9,11 @@
     "dev": "electron . --dev",
     "dev:watch": "concurrently -k \"tsc -p tsconfig.main.json --watch\" \"esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife --watch\" \"copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && npx wait-on dist/main/main.js && copyfiles -u 1 node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ && if not exist dist\\vs xcopy /s /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul\"",
     "prod": "electron .",
-    "pack": "npm run build && electron-builder",
-    "pack:win": "npm run build && electron-builder --win",
-    "pack:mac": "npm run build && electron-builder --mac",
-    "pack:linux": "npm run build && electron-builder --linux",
+    "generate-assets": "node scripts/generate-installer-assets.js",
+    "pack": "npm run build && npm run generate-assets && electron-builder",
+    "pack:win": "npm run build && npm run generate-assets && electron-builder --win",
+    "pack:mac": "npm run build && npm run generate-assets && electron-builder --mac",
+    "pack:linux": "npm run build && npm run generate-assets && electron-builder --linux",
     "clean": "rm -rf dist release",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -24,7 +25,6 @@
     "@vitest/coverage-v8": "^4.1.6",
     "@vitest/ui": "^4.1.6",
     "@xterm/xterm": "^6.0.0",
-    "chokidar": "^5.0.0",
     "concurrently": "^9.0.0",
     "electron": "^42.1.0",
     "electron-builder": "^26.8.1",
@@ -69,6 +69,10 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "installerIcon": "public/cockpit_ide_icon.ico",
+      "uninstallerIcon": "public/cockpit_ide_icon.ico",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerSidebar": "build/installerSidebar.bmp",
       "include": "build/installer.nsh"
     }
   },
@@ -76,6 +80,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "chokidar": "^5.0.0",
     "node-pty": "^1.1.0"
   }
 }
