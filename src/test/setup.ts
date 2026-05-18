@@ -178,6 +178,7 @@ if (isDOM) {
       readDir: vi.fn().mockResolvedValue([]),
       readFile: vi.fn().mockResolvedValue('test content'),
       writeFile: vi.fn().mockResolvedValue(true),
+      mkdir: vi.fn().mockResolvedValue(true),
       delete: vi.fn().mockResolvedValue(true),
       copy: vi.fn().mockResolvedValue(true),
       rename: vi.fn().mockResolvedValue(true),

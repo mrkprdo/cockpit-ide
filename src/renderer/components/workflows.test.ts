@@ -72,14 +72,20 @@ describe('File CRUD workflows', () => {
     expect(createCall).toBeTruthy();
   });
 
-  it('CREATE: inline input for new folder writes .gitkeep', async () => {
-    const onOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onOpen);
-    await new Promise(r => setTimeout(r, 50));
+  it('CREATE: inline input for new folder calls mkdir', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
 
-    // Right-click on tree
-    const treeEl = container.querySelector('div > div') as HTMLElement;
-    treeEl.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    // Right-click on 'src' directory to get folder context menu
+    const allDivs = Array.from(container.querySelectorAll('div'));
+    const srcEl = allDivs.find(d =>
+      d.textContent?.includes('src') && d.style.cursor === 'pointer',
+    );
+    (srcEl as HTMLElement)?.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true }),
+    );
+
+    await new Promise(r => setTimeout(r, 10));
 
     const newFolderItem = Array.from(document.querySelectorAll('.ctx-item'))
       .find(m => m.textContent === 'New Folder');
@@ -92,12 +98,10 @@ describe('File CRUD workflows', () => {
 
     await new Promise(r => setTimeout(r, 50));
 
-    // Folder creation writes a .gitkeep marker file
-    const writeArgs = (mockElectronAPI.fs.writeFile as any).mock.calls;
-    const gitkeepCall = writeArgs.find((c: any[]) =>
-      c[0].includes('.gitkeep') || c[0].includes('components'),
-    );
-    expect(gitkeepCall).toBeTruthy();
+    // Folder creation calls fs.mkdir
+    const mkdirArgs = (mockElectronAPI.fs.mkdir as any).mock.calls;
+    const mkdirCall = mkdirArgs.find((c: any[]) => c[0].includes('components'));
+    expect(mkdirCall).toBeTruthy();
   });
 
   it('CREATE: Escape key cancels inline input without writing', async () => {
@@ -826,9 +830,9 @@ describe('FileExplorer — nested operations', () => {
     await new Promise(r => setTimeout(r, 50));
 
     // Verify folder was created
-    const writeCalls = (mockElectronAPI.fs.writeFile as any).mock.calls;
-    const gitkeepCall = writeCalls.find((c: any[]) => c[0].includes('.gitkeep'));
-    expect(gitkeepCall).toBeTruthy();
+    const mkdirCalls = (mockElectronAPI.fs.mkdir as any).mock.calls;
+    const mkdirCall = mkdirCalls.find((c: any[]) => c[0].includes('lib'));
+    expect(mkdirCall).toBeTruthy();
   });
 
   it('delete directory triggers confirm and calls fs.delete', async () => {

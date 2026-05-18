@@ -89,7 +89,7 @@ export class FileExplorerPlugin {
       if (!name) { row.remove(); return; }
       const fullPath = parentDir + '/' + name;
       if (isFolder) {
-        await window.electronAPI?.fs.writeFile(fullPath + '/.gitkeep', '');
+        await window.electronAPI?.fs.mkdir(fullPath);
       } else {
         await window.electronAPI?.fs.writeFile(fullPath, '');
       }
@@ -118,11 +118,16 @@ export class FileExplorerPlugin {
     const modal = new ConfirmModal(`Delete <b>${name}</b>?`, 'Delete');
     const ok = await modal.open();
     if (!ok) return;
-    const result = await window.electronAPI?.fs.delete(targetPath);
-    if (!result) {
-      window.alert(`Failed to delete ${name}. The item may be in use or you may lack permission.`);
+    try {
+      const result = await window.electronAPI?.fs.delete(targetPath);
+      if (!result) {
+        window.alert(`Failed to delete ${name}. The item may be in use or you may lack permission.`);
+      }
+    } catch (e) {
+      console.error('deletePath error:', e);
+      window.alert(`Failed to delete ${name}. An unexpected error occurred.`);
     }
-    this.refresh();
+    await this.refresh();
   }
 
   private async pasteHere(targetDir: string): Promise<void> {

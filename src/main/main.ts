@@ -47,17 +47,26 @@ ipcMain.handle('fs:writeFile', async (_event, filePath: string, content: string)
   try { fs.writeFileSync(filePath, content, 'utf-8'); return true; } catch { return false; }
 });
 
+ipcMain.handle('fs:mkdir', async (_event, dirPath: string) => {
+  try { fs.mkdirSync(dirPath, { recursive: true }); return true; } catch { return false; }
+});
+
 ipcMain.handle('fs:delete', async (_event, targetPath: string) => {
+  let watcherStopped = false;
+  // First attempt — may succeed if no handle contention
   try { fs.rmSync(targetPath, { recursive: true, force: true }); return true; } catch {}
   // Retry after pausing watcher — on Windows, chokidar can hold handles on directories
   try {
-    if (watcher) stopWatching();
-    await new Promise(r => setTimeout(r, 100));
-    fs.rmSync(targetPath, { recursive: true, force: true });
-    return true;
-  } catch { return false; } finally {
-    if (workspacePath) startWatching(workspacePath);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (watcher) { await stopWatching(); watcherStopped = true; }
+      await new Promise(r => setTimeout(r, 500 + attempt * 300));
+      fs.rmSync(targetPath, { recursive: true, force: true });
+      return true;
+    }
+  } finally {
+    if (watcherStopped && workspacePath) await startWatching(workspacePath);
   }
+  return false;
 });
 
 ipcMain.handle('fs:copy', async (_event, src: string, dest: string) => {
@@ -77,8 +86,8 @@ let watcher: any = null;
 let watchDebounce: ReturnType<typeof setTimeout> | null = null;
 const pendingChanges = new Set<string>();
 
-function startWatching(dir: string): void {
-  stopWatching();
+async function startWatching(dir: string): Promise<void> {
+  await stopWatching();
   try {
     const chokidar = require('chokidar');
     watcher = chokidar.watch(dir, {
@@ -110,8 +119,8 @@ function startWatching(dir: string): void {
   }
 }
 
-function stopWatching(): void {
-  if (watcher) { watcher.close(); watcher = null; }
+async function stopWatching(): Promise<void> {
+  if (watcher) { await watcher.close(); watcher = null; }
   if (watchDebounce) { clearTimeout(watchDebounce); watchDebounce = null; }
   pendingChanges.clear();
 }
@@ -215,7 +224,7 @@ function createNewWindow(): void {
   win.on('close', () => cleanupWindowTerminals(win));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Initialize storage paths
   lastWsFile = path.join(app.getPath('userData'), 'last-workspace.txt');
   recentWsFile = path.join(app.getPath('userData'), 'recent-workspaces.json');
@@ -227,7 +236,7 @@ app.whenReady().then(() => {
     workspacePath = cliPath;
     saveLastWorkspace(cliPath);
     addRecentWorkspace(cliPath);
-    startWatching(cliPath);
+    await startWatching(cliPath);
   }
   ipcMain.handle('window:new', () => { createNewWindow(); return true; });
   ipcMain.on('window:minimize', (event) => {
@@ -319,12 +328,12 @@ app.whenReady().then(() => {
   // Workspace
   // File watcher
   ipcMain.handle('file:watch', async (_event, dir: string) => {
-    startWatching(dir);
+    await startWatching(dir);
     return true;
   });
 
   ipcMain.handle('file:unwatch', async () => {
-    stopWatching();
+    await stopWatching();
     return true;
   });
 
@@ -340,7 +349,7 @@ app.whenReady().then(() => {
     workspacePath = wsPath;
     saveLastWorkspace(wsPath);
     addRecentWorkspace(wsPath);
-    startWatching(wsPath);
+    await startWatching(wsPath);
     return wsPath;
   });
 
@@ -383,10 +392,11 @@ app.whenReady().then(() => {
   createWindow();
 
   app.on('window-all-closed', () => {
-    stopWatching();
-    for (const pty of ptyProcesses.values()) pty.kill();
-    ptyProcesses.clear();
-    if (process.platform !== 'darwin') app.quit();
+    stopWatching().then(() => {
+      for (const pty of ptyProcesses.values()) pty.kill();
+      ptyProcesses.clear();
+      if (process.platform !== 'darwin') app.quit();
+    });
   });
 
   app.on('activate', () => {
