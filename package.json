@@ -53,7 +53,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "public/cockpit_ide_icon.ico"
+      "icon": "public/cockpit_ide_icon.ico",
+      "executableName": "Cockpit"
     },
     "mac": {
       "target": "dmg",
