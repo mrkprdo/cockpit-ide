@@ -45,7 +45,6 @@ export class CanvasArea {
   private panStartPanY = 0;
   private rafId = 0;
   private gridStyle: GridStyle = 'dots';
-  private originDot: HTMLElement;
   private terminalCounter = 0;
   private devCounter = 0;
   private contextCounter = 0;
@@ -59,10 +58,6 @@ export class CanvasArea {
   private contextMenuOpen = false;
 
   constructor(private el: HTMLElement) {
-    this.originDot = document.createElement('div');
-    this.originDot.style.cssText = 'position:absolute;width:6px;height:6px;border-radius:50%;border:1px solid var(--red);background:transparent;z-index:5;pointer-events:none;transform:translate(-50%,-50%)';
-    this.el.appendChild(this.originDot);
-
     // Plugin list panel (lower-left hover zone)
     const zone = document.createElement('div');
     zone.className = 'pli-zone';
@@ -166,8 +161,7 @@ export class CanvasArea {
     const panel = this.arrPanel;
     panel.innerHTML = '';
 
-    const items = [
-      { label: 'Fit All', action: () => this.fitAll() },
+    const items: { label: string; action: () => void }[] = [
       { label: 'Auto Arrange', action: () => this.autoArrange() },
       { label: 'Tile Plugins', action: () => this.tilePlugins() },
     ];
@@ -893,8 +887,7 @@ export class CanvasArea {
       this.applyGrid();
       for (const cs of this.cards) cs.card.renderTitle();
       const half = this.patternSize / 2;
-      this.originDot.style.left = `${this.panX}px`;
-      this.originDot.style.top = `${this.panY}px`;
+
       this.updateStatusBar();
       this.onStateChange?.();
     });
@@ -1007,10 +1000,6 @@ export class CanvasArea {
     this.animatePan(cw / 2 - cx * this.scale, ch / 2 - cy * this.scale);
   }
 
-  private goOrigin(): void {
-    this.animatePan(this.el.clientWidth / 2, this.el.clientHeight / 2);
-  }
-
   private panToCard(cs: CardState): void {
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
@@ -1057,11 +1046,11 @@ export class CanvasArea {
     sb.appendChild(fill);
 
     sep();
-    const originBtn = document.createElement('button');
-    originBtn.className = 'status-btn';
-    originBtn.textContent = 'origin';
-    originBtn.addEventListener('click', () => this.goOrigin());
-    sb.appendChild(originBtn);
+    const viewAllBtn = document.createElement('button');
+    viewAllBtn.className = 'status-btn';
+    viewAllBtn.textContent = 'view all';
+    viewAllBtn.addEventListener('click', () => this.fitAll());
+    sb.appendChild(viewAllBtn);
   }
 
   private updateStatusBar(): void {

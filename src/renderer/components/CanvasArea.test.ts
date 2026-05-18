@@ -156,14 +156,13 @@ describe('CanvasArea', () => {
       expect(getPanel().style.display).toBe('none');
     });
 
-    it('panel contains Fit All, Auto Arrange, and Tile Plugins items', () => {
+    it('panel contains Auto Arrange and Tile Plugins items', () => {
       const zone = getZone();
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = queryArrItems();
-      expect(items.length).toBe(3);
-      expect(items[0].textContent).toBe('Fit All');
-      expect(items[1].textContent).toBe('Auto Arrange');
-      expect(items[2].textContent).toBe('Tile Plugins');
+      expect(items.length).toBe(2);
+      expect(items[0].textContent).toBe('Auto Arrange');
+      expect(items[1].textContent).toBe('Tile Plugins');
     });
 
     it('panel contains two input fields for W and H', () => {
@@ -200,16 +199,13 @@ describe('CanvasArea', () => {
   });
 
   describe('fit all', () => {
-    function clickFitAll(): void {
-      const zone = document.querySelector('.prr-zone') as HTMLElement;
-      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-      const items = document.querySelectorAll('.arr-item');
-      (items[0] as HTMLElement).click();
+    function callFitAll(): void {
+      (canvas as any).fitAll();
     }
 
     it('is a no-op with zero open cards', () => {
       const before = canvas.getSaveState();
-      expect(() => clickFitAll()).not.toThrow();
+      expect(() => callFitAll()).not.toThrow();
       // scale should be unchanged (still 1)
       expect(canvas.getSaveState().zoom).toBe(1);
     });
@@ -223,7 +219,7 @@ describe('CanvasArea', () => {
       cs[0].savedWidth = 3000;
       cs[0].savedHeight = 2000;
 
-      clickFitAll();
+      callFitAll();
       await new Promise(r => setTimeout(r, 100));
 
       const state = canvas.getSaveState();
@@ -246,7 +242,7 @@ describe('CanvasArea', () => {
       cs[1].worldX = 2000;
       cs[2].worldX = 4000;
 
-      clickFitAll();
+      callFitAll();
       await new Promise(r => setTimeout(r, 100));
 
       const state = canvas.getSaveState();
@@ -268,7 +264,7 @@ describe('CanvasArea', () => {
       cs[1].worldX = 50000;
       cs[1].worldY = 50000;
 
-      clickFitAll();
+      callFitAll();
       await new Promise(r => setTimeout(r, 100));
 
       expect(canvas.getSaveState().zoom).toBe(0.1);
@@ -284,7 +280,7 @@ describe('CanvasArea', () => {
       cs[0].savedWidth = 100;
       cs[0].savedHeight = 80;
 
-      clickFitAll();
+      callFitAll();
       await new Promise(r => setTimeout(r, 100));
 
       // Cards fit comfortably at 1x, should not zoom in
@@ -305,7 +301,7 @@ describe('CanvasArea', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[1] as HTMLElement).click();
+      (items[0] as HTMLElement).click();
 
       const after = canvas.getSaveState();
       expect(after.plugins[0].x).toBe(0);
@@ -325,7 +321,7 @@ describe('CanvasArea', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[1] as HTMLElement).click();
+      (items[0] as HTMLElement).click();
 
       expect(onChange).toHaveBeenCalled();
     });
@@ -342,7 +338,7 @@ describe('CanvasArea', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[2] as HTMLElement).click();
+      (items[1] as HTMLElement).click();
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(4);
@@ -363,7 +359,7 @@ describe('CanvasArea', () => {
       inputs[1].value = '200';
       inputs[1].dispatchEvent(new Event('input', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[2] as HTMLElement).click();
+      (items[1] as HTMLElement).click();
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(2);
@@ -378,7 +374,7 @@ describe('CanvasArea', () => {
         const zone = document.querySelector('.prr-zone') as HTMLElement;
         zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
         const items = document.querySelectorAll('.arr-item');
-        (items[2] as HTMLElement).click();
+        (items[1] as HTMLElement).click();
       }).not.toThrow();
     });
 
@@ -392,7 +388,7 @@ describe('CanvasArea', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[2] as HTMLElement).click();
+      (items[1] as HTMLElement).click();
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(4);
