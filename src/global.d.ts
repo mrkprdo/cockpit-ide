@@ -39,7 +39,7 @@ interface Window {
       select: () => Promise<string | null>;
       getPath: () => Promise<string | null>;
       load: (wsPath?: string) => Promise<WorkspaceState | null>;
-      save: (state: WorkspaceState) => Promise<void>;
+      save: (state: WorkspaceState, wsPath?: string) => Promise<void>;
       getRecent: () => Promise<string[]>;
       addRecent: (p: string) => Promise<void>;
     };

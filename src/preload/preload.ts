@@ -37,7 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     select: () => ipcRenderer.invoke('workspace:select'),
     getPath: () => ipcRenderer.invoke('workspace:getPath'),
     load: (wsPath?: string) => ipcRenderer.invoke('workspace:load', wsPath),
-    save: (state: any) => ipcRenderer.invoke('workspace:save', state),
+    save: (state: any, wsPath?: string) => ipcRenderer.invoke('workspace:save', state, wsPath),
     getRecent: () => ipcRenderer.invoke('workspace:getRecent'),
     addRecent: (p: string) => ipcRenderer.invoke('workspace:addRecent', p),
   },

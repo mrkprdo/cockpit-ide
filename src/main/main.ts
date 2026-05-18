@@ -26,6 +26,7 @@ if (process.argv.includes('--dev')) {
 
 let mainWindow: BrowserWindow | null = null;
 const ptyProcesses = new Map<string, any>();
+const terminalSenders = new Map<string, any>();
 let workspacePath: string | null = null;
 
 // File system IPC
@@ -81,7 +82,9 @@ function startWatching(dir: string): void {
       if (watchDebounce) clearTimeout(watchDebounce);
       watchDebounce = setTimeout(() => {
         for (const p of pendingChanges) {
-          mainWindow?.webContents.send('file:changed', p);
+          for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.send('file:changed', p);
+          }
         }
         pendingChanges.clear();
       }, 100);
@@ -153,8 +156,23 @@ function createWindow(): void {
   }
 
   mainWindow.on('closed', () => {
+    cleanupWindowTerminals(mainWindow!);
     mainWindow = null;
   });
+}
+
+function cleanupWindowTerminals(win: BrowserWindow): void {
+  const ids = new Set<string>();
+  for (const [uuid, sender] of terminalSenders) {
+    if (sender && (sender.id === win.webContents.id || sender.isDestroyed())) {
+      ids.add(uuid);
+    }
+  }
+  for (const uuid of ids) {
+    const pty = ptyProcesses.get(uuid);
+    if (pty) { pty.kill(); ptyProcesses.delete(uuid); }
+    terminalSenders.delete(uuid);
+  }
 }
 
 function createNewWindow(): void {
@@ -181,6 +199,7 @@ function createNewWindow(): void {
   if (process.argv.includes('--dev')) {
     win.webContents.openDevTools();
   }
+  win.on('closed', () => cleanupWindowTerminals(win));
 }
 
 app.whenReady().then(() => {
@@ -198,17 +217,29 @@ app.whenReady().then(() => {
     startWatching(cliPath);
   }
   ipcMain.handle('window:new', () => { createNewWindow(); return true; });
-  ipcMain.on('window:minimize', () => mainWindow?.minimize());
-  ipcMain.on('window:maximize', () => {
-    if (mainWindow?.isMaximized()) mainWindow.unmaximize();
-    else mainWindow?.maximize();
+  ipcMain.on('window:minimize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.minimize();
   });
-  ipcMain.on('window:close', () => mainWindow?.close());
-  ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
+  ipcMain.on('window:maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+      if (win.isMaximized()) win.unmaximize();
+      else win.maximize();
+    }
+  });
+  ipcMain.on('window:close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.close();
+  });
+  ipcMain.handle('window:isMaximized', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return win?.isMaximized() ?? false;
+  });
   ipcMain.handle('clipboard:readText', () => clipboard.readText());
 
   // Terminal PTY — multi-session
-  ipcMain.handle('terminal:create', async (_event, uuid: string, cwd?: string) => {
+  ipcMain.handle('terminal:create', async (event, uuid: string, cwd?: string) => {
     let nodePty: any;
     try {
       const origErr = process.stderr.write.bind(process.stderr);
@@ -237,13 +268,21 @@ app.whenReady().then(() => {
       });
     } catch { return false; }
 
+    const sender = event.sender;
+    terminalSenders.set(uuid, sender);
+
     pty.onData((data: string) => {
-      mainWindow?.webContents.send('terminal:data', uuid, data);
+      if (!sender.isDestroyed()) {
+        sender.send('terminal:data', uuid, data);
+      }
     });
 
     pty.onExit(() => {
-      mainWindow?.webContents.send('terminal:exit', uuid);
+      if (!sender.isDestroyed()) {
+        sender.send('terminal:exit', uuid);
+      }
       ptyProcesses.delete(uuid);
+      terminalSenders.delete(uuid);
     });
 
     ptyProcesses.set(uuid, pty);
@@ -261,6 +300,7 @@ app.whenReady().then(() => {
   ipcMain.on('terminal:kill', (_event, uuid: string) => {
     const pty = ptyProcesses.get(uuid);
     if (pty) { pty.kill(); ptyProcesses.delete(uuid); }
+    terminalSenders.delete(uuid);
   });
 
   // Workspace
@@ -275,8 +315,9 @@ app.whenReady().then(() => {
     return true;
   });
 
-  ipcMain.handle('workspace:select', async () => {
-    const result = await dialog.showOpenDialog(mainWindow!, {
+  ipcMain.handle('workspace:select', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow!;
+    const result = await dialog.showOpenDialog(win, {
       properties: ['openDirectory'],
       title: 'Open Workspace',
     });
@@ -299,9 +340,10 @@ app.whenReady().then(() => {
     try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch { return null; }
   });
 
-  ipcMain.handle('workspace:save', (_event, state: any) => {
-    if (!workspacePath) { console.error('workspace:save — no workspacePath'); return false; }
-    const dir = path.join(workspacePath, '.cockpit');
+  ipcMain.handle('workspace:save', (_event, state: any, wsPath?: string) => {
+    const targetPath = wsPath || workspacePath;
+    if (!targetPath) { console.error('workspace:save — no workspacePath'); return false; }
+    const dir = path.join(targetPath, '.cockpit');
     try {
       cockpitDir(dir);
       fs.writeFileSync(path.join(dir, 'window.json'), JSON.stringify(state, null, 2));
