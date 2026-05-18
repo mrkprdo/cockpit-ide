@@ -143,9 +143,12 @@ describe('App', () => {
     expect(mockElectronAPI.window.newWindow).not.toHaveBeenCalled();
   });
 
-  it('does not call workspace.getPath during startup', () => {
-    (mockElectronAPI.workspace.getPath as any).mockClear();
+  it('calls workspace.getPath during startup and skips modal when path is set', async () => {
+    (mockElectronAPI.workspace.getPath as any).mockResolvedValue('/cli/path');
+    (mockElectronAPI.workspace.load as any).mockClear();
     new App();
-    expect(mockElectronAPI.workspace.getPath).not.toHaveBeenCalled();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(mockElectronAPI.workspace.getPath).toHaveBeenCalled();
+    expect(mockElectronAPI.workspace.load).toHaveBeenCalledWith('/cli/path');
   });
 });

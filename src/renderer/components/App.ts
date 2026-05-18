@@ -98,6 +98,12 @@ export class App {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
 
+    const cliPath = await ws.getPath();
+    if (cliPath) {
+      await this.loadWorkspace(cliPath);
+      return;
+    }
+
     const modal = new WelcomeModal();
     const path = await modal.open();
     if (!path) {
