@@ -734,6 +734,25 @@ export class CanvasArea {
     }
   }
 
+  cycleCard(direction: 1 | -1): void {
+    const open = this.cards.filter(c => c.isOpen);
+    if (open.length < 2) return;
+
+    let currentIdx = 0;
+    let maxZ = -Infinity;
+    for (let i = 0; i < open.length; i++) {
+      const z = parseInt(open[i].card.el.style.zIndex) || 0;
+      if (z > maxZ) {
+        maxZ = z;
+        currentIdx = i;
+      }
+    }
+
+    const nextIdx = (currentIdx + direction + open.length) % open.length;
+    this.focusCard(open[nextIdx].card.opts.title);
+    this.panToCard(open[nextIdx]);
+  }
+
   reopenTerminal(uuid: string): void {
     const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
     if (!cs) return;

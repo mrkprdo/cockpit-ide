@@ -19,6 +19,10 @@ export class App {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
       }
+      if (e.ctrlKey && e.key === 'Tab') {
+        e.preventDefault();
+        this.canvas.cycleCard(e.shiftKey ? -1 : 1);
+      }
     });
 
     this.canvas = new CanvasArea(document.getElementById('canvas')!);
