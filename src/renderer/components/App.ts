@@ -14,8 +14,14 @@ export class App {
   constructor() {
     document.title = 'Cockpit IDE';
 
-    // Disable Ctrl+W (browser close tab shortcut)
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
+      // Ctrl+Shift+N / Cmd+Shift+N — new window
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        window.electronAPI?.window.newWindow();
+      }
+      // Disable Ctrl+W (browser close tab shortcut)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
       }
@@ -58,7 +64,10 @@ export class App {
       onReopenDev: (uuid) => this.canvas.reopenDev(uuid),
       onFocusContext: (uuid) => this.canvas.focusContext(uuid),
       onReopenContext: (uuid) => this.canvas.reopenContext(uuid),
-      onAbout: () => this.about.open(),
+      onAbout: () => {
+        this.canvas.locked = true;
+        this.about.open(() => { this.canvas.locked = false; });
+      },
       onZoomIn: () => this.canvas.zoomIn(),
       onZoomOut: () => this.canvas.zoomOut(),
       onResetView: () => this.canvas.resetView(),
@@ -89,12 +98,6 @@ export class App {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
 
-    const existingPath = await ws.getPath();
-    if (existingPath) {
-      await this.loadWorkspace(existingPath);
-      return;
-    }
-
     const modal = new WelcomeModal();
     const path = await modal.open();
     if (!path) {
@@ -116,7 +119,7 @@ export class App {
     this.wsPath = path;
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
-    const state = await ws.load();
+    const state = await ws.load(path);
 
     // Start file watcher
     window.electronAPI?.fs.watch(path);

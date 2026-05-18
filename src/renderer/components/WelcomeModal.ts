@@ -6,7 +6,7 @@ export class WelcomeModal {
   constructor() {
     this.overlay = document.createElement('div');
     this.overlay.className = 'modal-overlay';
-    this.overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:none;align-items:center;justify-content:center';
+    this.overlay.style.display = 'none';
 
     this.el = document.createElement('div');
     this.el.className = 'welcome-modal';
@@ -42,16 +42,14 @@ export class WelcomeModal {
     const container = this.el.querySelector('#welcome-recent') as HTMLElement;
     if (recent.length > 0) {
       container.style.display = 'block';
-      container.innerHTML = '<div class="welcome-recent-title">Recent</div>'
-        + recent.map(p =>
-          `<div class="welcome-recent-item" data-path="${p}">${p}</div>`
-        ).join('');
-      container.querySelectorAll('.welcome-recent-item').forEach(item => {
-        item.addEventListener('click', async () => {
-          const path = (item as HTMLElement).dataset.path || '';
-          if (path) this.close(path);
-        });
-      });
+      container.innerHTML = '<div class="welcome-recent-title">Recent</div>';
+      for (const p of recent) {
+        const item = document.createElement('div');
+        item.className = 'welcome-recent-item';
+        item.textContent = p;
+        item.addEventListener('click', () => { if (p) this.close(p); });
+        container.appendChild(item);
+      }
     } else {
       container.style.display = 'none';
     }

@@ -28,9 +28,9 @@ export class ContextMenu {
       }
       const el = document.createElement('div');
       el.className = 'ctx-item' + (item.disabled ? ' ctx-disabled' : '');
-      el.textContent = item.label;
+      el.textContent = item.label ?? '';
       if (!item.disabled) {
-        el.addEventListener('click', () => { item.action(); this.remove(); });
+        el.addEventListener('click', () => { item.action?.(); this.remove(); });
       }
       this.el.appendChild(el);
     }

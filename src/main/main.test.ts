@@ -4,7 +4,7 @@
  * Tests for Electron main process IPC handlers.
  */
 
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 
 // ─── Handler maps hoisted first ───
 const { handleMap, onMap } = vi.hoisted(() => {
@@ -190,10 +190,49 @@ describe('main.ts IPC handlers', () => {
     });
   });
 
+  describe('window:new behavior', () => {
+    it('creates a new BrowserWindow', async () => {
+      const { BrowserWindow } = await import('electron');
+      const handler = handleMap.get('window:new')!;
+      (BrowserWindow as any).mockClear();
+
+      const result = await handler({});
+      expect(result).toBe(true);
+      expect(BrowserWindow).toHaveBeenCalled();
+    });
+  });
+
   describe('workspace behavior', () => {
     it('workspace:load returns null when no workspace', async () => {
       const handler = handleMap.get('workspace:load')!;
       const result = await handler({});
+      expect(result).toBeNull();
+    });
+
+    it('workspace:load with explicit path reads from that path', async () => {
+      const fs = await import('fs');
+      vi.mocked(fs.readFileSync).mockClear();
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ plugins: [], zOrder: [], zoom: 1, panX: 0, panY: 0, isDark: false }));
+
+      const handler = handleMap.get('workspace:load')!;
+      const result = await handler({}, '/custom/workspace');
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.plugins).toEqual([]);
+      }
+      expect(fs.readFileSync).toHaveBeenCalledTimes(1);
+      expect(fs.readFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('custom'),
+        'utf-8',
+      );
+    });
+
+    it('workspace:load returns null when explicit path is invalid', async () => {
+      const fs = await import('fs');
+      vi.mocked(fs.readFileSync).mockImplementation(() => { throw new Error('ENOENT'); });
+
+      const handler = handleMap.get('workspace:load')!;
+      const result = await handler({}, '/nonexistent/path');
       expect(result).toBeNull();
     });
 
@@ -355,7 +394,11 @@ describe('main.ts IPC handlers', () => {
     });
   });
 
-  describe('window lifecycle IPC listeners', () => {
+  describe('window lifecycle IPC handlers', () => {
+    it('window:new handler is registered', () => {
+      expect(handleMap.has('window:new')).toBe(true);
+    });
+
     it('window:minimize listener is registered', () => {
       expect(onMap.has('window:minimize')).toBe(true);
     });

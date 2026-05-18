@@ -135,6 +135,7 @@ if (isDOM) {
     platform: 'win32',
     versions: { node: '20.0.0', chrome: '120.0.0', electron: '42.0.0' },
     window: {
+      newWindow: vi.fn().mockResolvedValue(true),
       minimize: vi.fn(),
       maximize: vi.fn(),
       close: vi.fn(),

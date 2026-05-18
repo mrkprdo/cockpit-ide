@@ -71,6 +71,7 @@ describe('preload.ts — exposed API shape', () => {
 
   it('exposes window namespace', () => {
     expect(api.window).toBeDefined();
+    expect(typeof api.window.newWindow).toBe('function');
     expect(typeof api.window.minimize).toBe('function');
     expect(typeof api.window.maximize).toBe('function');
     expect(typeof api.window.close).toBe('function');
@@ -128,6 +129,12 @@ describe('preload.ts — exposed API shape', () => {
 });
 
 describe('preload.ts — IPC wiring (invoke-based)', () => {
+  it('window.newWindow invokes window:new', () => {
+    invokeCalls.length = 0;
+    api.window.newWindow();
+    expect(invokeCalls.some(c => c[0] === 'window:new')).toBe(true);
+  });
+
   it('window.minimize sends correct IPC', () => {
     invokeCalls.length = 0;
     sendCalls.length = 0;
@@ -207,6 +214,20 @@ describe('preload.ts — IPC wiring (invoke-based)', () => {
     invokeCalls.length = 0;
     api.workspace.save({ plugins: [] });
     expect(invokeCalls.some(c => c[0] === 'workspace:save' && c[1].plugins)).toBe(true);
+  });
+
+  it('workspace.load passes path argument to workspace:load', () => {
+    invokeCalls.length = 0;
+    api.workspace.load('/my/workspace');
+    expect(invokeCalls.some(c => c[0] === 'workspace:load' && c[1] === '/my/workspace')).toBe(true);
+  });
+
+  it('workspace.load works without path argument', () => {
+    invokeCalls.length = 0;
+    api.workspace.load();
+    const call = invokeCalls.find(c => c[0] === 'workspace:load');
+    expect(call).toBeTruthy();
+    expect(call![1]).toBeUndefined();
   });
 });
 

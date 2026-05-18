@@ -194,7 +194,6 @@ export class PluginCard {
       const t = this.getTransform();
       const dw = (e.clientX - startX) / t.scale;
       const dh = (e.clientY - startY) / t.scale;
-      const half = SNAP / 2;
       let newW = this.opts.width;
       let newH = this.opts.height;
       if (dir === 'e' || dir === 'se') {

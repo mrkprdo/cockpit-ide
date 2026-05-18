@@ -157,6 +157,32 @@ function createWindow(): void {
   });
 }
 
+function createNewWindow(): void {
+  const iconPath = path.join(app.getAppPath(), 'public', 'cockpit_ide_icon.ico');
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 600,
+    title: 'Cockpit IDE',
+    backgroundColor: '#0A0E14',
+    frame: false,
+    icon: iconPath,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'preload', 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  win.maximize();
+  win.show();
+  win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  if (process.argv.includes('--dev')) {
+    win.webContents.openDevTools();
+  }
+}
+
 app.whenReady().then(() => {
   // Initialize storage paths
   lastWsFile = path.join(app.getPath('userData'), 'last-workspace.txt');
@@ -170,15 +196,8 @@ app.whenReady().then(() => {
     saveLastWorkspace(cliPath);
     addRecentWorkspace(cliPath);
     startWatching(cliPath);
-  } else {
-    try {
-      const saved = loadLastWorkspace();
-      if (saved) {
-        workspacePath = saved;
-        startWatching(saved);
-      }
-    } catch {} // noop if userData not available
   }
+  ipcMain.handle('window:new', () => { createNewWindow(); return true; });
   ipcMain.on('window:minimize', () => mainWindow?.minimize());
   ipcMain.on('window:maximize', () => {
     if (mainWindow?.isMaximized()) mainWindow.unmaximize();
@@ -271,11 +290,12 @@ app.whenReady().then(() => {
     return wsPath;
   });
 
-  ipcMain.handle('workspace:getPath', () => workspacePath || loadLastWorkspace());
+  ipcMain.handle('workspace:getPath', () => workspacePath);
 
-  ipcMain.handle('workspace:load', () => {
-    if (!workspacePath) return null;
-    const f = path.join(workspacePath, '.cockpit', 'window.json');
+  ipcMain.handle('workspace:load', (_event, wsPath?: string) => {
+    const targetPath = wsPath || workspacePath;
+    if (!targetPath) return null;
+    const f = path.join(targetPath, '.cockpit', 'window.json');
     try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch { return null; }
   });
 

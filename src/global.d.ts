@@ -21,6 +21,7 @@ interface Window {
     platform: string;
     versions: { node: string; chrome: string; electron: string };
     window: {
+      newWindow: () => Promise<boolean>;
       minimize: () => void;
       maximize: () => void;
       close: () => void;
@@ -37,7 +38,7 @@ interface Window {
     workspace: {
       select: () => Promise<string | null>;
       getPath: () => Promise<string | null>;
-      load: () => Promise<WorkspaceState | null>;
+      load: (wsPath?: string) => Promise<WorkspaceState | null>;
       save: (state: WorkspaceState) => Promise<void>;
       getRecent: () => Promise<string[]>;
       addRecent: (p: string) => Promise<void>;

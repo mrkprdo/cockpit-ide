@@ -28,6 +28,7 @@ export class CanvasArea {
   onTerminalsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onDevsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onContextsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
+  locked = false;
   private patternSize = 28;
   private patternDataURL = '';
   private cards: CardState[] = [];
@@ -925,6 +926,7 @@ export class CanvasArea {
     // Global Ctrl+Wheel zoom — capture phase so it fires before child stopPropagation
     document.addEventListener('wheel', (e) => {
       if (!e.ctrlKey) return;
+      if (this.locked) { e.preventDefault(); return; }
       e.preventDefault();
       e.stopPropagation();
       const rect = this.el.getBoundingClientRect();
@@ -941,6 +943,7 @@ export class CanvasArea {
     }, { capture: true, passive: false });
 
     this.el.addEventListener('mousedown', (e) => {
+      if (this.locked) return;
       // Ctrl+drag pans even over cards; otherwise only on empty canvas for text selection
       if (e.button === 0 || e.button === 1) {
         if (e.ctrlKey || !(e.target as HTMLElement)?.closest('.card, .prr-zone, .pli-zone')) {
@@ -955,7 +958,7 @@ export class CanvasArea {
     });
 
     document.addEventListener('mousemove', (e) => {
-      if (!this.isPanning) return;
+      if (!this.isPanning || this.locked) return;
       this.panX = this.panStartPanX + (e.clientX - this.panStartX);
       this.panY = this.panStartPanY + (e.clientY - this.panStartY);
       this.scheduleTransform();

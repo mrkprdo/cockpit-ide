@@ -97,4 +97,55 @@ describe('App', () => {
 
     expect(preventDefaultSpy).not.toHaveBeenCalled();
   });
+
+  it('Ctrl+Shift+N calls window.newWindow', () => {
+    new App();
+    (mockElectronAPI.window.newWindow as any).mockClear();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'n',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+    });
+    document.dispatchEvent(event);
+
+    expect(mockElectronAPI.window.newWindow).toHaveBeenCalled();
+  });
+
+  it('Cmd+Shift+N calls window.newWindow', () => {
+    new App();
+    (mockElectronAPI.window.newWindow as any).mockClear();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'n',
+      metaKey: true,
+      shiftKey: true,
+      bubbles: true,
+    });
+    document.dispatchEvent(event);
+
+    expect(mockElectronAPI.window.newWindow).toHaveBeenCalled();
+  });
+
+  it('Ctrl+N without Shift does not call newWindow', () => {
+    new App();
+    (mockElectronAPI.window.newWindow as any).mockClear();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'n',
+      ctrlKey: true,
+      shiftKey: false,
+      bubbles: true,
+    });
+    document.dispatchEvent(event);
+
+    expect(mockElectronAPI.window.newWindow).not.toHaveBeenCalled();
+  });
+
+  it('does not call workspace.getPath during startup', () => {
+    (mockElectronAPI.workspace.getPath as any).mockClear();
+    new App();
+    expect(mockElectronAPI.workspace.getPath).not.toHaveBeenCalled();
+  });
 });

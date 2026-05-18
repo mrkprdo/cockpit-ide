@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     electron: process.versions.electron,
   },
   window: {
+    newWindow: () => ipcRenderer.invoke('window:new'),
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
     close: () => ipcRenderer.send('window:close'),
@@ -35,7 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   workspace: {
     select: () => ipcRenderer.invoke('workspace:select'),
     getPath: () => ipcRenderer.invoke('workspace:getPath'),
-    load: () => ipcRenderer.invoke('workspace:load'),
+    load: (wsPath?: string) => ipcRenderer.invoke('workspace:load', wsPath),
     save: (state: any) => ipcRenderer.invoke('workspace:save', state),
     getRecent: () => ipcRenderer.invoke('workspace:getRecent'),
     addRecent: (p: string) => ipcRenderer.invoke('workspace:addRecent', p),

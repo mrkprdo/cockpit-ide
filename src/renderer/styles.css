@@ -625,6 +625,81 @@ html, body {
   opacity: 0.8;
 }
 
+/* ===== About Modal ===== */
+.about-modal {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  width: 300px;
+  font-family: var(--font);
+  overflow: hidden;
+}
+.about-head {
+  padding: 24px 24px 20px;
+}
+.about-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--primary);
+  margin-bottom: 5px;
+}
+.about-tagline {
+  font-size: 10px;
+  color: var(--tertiary);
+  letter-spacing: 0.3px;
+}
+.about-sep {
+  height: 1px;
+  margin: 0 24px;
+  background: var(--border);
+}
+.about-specs {
+  padding: 16px 24px;
+}
+.about-spec {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+.about-spec:last-child {
+  margin-bottom: 0;
+}
+.about-spec-key {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--tertiary);
+}
+.about-spec-val {
+  font-size: 11px;
+  color: var(--primary);
+}
+.about-foot {
+  padding: 12px 24px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.about-close-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--secondary);
+  font-size: 10px;
+  font-family: var(--font);
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.about-close-btn:hover {
+  background: var(--panel);
+  color: var(--primary);
+  border-color: var(--secondary);
+}
+
 .welcome-btn-secondary {
   display: block;
   margin: 12px auto 0;
