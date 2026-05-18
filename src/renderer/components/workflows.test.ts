@@ -465,7 +465,7 @@ describe('Theme persistence workflow', () => {
   it('dark is the default theme', () => {
     theme.setDark(true);
     expect(theme.isDark).toBe(true);
-    expect(theme.colors.bg).toBe('#0A0E14');
+    expect(theme.colors.bg).toBe('#161C24');
   });
 
   it('toggle switches theme and propagates CSS vars', () => {
@@ -479,16 +479,16 @@ describe('Theme persistence workflow', () => {
 
     theme.toggle();
     expect(theme.isDark).toBe(true);
-    expect(root.style.getPropertyValue('--bg')).toBe('#0A0E14');
+    expect(root.style.getPropertyValue('--bg')).toBe('#161C24');
     expect(root.style.getPropertyValue('--primary')).toBe('#C8D6E5');
   });
 
   it('setDark propagates to all CSS custom properties', () => {
     theme.setDark(true);
     const root = document.documentElement;
-    expect(root.style.getPropertyValue('--bg')).toBe('#0A0E14');
-    expect(root.style.getPropertyValue('--surface')).toBe('#121820');
-    expect(root.style.getPropertyValue('--panel')).toBe('#1A2430');
+    expect(root.style.getPropertyValue('--bg')).toBe('#161C24');
+    expect(root.style.getPropertyValue('--surface')).toBe('#1C2538');
+    expect(root.style.getPropertyValue('--panel')).toBe('#243248');
     expect(root.style.getPropertyValue('--secondary')).toBe('#78909C');
     expect(root.style.getPropertyValue('--tertiary')).toBe('#546E7A');
     expect(root.style.getPropertyValue('--border')).toBe('#2A3A4A');

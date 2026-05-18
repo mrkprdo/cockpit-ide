@@ -40,7 +40,7 @@ describe('Theme edge cases', () => {
     theme.setDark(true); // same value again
     const bg2 = document.documentElement.style.getPropertyValue('--bg');
     expect(bg1).toBe(bg2);
-    expect(bg1).toBe('#0A0E14');
+    expect(bg1).toBe('#161C24');
   });
 
   it('setDark back and forth restores exact colors', () => {

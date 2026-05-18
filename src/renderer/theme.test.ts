@@ -12,7 +12,7 @@ describe('theme', () => {
 
   it('returns dark color palette when dark', () => {
     expect(theme.colors).toBe(darkTheme);
-    expect(theme.colors.bg).toBe('#0A0E14');
+    expect(theme.colors.bg).toBe('#161C24');
     expect(theme.colors.primary).toBe('#C8D6E5');
   });
 
@@ -34,7 +34,7 @@ describe('theme', () => {
   it('apply sets CSS custom properties on documentElement', () => {
     theme.setDark(true);
     const root = document.documentElement;
-    expect(root.style.getPropertyValue('--bg')).toBe('#0A0E14');
+    expect(root.style.getPropertyValue('--bg')).toBe('#161C24');
     expect(root.style.getPropertyValue('--primary')).toBe('#C8D6E5');
     expect(root.style.getPropertyValue('--border')).toBe('#2A3A4A');
   });
