@@ -89,4 +89,218 @@ describe('CanvasArea', () => {
     expect(onDev).not.toHaveBeenCalled();
     expect(onCtx).not.toHaveBeenCalled();
   });
+
+  describe('arrange panel (lower-right triangle)', () => {
+    function getZone(): HTMLElement {
+      return document.querySelector('.prr-zone') as HTMLElement;
+    }
+
+    function getIcon(): HTMLElement {
+      return document.querySelector('.prr-icon') as HTMLElement;
+    }
+
+    function getPanel(): HTMLElement {
+      return document.querySelector('.arr-panel') as HTMLElement;
+    }
+
+    function getInputs(): HTMLInputElement[] {
+      return Array.from(document.querySelectorAll('.arr-input'));
+    }
+
+    function queryArrItems(): NodeListOf<Element> {
+      return document.querySelectorAll('.arr-item');
+    }
+
+    it('creates lower-right zone with ◢ icon', () => {
+      const zone = getZone();
+      expect(zone).toBeTruthy();
+      expect(zone.classList.contains('prr-zone')).toBe(true);
+
+      const icon = getIcon();
+      expect(icon).toBeTruthy();
+      expect(icon.textContent).toBe('◢');
+    });
+
+    it('panel is hidden by default', () => {
+      expect(getComputedStyle(getPanel()).display).toBe('none');
+    });
+
+    it('shows panel on mouseenter', () => {
+      const zone = getZone();
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      expect(getPanel().style.display).toBe('block');
+    });
+
+    it('hides on panel mouseleave if zone not hovered', () => {
+      const zone = getZone();
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      getPanel().dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+      expect(getPanel().style.display).toBe('none');
+    });
+
+    it('shows panel on mouseenter', () => {
+      const zone = getZone();
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      expect(getPanel().style.display).toBe('block');
+    });
+
+    it('hides panel on mouseleave after timeout', async () => {
+      const zone = getZone();
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      zone.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 250));
+      expect(getPanel().style.display).toBe('none');
+    });
+
+    it('panel contains Auto Arrange and Tile Plugins items', () => {
+      const zone = getZone();
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const items = queryArrItems();
+      expect(items.length).toBe(2);
+      expect(items[0].textContent).toBe('Auto Arrange');
+      expect(items[1].textContent).toBe('Tile Plugins');
+    });
+
+    it('panel contains two input fields for W and H', () => {
+      const zone = getZone();
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const inputs = getInputs();
+      expect(inputs.length).toBe(2);
+      expect(inputs[0].placeholder).toBe('W');
+      expect(inputs[1].placeholder).toBe('H');
+    });
+
+    it('input fields store W and H values', () => {
+      const zone = getZone();
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const inputs = getInputs();
+      inputs[0].value = '560';
+      inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+      inputs[1].value = '420';
+      inputs[1].dispatchEvent(new Event('input', { bubbles: true }));
+      expect(getPanel().style.display).toBe('block');
+    });
+
+    it('shows a × separator between the two inputs', () => {
+      const zone = getZone();
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const sep = document.querySelector('.arr-input-sep');
+      expect(sep).toBeTruthy();
+      expect(sep?.textContent).toBe('×');
+    });
+
+    it('icon has ◢ character', () => {
+      expect(getIcon().textContent).toBe('◢');
+    });
+  });
+
+  describe('auto arrange', () => {
+    it('positions open cards in a left-to-right grid', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+
+      const before = canvas.getSaveState();
+      expect(before.plugins.length).toBe(3);
+
+      const zone = document.querySelector('.prr-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const items = document.querySelectorAll('.arr-item');
+      (items[0] as HTMLElement).click();
+
+      const after = canvas.getSaveState();
+      expect(after.plugins[0].x).toBe(0);
+      expect(after.plugins[0].y).toBe(0);
+      // Cards are placed left-to-right with 28 gap
+      expect(after.plugins[1].x).toBe(after.plugins[0].width + 28);
+      expect(after.plugins[2].x).toBe((after.plugins[0].width + 28) * 2);
+    });
+
+    it('calls onStateChange after arranging', async () => {
+      const onChange = vi.fn();
+      canvas.onStateChange = onChange;
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+
+      const zone = document.querySelector('.prr-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const items = document.querySelectorAll('.arr-item');
+      (items[0] as HTMLElement).click();
+
+      expect(onChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('tile plugins', () => {
+    it('arranges cards in a grid layout with unique positions', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+
+      const zone = document.querySelector('.prr-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const items = document.querySelectorAll('.arr-item');
+      (items[1] as HTMLElement).click();
+
+      const state = canvas.getSaveState();
+      expect(state.plugins.length).toBe(4);
+      const positions = state.plugins.map((p: any) => `${p.x},${p.y}`);
+      expect(new Set(positions).size).toBe(4);
+    });
+
+    it('uses custom W×H tile size from two inputs', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+
+      const zone = document.querySelector('.prr-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const inputs = document.querySelectorAll('.arr-input') as NodeListOf<HTMLInputElement>;
+      inputs[0].value = '300';
+      inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+      inputs[1].value = '200';
+      inputs[1].dispatchEvent(new Event('input', { bubbles: true }));
+      const items = document.querySelectorAll('.arr-item');
+      (items[1] as HTMLElement).click();
+
+      const state = canvas.getSaveState();
+      expect(state.plugins.length).toBe(2);
+      for (const p of state.plugins) {
+        expect(p.width).toBe(300);
+        expect(p.height).toBe(200);
+      }
+    });
+
+    it('is a no-op with no open cards', () => {
+      expect(() => {
+        const zone = document.querySelector('.prr-zone') as HTMLElement;
+        zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        const items = document.querySelectorAll('.arr-item');
+        (items[1] as HTMLElement).click();
+      }).not.toThrow();
+    });
+
+    it('leaves 1-unit gap between tiled cards', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+
+      const zone = document.querySelector('.prr-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const items = document.querySelectorAll('.arr-item');
+      (items[1] as HTMLElement).click();
+
+      const state = canvas.getSaveState();
+      expect(state.plugins.length).toBe(4);
+      // 4 cards -> 2x2 grid, row 1 starts at cellH + gap
+      const cellH = state.plugins[0].height;
+      expect(state.plugins[2].y).toBe(cellH + 28);
+    });
+  });
 });

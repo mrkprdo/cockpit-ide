@@ -50,6 +50,9 @@ export class CanvasArea {
   workspaceName = 'no workspace';
 
   private pluginListPanel: HTMLDivElement;
+  private arrPanel: HTMLDivElement;
+  private tileW = '640';
+  private tileH = '480';
 
   private contextMenuOpen = false;
 
@@ -83,6 +86,34 @@ export class CanvasArea {
     this.pluginListPanel.addEventListener('mouseenter', () => { this.pluginListPanel.style.display = 'block'; });
     this.pluginListPanel.addEventListener('mouseleave', () => {
       if (!this.contextMenuOpen && !zone.matches(':hover')) this.pluginListPanel.style.display = 'none';
+    });
+
+    // Arrange panel (lower-right hover zone)
+    const arrZone = document.createElement('div');
+    arrZone.className = 'prr-zone';
+    const arrIcon = document.createElement('span');
+    arrIcon.className = 'prr-icon';
+    arrIcon.textContent = '◢';
+    arrZone.appendChild(arrIcon);
+
+    this.arrPanel = document.createElement('div');
+    this.arrPanel.className = 'arr-panel';
+    this.arrPanel.style.display = 'none';
+
+    arrZone.appendChild(this.arrPanel);
+    this.el.appendChild(arrZone);
+
+    arrZone.addEventListener('mouseenter', () => this.showArrPanel());
+    arrZone.addEventListener('mouseleave', () => {
+      setTimeout(() => {
+        if (!this.arrPanel.matches(':hover')) {
+          this.arrPanel.style.display = 'none';
+        }
+      }, 200);
+    });
+    this.arrPanel.addEventListener('mouseenter', () => { this.arrPanel.style.display = 'block'; });
+    this.arrPanel.addEventListener('mouseleave', () => {
+      if (!arrZone.matches(':hover')) this.arrPanel.style.display = 'none';
     });
 
     this.generatePattern();
@@ -127,6 +158,138 @@ export class CanvasArea {
       }
     }
     panel.style.display = 'block';
+  }
+
+  private showArrPanel(): void {
+    const panel = this.arrPanel;
+    panel.innerHTML = '';
+
+    const items = [
+      { label: 'Auto Arrange', action: () => this.autoArrange() },
+      { label: 'Tile Plugins', action: () => this.tilePlugins() },
+    ];
+
+    for (const item of items) {
+      const el = document.createElement('div');
+      el.className = 'arr-item';
+      el.textContent = item.label;
+      el.addEventListener('click', () => {
+        item.action();
+        panel.style.display = 'none';
+      });
+      panel.appendChild(el);
+    }
+
+    const row = document.createElement('div');
+    row.className = 'arr-input-row';
+    const clamp = (v: string) => {
+      const n = parseInt(v);
+      if (isNaN(n) || n < 1) return '';
+      return String(Math.min(n, 2000));
+    };
+    const inpW = document.createElement('input');
+    inpW.className = 'arr-input';
+    inpW.type = 'text';
+    inpW.placeholder = 'W';
+    inpW.value = this.tileW;
+    inpW.addEventListener('input', () => { this.tileW = clamp(inpW.value); inpW.value = this.tileW; });
+    row.appendChild(inpW);
+    const sep = document.createElement('span');
+    sep.className = 'arr-input-sep';
+    sep.textContent = '×';
+    row.appendChild(sep);
+    const inpH = document.createElement('input');
+    inpH.className = 'arr-input';
+    inpH.type = 'text';
+    inpH.placeholder = 'H';
+    inpH.value = this.tileH;
+    inpH.addEventListener('input', () => { this.tileH = clamp(inpH.value); inpH.value = this.tileH; });
+    row.appendChild(inpH);
+    panel.appendChild(row);
+
+    panel.style.display = 'block';
+  }
+
+  private animateArrange(cards: CardState[], fn: () => void): void {
+    for (const cs of cards) cs.card.el.classList.add('card-arranging');
+    fn();
+    requestAnimationFrame(() => {
+      for (const cs of cards) cs.card.el.classList.remove('card-arranging');
+    });
+  }
+
+  private autoArrange(): void {
+    const open = this.cards.filter(c => c.isOpen);
+    this.animateArrange(open, () => {
+      const gap = 28;
+      let x = 0;
+      let y = 0;
+      let rowH = 0;
+      for (const cs of open) {
+        cs.worldX = x;
+        cs.worldY = y;
+        cs.savedWX = x;
+        cs.savedWY = y;
+        this.positionCard(cs);
+        x += cs.savedWidth + gap;
+        rowH = Math.max(rowH, cs.savedHeight);
+        if (x > 1400) {
+          x = 0;
+          y += rowH + gap;
+          rowH = 0;
+        }
+      }
+      this.onStateChange?.();
+    });
+  }
+
+  private tilePlugins(): void {
+    const open = this.cards.filter(c => c.isOpen);
+    if (open.length === 0) return;
+
+    this.animateArrange(open, () => {
+      const gap = 28;
+
+      let cellW: number, cellH: number;
+      let cols: number, rows: number;
+      const pw = Math.min(2000, parseInt(this.tileW));
+      const ph = Math.min(2000, parseInt(this.tileH));
+      if (pw > 0 && ph > 0) {
+        cellW = Math.max(gap, pw);
+        cellH = Math.max(gap, ph);
+        cols = Math.ceil(Math.sqrt(open.length));
+        rows = Math.ceil(open.length / cols);
+      } else {
+        cols = Math.ceil(Math.sqrt(open.length));
+        rows = Math.ceil(open.length / cols);
+        const availW = 1400;
+        const availH = 900;
+        cellW = (availW - (cols - 1) * gap) / cols;
+        cellH = (availH - (rows - 1) * gap) / rows;
+      }
+
+      let idx = 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols && idx < open.length; c++) {
+          const cs = open[idx];
+          cs.worldX = Math.round(c * (cellW + gap));
+          cs.worldY = Math.round(r * (cellH + gap));
+          cs.savedWX = cs.worldX;
+          cs.savedWY = cs.worldY;
+          const sw = Math.round(cellW);
+          const sh = Math.round(cellH);
+          cs.savedWidth = sw;
+          cs.savedHeight = sh;
+          cs.card.el.style.width = `${sw}px`;
+          cs.card.el.style.height = `${sh}px`;
+          cs.card.opts.width = sw;
+          cs.card.opts.height = sh;
+          this.positionCard(cs);
+          idx++;
+        }
+      }
+      this.onStateChange?.();
+    });
   }
 
   centerView(): void {
@@ -761,7 +924,7 @@ export class CanvasArea {
     this.el.addEventListener('mousedown', (e) => {
       // Ctrl+drag pans even over cards; otherwise only on empty canvas for text selection
       if (e.button === 0 || e.button === 1) {
-        if (e.ctrlKey || !(e.target as HTMLElement)?.closest('.card')) {
+        if (e.ctrlKey || !(e.target as HTMLElement)?.closest('.card, .prr-zone, .pli-zone')) {
           this.isPanning = true;
           this.panStartX = e.clientX;
           this.panStartY = e.clientY;

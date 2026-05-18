@@ -7,11 +7,11 @@
   --secondary: #78909C;
   --tertiary: #546E7A;
   --border: #2A3A4A;
-  --accent: #00E5FF;
-  --accent2: #7C4DFF;
-  --green: #00E676;
-  --amber: #FFAB00;
-  --red: #FF1744;
+  --accent: #4B9EB5;
+  --accent2: #7B6FA0;
+  --green: #4C9A6E;
+  --amber: #C68B00;
+  --red: #D44F4F;
 
   --font: 'Space Mono', 'Courier New', monospace;
   --radius-sm: 8px;
@@ -258,6 +258,85 @@ html, body {
   color: var(--tertiary);
 }
 
+/* ===== Arrange Panel (lower-right) ===== */
+.prr-zone {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  width: 32px;
+  height: 28px;
+  z-index: 1000;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.prr-zone:hover { opacity: 1; }
+.prr-icon {
+  font-size: 18px;
+  color: var(--tertiary);
+  transition: color 0.15s, transform 0.2s;
+}
+.prr-zone:hover .prr-icon { color: var(--primary); transform: rotate(180deg); }
+
+.arr-panel {
+  display: none;
+  position: absolute;
+  right: 2px;
+  bottom: 28px;
+  min-width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  z-index: 1001;
+}
+.arr-item {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--primary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+.arr-item:hover { background: var(--panel); }
+.arr-item:active { opacity: 0.7; }
+.arr-input {
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--primary);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.1s;
+}
+.arr-input:focus { border-color: var(--accent); }
+.arr-input::placeholder { color: var(--tertiary); opacity: 0.5; }
+
+.arr-input-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.arr-input-row .arr-input {
+  width: 0;
+  flex: 1;
+  margin-top: 0;
+}
+.arr-input-sep {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--tertiary);
+}
+
 /* ===== Context Menu ===== */
 .ctx-menu {
   position: fixed;
@@ -326,10 +405,14 @@ html, body {
   cursor: default;
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(2px);
+  transition: box-shadow 0.15s ease-out;
 }
 .card:hover {
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10);
+}
+
+.card-arranging {
+  transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease !important;
 }
 
 .card-header {
@@ -430,11 +513,14 @@ html, body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.4);
-  z-index: 100;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
   display: none;
   align-items: center;
   justify-content: center;
+}
+.modal-overlay.confirm {
+  z-index: 300;
 }
 .modal {
   background: var(--surface);
@@ -530,6 +616,15 @@ html, body {
 }
 .welcome-btn:hover { opacity: 0.85; }
 
+.about-link {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.about-link:hover {
+  opacity: 0.8;
+}
+
 .welcome-btn-secondary {
   display: block;
   margin: 12px auto 0;
@@ -583,7 +678,7 @@ html, body {
 .ctx-markdown code { background: var(--panel); padding: 1px 4px; border-radius: 3px; font-size: 12px; font-family: "Space Mono","Courier New",monospace; color: var(--primary); }
 .ctx-markdown pre { background: var(--panel); padding: 12px; border-radius: 6px; overflow-x: auto; border: 1px solid var(--border); }
 .ctx-markdown pre code { background: none; padding: 0; }
-.ctx-markdown blockquote { border-left: 3px solid var(--border); padding: 4px 12px; margin: 8px 0; color: var(--secondary); }
+.ctx-markdown blockquote { background: var(--panel); border-radius: 4px; padding: 6px 12px; margin: 8px 0; color: var(--secondary); }
 .ctx-markdown a { color: var(--accent, #00E5FF); text-decoration: underline; }
 .ctx-markdown hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .ctx-markdown table { border-collapse: collapse; margin: 8px 0; width: 100%; }
