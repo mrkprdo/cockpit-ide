@@ -182,7 +182,7 @@ export class CanvasArea {
     const maxUnits = Math.floor(2000 / this.patternSize);
     const clamp = (v: string) => {
       const n = parseInt(v);
-      if (isNaN(n) || n < 1) return '';
+      if (isNaN(n) || n < 10) return '10';
       return String(Math.min(n, maxUnits));
     };
     const inpW = document.createElement('input');
@@ -274,8 +274,8 @@ export class CanvasArea {
           cs.worldY = Math.round(r * (cellH + gap));
           cs.savedWX = cs.worldX;
           cs.savedWY = cs.worldY;
-          const sw = Math.round(cellW);
-          const sh = Math.round(cellH);
+          const sw = Math.max(28 * 10, Math.round(cellW));
+          const sh = Math.max(28 * 10, Math.round(cellH));
           cs.savedWidth = sw;
           cs.savedHeight = sh;
           cs.card.el.style.width = `${sw}px`;

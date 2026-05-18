@@ -197,10 +197,10 @@ export class PluginCard {
       let newW = this.opts.width;
       let newH = this.opts.height;
       if (dir === 'e' || dir === 'se') {
-        newW = Math.max(SNAP, Math.round((startW + dw) / SNAP) * SNAP);
+        newW = Math.max(SNAP * 10, Math.round((startW + dw) / SNAP) * SNAP);
       }
       if (dir === 's' || dir === 'se') {
-        newH = Math.max(SNAP, Math.round((startH + dh) / SNAP) * SNAP);
+        newH = Math.max(SNAP * 10, Math.round((startH + dh) / SNAP) * SNAP);
       }
       this.opts.width = newW;
       this.opts.height = newH;
