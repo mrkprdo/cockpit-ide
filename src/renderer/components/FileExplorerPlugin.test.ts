@@ -310,3 +310,115 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
     expect(container.textContent).toContain('App.ts');
   });
 });
+
+describe('FileExplorerPlugin inline input positioning', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.fs.writeFile as any).mockResolvedValue(true);
+    (mockElectronAPI.fs.mkdir as any).mockResolvedValue(true);
+    (mockElectronAPI.fs.readDir as any).mockImplementation(async (dirPath: string) => {
+      const normalized = dirPath.replace(/\\/g, '/');
+      if (normalized === '/test') {
+        return [
+          { name: 'src', isDirectory: true },
+          { name: 'README.md', isDirectory: false },
+        ];
+      }
+      return [];
+    });
+  });
+
+  it('inserts new folder input row after the directory element, not at tree bottom', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    // Find src directory
+    const allDivs = Array.from(container.querySelectorAll('div'));
+    const srcEl = allDivs.find(d =>
+      d.textContent?.includes('src') && d.style.cursor === 'pointer',
+    );
+    expect(srcEl).toBeTruthy();
+
+    // Right-click on src directory
+    (srcEl as HTMLElement)?.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true }),
+    );
+    await new Promise(r => setTimeout(r, 10));
+
+    // Click "New Folder"
+    const newFolderItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'New Folder');
+    (newFolderItem as HTMLElement)?.click();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Input row should be positioned between src and README.md
+    const input = container.querySelector('input');
+    expect(input).toBeTruthy();
+    const inputRow = input!.parentElement!;
+    expect(inputRow.previousElementSibling?.textContent).toContain('src');
+    expect(inputRow.nextElementSibling?.textContent).toContain('README.md');
+  });
+
+  it('inserts new file input row after the directory element, not at tree bottom', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    // Find src directory
+    const allDivs = Array.from(container.querySelectorAll('div'));
+    const srcEl = allDivs.find(d =>
+      d.textContent?.includes('src') && d.style.cursor === 'pointer',
+    );
+    expect(srcEl).toBeTruthy();
+
+    // Right-click on src directory
+    (srcEl as HTMLElement)?.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true }),
+    );
+    await new Promise(r => setTimeout(r, 10));
+
+    // Click "New File"
+    const newFileItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'New File');
+    (newFileItem as HTMLElement)?.click();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Input row should be positioned between src and README.md
+    const input = container.querySelector('input');
+    expect(input).toBeTruthy();
+    const inputRow = input!.parentElement!;
+    expect(inputRow.previousElementSibling?.textContent).toContain('src');
+    expect(inputRow.nextElementSibling?.textContent).toContain('README.md');
+  });
+
+  it('input row at root level still appends at tree end', async () => {
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue([
+      { name: 'src', isDirectory: true },
+      { name: 'README.md', isDirectory: false },
+    ]);
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    // Right-click on empty area (tree element itself)
+    const treeEl = container.querySelector('div') as HTMLElement;
+    treeEl.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    await new Promise(r => setTimeout(r, 10));
+
+    // Click "New Folder" — this is the root-level action
+    const newFolderItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'New Folder');
+    (newFolderItem as HTMLElement)?.click();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Root-level input should be appended at the end (after README.md)
+    const input = container.querySelector('input');
+    expect(input).toBeTruthy();
+    const inputRow = input!.parentElement!;
+    expect(inputRow.previousElementSibling?.textContent).toContain('README.md');
+    expect(inputRow.nextElementSibling).toBeNull();
+  });
+});

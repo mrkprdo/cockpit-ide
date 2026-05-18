@@ -564,6 +564,86 @@ describe('FileExplorerPlugin edge cases', () => {
     expect(stopSpy).toHaveBeenCalled();
     expect(onFileOpen).toHaveBeenCalled();
   });
+
+  it('delete shows alert and refreshes when fs.delete returns false', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    (mockElectronAPI.fs.delete as any).mockResolvedValue(false);
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue([
+      { name: 'file.ts', isDirectory: false },
+    ]);
+
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    // Right-click on file
+    const allDivs = Array.from(container.querySelectorAll('div'));
+    const fileEl = allDivs.find(d =>
+      d.textContent?.includes('file.ts') && d.style.cursor === 'pointer',
+    );
+    (fileEl as HTMLElement)?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    // Click Delete
+    const deleteItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'Delete');
+    (deleteItem as HTMLElement)?.click();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Confirm
+    const confirmBtn = document.querySelector('#confirm-ok') as HTMLElement;
+    expect(confirmBtn).toBeTruthy();
+    confirmBtn.click();
+    await new Promise(r => setTimeout(r, 50));
+
+    // Should show failure alert and still refresh (tree gets rebuilt)
+    expect(alertSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to delete'),
+    );
+    expect(alertSpy).toHaveBeenCalledWith(
+      expect.stringContaining('in use'),
+    );
+    alertSpy.mockRestore();
+  });
+
+  it('delete shows error alert and refreshes when fs.delete throws', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    (mockElectronAPI.fs.delete as any).mockRejectedValue(new Error('IPC failed'));
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue([
+      { name: 'file.ts', isDirectory: false },
+    ]);
+
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    // Right-click on file
+    const allDivs = Array.from(container.querySelectorAll('div'));
+    const fileEl = allDivs.find(d =>
+      d.textContent?.includes('file.ts') && d.style.cursor === 'pointer',
+    );
+    (fileEl as HTMLElement)?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    // Click Delete
+    const deleteItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'Delete');
+    (deleteItem as HTMLElement)?.click();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Confirm — should throw and be caught
+    const confirmBtn = document.querySelector('#confirm-ok') as HTMLElement;
+    expect(confirmBtn).toBeTruthy();
+    confirmBtn.click();
+    await new Promise(r => setTimeout(r, 50));
+
+    // Should log error and show alert
+    expect(consoleSpy).toHaveBeenCalledWith('deletePath error:', expect.any(Error));
+    expect(alertSpy).toHaveBeenCalledWith(
+      expect.stringContaining('unexpected error'),
+    );
+    alertSpy.mockRestore();
+    consoleSpy.mockRestore();
+  });
 });
 
 // ─────────────────────────────────────────────
