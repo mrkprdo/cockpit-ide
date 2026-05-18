@@ -21,6 +21,7 @@ interface CardState {
   savedHeight: number;
   savedWX: number;
   savedWY: number;
+  terminalPlugin: TerminalPlugin | null;
 }
 
 export class CanvasArea {
@@ -166,6 +167,7 @@ export class CanvasArea {
     panel.innerHTML = '';
 
     const items = [
+      { label: 'Fit All', action: () => this.fitAll() },
       { label: 'Auto Arrange', action: () => this.autoArrange() },
       { label: 'Tile Plugins', action: () => this.tilePlugins() },
     ];
@@ -219,7 +221,7 @@ export class CanvasArea {
     });
   }
 
-  private autoArrange(): void {
+  autoArrange(): void {
     const open = this.cards.filter(c => c.isOpen);
     this.animateArrange(open, () => {
       const gap = 28;
@@ -286,6 +288,7 @@ export class CanvasArea {
           cs.card.opts.width = sw;
           cs.card.opts.height = sh;
           this.positionCard(cs);
+          cs.terminalPlugin?.fit();
           idx++;
         }
       }
@@ -342,7 +345,7 @@ export class CanvasArea {
       },
       onFocus: () => this.bringToFront(card),
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
-    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy };
+    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -473,7 +476,7 @@ export class CanvasArea {
       onFocus: () => this.bringToFront(card),
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
 
-    const cs: CardState = { card, worldX: p.x, worldY: p.y, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: p.x, savedWY: p.y };
+    const cs: CardState = { card, worldX: p.x, worldY: p.y, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: p.x, savedWY: p.y, terminalPlugin: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
@@ -530,11 +533,7 @@ export class CanvasArea {
               const term = new TerminalPlugin(body, cs.card.uuid, wsPath);
               term.onExit = () => this.terminateCard(cs);
               cs.card.onDestroy = () => term.destroy();
-              const origResizeEnd = cs.card.opts.onResizeEnd;
-              cs.card.opts.onResizeEnd = (w: number, h: number) => {
-                origResizeEnd?.(w, h);
-                term.fit();
-              };
+              cs.terminalPlugin = term;
             }
             this.notifyTerminalsChanged();
           });
@@ -700,11 +699,7 @@ export class CanvasArea {
         const term = new TerminalPlugin(body as HTMLElement, cs.card.uuid, cwd);
         term.onExit = () => this.terminateCard(cs);
         cs.card.onDestroy = () => term.destroy();
-        const origResizeEnd = cs.card.opts.onResizeEnd;
-        cs.card.opts.onResizeEnd = (w: number, h: number) => {
-          origResizeEnd?.(w, h);
-          term.fit();
-        };
+        cs.terminalPlugin = term;
       }
       this.notifyTerminalsChanged();
       this.bringToFront(cs.card);
@@ -983,6 +978,33 @@ export class CanvasArea {
       if (t < 1) requestAnimationFrame(animate);
     };
     requestAnimationFrame(animate);
+  }
+
+  private fitAll(): void {
+    const open = this.cards.filter(c => c.isOpen);
+    if (open.length === 0) return;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const cs of open) {
+      minX = Math.min(minX, cs.worldX);
+      minY = Math.min(minY, cs.worldY);
+      maxX = Math.max(maxX, cs.worldX + cs.savedWidth);
+      maxY = Math.max(maxY, cs.worldY + cs.savedHeight);
+    }
+
+    const worldW = maxX - minX;
+    const worldH = maxY - minY;
+    const cw = this.el.clientWidth;
+    const ch = this.el.clientHeight;
+    const margin = 80;
+
+    const fitX = (cw - margin) / worldW;
+    const fitY = (ch - margin) / worldH;
+    this.scale = Math.max(0.1, Math.min(fitX, fitY, 1));
+
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    this.animatePan(cw / 2 - cx * this.scale, ch / 2 - cy * this.scale);
   }
 
   private goOrigin(): void {

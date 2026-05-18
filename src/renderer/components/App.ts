@@ -91,7 +91,7 @@ export class App {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
     const state = this.canvas.getSaveState();
-    await ws.save(state);
+    await ws.save(state, this.wsPath);
   }
 
   private async promptWorkspace(): Promise<void> {
@@ -128,11 +128,10 @@ export class App {
       // Restore saved plugins with positions
       this.canvas.restorePlugins(state, path);
     } else {
-      // First time — create default plugins side by side
+      // First time — create default plugins and auto arrange
       this.canvas.addDev(path);
       this.canvas.addTerminal(path);
-      // Reposition terminal to right of dev
-      this.canvas.offsetCard('Terminal 1', 840, 0);
+      this.canvas.autoArrange();
     }
 
     if (state) {
