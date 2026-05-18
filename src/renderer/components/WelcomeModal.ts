@@ -11,11 +11,12 @@ export class WelcomeModal {
     this.el = document.createElement('div');
     this.el.className = 'welcome-modal';
     this.el.innerHTML = `
-      <div class="welcome-header">
-        <div class="welcome-title">COCKPIT IDE</div>
-        <div class="welcome-sub">Open a workspace to start</div>
+      <div class="welcome-head">
+        <div class="welcome-name">COCKPIT IDE</div>
+        <div class="welcome-sub">Select a workspace</div>
       </div>
-      <div class="welcome-body">
+      <div class="welcome-sep"></div>
+      <div class="welcome-actions">
         <button class="welcome-btn" id="welcome-open">Open Workspace</button>
         <button class="welcome-btn-secondary" id="welcome-close">Close</button>
       </div>

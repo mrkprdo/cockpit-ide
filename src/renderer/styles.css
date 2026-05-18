@@ -573,41 +573,46 @@ html, body {
 /* ===== Welcome Modal ===== */
 .welcome-modal {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px dashed var(--border);
   border-radius: var(--radius-md);
-  min-width: 360px;
-  text-align: center;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
-}
-.welcome-header {
-  padding: 32px 24px 16px;
-  position: relative;
-}
-.welcome-title {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--primary);
+  width: 340px;
   font-family: var(--font);
-  margin-bottom: 8px;
+  overflow: hidden;
+}
+.welcome-head {
+  padding: 24px 24px 20px;
+}
+.welcome-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--primary);
+  margin-bottom: 5px;
 }
 .welcome-sub {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--tertiary);
-  font-family: var(--font);
+  letter-spacing: 0.3px;
 }
-.welcome-body {
-  padding: 8px 24px 32px;
+.welcome-sep {
+  height: 1px;
+  margin: 0 24px;
+  background: var(--border);
+}
+.welcome-actions {
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .welcome-btn {
-  display: block;
-  width: 100%;
-  padding: 8px 20px;
+  display: inline-block;
+  padding: 7px 16px;
   background: var(--primary);
   color: var(--bg);
   border: none;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
+  border-radius: 4px;
+  font-size: 11px;
   font-weight: 700;
   font-family: var(--font);
   cursor: pointer;
@@ -701,22 +706,21 @@ html, body {
 }
 
 .welcome-btn-secondary {
-  display: block;
-  margin: 12px auto 0;
-  padding: 6px 16px;
+  padding: 6px 12px;
   background: transparent;
   color: var(--tertiary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 11px;
+  border-radius: 4px;
+  font-size: 10px;
   font-family: var(--font);
   cursor: pointer;
+  letter-spacing: 0.5px;
   transition: background 0.15s, color 0.15s;
 }
 .welcome-btn-secondary:hover { background: var(--panel); color: var(--primary); }
 
 .welcome-recent {
-  border-top: 1px solid var(--border);
+  border-top: 1px dashed var(--border);
   padding: 12px 24px 20px;
 }
 .welcome-recent-title {

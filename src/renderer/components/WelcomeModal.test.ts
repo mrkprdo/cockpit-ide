@@ -14,7 +14,7 @@ describe('WelcomeModal', () => {
     expect(document.querySelector('.modal-overlay')).toBeTruthy();
     expect(document.querySelector('.welcome-modal')).toBeTruthy();
     expect(document.body.textContent).toContain('COCKPIT IDE');
-    expect(document.body.textContent).toContain('Open a workspace to start');
+    expect(document.body.textContent).toContain('Select a workspace');
   });
 
   it('starts hidden', () => {
