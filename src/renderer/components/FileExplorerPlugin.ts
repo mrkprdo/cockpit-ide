@@ -118,7 +118,10 @@ export class FileExplorerPlugin {
     const modal = new ConfirmModal(`Delete <b>${name}</b>?`, 'Delete');
     const ok = await modal.open();
     if (!ok) return;
-    await window.electronAPI?.fs.delete(targetPath);
+    const result = await window.electronAPI?.fs.delete(targetPath);
+    if (!result) {
+      window.alert(`Failed to delete ${name}. The item may be in use or you may lack permission.`);
+    }
     this.refresh();
   }
 

@@ -46,7 +46,16 @@ ipcMain.handle('fs:writeFile', async (_event, filePath: string, content: string)
 });
 
 ipcMain.handle('fs:delete', async (_event, targetPath: string) => {
-  try { fs.rmSync(targetPath, { recursive: true, force: true }); return true; } catch { return false; }
+  try { fs.rmSync(targetPath, { recursive: true, force: true }); return true; } catch {}
+  // Retry after pausing watcher — on Windows, chokidar can hold handles on directories
+  try {
+    if (watcher) stopWatching();
+    await new Promise(r => setTimeout(r, 100));
+    fs.rmSync(targetPath, { recursive: true, force: true });
+    return true;
+  } catch { return false; } finally {
+    if (workspacePath) startWatching(workspacePath);
+  }
 });
 
 ipcMain.handle('fs:copy', async (_event, src: string, dest: string) => {
