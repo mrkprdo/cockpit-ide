@@ -17,11 +17,11 @@ export class AboutModal {
       ...(v.electron ? [{ key: 'ELECTRON', val: v.electron.split('.')[0] }] : []),
       ...(v.node ? [{ key: 'NODE', val: v.node.split('.')[0] }] : []),
     ];
-
+    
     this.el.innerHTML = `
       <div class="about-head">
         <div class="about-name">COCKPIT IDE</div>
-        <div class="about-tagline">Canvas IDE for LLM-assisted workflow</div>
+        <div class="about-tagline">The IDE for developers who thinks spatialy</div>
       </div>
       <div class="about-sep"></div>
       <div class="about-specs">
