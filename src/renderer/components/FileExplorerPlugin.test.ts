@@ -361,6 +361,8 @@ describe('FileExplorerPlugin inline input positioning', () => {
     const inputRow = input!.parentElement!;
     expect(inputRow.previousElementSibling?.textContent).toContain('src');
     expect(inputRow.nextElementSibling?.textContent).toContain('README.md');
+    // Padding should match child depth (src is depth 0, input is depth 1: 12+16=28)
+    expect(inputRow.style.paddingLeft).toBe('28px');
   });
 
   it('inserts new file input row after the directory element, not at tree bottom', async () => {
@@ -392,6 +394,8 @@ describe('FileExplorerPlugin inline input positioning', () => {
     const inputRow = input!.parentElement!;
     expect(inputRow.previousElementSibling?.textContent).toContain('src');
     expect(inputRow.nextElementSibling?.textContent).toContain('README.md');
+    // Padding should match child depth (src is depth 0, input is depth 1: 12+16=28)
+    expect(inputRow.style.paddingLeft).toBe('28px');
   });
 
   it('input row at root level still appends at tree end', async () => {
@@ -420,5 +424,7 @@ describe('FileExplorerPlugin inline input positioning', () => {
     const inputRow = input!.parentElement!;
     expect(inputRow.previousElementSibling?.textContent).toContain('README.md');
     expect(inputRow.nextElementSibling).toBeNull();
+    // Root-level padding stays 12px (depth 0)
+    expect(inputRow.style.paddingLeft).toBe('12px');
   });
 });

@@ -84,6 +84,7 @@ export class FileExplorerPlugin {
     if (afterEl) {
       const target = childContainer && childContainer.parentNode ? childContainer : afterEl;
       target.parentNode!.insertBefore(row, target.nextSibling);
+      row.style.paddingLeft = `${parseInt(afterEl.style.paddingLeft) + 16}px`;
     } else {
       this.treeEl.appendChild(row);
     }
