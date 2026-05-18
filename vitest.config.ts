@@ -9,7 +9,7 @@ export default defineConfig({
     slowTestThreshold: 100,
     coverage: {
       provider: 'v8',
-      include: ['src/renderer/**/*.ts'],
+      include: ['src/**/*.ts'],
       exclude: [
         'src/renderer/index.ts',
         'src/renderer/index.html',

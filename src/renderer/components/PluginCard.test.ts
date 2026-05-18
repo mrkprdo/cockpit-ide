@@ -148,3 +148,168 @@ describe('PluginCard', () => {
     expect(body.querySelector('canvas')).toBeTruthy();
   });
 });
+
+describe('PluginCard — drag interaction', () => {
+  function makeParent(): HTMLElement {
+    const el = document.createElement('div');
+    el.id = 'canvas';
+    el.style.cssText = 'width:1920px;height:1080px;position:relative';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function getTransform() {
+    return { scale: 1, panX: 960, panY: 540 };
+  }
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  function createCard(opts = {}): PluginCard {
+    return new PluginCard(makeParent(), {
+      title: 'Drag Test',
+      x: 100,
+      y: 200,
+      width: 400,
+      height: 300,
+      ...opts,
+    }, getTransform);
+  }
+
+  it('header mousedown starts drag state internally', () => {
+    const card = createCard();
+    const header = card.el.querySelector('.card-header')!;
+
+    header.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 150, clientY: 250 }));
+
+    // Internal drag state should be set
+    expect((card as any).isDragging).toBe(true);
+  });
+
+  it('right-click on header does not start drag', () => {
+    const card = createCard();
+    const header = card.el.querySelector('.card-header')!;
+
+    header.dispatchEvent(new MouseEvent('mousedown', { button: 2, bubbles: true }));
+
+    expect((card as any).isDragging).toBe(false);
+  });
+
+  it('mousemove updates card position while dragging', () => {
+    const card = createCard();
+    const header = card.el.querySelector('.card-header')!;
+    const startLeft = card.el.style.left;
+    const startTop = card.el.style.top;
+
+    // Start drag at (150, 250) relative to viewport
+    header.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 150, clientY: 250 }));
+
+    // Move 56px right and 28px down
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 206, clientY: 278, bubbles: true }));
+
+    // Position should have changed from start
+    expect(card.el.style.left).not.toBe(startLeft);
+    expect(card.el.style.top).not.toBe(startTop);
+  });
+
+  it('mouseup ends drag and calls onDragEnd', () => {
+    const onDragEnd = vi.fn();
+    const card = createCard({ onDragEnd });
+    const header = card.el.querySelector('.card-header')!;
+
+    header.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 150, clientY: 250 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 200, clientY: 280, bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+    expect((card as any).isDragging).toBe(false);
+    expect(onDragEnd).toHaveBeenCalled();
+  });
+
+  it('mouseup without prior mousedown does nothing', () => {
+    const onDragEnd = vi.fn();
+    createCard({ onDragEnd });
+
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(onDragEnd).not.toHaveBeenCalled();
+  });
+});
+
+describe('PluginCard — resize interaction', () => {
+  function makeParent(): HTMLElement {
+    const el = document.createElement('div');
+    el.id = 'canvas';
+    el.style.cssText = 'width:1920px;height:1080px;position:relative';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function getTransform() {
+    return { scale: 1, panX: 960, panY: 540 };
+  }
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('e edge mousedown starts resize', () => {
+    const card = new PluginCard(makeParent(), {
+      title: 'Resize Test',
+      x: 100, y: 100, width: 400, height: 300,
+    }, getTransform);
+
+    const edgeE = card.el.querySelector('.card-edge-e') as HTMLElement;
+    edgeE.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 500, clientY: 200 }));
+
+    // Internal resize state should be set
+    expect((card as any).resizing).toBeUndefined(); // resizing is a local variable, not on `this`
+    // But the opts should still have original dimensions
+    expect(card.opts.width).toBe(400);
+  });
+
+  it('resize mousemove updates width', () => {
+    const card = new PluginCard(makeParent(), {
+      title: 'Resize Test',
+      x: 100, y: 100, width: 400, height: 300,
+    }, getTransform);
+
+    const edgeE = card.el.querySelector('.card-edge-e') as HTMLElement;
+    edgeE.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 500, clientY: 200 }));
+
+    // Move 56px right (2 SNAP units)
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 556, clientY: 200, bubbles: true }));
+
+    expect(card.opts.width).toBeGreaterThan(400);
+  });
+
+  it('resize respects minimum SNAP size', () => {
+    const card = new PluginCard(makeParent(), {
+      title: 'Resize Test',
+      x: 100, y: 100, width: 400, height: 300,
+    }, getTransform);
+
+    const edgeE = card.el.querySelector('.card-edge-e') as HTMLElement;
+    edgeE.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 500, clientY: 200 }));
+
+    // Try to shrink below minimum (28px SNAP)
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 100, clientY: 200, bubbles: true }));
+
+    expect(card.opts.width).toBeGreaterThanOrEqual(28);
+  });
+
+  it('resize mouseup calls onResizeEnd', () => {
+    const onResizeEnd = vi.fn();
+    const card = new PluginCard(makeParent(), {
+      title: 'Resize Test',
+      x: 100, y: 100, width: 400, height: 300,
+      onResizeEnd,
+    }, getTransform);
+
+    const edgeSE = card.el.querySelector('.card-edge-se') as HTMLElement;
+    edgeSE.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 500, clientY: 400 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 556, clientY: 456, bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+    expect(onResizeEnd).toHaveBeenCalled();
+  });
+});

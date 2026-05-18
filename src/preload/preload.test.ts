@@ -1,0 +1,260 @@
+/**
+ * @vitest-environment node
+ *
+ * Tests for preload bridge — verifies API shape and correct IPC wiring.
+ */
+
+import { describe, it, expect, vi, beforeAll } from 'vitest';
+
+// ─── Capture IPC calls ───
+const { handleCalls, onCalls, sendCalls, invokeCalls } = vi.hoisted(() => {
+  const handleCalls: [string, ...any[]][] = [];
+  const onCalls: [string, ...any[]][] = [];
+  const sendCalls: [string, ...any[]][] = [];
+  const invokeCalls: [string, ...any[]][] = [];
+  return { handleCalls, onCalls, sendCalls, invokeCalls };
+});
+
+vi.mock('electron', () => ({
+  contextBridge: {
+    exposeInMainWorld: vi.fn((_key: string, api: any) => {
+      // Store the exposed API so tests can inspect it
+      (globalThis as any).__exposedAPI = api;
+    }),
+  },
+  ipcRenderer: {
+    invoke: vi.fn((channel: string, ...args: any[]) => {
+      invokeCalls.push([channel, ...args]);
+      return Promise.resolve(null);
+    }),
+    on: vi.fn((channel: string, handler: (...args: any[]) => void) => {
+      onCalls.push([channel, handler]);
+      return () => {}; // unsubscribe function
+    }),
+    send: vi.fn((channel: string, ...args: any[]) => {
+      sendCalls.push([channel, ...args]);
+    }),
+    removeListener: vi.fn(),
+  },
+}));
+
+// Mock process for platform detection
+vi.stubGlobal('process', {
+  platform: 'win32',
+  versions: {
+    node: '20.0.0',
+    chrome: '120.0.0',
+    electron: '42.0.0',
+  },
+  env: {},
+});
+
+let api: any;
+
+beforeAll(async () => {
+  await import('../preload/preload');
+  api = (globalThis as any).__exposedAPI;
+});
+
+describe('preload.ts — exposed API shape', () => {
+  it('exposes platform string', () => {
+    expect(api.platform).toBe('win32');
+  });
+
+  it('exposes version info', () => {
+    expect(api.versions).toEqual({
+      node: '20.0.0',
+      chrome: '120.0.0',
+      electron: '42.0.0',
+    });
+  });
+
+  it('exposes window namespace', () => {
+    expect(api.window).toBeDefined();
+    expect(typeof api.window.minimize).toBe('function');
+    expect(typeof api.window.maximize).toBe('function');
+    expect(typeof api.window.close).toBe('function');
+    expect(typeof api.window.isMaximized).toBe('function');
+  });
+
+  it('exposes clipboard namespace', () => {
+    expect(api.clipboard).toBeDefined();
+    expect(typeof api.clipboard.readText).toBe('function');
+  });
+
+  it('exposes terminal namespace', () => {
+    expect(api.terminal).toBeDefined();
+    expect(typeof api.terminal.create).toBe('function');
+    expect(typeof api.terminal.write).toBe('function');
+    expect(typeof api.terminal.resize).toBe('function');
+    expect(typeof api.terminal.kill).toBe('function');
+    expect(typeof api.terminal.onData).toBe('function');
+    expect(typeof api.terminal.onExit).toBe('function');
+  });
+
+  it('exposes workspace namespace', () => {
+    expect(api.workspace).toBeDefined();
+    expect(typeof api.workspace.select).toBe('function');
+    expect(typeof api.workspace.getPath).toBe('function');
+    expect(typeof api.workspace.load).toBe('function');
+    expect(typeof api.workspace.save).toBe('function');
+    expect(typeof api.workspace.getRecent).toBe('function');
+    expect(typeof api.workspace.addRecent).toBe('function');
+  });
+
+  it('exposes shell namespace', () => {
+    expect(api.shell).toBeDefined();
+    expect(typeof api.shell.openExternal).toBe('function');
+  });
+
+  it('exposes prefs namespace', () => {
+    expect(api.prefs).toBeDefined();
+    expect(typeof api.prefs.load).toBe('function');
+    expect(typeof api.prefs.save).toBe('function');
+  });
+
+  it('exposes fs namespace', () => {
+    expect(api.fs).toBeDefined();
+    expect(typeof api.fs.readDir).toBe('function');
+    expect(typeof api.fs.readFile).toBe('function');
+    expect(typeof api.fs.writeFile).toBe('function');
+    expect(typeof api.fs.delete).toBe('function');
+    expect(typeof api.fs.copy).toBe('function');
+    expect(typeof api.fs.rename).toBe('function');
+    expect(typeof api.fs.watch).toBe('function');
+    expect(typeof api.fs.unwatch).toBe('function');
+    expect(typeof api.fs.onChanged).toBe('function');
+  });
+});
+
+describe('preload.ts — IPC wiring (invoke-based)', () => {
+  it('window.minimize sends correct IPC', () => {
+    invokeCalls.length = 0;
+    sendCalls.length = 0;
+    api.window.minimize();
+    expect(sendCalls.some(c => c[0] === 'window:minimize')).toBe(true);
+  });
+
+  it('window.maximize sends correct IPC', () => {
+    sendCalls.length = 0;
+    api.window.maximize();
+    expect(sendCalls.some(c => c[0] === 'window:maximize')).toBe(true);
+  });
+
+  it('fs.readDir invokes fs:readDir', () => {
+    invokeCalls.length = 0;
+    api.fs.readDir('/test');
+    expect(invokeCalls.some(c => c[0] === 'fs:readDir' && c[1] === '/test')).toBe(true);
+  });
+
+  it('fs.readFile invokes fs:readFile', () => {
+    invokeCalls.length = 0;
+    api.fs.readFile('/test/file.txt');
+    expect(invokeCalls.some(c => c[0] === 'fs:readFile' && c[1] === '/test/file.txt')).toBe(true);
+  });
+
+  it('fs.writeFile invokes fs:writeFile with content', () => {
+    invokeCalls.length = 0;
+    api.fs.writeFile('/test/file.txt', 'hello');
+    expect(invokeCalls.some(c =>
+      c[0] === 'fs:writeFile' && c[1] === '/test/file.txt' && c[2] === 'hello'
+    )).toBe(true);
+  });
+
+  it('fs.delete invokes fs:delete', () => {
+    invokeCalls.length = 0;
+    api.fs.delete('/test/dir');
+    expect(invokeCalls.some(c => c[0] === 'fs:delete' && c[1] === '/test/dir')).toBe(true);
+  });
+
+  it('fs.copy invokes fs:copy', () => {
+    invokeCalls.length = 0;
+    api.fs.copy('/src', '/dest');
+    expect(invokeCalls.some(c => c[0] === 'fs:copy' && c[1] === '/src' && c[2] === '/dest')).toBe(true);
+  });
+
+  it('fs.rename invokes fs:rename', () => {
+    invokeCalls.length = 0;
+    api.fs.rename('/old', '/new');
+    expect(invokeCalls.some(c => c[0] === 'fs:rename' && c[1] === '/old' && c[2] === '/new')).toBe(true);
+  });
+
+  it('shell.openExternal invokes shell:openExternal', () => {
+    invokeCalls.length = 0;
+    api.shell.openExternal('https://example.com');
+    expect(invokeCalls.some(c => c[0] === 'shell:openExternal' && c[1] === 'https://example.com')).toBe(true);
+  });
+
+  it('prefs.load invokes prefs:load', () => {
+    invokeCalls.length = 0;
+    api.prefs.load();
+    expect(invokeCalls.some(c => c[0] === 'prefs:load')).toBe(true);
+  });
+
+  it('prefs.save invokes prefs:save with data', () => {
+    invokeCalls.length = 0;
+    api.prefs.save({ theme: 'dark' });
+    expect(invokeCalls.some(c => c[0] === 'prefs:save' && c[1].theme === 'dark')).toBe(true);
+  });
+
+  it('workspace.select invokes workspace:select', () => {
+    invokeCalls.length = 0;
+    api.workspace.select();
+    expect(invokeCalls.some(c => c[0] === 'workspace:select')).toBe(true);
+  });
+
+  it('workspace.save invokes workspace:save with state', () => {
+    invokeCalls.length = 0;
+    api.workspace.save({ plugins: [] });
+    expect(invokeCalls.some(c => c[0] === 'workspace:save' && c[1].plugins)).toBe(true);
+  });
+});
+
+describe('preload.ts — onChanged wiring', () => {
+  it('onChanged registers ipcRenderer.on for file:changed', () => {
+    onCalls.length = 0;
+    const callback = vi.fn();
+    api.fs.onChanged(callback);
+
+    const fileChangedReg = onCalls.find(c => c[0] === 'file:changed');
+    expect(fileChangedReg).toBeTruthy();
+
+    // Simulate file change event
+    const ipcHandler = fileChangedReg![1] as (event: any, filePath: string) => void;
+    ipcHandler({}, '/test/file.txt');
+    expect(callback).toHaveBeenCalledWith('/test/file.txt');
+  });
+
+  it('onChanged returns an unsubscribe function', () => {
+    const unsub = api.fs.onChanged(vi.fn());
+    expect(typeof unsub).toBe('function');
+  });
+});
+
+describe('preload.ts — terminal onData/onExit wiring', () => {
+  it('onData registers ipcRenderer.on for terminal:data', () => {
+    onCalls.length = 0;
+    const callback = vi.fn();
+    api.terminal.onData(callback);
+
+    const reg = onCalls.find(c => c[0] === 'terminal:data');
+    expect(reg).toBeTruthy();
+
+    const ipcHandler = reg![1] as (event: any, uuid: string, data: string) => void;
+    ipcHandler({}, 'term-123', 'hello');
+    expect(callback).toHaveBeenCalledWith('term-123', 'hello');
+  });
+
+  it('onExit registers ipcRenderer.on for terminal:exit', () => {
+    onCalls.length = 0;
+    const callback = vi.fn();
+    api.terminal.onExit(callback);
+
+    const reg = onCalls.find(c => c[0] === 'terminal:exit');
+    expect(reg).toBeTruthy();
+
+    const ipcHandler = reg![1] as (event: any, uuid: string) => void;
+    ipcHandler({}, 'term-123');
+    expect(callback).toHaveBeenCalledWith('term-123');
+  });
+});

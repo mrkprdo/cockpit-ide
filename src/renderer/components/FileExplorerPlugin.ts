@@ -163,12 +163,10 @@ export class FileExplorerPlugin {
       item.addEventListener('mouseenter', () => item.style.background = 'var(--panel)');
       item.addEventListener('mouseleave', () => item.style.background = 'transparent');
 
-      const fullKey = dirPath + '/' + entry.name;
-      const icon = entry.isDirectory ? (this.expanded.has(fullKey) ? '▾' : '▸') : ' ';
+      const fullPath = dirPath + '/' + entry.name;
+      const icon = entry.isDirectory ? (this.expanded.has(fullPath) ? '▾' : '▸') : ' ';
       const nameStyle = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;display:block';
       item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">${icon}</span><span style="${nameStyle}">${entry.name}</span>`;
-
-      const fullPath = dirPath + '/' + entry.name;
 
       // Context menu on file/directory
       if (entry.isDirectory) {
@@ -220,7 +218,7 @@ export class FileExplorerPlugin {
 
       if (entry.isDirectory) {
         const childContainer = document.createElement('div');
-        const isExpanded = this.expanded.has(fullKey);
+        const isExpanded = this.expanded.has(fullPath);
         childContainer.style.display = isExpanded ? '' : 'none';
 
         // Pre-load children if already expanded
@@ -230,8 +228,8 @@ export class FileExplorerPlugin {
 
         item.addEventListener('click', async (e) => {
           e.stopPropagation();
-          if (this.expanded.has(fullKey)) {
-            this.expanded.delete(fullKey);
+          if (this.expanded.has(fullPath)) {
+            this.expanded.delete(fullPath);
             childContainer.style.display = 'none';
             item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▸</span><span style="${nameStyle}">${entry.name}</span>`;
           } else {
@@ -241,7 +239,7 @@ export class FileExplorerPlugin {
               await this.loadDir(fullPath, childContainer, depth + 1);
             } catch {}
             childContainer.style.display = childContainer.children.length > 0 ? '' : 'none';
-            if (!childContainer.parentNode) parentEl.insertBefore(childContainer, item.nextSibling);
+            if (!childContainer.parentNode) item.parentNode?.insertBefore(childContainer, item.nextSibling);
             item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▾</span><span style="${nameStyle}">${entry.name}</span>`;
           }
         });

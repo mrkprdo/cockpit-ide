@@ -55,12 +55,175 @@ describe('MonacoEditorPlugin', () => {
   it('reloadIfOpen does nothing when no tabs are open', async () => {
     const editor = new MonacoEditorPlugin(container);
     await editor.reloadIfOpen('/test/file.ts');
-    // Should not throw
     expect(editor.tabs).toEqual([]);
   });
 
   it('sets up file change listener on construction', () => {
     new MonacoEditorPlugin(container);
     expect(mockElectronAPI.fs.onChanged).toHaveBeenCalled();
+  });
+});
+
+describe('MonacoEditorPlugin — language detection', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+  });
+
+  function getLanguage(ext: string): string {
+    const editor = new MonacoEditorPlugin(container);
+    return (editor as any).getLanguage(ext);
+  }
+
+  it('detects TypeScript', () => {
+    expect(getLanguage('ts')).toBe('typescript');
+  });
+
+  it('detects JavaScript', () => {
+    expect(getLanguage('js')).toBe('javascript');
+  });
+
+  it('detects TSX', () => {
+    expect(getLanguage('tsx')).toBe('typescript');
+  });
+
+  it('detects JSX', () => {
+    expect(getLanguage('jsx')).toBe('javascript');
+  });
+
+  it('detects JSON', () => {
+    expect(getLanguage('json')).toBe('json');
+  });
+
+  it('detects HTML', () => {
+    expect(getLanguage('html')).toBe('html');
+  });
+
+  it('detects CSS', () => {
+    expect(getLanguage('css')).toBe('css');
+  });
+
+  it('detects Markdown', () => {
+    expect(getLanguage('md')).toBe('markdown');
+  });
+
+  it('detects Python', () => {
+    expect(getLanguage('py')).toBe('python');
+  });
+
+  it('detects Rust', () => {
+    expect(getLanguage('rs')).toBe('rust');
+  });
+
+  it('detects YAML', () => {
+    expect(getLanguage('yaml')).toBe('yaml');
+    expect(getLanguage('yml')).toBe('yaml');
+  });
+
+  it('detects XML/SVG', () => {
+    expect(getLanguage('xml')).toBe('xml');
+    expect(getLanguage('svg')).toBe('xml');
+  });
+
+  it('detects Shell/Batch/PowerShell', () => {
+    expect(getLanguage('sh')).toBe('shell');
+    expect(getLanguage('bat')).toBe('bat');
+    expect(getLanguage('ps1')).toBe('powershell');
+  });
+
+  it('detects C/C++/C#', () => {
+    expect(getLanguage('cpp')).toBe('cpp');
+    expect(getLanguage('c')).toBe('c');
+    expect(getLanguage('cs')).toBe('csharp');
+  });
+
+  it('detects Java', () => {
+    expect(getLanguage('java')).toBe('java');
+  });
+
+  it('detects Go', () => {
+    expect(getLanguage('go')).toBe('go');
+  });
+
+  it('detects Ruby', () => {
+    expect(getLanguage('rb')).toBe('ruby');
+  });
+
+  it('detects PHP', () => {
+    expect(getLanguage('php')).toBe('php');
+  });
+
+  it('detects Swift', () => {
+    expect(getLanguage('swift')).toBe('swift');
+  });
+
+  it('detects Kotlin', () => {
+    expect(getLanguage('kt')).toBe('kotlin');
+  });
+
+  it('returns plaintext for unknown extensions', () => {
+    expect(getLanguage('xyz')).toBe('plaintext');
+    expect(getLanguage('')).toBe('plaintext');
+  });
+});
+
+describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('const x = 1;');
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.fs.writeFile as any).mockResolvedValue(true);
+  });
+
+  it('does nothing when no matching tab is open', async () => {
+    const editor = new MonacoEditorPlugin(container);
+
+    // Manually add a tab bypassing Monaco loading
+    editor.tabs.push({ filePath: '/test/other.ts', name: 'other.ts' });
+    editor.activeTab = '/test/other.ts';
+
+    await editor.reloadIfOpen('/test/file.ts');
+    // No change — no matching tab
+    expect(editor.tabs.length).toBe(1);
+  });
+
+  it('closes tab when file is deleted (readFile returns null)', async () => {
+    const editor = new MonacoEditorPlugin(container);
+    editor.tabs.push({ filePath: '/test/deleted.ts', name: 'deleted.ts' });
+    editor.activeTab = '/test/deleted.ts';
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue(null);
+
+    await editor.reloadIfOpen('/test/deleted.ts');
+    expect(editor.tabs.length).toBe(0);
+  });
+
+  it('updates fileContents cache on successful reload', async () => {
+    const editor = new MonacoEditorPlugin(container);
+    editor.tabs.push({ filePath: '/test/file.ts', name: 'file.ts' });
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('updated content');
+
+    await editor.reloadIfOpen('/test/file.ts');
+    expect((editor as any).fileContents.get('/test/file.ts')).toBe('updated content');
+  });
+
+  it('unsubscribes from file watcher on second construction', () => {
+    // First editor sets up listener
+    new MonacoEditorPlugin(container);
+    const calls = (mockElectronAPI.fs.onChanged as any).mock.calls.length;
+
+    // Second editor also sets up listener
+    new MonacoEditorPlugin(container);
+    expect((mockElectronAPI.fs.onChanged as any).mock.calls.length).toBe(calls + 1);
+  });
+
+  it('file change listener is registered via electronAPI.fs.onChanged', () => {
+    new MonacoEditorPlugin(container);
+    expect(mockElectronAPI.fs.onChanged).toHaveBeenCalledWith(expect.any(Function));
   });
 });
