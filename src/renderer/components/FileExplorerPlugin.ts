@@ -65,7 +65,7 @@ export class FileExplorerPlugin {
     while (temp.firstChild) this.treeEl.appendChild(temp.firstChild);
   }
 
-  private showInlineInput(parentDir: string, isFolder: boolean): void {
+  private showInlineInput(parentDir: string, isFolder: boolean, afterEl?: HTMLElement, childContainer?: HTMLElement): void {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 4px';
     row.style.paddingLeft = '12px';
@@ -81,7 +81,12 @@ export class FileExplorerPlugin {
 
     row.appendChild(icon);
     row.appendChild(input);
-    this.treeEl.appendChild(row);
+    if (afterEl) {
+      const target = childContainer && childContainer.parentNode ? childContainer : afterEl;
+      target.parentNode!.insertBefore(row, target.nextSibling);
+    } else {
+      this.treeEl.appendChild(row);
+    }
     input.focus();
 
     const commit = async () => {
@@ -105,12 +110,12 @@ export class FileExplorerPlugin {
     input.addEventListener('blur', () => commit());
   }
 
-  private createFile(parentDir: string): void {
-    this.showInlineInput(parentDir, false);
+  private createFile(parentDir: string, afterEl?: HTMLElement, childContainer?: HTMLElement): void {
+    this.showInlineInput(parentDir, false, afterEl, childContainer);
   }
 
-  private createFolder(parentDir: string): void {
-    this.showInlineInput(parentDir, true);
+  private createFolder(parentDir: string, afterEl?: HTMLElement, childContainer?: HTMLElement): void {
+    this.showInlineInput(parentDir, true, afterEl, childContainer);
   }
 
   private async deletePath(targetPath: string): Promise<void> {
@@ -176,14 +181,23 @@ export class FileExplorerPlugin {
       const nameStyle = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;display:block';
       item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">${icon}</span><span style="${nameStyle}">${entry.name}</span>`;
 
-      // Context menu on file/directory
       if (entry.isDirectory) {
+        const childContainer = document.createElement('div');
+        const isExpanded = this.expanded.has(fullPath);
+        childContainer.style.display = isExpanded ? '' : 'none';
+
+        // Pre-load children if already expanded
+        if (isExpanded) {
+          await this.loadDir(fullPath, childContainer, depth + 1);
+        }
+
+        // Context menu on directory
         item.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           e.stopPropagation();
           const items: any[] = [
-            { label: 'New File', action: () => this.createFile(fullPath) },
-            { label: 'New Folder', action: () => this.createFolder(fullPath) },
+            { label: 'New File', action: () => this.createFile(fullPath, item, childContainer) },
+            { label: 'New Folder', action: () => this.createFolder(fullPath, item, childContainer) },
             { separator: true },
             { label: 'Copy', action: () => { this.copiedPath = fullPath; } },
             { label: 'Paste', action: () => this.pasteHere(fullPath), disabled: !this.copiedPath },
@@ -192,7 +206,30 @@ export class FileExplorerPlugin {
           ];
           new ContextMenu(items, e.clientX, e.clientY);
         });
+
+        item.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (this.expanded.has(fullPath)) {
+            this.expanded.delete(fullPath);
+            childContainer.style.display = 'none';
+            item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▸</span><span style="${nameStyle}">${entry.name}</span>`;
+          } else {
+            this.expanded.add(fullPath);
+            childContainer.innerHTML = '';
+            try {
+              await this.loadDir(fullPath, childContainer, depth + 1);
+            } catch {}
+            childContainer.style.display = childContainer.children.length > 0 ? '' : 'none';
+            if (!childContainer.parentNode) item.parentNode?.insertBefore(childContainer, item.nextSibling);
+            item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▾</span><span style="${nameStyle}">${entry.name}</span>`;
+          }
+        });
+        parentEl.appendChild(item);
+        if (isExpanded) {
+          parentEl.insertBefore(childContainer, item.nextSibling);
+        }
       } else {
+        // Context menu on file
         item.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -222,40 +259,7 @@ export class FileExplorerPlugin {
           items.push({ label: 'Delete', action: () => this.deletePath(fullPath) });
           new ContextMenu(items, e.clientX, e.clientY);
         });
-      }
 
-      if (entry.isDirectory) {
-        const childContainer = document.createElement('div');
-        const isExpanded = this.expanded.has(fullPath);
-        childContainer.style.display = isExpanded ? '' : 'none';
-
-        // Pre-load children if already expanded
-        if (isExpanded) {
-          await this.loadDir(fullPath, childContainer, depth + 1);
-        }
-
-        item.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          if (this.expanded.has(fullPath)) {
-            this.expanded.delete(fullPath);
-            childContainer.style.display = 'none';
-            item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▸</span><span style="${nameStyle}">${entry.name}</span>`;
-          } else {
-            this.expanded.add(fullPath);
-            childContainer.innerHTML = '';
-            try {
-              await this.loadDir(fullPath, childContainer, depth + 1);
-            } catch {}
-            childContainer.style.display = childContainer.children.length > 0 ? '' : 'none';
-            if (!childContainer.parentNode) item.parentNode?.insertBefore(childContainer, item.nextSibling);
-            item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▾</span><span style="${nameStyle}">${entry.name}</span>`;
-          }
-        });
-        parentEl.appendChild(item);
-        if (isExpanded) {
-          parentEl.insertBefore(childContainer, item.nextSibling);
-        }
-      } else {
         item.addEventListener('click', (e) => {
           e.stopPropagation();
           this.onFileOpen(fullPath);
