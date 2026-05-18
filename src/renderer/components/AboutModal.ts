@@ -12,8 +12,9 @@ export class AboutModal {
     this.el.className = 'about-modal';
 
     const v = (window as any).electronAPI?.versions || {};
+    const hash = typeof COMMIT_HASH !== 'undefined' ? COMMIT_HASH.slice(0, 7) : 'dev';
     const specs: { key: string; val: string }[] = [
-      { key: 'VERSION', val: '0.0.1' },
+      { key: 'VERSION', val: `0.0.1-${hash}` },
       ...(v.electron ? [{ key: 'ELECTRON', val: v.electron.split('.')[0] }] : []),
       ...(v.node ? [{ key: 'NODE', val: v.node.split('.')[0] }] : []),
     ];

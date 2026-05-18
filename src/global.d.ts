@@ -16,6 +16,8 @@ interface WorkspaceState {
 
 interface DirEntry { name: string; isDirectory: boolean; }
 
+declare const COMMIT_HASH: string;
+
 interface Window {
   electronAPI: {
     platform: string;
@@ -57,6 +59,7 @@ interface Window {
       readDir: (dirPath: string) => Promise<DirEntry[] | null>;
       readFile: (filePath: string) => Promise<string | null>;
       writeFile: (filePath: string, content: string) => Promise<boolean>;
+      mkdir: (dirPath: string) => Promise<boolean>;
       delete: (targetPath: string) => Promise<boolean>;
       copy: (src: string, dest: string) => Promise<boolean>;
       rename: (oldPath: string, newPath: string) => Promise<boolean>;

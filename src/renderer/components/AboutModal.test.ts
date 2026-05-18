@@ -11,7 +11,8 @@ describe('AboutModal', () => {
     expect(document.querySelector('.modal-overlay')).toBeTruthy();
     expect(document.querySelector('.about-modal')).toBeTruthy();
     expect(document.body.textContent).toContain('COCKPIT IDE');
-    expect(document.body.textContent).toContain('0.0.1');
+    expect(document.body.textContent).toContain('0.0.1-deadbee');
+    expect(document.body.textContent).toMatch(/0\.0\.1-[0-9a-f]{7}/);
   });
 
   it('starts hidden', () => {

@@ -33,7 +33,7 @@ function build() {
   console.log('\n[dev] Building...');
   try {
     execSync('tsc -p tsconfig.main.json', { stdio: 'inherit' });
-    execSync('esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife', { stdio: 'inherit' });
+    execSync('node scripts/build-renderer.js', { stdio: 'inherit' });
     execSync('copy src\\renderer\\*.html dist\\renderer\\', { stdio: 'inherit' });
     execSync('copy src\\renderer\\*.css dist\\renderer\\', { stdio: 'inherit' });
     execSync('if not exist dist\\vs xcopy /s /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul', { stdio: 'inherit' });
