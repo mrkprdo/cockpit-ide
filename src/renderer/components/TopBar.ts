@@ -3,12 +3,10 @@ import { theme } from '../theme';
 type GridStyle = 'none' | 'dots' | 'grid';
 
 interface TopBarCallbacks {
-  onOpenPreferences: () => void;
+  onGridChange?: (style: GridStyle) => void;
   onThemeToggle?: () => void;
   onOpenWorkspace?: () => void;
   onNewTerminal?: () => void;
-  onNewExplorer?: () => void;
-  onNewEditor?: () => void;
   onNewDev?: () => void;
   onNewContext?: () => void;
   onFocusTerminal?: (uuid: string) => void;
@@ -27,9 +25,11 @@ interface TermItem { uuid: string; title: string; isOpen: boolean; }
 
 export class TopBar {
   private callbacks: TopBarCallbacks;
+  private gridStyle: GridStyle = 'dots';
   private termItems: TermItem[] = [];
   private devItems: TermItem[] = [];
   private ctxItems: TermItem[] = [];
+  private docClickHandler: (() => void) | null = null;
 
   constructor(private el: HTMLElement, callbacks: TopBarCallbacks) {
     this.callbacks = callbacks;
@@ -163,13 +163,15 @@ export class TopBar {
     });
 
     // Keep menu open when hovering over the dropdown
-    document.querySelectorAll('.menu-dropdown').forEach(dd => {
+    this.el.querySelectorAll('.menu-dropdown').forEach(dd => {
       dd.addEventListener('mouseenter', cancelClose);
       dd.addEventListener('mouseleave', scheduleClose);
     });
 
-    // Close on click outside
-    document.addEventListener('click', () => closeAll());
+    // Close on click outside — remove previous handler first to prevent accumulation
+    if (this.docClickHandler) document.removeEventListener('click', this.docClickHandler);
+    this.docClickHandler = () => closeAll();
+    document.addEventListener('click', this.docClickHandler);
 
     document.getElementById('menu-open-workspace')?.addEventListener('click', () => {
       this.callbacks.onOpenWorkspace?.();
@@ -204,7 +206,7 @@ export class TopBar {
         e.stopPropagation();
         const val = (e.currentTarget as HTMLElement).dataset.grid as GridStyle;
         this.gridStyle = val;
-        this.callbacks.onGridChange(val);
+        this.callbacks.onGridChange?.(val);
         this.render();
       });
     });

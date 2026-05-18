@@ -55,7 +55,7 @@ export class CanvasArea {
 
   constructor(private el: HTMLElement) {
     this.originDot = document.createElement('div');
-    this.originDot.style.cssText = 'position:absolute;width:6px;height:6px;border-radius:50%;border:1px solid #FF1744;background:transparent;z-index:5;pointer-events:none;transform:translate(-50%,-50%)';
+    this.originDot.style.cssText = 'position:absolute;width:6px;height:6px;border-radius:50%;border:1px solid var(--red);background:transparent;z-index:5;pointer-events:none;transform:translate(-50%,-50%)';
     this.el.appendChild(this.originDot);
 
     // Plugin list panel (lower-left hover zone)
@@ -129,7 +129,7 @@ export class CanvasArea {
     panel.style.display = 'block';
   }
 
-  private centerView(): void {
+  centerView(): void {
     this.panX = this.el.clientWidth / 2;
     this.panY = this.el.clientHeight / 2;
     this.scheduleTransform();
@@ -211,14 +211,14 @@ export class CanvasArea {
 
     if (this.gridStyle === 'dots') {
       ctx.fillStyle = color;
-      ctx.globalAlpha = 0.5;
+      ctx.globalAlpha = 0.65;
       ctx.beginPath();
-      ctx.arc(0, 0, 1, 0, Math.PI * 2);
+      ctx.arc(0, 0, 2, 0, Math.PI * 2);
       ctx.fill();
     } else {
       ctx.strokeStyle = color;
-      ctx.globalAlpha = 0.15;
-      ctx.lineWidth = 0.5;
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(s, 0); ctx.lineTo(s, s);
       ctx.moveTo(0, s); ctx.lineTo(s, s);
@@ -516,7 +516,7 @@ export class CanvasArea {
   }
 
   async openInContext(filePath: string, label?: string): Promise<void> {
-    let target = label
+    let target: ContextPlugin | null | undefined = label
       ? this.contextPlugins.find(c => c.title === label)
       : this.contextPlugins[0];
     if (!target) {
@@ -821,33 +821,46 @@ export class CanvasArea {
     this.animatePan(targetX, targetY);
   }
 
-  private updateStatusBar(): void {
+  private sbZoom: HTMLSpanElement | null = null;
+  private sbPan: HTMLSpanElement | null = null;
+  private sbWorkspace: HTMLSpanElement | null = null;
+
+  private initStatusBar(): void {
     const sb = document.getElementById('statusbar');
-    if (!sb) return;
+    if (!sb || sb.children.length > 0) return;
 
-    const zoomText = `Zoom: ${Math.round(this.scale * 100)}%`;
-    const panText = `${Math.round(this.panX)}, ${Math.round(this.panY)}`;
+    const sep = (): HTMLSpanElement => { const s = document.createElement('span'); s.className = 'status-sep'; sb.appendChild(s); return s; };
 
-    sb.innerHTML = '';
-    const add = (tag: string, text: string, cls = 'status-item'): HTMLElement => {
-      const el = document.createElement(tag);
-      el.className = cls;
-      el.textContent = text;
-      sb.appendChild(el);
-      return el;
-    };
-    const sep = (): void => { const s = document.createElement('span'); s.className = 'status-sep'; sb.appendChild(s); };
-
-    add('span', zoomText);
+    this.sbZoom = document.createElement('span');
+    this.sbZoom.className = 'status-item';
+    sb.appendChild(this.sbZoom);
     sep();
-    add('span', `Pan: ${panText}`);
-    sep();
-    add('span', this.workspaceName);
 
-    const fill = document.createElement('span'); fill.style.cssText = 'flex:1'; sb.appendChild(fill);
+    this.sbPan = document.createElement('span');
+    this.sbPan.className = 'status-item';
+    sb.appendChild(this.sbPan);
+    sep();
+
+    this.sbWorkspace = document.createElement('span');
+    this.sbWorkspace.className = 'status-item';
+    sb.appendChild(this.sbWorkspace);
+
+    const fill = document.createElement('span');
+    fill.style.cssText = 'flex:1';
+    sb.appendChild(fill);
 
     sep();
-    const originBtn = add('button', 'origin', 'status-btn');
+    const originBtn = document.createElement('button');
+    originBtn.className = 'status-btn';
+    originBtn.textContent = 'origin';
     originBtn.addEventListener('click', () => this.goOrigin());
+    sb.appendChild(originBtn);
+  }
+
+  private updateStatusBar(): void {
+    this.initStatusBar();
+    if (this.sbZoom) this.sbZoom.textContent = `Zoom: ${Math.round(this.scale * 100)}%`;
+    if (this.sbPan) this.sbPan.textContent = `Pan: ${Math.round(this.panX)}, ${Math.round(this.panY)}`;
+    if (this.sbWorkspace) this.sbWorkspace.textContent = this.workspaceName;
   }
 }

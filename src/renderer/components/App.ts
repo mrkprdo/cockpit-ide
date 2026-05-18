@@ -141,7 +141,10 @@ export class App {
 
     // Restore user preferences
     const prefs = await window.electronAPI?.prefs.load();
-    if (prefs?.gridStyle) this.canvas.setGridStyle(prefs.gridStyle);
+    if (prefs?.gridStyle) {
+      this.canvas.setGridStyle(prefs.gridStyle);
+      this.topBar.setGridStyle(prefs.gridStyle);
+    }
     if (prefs?.isDark !== undefined) {
       theme.setDark(prefs.isDark);
       this.canvas.devPlugin?.updateTheme();
