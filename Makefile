@@ -1,4 +1,4 @@
-.PHONY: dev prod build clean package test
+.PHONY: dev prod build clean package test install
 
 build:
 	npm run build
@@ -9,8 +9,11 @@ dev: build
 prod: build
 	npx electron .
 
-package: build
+package: test
 	npm run pack
+
+install:
+	for %%i in (release\*.exe) do start "" "%%i" && exit /b
 
 clean:
 	if exist dist rmdir /s /q dist
