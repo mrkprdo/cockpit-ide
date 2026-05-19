@@ -1,6 +1,6 @@
 {
   "name": "cockpit-ide",
-  "version": "0.0.1",
+  "version": "0.0.1-405789e-405789e-405789e",
   "description": "Cockpit IDE — Art Nouveau × Floating",
   "main": "dist/main/main.js",
   "scripts": {
@@ -69,12 +69,12 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "license": "build/license_eula.txt",
+      "license": "installer-assets/license.txt",
       "installerIcon": "public/cockpit_ide_icon.ico",
       "uninstallerIcon": "public/cockpit_ide_icon.ico",
-      "installerHeader": "build/installerHeader.bmp",
-      "installerSidebar": "build/installerSidebar.bmp",
-      "include": "build/installer.nsh"
+      "installerHeader": "installer-assets/installerHeader.bmp",
+      "installerSidebar": "installer-assets/installerSidebar.bmp",
+      "include": "installer-assets/installer.nsh"
     }
   },
   "keywords": [],

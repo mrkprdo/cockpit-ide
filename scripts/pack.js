@@ -4,7 +4,7 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const pkgPath = path.join(root, 'package.json');
-const eulaPath = path.join(root, 'build', 'license_eula.txt');
+const licensePath = path.join(root, 'installer-assets', 'license.txt');
 
 let hash = 'dev';
 try {
@@ -20,13 +20,13 @@ const origVersion = pkg.version;
 pkg.version = `${origVersion}-${hash}`;
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 
-// Patch EULA
-const origEula = fs.readFileSync(eulaPath, 'utf8');
-const patchedEula = origEula.replace(
+// Patch license version
+const origLicense = fs.readFileSync(licensePath, 'utf8');
+const patchedLicense = origLicense.replace(
   /Cockpit IDE - Version .*/,
   `Cockpit IDE - Version ${pkg.version}`
 );
-fs.writeFileSync(eulaPath, patchedEula);
+fs.writeFileSync(licensePath, patchedLicense);
 
 console.log(`[pack] Version: ${pkg.version}`);
 
@@ -38,6 +38,6 @@ try {
   });
 } finally {
   fs.writeFileSync(pkgPath, origPkg);
-  fs.writeFileSync(eulaPath, origEula);
+  fs.writeFileSync(licensePath, origLicense);
   console.log('[pack] Files restored');
 }
