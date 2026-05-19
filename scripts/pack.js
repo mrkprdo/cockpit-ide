@@ -17,7 +17,8 @@ const platformFlags = process.argv.slice(2).join(' ');
 const origPkg = fs.readFileSync(pkgPath, 'utf8');
 const pkg = JSON.parse(origPkg);
 const origVersion = pkg.version;
-pkg.version = `${origVersion}-${hash}`;
+const baseVersion = origVersion.replace(/-[0-9a-f]{7}.*$/, '');
+pkg.version = `${baseVersion}-${hash}`;
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 
 // Patch license version

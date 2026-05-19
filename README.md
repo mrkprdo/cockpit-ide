@@ -1,5 +1,9 @@
 # Cockpit IDE - The IDE for developers who thinks spatialy
 
+[![Nightly Build (Dev)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml/badge.svg)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml)
+
+---
+
 A spatial IDE built in Electron — drag your editor, terminal, and docs wherever they fit, stack them, zoom out to see everything at once. Open multiple instances of anything. Sessions restore exactly as you left them.
 
 [![Cockpit IDE demo](https://img.youtube.com/vi/GoyIwmrYI58/maxresdefault.jpg)](https://youtu.be/GoyIwmrYI58)
