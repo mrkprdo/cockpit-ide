@@ -1,0 +1,80 @@
+name: Nightly Build (Dev)
+
+on:
+    schedule:
+        - cron: '0 2 * * *'
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: windows-latest
+
+        steps:
+            - name: Checkout dev (clean)
+              uses: actions/checkout@v4
+              with:
+                  ref: dev
+                  clean: true
+
+            - name: Setup Node 22
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
+            - name: Install dependencies
+              run: npm ci
+
+            # -----------------------------
+            # 1. ZIP CLEAN SOURCES
+            # -----------------------------
+            - name: Zip source snapshot
+              shell: pwsh
+              run: |
+                  $zipName = "source.zip"
+
+                  # exclude build output if exists locally
+                  Compress-Archive `
+                      -Path .\* `
+                      -DestinationPath $zipName `
+                      -Force `
+                      -CompressionLevel Optimal
+
+                  echo "SOURCE_ZIP=$zipName" >> $env:GITHUB_ENV
+
+            # -----------------------------
+            # 2. BUILD PACKAGE
+            # -----------------------------
+            - name: Build installer
+              run: make package
+
+            # -----------------------------
+            # 3. FIND INSTALLER EXE
+            # -----------------------------
+            - name: Locate installer
+              shell: pwsh
+              run: |
+                  $exe = Get-ChildItem -Path release -Filter *.exe -Recurse | Select-Object -First 1
+
+                  if (-not $exe) {
+                      throw "No installer .exe found in release/"
+                  }
+
+                  echo "INSTALLER_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
+
+            # -----------------------------
+            # 4. CREATE RELEASE
+            # -----------------------------
+            - name: Publish nightly release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: nightly
+                  name: Nightly Build (dev)
+                  prerelease: true
+                  files: |
+                      source.zip
+                      ${{ env.INSTALLER_PATH }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
