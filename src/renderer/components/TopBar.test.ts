@@ -29,6 +29,7 @@ describe('TopBar', () => {
       onFocusContext: vi.fn(),
       onReopenContext: vi.fn(),
       onAbout: vi.fn(),
+      onTutorial: vi.fn(),
       onZoomIn: vi.fn(),
       onZoomOut: vi.fn(),
       onResetView: vi.fn(),
@@ -76,6 +77,13 @@ describe('TopBar', () => {
     const btn = document.querySelector('#menu-new-dev') as HTMLElement;
     btn.click();
     expect(callbacks.onNewDev).toHaveBeenCalledOnce();
+  });
+
+  it('clicking "Tutorial" calls onTutorial', () => {
+    new TopBar(makeTopBarEl(), callbacks);
+    const btn = document.querySelector('#menu-tutorial') as HTMLElement;
+    btn.click();
+    expect(callbacks.onTutorial).toHaveBeenCalledOnce();
   });
 
   it('clicking "About Cockpit IDE" calls onAbout', () => {

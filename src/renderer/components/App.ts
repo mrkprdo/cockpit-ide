@@ -2,12 +2,14 @@ import { TopBar } from './TopBar';
 import { CanvasArea, SaveState } from './CanvasArea';
 import { WelcomeModal } from './WelcomeModal';
 import { AboutModal } from './AboutModal';
+import { Tutorial } from './Tutorial';
 import { theme } from '../theme';
 
 export class App {
   private canvas: CanvasArea;
   private topBar: TopBar;
   private about: AboutModal;
+  private tutorial: Tutorial;
   private lastSaved = '';
   private wsPath = '';
 
@@ -39,6 +41,7 @@ export class App {
     this.canvas.onContextsChanged = (items) => this.topBar.setContextItems(items);
 
     this.about = new AboutModal();
+    this.tutorial = new Tutorial();
 
     this.topBar = new TopBar(document.getElementById('menu-bar')!, {
       onGridChange: async (style) => {
@@ -67,6 +70,9 @@ export class App {
       onAbout: () => {
         this.canvas.locked = true;
         this.about.open(() => { this.canvas.locked = false; });
+      },
+      onTutorial: () => {
+        this.tutorial.start();
       },
       onZoomIn: () => this.canvas.zoomIn(),
       onZoomOut: () => this.canvas.zoomOut(),
@@ -165,6 +171,10 @@ export class App {
     this.canvas.workspaceName = path;
     this.canvas.refresh();
     this.saveNow();
+
+    if (prefs?.showTutorial !== false) {
+      this.tutorial.start();
+    }
   }
 
   private initWindowControls(): void {

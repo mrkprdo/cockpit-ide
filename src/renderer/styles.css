@@ -510,6 +510,10 @@ html, body {
 }
 
 /* ===== Modal ===== */
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.97) translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -528,6 +532,7 @@ html, body {
   border-radius: var(--radius-md);
   min-width: 380px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+  animation: modal-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .modal-header {
   display: flex;
@@ -569,6 +574,94 @@ html, body {
 }
 .modal-radio:hover { background: var(--panel); }
 .modal-radio input { accent-color: var(--primary); }
+.confirm-modal-msg {
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--primary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.btn-ok-destructive {
+  background: var(--red);
+  color: oklch(97% 0.006 20);
+}
+.btn-ok-destructive:hover { background: var(--red); }
+@media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
+
+/* ===== Monaco Editor ===== */
+.editor-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+.editor-tab-bar {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+.editor-tab-scroll {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.editor-tab-scroll::-webkit-scrollbar { display: none; }
+.editor-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+  border-top: 2px solid transparent;
+  white-space: nowrap;
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--tertiary);
+  background: transparent;
+  user-select: none;
+  transition: color 0.1s, background 0.1s;
+}
+.editor-tab:hover { background: var(--panel); color: var(--secondary); }
+.editor-tab.is-active {
+  color: var(--primary);
+  background: var(--panel);
+  border-top-color: var(--accent);
+}
+.editor-tab-close {
+  font-size: 9px;
+  opacity: 0;
+  transition: opacity 0.1s;
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: var(--tertiary);
+  line-height: 1;
+}
+.editor-tab:hover .editor-tab-close,
+.editor-tab.is-active .editor-tab-close { opacity: 1; }
+.editor-tab-close:hover { background: var(--border); color: var(--primary); }
+.editor-empty {
+  padding: 0 12px;
+  color: var(--tertiary);
+  font-size: 10px;
+  font-family: var(--font);
+  white-space: nowrap;
+  line-height: 30px;
+}
+.editor-area { flex: 1; overflow: hidden; }
 
 /* ===== Welcome Modal ===== */
 .welcome-modal {
@@ -764,3 +857,109 @@ html, body {
 .ctx-markdown th, .ctx-markdown td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; font-size: 12px; }
 .ctx-markdown th { background: var(--panel); font-weight: 700; }
 .ctx-markdown img { max-width: 100%; border-radius: 4px; }
+
+/* ===== Tutorial Overlay ===== */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.tutorial-tooltip {
+  position: fixed;
+  max-width: 520px;
+  min-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 28px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  animation: modal-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10001;
+}
+.tutorial-step-header {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--primary);
+  margin-bottom: 14px;
+  font-family: var(--font);
+}
+.tutorial-step-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--secondary);
+  font-family: var(--font);
+  white-space: pre-line;
+}
+.tutorial-nav {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tutorial-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.tutorial-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.15s;
+}
+.tutorial-dot.active {
+  background: var(--accent);
+  width: 24px;
+  border-radius: 4px;
+}
+.tutorial-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+.tutorial-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  letter-spacing: 0.5px;
+  background: transparent;
+  color: var(--secondary);
+}
+.tutorial-btn:hover {
+  background: var(--panel);
+  color: var(--primary);
+  border-color: var(--secondary);
+}
+.tutorial-btn-next, .tutorial-btn-done {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.tutorial-btn-next:hover, .tutorial-btn-done:hover {
+  opacity: 0.85;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.tutorial-ring {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: 0 0 24px rgba(75,158,181,0.4), inset 0 0 12px rgba(75,158,181,0.15);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-tooltip { animation: none; }
+}

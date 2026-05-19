@@ -16,6 +16,7 @@ interface TopBarCallbacks {
   onFocusContext?: (uuid: string) => void;
   onReopenContext?: (uuid: string) => void;
   onAbout?: () => void;
+  onTutorial?: () => void;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onResetView?: () => void;
@@ -133,6 +134,8 @@ export class TopBar {
       <div class="menu-item">
         Help
         <div class="menu-dropdown">
+          <div class="menu-dropdown-item" id="menu-tutorial">Tutorial</div>
+          <div class="menu-dropdown-separator"></div>
           <div class="menu-dropdown-item" id="menu-about">About Cockpit IDE</div>
         </div>
       </div>
@@ -183,6 +186,10 @@ export class TopBar {
 
     document.getElementById('menu-new-dev')?.addEventListener('click', () => {
       this.callbacks.onNewDev?.();
+    });
+
+    document.getElementById('menu-tutorial')?.addEventListener('click', () => {
+      this.callbacks.onTutorial?.();
     });
 
     document.getElementById('menu-about')?.addEventListener('click', () => {

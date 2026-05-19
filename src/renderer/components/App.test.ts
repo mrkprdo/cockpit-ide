@@ -37,7 +37,7 @@ describe('App', () => {
     (mockElectronAPI.workspace.getRecent as any).mockResolvedValue(['/test/ws']);
     (mockElectronAPI.workspace.load as any).mockResolvedValue(null);
     (mockElectronAPI.workspace.save as any).mockResolvedValue(undefined);
-    (mockElectronAPI.prefs.load as any).mockResolvedValue({ gridStyle: 'dots', isDark: true });
+    (mockElectronAPI.prefs.load as any).mockResolvedValue({ gridStyle: 'dots', isDark: true, showTutorial: false });
     (mockElectronAPI.fs.watch as any).mockResolvedValue(true);
     (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([]);
