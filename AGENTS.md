@@ -30,6 +30,11 @@ D:\cockpit_ide\
 ├── vitest.config.ts               # Vitest config: jsdom, setup, coverage
 ├── bin/
 │   └── cockpit.bat                # Windows launcher — starts Cockpit.exe with args
+├── installer-assets/
+│   ├── installer.nsh              # NSIS custom installer script
+│   ├── installerHeader.bmp        # Installer header graphic (150×57)
+│   ├── installerSidebar.bmp       # Installer sidebar graphic (164×314)
+│   └── license.txt               # License shown during install
 ├── public/
 │   ├── cockpit_ide_icon.ico       # App icon (Electron window & installer)
 │   └── icon.svg                   # SVG logo: 4 overlapping circles (Noir palette)
@@ -98,7 +103,7 @@ D:\cockpit_ide\
 | `vitest.config.ts` | Vitest runner: jsdom env, setup from `src/test/setup.ts`, all `src/**/*.test.ts`, V8 coverage provider. |
 | `dev.js` | Custom dev runner: watches `src/main/`, `src/preload/`, `src/renderer/` for changes, rebuilds (tsc + esbuild + asset copy) with 200ms debounce, respawns Electron. |
 | `Makefile` | Build targets: build, dev, prod, package, install, clean, test. |
-| `.gitignore` | Ignores: node_modules/, dist/, build/, release/, .cockpit/, *.log, .DS_Store, Thumbs.db, coverage/. |
+| `.gitignore` | Ignores: node_modules/, dist/, release/, .cockpit/, *.log, .env, .DS_Store, Thumbs.db, coverage/. |
 
 ### Documentation
 

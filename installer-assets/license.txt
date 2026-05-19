@@ -1,6 +1,6 @@
 MIT License
 
-Cockpit IDE - Version 0.0.1-405789e-405789e-405789e
+Cockpit IDE - Version <version_here>
 
 Copyright (c) 2026 Mark Anthony Prado
 

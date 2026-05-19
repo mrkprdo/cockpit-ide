@@ -53,7 +53,7 @@ function dotGrid(spacing, dotR) {
   };
 }
 
-const outDir = path.join(__dirname, '..', 'build');
+const outDir = path.join(__dirname, '..', 'installer-assets');
 fs.mkdirSync(outDir, { recursive: true });
 
 // Header: 150x57
@@ -61,11 +61,11 @@ fs.writeFileSync(
   path.join(outDir, 'installerHeader.bmp'),
   createBMP(150, 57, dotGrid(10, 1.5))
 );
-console.log('Created build/installerHeader.bmp (150x57)');
+console.log('Created installer-assets/installerHeader.bmp (150x57)');
 
 // Sidebar: 164x314
 fs.writeFileSync(
   path.join(outDir, 'installerSidebar.bmp'),
   createBMP(164, 314, dotGrid(10, 1.5))
 );
-console.log('Created build/installerSidebar.bmp (164x314)');
+console.log('Created installer-assets/installerSidebar.bmp (164x314)');
