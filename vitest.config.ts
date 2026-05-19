@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   define: {
-    COMMIT_HASH: '"deadbeefcafe"',
+    COMMIT_HASH: '"20260519"',
   },
   test: {
     environment: 'jsdom',
