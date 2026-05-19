@@ -1,4 +1,13 @@
-# Cockpit IDE - The IDE for developers who thinks spatialy
+<p align="center">
+  <img src="https://raw.githubusercontent.com/mrkprdo/cockpit-ide/1ddfbbbd8e3d88204988304a9f0e38571a8caee9/public/icon.svg" alt="Logo" height=170>
+</p>
+
+<h1 align="center">Cockpit IDE</h1>
+<div align="center">
+ The IDE for developers who thinks spatialy
+</div>
+
+---
 
 [![Nightly Build (Dev)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml/badge.svg)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml)
 
@@ -46,7 +55,7 @@ make install       # starts the installer that is in release folder
 make test          # run test
 ```
 
-### Basic Usage 
+### Basic Usage
 
 ```bash
 # Open from CLI
@@ -71,4 +80,3 @@ _Generated from [https://www.usedesign.md/?mash=1&p=noir&c=Art+Nouveau&s=Floatin
 ---
 
 MIT License
-
