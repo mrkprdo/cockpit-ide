@@ -85,7 +85,7 @@ describe('ConfirmModal edge cases', () => {
   it('handles HTML in message via innerHTML', () => {
     new ConfirmModal('<b>bold text</b> and <i>italic</i>', 'OK');
     // HTML tags in the message are rendered as HTML via innerHTML
-    const body = document.body.querySelector('[style*="padding:20px"]');
+    const body = document.body.querySelector('.confirm-modal-msg');
     expect(body).toBeTruthy();
     expect(body!.textContent).toContain('bold text');
     expect(body!.textContent).toContain('italic');

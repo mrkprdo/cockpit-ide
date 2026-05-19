@@ -1,34 +1,36 @@
 export class ConfirmModal {
   private overlay: HTMLDivElement;
   private resolve: ((ok: boolean) => void) | null = null;
+  private escHandler: ((e: KeyboardEvent) => void) | null = null;
 
-  constructor(message: string, confirmLabel = 'Delete') {
+  constructor(message: string, confirmLabel = 'Delete', destructive = true) {
     this.overlay = document.createElement('div');
     this.overlay.className = 'modal-overlay confirm';
 
     const box = document.createElement('div');
     box.className = 'modal';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', confirmLabel);
 
     const body = document.createElement('div');
     body.className = 'modal-body';
 
     const msg = document.createElement('div');
-    msg.setAttribute('style', 'padding:20px 24px 12px;font-size:13px;font-family:var(--font);color:var(--primary);line-height:1.5');
+    msg.className = 'confirm-modal-msg';
     msg.innerHTML = message;
 
     const actions = document.createElement('div');
-    actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+    actions.className = 'modal-actions';
 
     const cancelBtn = document.createElement('button');
     cancelBtn.id = 'confirm-cancel';
     cancelBtn.className = 'welcome-btn-secondary';
-    cancelBtn.style.margin = '0';
     cancelBtn.textContent = 'Cancel';
 
     const okBtn = document.createElement('button');
     okBtn.id = 'confirm-ok';
-    okBtn.className = 'welcome-btn';
-    okBtn.style.cssText = 'display:inline-block;width:auto;margin:0;padding:8px 20px';
+    okBtn.className = destructive ? 'welcome-btn btn-ok-destructive' : 'welcome-btn';
     okBtn.textContent = confirmLabel;
 
     actions.appendChild(cancelBtn);
@@ -45,12 +47,19 @@ export class ConfirmModal {
   }
 
   private done(ok: boolean): void {
+    if (this.escHandler) {
+      document.removeEventListener('keydown', this.escHandler);
+      this.escHandler = null;
+    }
     this.overlay.remove();
     this.resolve?.(ok);
   }
 
   open(): Promise<boolean> {
     this.overlay.style.display = 'flex';
+    this.escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.done(false); };
+    document.addEventListener('keydown', this.escHandler);
+    (this.overlay.querySelector('#confirm-cancel') as HTMLButtonElement)?.focus();
     return new Promise(resolve => { this.resolve = resolve; });
   }
 }

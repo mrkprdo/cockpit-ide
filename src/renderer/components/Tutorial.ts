@@ -62,7 +62,7 @@ const STEPS: TutorialStep[] = [
     },
   },
   {
-    title: 'Arrange Panel',
+    title: 'Arrange',
     description: 'Auto-arrange or tile cards. Hover lower-right to open, set grid unit sizes.',
     target: '.prr-zone',
     onEnter: () => {
@@ -122,7 +122,7 @@ const STEPS: TutorialStep[] = [
       cb.checked = true;
       cb.style.cssText = 'accent-color:var(--accent);margin:0';
       label.appendChild(cb);
-      label.appendChild(document.createTextNode('Show on startup'));
+      label.appendChild(document.createTextNode('Do not show this again'));
       container.appendChild(label);
     },
   },
@@ -233,7 +233,7 @@ export class Tutorial {
       doneBtn.className = 'tutorial-btn tutorial-btn-done';
       doneBtn.textContent = 'Done';
       doneBtn.addEventListener('click', () => {
-        this.startOnLaunch = extra.querySelector('input[type="checkbox"]')?.checked ?? true;
+        this.startOnLaunch = extra.querySelector('input[type="checkbox"]')?.checked !== true;
         this.close();
       });
       btnRow.appendChild(doneBtn);

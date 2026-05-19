@@ -72,7 +72,7 @@ export class App {
         this.about.open(() => { this.canvas.locked = false; });
       },
       onTutorial: () => {
-        this.tutorial.start();
+        this.startTutorial();
       },
       onZoomIn: () => this.canvas.zoomIn(),
       onZoomOut: () => this.canvas.zoomOut(),
@@ -173,8 +173,16 @@ export class App {
     this.saveNow();
 
     if (prefs?.showTutorial !== false) {
-      this.tutorial.start();
+      this.startTutorial();
     }
+  }
+
+  private async startTutorial(): Promise<void> {
+    this.tutorial.start(async () => {
+      const prefs = (await window.electronAPI?.prefs.load()) || {};
+      prefs.showTutorial = this.tutorial.getShowOnLaunch();
+      await window.electronAPI?.prefs.save(prefs);
+    });
   }
 
   private initWindowControls(): void {

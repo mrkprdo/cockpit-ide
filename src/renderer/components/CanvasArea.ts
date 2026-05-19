@@ -57,6 +57,20 @@ export class CanvasArea {
 
   private contextMenuOpen = false;
 
+  private static readonly WORLD_BOUNDS = 50000;
+
+  private clampWorld(v: number): number {
+    return Math.max(-CanvasArea.WORLD_BOUNDS, Math.min(CanvasArea.WORLD_BOUNDS, Math.round(v)));
+  }
+
+  private clampView(): void {
+    const cw = this.el.clientWidth;
+    const ch = this.el.clientHeight;
+    const bound = CanvasArea.WORLD_BOUNDS * this.scale;
+    this.panX = Math.max(cw - bound, Math.min(bound, this.panX));
+    this.panY = Math.max(ch - bound, Math.min(bound, this.panY));
+  }
+
   constructor(private el: HTMLElement) {
     // Plugin list panel (lower-left hover zone)
     const zone = document.createElement('div');
@@ -312,8 +326,8 @@ export class CanvasArea {
   }
 
   private addCard(title: string, subtitle: string, x: number, y: number, w: number, h: number): CardState {
-    const sx = this.snap(x);
-    const sy = this.snap(y);
+    const sx = this.clampWorld(this.snap(x));
+    const sy = this.clampWorld(this.snap(y));
     const sw = this.snapSize(w);
     const sh = this.snapSize(h);
     const card = new PluginCard(this.el, {
@@ -330,7 +344,7 @@ export class CanvasArea {
       },
       onDragEnd: (worldX: number, worldY: number) => {
         const cs = this.cards.find(c => c.card === card);
-        if (cs) { cs.worldX = worldX; cs.worldY = worldY; }
+        if (cs) { cs.worldX = this.clampWorld(worldX); cs.worldY = this.clampWorld(worldY); }
         this.onStateChange?.();
       },
       onResizeEnd: (w: number, h: number) => {
@@ -460,7 +474,7 @@ export class CanvasArea {
       onClose: callbacks.onClose,
       onDragEnd: (worldX, worldY) => {
         const cs = this.cards.find(c => c.card === card);
-        if (cs) { cs.worldX = worldX; cs.worldY = worldY; }
+        if (cs) { cs.worldX = this.clampWorld(worldX); cs.worldY = this.clampWorld(worldY); }
         this.onStateChange?.();
       },
       onResizeEnd: (w: number, h: number) => {
@@ -471,7 +485,9 @@ export class CanvasArea {
       onFocus: () => this.bringToFront(card),
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
 
-    const cs: CardState = { card, worldX: p.x, worldY: p.y, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: p.x, savedWY: p.y, terminalPlugin: null };
+    const cx = this.clampWorld(p.x);
+    const cy = this.clampWorld(p.y);
+    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
@@ -849,10 +865,10 @@ export class CanvasArea {
   offsetCard(title: string, worldX: number, worldY: number): void {
     const cs = this.cards.find(c => c.savedTitle === title);
     if (!cs) return;
-    cs.worldX = worldX;
-    cs.worldY = worldY;
-    cs.savedWX = worldX;
-    cs.savedWY = worldY;
+    cs.worldX = this.clampWorld(worldX);
+    cs.worldY = this.clampWorld(worldY);
+    cs.savedWX = cs.worldX;
+    cs.savedWY = cs.worldY;
     this.positionCard(cs);
     this.onStateChange?.();
   }
@@ -884,6 +900,7 @@ export class CanvasArea {
     if (this.rafId) return;
     this.rafId = requestAnimationFrame(() => {
       this.rafId = 0;
+      this.clampView();
       this.repositionAllCards();
       this.applyGrid();
       for (const cs of this.cards) cs.card.renderTitle();

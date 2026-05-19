@@ -365,7 +365,7 @@ describe('CanvasArea', () => {
       expect(state.plugins.length).toBe(2);
       for (const p of state.plugins) {
         expect(p.width).toBe(280);
-        expect(p.height).toBe(196);
+        expect(p.height).toBe(280);
       }
     });
 

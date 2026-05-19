@@ -17,27 +17,25 @@ export class MonacoEditorPlugin {
 
   constructor(container: HTMLElement) {
     this.el = document.createElement('div');
-    this.el.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;background:transparent';
+    this.el.className = 'editor-wrap';
 
-    // Top bar with tabs
     this.bar = document.createElement('div');
-    this.bar.style.cssText = 'display:flex;align-items:center;font-size:11px;font-family:"Space Mono","Courier New",monospace;border-bottom:1px solid var(--border);flex-shrink:0;height:30px;overflow:hidden';
+    this.bar.className = 'editor-tab-bar';
 
-    // Listen for external file changes
     this.unsubFileChanged = window.electronAPI?.fs.onChanged((rawPath) => {
       const normalized = rawPath.replace(/\\/g, '/').toLowerCase();
       this.reloadIfOpen(normalized);
     }) || null;
 
     this.tabContainer = document.createElement('div');
-    this.tabContainer.style.cssText = 'display:flex;align-items:stretch;height:100%;flex:1;overflow-x:auto;overflow-y:hidden';
+    this.tabContainer.className = 'editor-tab-scroll';
     this.tabContainer.id = 'tab-container';
 
     this.bar.appendChild(this.tabContainer);
     this.el.appendChild(this.bar);
 
     this.editorEl = document.createElement('div');
-    this.editorEl.style.cssText = 'flex:1;overflow:hidden';
+    this.editorEl.className = 'editor-area';
     this.editorEl.id = 'monaco-' + crypto.randomUUID();
     this.el.appendChild(this.editorEl);
 
@@ -48,7 +46,7 @@ export class MonacoEditorPlugin {
 
   private initTabDummies(): void {
     const empty = document.createElement('span');
-    empty.style.cssText = 'padding:0 12px;color:var(--tertiary);font-size:10px;white-space:nowrap;line-height:30px';
+    empty.className = 'editor-empty';
     empty.textContent = 'No file selected';
     this.tabContainer.appendChild(empty);
   }
@@ -71,21 +69,17 @@ export class MonacoEditorPlugin {
     for (const tab of this.tabs) {
       const isActive = tab.filePath === this.activeTab;
       const tabEl = document.createElement('div');
-      tabEl.style.cssText = `display:flex;align-items:center;gap:6px;padding:0 10px;cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;font-size:11px;font-family:"Space Mono","Courier New",monospace;color:${isActive ? 'var(--primary)' : 'var(--tertiary)'};background:${isActive ? 'var(--panel)' : 'transparent'}`;
+      tabEl.className = isActive ? 'editor-tab is-active' : 'editor-tab';
       tabEl.title = tab.filePath;
 
       const nameSpan = document.createElement('span');
+      nameSpan.className = 'editor-tab-name';
       nameSpan.textContent = tab.name;
       tabEl.appendChild(nameSpan);
 
       const closeBtn = document.createElement('span');
+      closeBtn.className = 'editor-tab-close';
       closeBtn.textContent = '✕';
-      closeBtn.style.cssText = 'font-size:9px;cursor:pointer;opacity:0;transition:opacity 0.1s;padding:2px;border-radius:3px;color:var(--tertiary)';
-      closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
-      closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = isActive ? '1' : '0');
-      tabEl.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
-      tabEl.addEventListener('mouseleave', () => { if (!isActive) closeBtn.style.opacity = '0'; });
-      if (isActive) closeBtn.style.opacity = '1';
 
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -121,7 +115,6 @@ export class MonacoEditorPlugin {
     } else if (content !== undefined) {
       this.fileContents.set(lcPath, content);
       if (this.activeTab === lcPath && this.editor) {
-        // Only update if content actually changed (avoids flicker from self-save)
         if (this.editor.getValue() !== content) {
           this.editor.setValue(content);
         }
@@ -134,20 +127,16 @@ export class MonacoEditorPlugin {
     const normalized = filePath.replace(/\\/g, '/');
     const lcPath = normalized.toLowerCase();
     const name = normalized.split('/').pop() || normalized;
-    const ext = (name.split('.').pop() || '').toLowerCase();
 
-    // If already open, just switch to it
     const existing = this.tabs.find(t => t.filePath === lcPath);
     if (existing) {
       this.switchTab(lcPath);
       return;
     }
 
-    // Load content
     const content = await window.electronAPI?.fs.readFile(lcPath) || '';
     this.fileContents.set(lcPath, content);
 
-    // Add tab
     this.tabs.push({ filePath: lcPath, name, originalPath: normalized });
     this.switchTab(lcPath);
     this.onStateChange?.();
@@ -161,7 +150,6 @@ export class MonacoEditorPlugin {
     if (!tab) return;
 
     if (this.editor) {
-      // Save current content + cursor BEFORE switching
       if (this.editor.getValue && this.activeTab) {
         this.fileContents.set(this.activeTab, this.editor.getValue());
         const pos = this.editor.getPosition();
@@ -178,7 +166,6 @@ export class MonacoEditorPlugin {
       const content = this.fileContents.get(lcPath) || '';
       this.editor.setValue(content);
 
-      // Restore cursor position for this tab
       const saved = this.savedCursors[lcPath];
       if (saved) {
         this.editor.setPosition({ lineNumber: saved.lineNumber, column: saved.column });
@@ -252,7 +239,6 @@ export class MonacoEditorPlugin {
         const m = (window as any).monaco;
         if (!m) { resolve(); return; }
 
-        // Dark theme
         m.editor.defineTheme('cockpit-dark', {
           base: 'vs-dark', inherit: true, rules: [],
           colors: {
@@ -270,7 +256,6 @@ export class MonacoEditorPlugin {
           },
         });
 
-        // Light theme (Noir palette)
         m.editor.defineTheme('cockpit-light', {
           base: 'vs', inherit: true, rules: [],
           colors: {
@@ -304,7 +289,6 @@ export class MonacoEditorPlugin {
           padding: { top: 8 },
         });
 
-        // Ctrl+S to save current file
         this.editor.addAction({
           id: 'save-file',
           label: 'Save File',
@@ -312,7 +296,6 @@ export class MonacoEditorPlugin {
           run: () => this.saveCurrentFile(),
         });
 
-        // Auto-save on content change (debounced 1.5s)
         let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
         this.editor.onDidChangeModelContent(() => {
           if (autoSaveTimer) clearTimeout(autoSaveTimer);
@@ -344,7 +327,6 @@ export class MonacoEditorPlugin {
   getState(): { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
     if (this.tabs.length === 0) return null;
 
-    // Save current active tab's cursor before reading state
     if (this.activeTab && this.editor) {
       const pos = this.editor.getPosition();
       if (pos) {
