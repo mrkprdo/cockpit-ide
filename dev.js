@@ -15,7 +15,8 @@ function startElectron() {
     try { electron.kill('SIGTERM'); } catch {}
     electron = null;
   }
-  const p = spawn(require('electron'), ['.', '--dev'], {
+  const electronPath = require('electron');
+  const p = spawn(`"${electronPath}" . --dev`, {
     stdio: 'inherit',
     shell: true,
     env: { ...process.env, NODE_ENV: 'development' },
