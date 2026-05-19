@@ -75,7 +75,8 @@
       "installerHeader": "installer-assets/installerHeader.bmp",
       "installerSidebar": "installer-assets/installerSidebar.bmp",
       "include": "installer-assets/installer.nsh"
-    }
+    },
+    "publish": null
   },
   "keywords": [],
   "author": "",
