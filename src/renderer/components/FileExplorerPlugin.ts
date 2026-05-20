@@ -178,9 +178,16 @@ export class FileExplorerPlugin {
       item.addEventListener('mouseleave', () => item.style.background = 'transparent');
 
       const fullPath = dirPath + '/' + entry.name;
-      const icon = entry.isDirectory ? (this.expanded.has(fullPath) ? '▾' : '▸') : ' ';
-      const nameStyle = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;display:block';
-      item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">${icon}</span><span style="${nameStyle}">${entry.name}</span>`;
+      const isExpanded = this.expanded.has(fullPath);
+      const icon = entry.isDirectory ? (isExpanded ? '▾' : '▸') : ' ';
+      const iconSpan = document.createElement('span');
+      iconSpan.style.cssText = 'color:var(--tertiary);width:12px;flex-shrink:0';
+      iconSpan.textContent = icon;
+      item.appendChild(iconSpan);
+      const nameSpan = document.createElement('span');
+      nameSpan.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;display:block';
+      nameSpan.textContent = entry.name;
+      item.appendChild(nameSpan);
 
       if (entry.isDirectory) {
         const childContainer = document.createElement('div');
@@ -213,7 +220,8 @@ export class FileExplorerPlugin {
           if (this.expanded.has(fullPath)) {
             this.expanded.delete(fullPath);
             childContainer.style.display = 'none';
-            item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▸</span><span style="${nameStyle}">${entry.name}</span>`;
+            const iconSpan = item.children[0] as HTMLElement;
+            if (iconSpan) iconSpan.textContent = '▸';
           } else {
             this.expanded.add(fullPath);
             childContainer.innerHTML = '';
@@ -222,7 +230,8 @@ export class FileExplorerPlugin {
             } catch {}
             childContainer.style.display = childContainer.children.length > 0 ? '' : 'none';
             if (!childContainer.parentNode) item.parentNode?.insertBefore(childContainer, item.nextSibling);
-            item.innerHTML = `<span style="color:var(--tertiary);width:12px;flex-shrink:0">▾</span><span style="${nameStyle}">${entry.name}</span>`;
+            const iconSpan = item.children[0] as HTMLElement;
+            if (iconSpan) iconSpan.textContent = '▾';
           }
         });
         parentEl.appendChild(item);

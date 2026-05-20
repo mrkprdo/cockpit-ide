@@ -89,6 +89,29 @@ describe('FileExplorerPlugin', () => {
     expect(text).toContain('Unable to read directory');
   });
 
+  it('renders malicious filenames as text, not HTML — prevents stored XSS', async () => {
+    setupReadDir({
+      '/test': [
+        { name: '<img src=x onerror=alert(1)>', isDirectory: false },
+        { name: '<script>steal()</script>', isDirectory: false },
+        { name: 'normal.txt', isDirectory: false },
+      ],
+    });
+
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const html = container.innerHTML || '';
+    // Filenames are set via textContent, so HTML is auto-escaped
+    // No raw HTML elements from filenames
+    expect(html).not.toContain('<img');        // no raw <img element
+    expect(html).not.toContain('<script');     // no raw <script element
+    // The malicious names should appear as text content, not active elements
+    expect(container.textContent).toContain('onerror=alert(1)');
+    expect(container.textContent).toContain('steal()');
+    expect(container.textContent).toContain('normal.txt');
+  });
+
   it('stops wheel propagation on the tree element', () => {
     new FileExplorerPlugin(container, '/test', vi.fn());
     const treeEl = container.firstElementChild as HTMLElement;

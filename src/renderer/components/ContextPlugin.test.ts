@@ -107,4 +107,46 @@ describe('ContextPlugin', () => {
     await ctx.restoreState(null);
     expect(container.textContent).toContain('No file loaded');
   });
+
+  it('sanitizes XSS in markdown — blocks raw script tags', async () => {
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue(
+      '# XSS\n\n<script>alert(\'xss\')</script>\n\nNormal text'
+    );
+    const ctx = new ContextPlugin(container);
+    await ctx.loadFile('/test/xss.md');
+
+    const html = container.innerHTML || '';
+    // Raw HTML is escaped via marked renderer override
+    expect(html).not.toContain('<script>');   // no active <script> tag
+    expect(html).toContain('&lt;script&gt;'); // HTML-escaped version present
+    expect(container.textContent).toContain('XSS');
+    expect(container.textContent).toContain('Normal text');
+  });
+
+  it('sanitizes XSS in markdown — escapes event handler attributes', async () => {
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue(
+      '<img src=x onerror=alert(1)>'
+    );
+    const ctx = new ContextPlugin(container);
+    await ctx.loadFile('/test/xss2.md');
+
+    const html = container.innerHTML || '';
+    expect(html).not.toContain('<img');       // no active <img tag
+    expect(html).toContain('&lt;img');        // HTML-escaped version
+    expect(container.textContent).toContain('onerror');
+    expect(container.textContent).toContain('alert(1)');
+  });
+
+  it('sanitizes XSS in markdown — blocks javascript: protocol in links', async () => {
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue(
+      '[click](javascript:alert(1))'
+    );
+    const ctx = new ContextPlugin(container);
+    await ctx.loadFile('/test/xss3.md');
+
+    const html = container.innerHTML || '';
+    expect(html).not.toContain('javascript:'); // no javascript: in href
+    expect(html).not.toContain('href=');        // no clickable link created
+    expect(container.textContent).toContain('click');
+  });
 });

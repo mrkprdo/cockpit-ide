@@ -1,4 +1,4 @@
-import { marked } from 'marked';
+import { marked, Renderer } from 'marked';
 
 interface Tab { filePath: string; name: string; }
 
@@ -217,7 +217,17 @@ export class ContextPlugin {
       return;
     }
     try {
-      const html = marked.parse(text, { breaks: true }) as string;
+      const renderer = new Renderer();
+      renderer.html = ({ text: rawHtml }) => {
+        return rawHtml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      };
+      renderer.link = ({ href, text: linkText }) => {
+        if (href && /^javascript:/i.test(href)) {
+          return `<span>${linkText}</span>`;
+        }
+        return `<a href="${href}">${linkText}</a>`;
+      };
+      const html = marked.parse(text, { breaks: true, renderer }) as string;
       this.preview.innerHTML = this.styleMarkdown(html);
     } catch {
       this.preview.innerHTML = '<div style="color:var(--red)">Render error</div>';
