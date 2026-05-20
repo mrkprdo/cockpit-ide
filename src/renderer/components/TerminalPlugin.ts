@@ -1,9 +1,11 @@
 import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
 
 export class TerminalPlugin {
   readonly uuid: string;
   onExit: (() => void) | null = null;
   private term: Terminal;
+  private fitAddon: FitAddon;
   private el: HTMLDivElement;
   private ro: ResizeObserver;
   private cleanup: (() => void) | null = null;
@@ -17,6 +19,7 @@ export class TerminalPlugin {
     this.el.style.cssText = 'width:100%;height:100%;background:#0A0E14';
     container.appendChild(this.el);
 
+    this.fitAddon = new FitAddon();
     this.term = new Terminal({
       cursorBlink: true,
       cursorStyle: 'bar',
@@ -46,6 +49,7 @@ export class TerminalPlugin {
       },
     });
 
+    this.fitAddon.activate(this.term);
     this.term.open(this.el);
     this.term.focus();
 
@@ -99,18 +103,19 @@ export class TerminalPlugin {
   }
 
   fit(): void {
-    const cols = Math.floor(this.el.clientWidth / 9);
-    const rows = Math.floor(this.el.clientHeight / 20);
-    if (cols > 0 && rows > 0) {
-      this.term.resize(cols, rows);
-      window.electronAPI?.terminal.resize(this.uuid, cols, rows);
+    try {
+      this.fitAddon.fit();
+    } catch {
+      // fit may throw if terminal or container isn't rendered yet
     }
   }
 
   destroy(): void {
     this.ro.disconnect();
     this.cleanup?.();
+    this.exitCleanup?.();
     window.electronAPI?.terminal.kill(this.uuid);
+    this.fitAddon.dispose();
     this.term.dispose();
   }
 }

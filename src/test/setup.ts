@@ -13,6 +13,16 @@ vi.mock('@chenglou/pretext', () => ({
   }),
 }));
 
+vi.mock('@xterm/addon-fit', () => {
+  class MockFitAddon {
+    activate = vi.fn();
+    fit = vi.fn();
+    dispose = vi.fn();
+    proposeDimensions = vi.fn();
+  }
+  return { FitAddon: MockFitAddon };
+});
+
 vi.mock('@xterm/xterm', () => {
   class MockTerminal {
     open = vi.fn();
