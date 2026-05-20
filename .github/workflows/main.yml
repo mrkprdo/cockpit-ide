@@ -27,35 +27,47 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
-            - name: Build installer
-              env:
-                  RELEASE_TYPE: nightly
+            - name: Generate changelog
+              shell: pwsh
+              run: |
+                  $lastTag = git describe --tags --abbrev=0 2>$null
+                  if (-not $lastTag) {
+                      $log = git log --oneline --no-decorate -30
+                  } else {
+                      $log = git log "$lastTag..HEAD" --oneline --no-decorate
+                  }
+                  if (-not $log) { $log = "No new commits since last tag" }
+                  $changelog = "## Changes since $($lastTag ?? 'beginning')`n`n$log"
+                  echo "CHANGELOG<<EOF" >> $env:GITHUB_ENV
+                  echo $changelog >> $env:GITHUB_ENV
+                  echo "EOF" >> $env:GITHUB_ENV
+
+            - name: Compute version
+              shell: pwsh
+              run: |
+                  $date = Get-Date -Format 'yyyyMMdd'
+                  $version = "0.0.$date"
+                  echo "VERSION=$version" >> $env:GITHUB_ENV
+                  echo "DATE=$(Get-Date -Format 'yyyy-MM-dd')" >> $env:GITHUB_ENV
+
+            - name: Build package
               run: make package
 
-            # -----------------------------
-            # 3. FIND INSTALLER EXE
-            # -----------------------------
             - name: Locate installer
               shell: pwsh
               run: |
-                  $exe = Get-ChildItem -Path release -Filter *.exe -Recurse | Select-Object -First 1
+                  $exe = Get-ChildItem -Path out -Filter CockpitIDESetup-*.exe | Select-Object -First 1
+                  if (-not $exe) { throw "No installer found in out/" }
+                  echo "ARTIFACT_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
 
-                  if (-not $exe) {
-                      throw "No installer .exe found in release/"
-                  }
-
-                  echo "INSTALLER_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
-
-            # -----------------------------
-            # 4. CREATE RELEASE
-            # -----------------------------
             - name: Publish nightly release
               uses: softprops/action-gh-release@v2
               with:
-                  tag_name: nightly-${{ github.run_number }}
-                  name: Nightly Build (${{ github.run_number }})
+                  tag_name: nightly
+                  name: nightly
+                  body: ${{ env.CHANGELOG }}
                   prerelease: true
                   files: |
-                      ${{ env.INSTALLER_PATH }}
+                      ${{ env.ARTIFACT_PATH }}
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
