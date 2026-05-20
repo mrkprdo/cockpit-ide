@@ -390,6 +390,7 @@ export class CanvasArea {
     cs.card.el.style.top = `${top}px`;
     cs.card.el.style.transform = `scale(${this.scale})`;
     cs.card.el.style.transformOrigin = '0 0';
+    cs.terminalPlugin?.setScale(this.scale);
   }
 
   private repositionAllCards(): void {
@@ -587,7 +588,8 @@ export class CanvasArea {
               term.onExit = () => this.terminateCard(cs);
               cs.card.onDestroy = () => term.destroy();
               cs.terminalPlugin = term;
-              cs.onCardResize = () => term.fit();
+              cs.onCardResize = () => term.setScale(this.scale);
+              term.setScale(this.scale);
             }
             this.notifyTerminalsChanged();
           });
@@ -756,7 +758,8 @@ export class CanvasArea {
         term.onExit = () => this.terminateCard(cs);
         cs.card.onDestroy = () => term.destroy();
         cs.terminalPlugin = term;
-        cs.onCardResize = () => term.fit();
+        cs.onCardResize = () => term.setScale(this.scale);
+        term.setScale(this.scale);
       }
       this.notifyTerminalsChanged();
       this.bringToFront(cs.card);

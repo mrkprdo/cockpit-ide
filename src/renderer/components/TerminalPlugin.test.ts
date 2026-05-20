@@ -84,4 +84,54 @@ describe('TerminalPlugin', () => {
     if (exitCallback) exitCallback('test-uuid');
     expect(onExit).toHaveBeenCalledOnce();
   });
+
+  describe('setScale', () => {
+    function dimContainer(): void {
+      Object.defineProperty(container, 'clientWidth', { value: 600, configurable: true });
+      Object.defineProperty(container, 'clientHeight', { value: 400, configurable: true });
+    }
+
+    beforeEach(() => { dimContainer(); });
+
+    it('resets to 100% dimensions and no transform at scale 1', () => {
+      const term = new TerminalPlugin(container, 'scale-test-1');
+      term.setScale(1);
+      expect(term['el'].style.width).toBe('100%');
+      expect(term['el'].style.height).toBe('100%');
+      expect(term['el'].style.transform).toBe('');
+    });
+
+    it('applies inverse transform and adjusts dimensions at scale 0.5', () => {
+      const term = new TerminalPlugin(container, 'scale-test-05');
+      term.setScale(0.5);
+      expect(term['el'].style.width).toBe(`${600 * 0.5}px`);
+      expect(term['el'].style.height).toBe(`${400 * 0.5}px`);
+      expect(term['el'].style.transform).toBe('scale(2)');
+      expect(term['el'].style.transformOrigin).toBe('0 0');
+    });
+
+    it('applies inverse transform and adjusts dimensions at scale 2', () => {
+      const term = new TerminalPlugin(container, 'scale-test-2');
+      term.setScale(2);
+      expect(term['el'].style.width).toBe(`${600 * 2}px`);
+      expect(term['el'].style.height).toBe(`${400 * 2}px`);
+      expect(term['el'].style.transform).toBe('scale(0.5)');
+      expect(term['el'].style.transformOrigin).toBe('0 0');
+    });
+
+    it('is a no-op when parent element is missing', () => {
+      const orphan = document.createElement('div');
+      const term = new TerminalPlugin(orphan, 'orphan-uuid');
+      expect(() => term.setScale(0.5)).not.toThrow();
+    });
+
+    it('restores to 1:1 after being at another scale', () => {
+      const term = new TerminalPlugin(container, 'scale-restore');
+      term.setScale(0.5);
+      term.setScale(1);
+      expect(term['el'].style.width).toBe('100%');
+      expect(term['el'].style.height).toBe('100%');
+      expect(term['el'].style.transform).toBe('');
+    });
+  });
 });

@@ -11,6 +11,7 @@ export class TerminalPlugin {
   private cleanup: (() => void) | null = null;
   private exitCleanup: (() => void) | null = null;
   private cwd: string | undefined;
+  private scale = 1;
 
   constructor(container: HTMLElement, uuid: string, cwd?: string) {
     this.uuid = uuid;
@@ -108,6 +109,28 @@ export class TerminalPlugin {
     } catch {
       // fit may throw if terminal or container isn't rendered yet
     }
+  }
+
+  setScale(scale: number): void {
+    this.scale = scale;
+    this.adjustScale();
+    this.fit();
+  }
+
+  private adjustScale(): void {
+    const s = this.scale;
+    const parent = this.el.parentElement;
+    if (!parent) return;
+    if (s === 1) {
+      this.el.style.transform = '';
+      this.el.style.width = '100%';
+      this.el.style.height = '100%';
+      return;
+    }
+    this.el.style.width = `${parent.clientWidth * s}px`;
+    this.el.style.height = `${parent.clientHeight * s}px`;
+    this.el.style.transform = `scale(${1 / s})`;
+    this.el.style.transformOrigin = '0 0';
   }
 
   destroy(): void {

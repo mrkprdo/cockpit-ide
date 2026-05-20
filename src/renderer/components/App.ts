@@ -16,6 +16,9 @@ export class App {
   constructor() {
     document.title = 'Cockpit IDE';
 
+    // Load persisted theme preference before any UI renders
+    this.loadThemePref();
+
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       // Ctrl+Shift+N / Cmd+Shift+N — new window
@@ -100,6 +103,17 @@ export class App {
     await ws.save(state, this.wsPath);
   }
 
+  private async loadThemePref(): Promise<void> {
+    try {
+      const prefs = await window.electronAPI?.prefs.load();
+      if (prefs?.isDark !== undefined) {
+        theme.setDark(prefs.isDark);
+      }
+    } catch {
+      // fall back to default dark
+    }
+  }
+
   private async promptWorkspace(): Promise<void> {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
@@ -157,10 +171,6 @@ export class App {
     if (prefs?.gridStyle) {
       this.canvas.setGridStyle(prefs.gridStyle);
       this.topBar.setGridStyle(prefs.gridStyle);
-    }
-    if (prefs?.isDark !== undefined) {
-      theme.setDark(prefs.isDark);
-      this.canvas.devPlugin?.updateTheme();
     }
 
     this.canvas.workspaceName = path;
