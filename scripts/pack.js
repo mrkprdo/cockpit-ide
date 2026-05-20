@@ -67,6 +67,8 @@ async function main() {
       /^\/Makefile$/,
       /^\/vitest\.config/,
       /^\/dev\.js/,
+      /^\/node_modules\/node-pty\/prebuilds\/win32-arm64\b/,
+      /\.pdb$/,
     ],
     appCopyright: `Copyright © ${d.getFullYear()} Cockpit IDE`,
     win32metadata: {
@@ -79,7 +81,16 @@ async function main() {
   });
 
   const srcDir = appPaths[0];
-  const outDir = path.join(root, 'out');
+
+  // Strip bloat from Electron distribution
+  const localesDir = path.join(srcDir, 'locales');
+  if (fs.existsSync(localesDir)) {
+    for (const f of fs.readdirSync(localesDir)) {
+      if (f !== 'en-US.pak') fs.rmSync(path.join(localesDir, f));
+    }
+    console.log('[pack] Stripped non-en-US locales');
+  }
+const outDir = path.join(root, 'out');
   const nsiScript = path.join(root, 'scripts', 'installer.nsi');
   const iconPath = path.join(root, 'public', 'cockpit_ide_icon.ico');
 
