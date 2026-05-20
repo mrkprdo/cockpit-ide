@@ -1,9 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  define: {
-    COMMIT_HASH: '"20260519"',
-  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

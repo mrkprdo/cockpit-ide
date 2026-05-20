@@ -16,6 +16,7 @@ export class AboutModal {
       { key: 'VERSION', val: v.app ?? 'dev' },
       ...(v.electron ? [{ key: 'ELECTRON', val: v.electron.split('.')[0] }] : []),
       ...(v.node ? [{ key: 'NODE', val: v.node.split('.')[0] }] : []),
+      ...([{ key: 'STYLE', val: '<span class="about-link" id="about-design-link">UseDesign.md</span>' }]),
     ];
     
     this.el.innerHTML = `
@@ -34,7 +35,6 @@ export class AboutModal {
       </div>
       <div class="about-sep"></div>
       <div class="about-foot">
-        DESIGN.md by <span class="about-link" id="about-design-link" style="cursor:pointer">UseDesign.md</span>
         <button class="about-close-btn" id="about-close">CLOSE</button>
       </div>
     `;

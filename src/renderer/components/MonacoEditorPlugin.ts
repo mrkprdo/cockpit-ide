@@ -202,6 +202,7 @@ export class MonacoEditorPlugin {
     } else {
       this.renderTabs();
     }
+    this.onStateChange?.();
   }
 
   getCurrentFile(): string { return this.activeTab || ''; }
@@ -225,17 +226,32 @@ export class MonacoEditorPlugin {
 
   private async initMonaco(): Promise<void> {
     if ((window as any).monaco) return;
-    const vsPath = '../vs';
+
+    const vsBase = new URL('../vs', window.location.href).href.replace(/\/$/, '');
 
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = vsPath + '/style.css';
+    link.href = '../vs/editor/editor.main.css';
     document.head.appendChild(link);
 
-    await this.loadScript(vsPath + '/loader.js');
+    // Must be set before loader.js so Monaco worker spawning uses correct absolute path
+    (window as any).MonacoEnvironment = {
+      getWorkerUrl: (_moduleId: string, _label: string): string => {
+        const src = `self.MonacoEnvironment={baseUrl:'${vsBase}/'};importScripts('${vsBase}/base/worker/workerMain.js');`;
+        return URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      },
+    };
+
+    await this.loadScript('../vs/loader.js');
+
     return new Promise<void>((resolve) => {
-      (window as any).require.config({ paths: { vs: vsPath }, baseUrl: undefined });
-      (window as any).require(['vs/editor/editor.main'], () => {
+      const r = (window as any).require;
+      r.config({
+        paths: { vs: vsBase },
+        'vs/nls': { availableLanguages: { '*': '' } },
+      });
+
+      r(['vs/editor/editor.main'], () => {
         const m = (window as any).monaco;
         if (!m) { resolve(); return; }
 
@@ -302,6 +318,9 @@ export class MonacoEditorPlugin {
           autoSaveTimer = setTimeout(() => this.saveCurrentFile(), 1500);
         });
 
+        resolve();
+      }, (err: any) => {
+        console.error('Monaco failed to load:', err);
         resolve();
       });
     });

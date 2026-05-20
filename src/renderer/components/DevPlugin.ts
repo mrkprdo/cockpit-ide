@@ -44,7 +44,7 @@ export class DevPlugin {
     });
 
     const editorCol = document.createElement('div');
-    editorCol.style.cssText = 'flex:1;height:100%;overflow:hidden;min-width:200px';
+    editorCol.style.cssText = 'flex:1;height:100%;overflow:hidden;min-width:200px;display:none';
 
     this.splitEl.appendChild(this.explorerCol);
     this.splitEl.appendChild(resizeHandle);
@@ -53,7 +53,10 @@ export class DevPlugin {
 
     // Init editor first so explorer can send files to it
     this.editor = new MonacoEditorPlugin(editorCol);
-    this.editor.onStateChange = () => this.onStateChange?.();
+    this.editor.onStateChange = () => {
+      editorCol.style.display = this.editor.tabs.length > 0 ? '' : 'none';
+      this.onStateChange?.();
+    };
 
     this.explorer = new FileExplorerPlugin(this.explorerCol, wsPath, (filePath) => {
       this.editor.openFile(filePath);

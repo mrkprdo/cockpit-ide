@@ -464,6 +464,19 @@ html, body {
   overflow: hidden;
 }
 
+.card-body .xterm {
+  width: 100%;
+  height: 100%;
+}
+.card-body .xterm-viewport {
+  overflow-y: auto !important;
+  scrollbar-width: none;
+}
+.card-body .xterm-viewport::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
+
 .card-glyph {
   color: var(--border);
   font-size: 36px;

@@ -829,7 +829,7 @@ export class CanvasArea {
       this.reopenTerminal(cs.card.uuid);
     } else if (cs.savedTitle.startsWith('Dev')) {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
-      if (body) {
+      if (body && !body.hasChildNodes()) {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
@@ -847,7 +847,7 @@ export class CanvasArea {
       this.onStateChange?.();
     } else if (cs.savedTitle.startsWith('Context')) {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
-      if (body) {
+      if (body && !body.hasChildNodes()) {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';

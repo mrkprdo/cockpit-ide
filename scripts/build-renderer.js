@@ -1,5 +1,12 @@
 const path = require('path');
+const fs = require('fs');
 const esbuild = require('esbuild');
+
+// Always wipe and re-copy dist/vs — avoids stale files from old Monaco versions
+const vsDir = path.join(__dirname, '..', 'dist', 'vs');
+const vsSrc = path.join(__dirname, '..', 'node_modules', 'monaco-editor', 'min', 'vs');
+if (fs.existsSync(vsDir)) fs.rmSync(vsDir, { recursive: true, force: true });
+fs.cpSync(vsSrc, vsDir, { recursive: true });
 
 esbuild.buildSync({
   entryPoints: ['src/renderer/index.ts'],

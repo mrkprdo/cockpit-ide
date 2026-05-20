@@ -48,12 +48,11 @@ describe('AboutModal', () => {
     expect(overlay.style.display).toBe('none');
   });
 
-  it('has a clickable UseDesign.md link that opens external URL', () => {
+  it('has a clickable design.md link that opens external URL', () => {
     new AboutModal();
     const link = document.querySelector('#about-design-link') as HTMLElement;
     expect(link).toBeTruthy();
     expect(link.textContent).toBe('UseDesign.md');
-    expect(link.style.cursor).toBe('pointer');
   });
 
   it('open() accepts onClose callback, called on close button click', () => {

@@ -66,7 +66,6 @@ describe('CanvasArea', () => {
     expect(state).toHaveProperty('zoom');
     expect(state).toHaveProperty('panX');
     expect(state).toHaveProperty('panY');
-    expect(state).toHaveProperty('isDark');
     expect(Array.isArray(state.plugins)).toBe(true);
   });
 

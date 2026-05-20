@@ -148,11 +148,6 @@ export class App {
 
     if (state) {
       this.canvas.setView({ zoom: state.zoom, panX: state.panX, panY: state.panY });
-      // Restore theme
-      if (state.isDark !== undefined) {
-        theme.setDark(state.isDark);
-        this.canvas.devPlugin?.updateTheme();
-      }
     } else {
       this.canvas.centerView();
     }
