@@ -14,6 +14,7 @@ export interface CardOptions {
   onDragEnd?: (worldX: number, worldY: number) => void;
   onResizeEnd?: (width: number, height: number) => void;
   onFocus?: () => void;
+  onHeaderContextMenu?: (e: MouseEvent) => void;
 }
 
 const SNAP = 28;
@@ -66,6 +67,12 @@ export class PluginCard {
     this.renderBody();
     this.initDrag();
     this.initResize();
+
+    this.header.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.opts.onHeaderContextMenu?.(e);
+    });
 
     this.el.querySelector('.card-close')?.addEventListener('click', (e) => {
       e.stopPropagation();

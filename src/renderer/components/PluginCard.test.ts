@@ -147,6 +147,23 @@ describe('PluginCard', () => {
     const body = card.el.querySelector('.card-body') as HTMLElement;
     expect(body.querySelector('canvas')).toBeTruthy();
   });
+
+  it('calls onHeaderContextMenu on right-click of header', () => {
+    const onHeaderContextMenu = vi.fn();
+    const parent = makeParent();
+    const card = new PluginCard(parent, {
+      title: 'CtxMenu Test',
+      x: 0, y: 0, width: 200, height: 200,
+      onHeaderContextMenu,
+    }, getTransform);
+
+    const header = card.el.querySelector('.card-header') as HTMLElement;
+    const event = new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 });
+    header.dispatchEvent(event);
+
+    expect(onHeaderContextMenu).toHaveBeenCalledOnce();
+    expect(onHeaderContextMenu).toHaveBeenCalledWith(event);
+  });
 });
 
 describe('PluginCard — drag interaction', () => {

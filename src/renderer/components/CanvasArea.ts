@@ -1,7 +1,7 @@
 export type GridStyle = 'none' | 'dots' | 'grid';
 export type EditorState = { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> };
 export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; contextState?: ContextState };
-export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number; isDark: boolean };
+export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number };
 
 import { PluginCard } from './PluginCard';
 import { TerminalPlugin } from './TerminalPlugin';
@@ -22,6 +22,7 @@ interface CardState {
   savedWX: number;
   savedWY: number;
   terminalPlugin: TerminalPlugin | null;
+  onCardResize?: () => void;
 }
 
 export class CanvasArea {
@@ -143,7 +144,7 @@ export class CanvasArea {
       for (const cs of sorted) {
         const item = document.createElement('div');
         item.className = 'pli-item';
-        item.textContent = cs.savedTitle + (cs.isOpen ? '' : ' (hidden)');
+        item.textContent = cs.savedTitle + (cs.isOpen ? '' : ' (minimized)');
         item.addEventListener('click', () => {
           if (cs.isOpen) {
             this.focusCard(cs.card.opts.title);
@@ -350,9 +351,27 @@ export class CanvasArea {
       onResizeEnd: (w: number, h: number) => {
         const cs = this.cards.find(c => c.card === card);
         if (cs) { cs.savedWidth = w; cs.savedHeight = h; }
+        cs?.onCardResize?.();
         this.onStateChange?.();
       },
       onFocus: () => this.bringToFront(card),
+      onHeaderContextMenu: (e: MouseEvent) => {
+        const cs = this.cards.find(c => c.card === card);
+        if (!cs) return;
+        this.contextMenuOpen = true;
+        const menu = new ContextMenu([
+          ...(cs.isOpen ? [{ label: 'Minimize', action: () => {
+            cs.isOpen = false;
+            cs.card.el.style.display = 'none';
+            this.notifyTerminalsChanged();
+            this.notifyDevsChanged();
+            this.notifyContextsChanged();
+            this.onStateChange?.();
+          }}] : []),
+          { label: 'Terminate', action: () => this.terminateCard(cs) },
+        ], e.clientX, e.clientY);
+        menu.onClose = () => { this.contextMenuOpen = false; };
+      },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
     const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null };
     this.cards.push(cs);
@@ -435,7 +454,6 @@ export class CanvasArea {
       }),
       zOrder: byZ.map(c => c.card.uuid),
       zoom: this.scale, panX: this.panX, panY: this.panY,
-      isDark: this.resolveCSSVar('--bg').trim() === '#0A0E14',
     };
   }
 
@@ -480,9 +498,27 @@ export class CanvasArea {
       onResizeEnd: (w: number, h: number) => {
         const cs = this.cards.find(c => c.card === card);
         if (cs) { cs.savedWidth = w; cs.savedHeight = h; }
+        cs?.onCardResize?.();
         this.onStateChange?.();
       },
       onFocus: () => this.bringToFront(card),
+      onHeaderContextMenu: (e: MouseEvent) => {
+        const cs = this.cards.find(c => c.card === card);
+        if (!cs) return;
+        this.contextMenuOpen = true;
+        const menu = new ContextMenu([
+          ...(cs.isOpen ? [{ label: 'Minimize', action: () => {
+            cs.isOpen = false;
+            cs.card.el.style.display = 'none';
+            this.notifyTerminalsChanged();
+            this.notifyDevsChanged();
+            this.notifyContextsChanged();
+            this.onStateChange?.();
+          }}] : []),
+          { label: 'Terminate', action: () => this.terminateCard(cs) },
+        ], e.clientX, e.clientY);
+        menu.onClose = () => { this.contextMenuOpen = false; };
+      },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
 
     const cx = this.clampWorld(p.x);
@@ -541,10 +577,13 @@ export class CanvasArea {
             const body = cs.card.el.querySelector('.card-body') as HTMLElement;
             if (body) {
               body.style.padding = '0';
+              body.style.alignItems = 'stretch';
+              body.style.justifyContent = 'stretch';
               const term = new TerminalPlugin(body, cs.card.uuid, wsPath);
               term.onExit = () => this.terminateCard(cs);
               cs.card.onDestroy = () => term.destroy();
               cs.terminalPlugin = term;
+              cs.onCardResize = () => term.fit();
             }
             this.notifyTerminalsChanged();
           });
@@ -707,10 +746,13 @@ export class CanvasArea {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {
         (body as HTMLElement).style.padding = '0';
+        (body as HTMLElement).style.alignItems = 'stretch';
+        (body as HTMLElement).style.justifyContent = 'stretch';
         const term = new TerminalPlugin(body as HTMLElement, cs.card.uuid, cwd);
         term.onExit = () => this.terminateCard(cs);
         cs.card.onDestroy = () => term.destroy();
         cs.terminalPlugin = term;
+        cs.onCardResize = () => term.fit();
       }
       this.notifyTerminalsChanged();
       this.bringToFront(cs.card);
@@ -973,6 +1015,16 @@ export class CanvasArea {
     document.addEventListener('mouseup', () => {
       this.isPanning = false;
       this.el.style.cursor = '';
+    });
+
+    this.el.addEventListener('contextmenu', (e) => {
+      if (this.locked) return;
+      if ((e.target as HTMLElement)?.closest('.card, .prr-zone, .pli-zone')) return;
+      e.preventDefault();
+      new ContextMenu([
+        { label: 'View All', action: () => this.fitAll() },
+        { label: 'Auto Arrange', action: () => this.autoArrange() },
+      ], e.clientX, e.clientY);
     });
   }
 
