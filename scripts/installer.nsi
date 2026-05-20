@@ -3,6 +3,7 @@
 
 Unicode True
 !include "MUI2.nsh"
+!include "LogicLib.nsh"
 
 ;--------------------------------
 ; Definitions (injected by pack.js via /D flags)
@@ -38,9 +39,7 @@ RequestExecutionLevel user
 !define MUI_WELCOMEPAGE_TEXT "The IDE for developers who think spatially.$\r$\n$\r$\nClick Next to continue."
 !define MUI_FINISHPAGE_RUN "$INSTDIR\CockpitIDE.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Launch Cockpit IDE"
-!define MUI_FINISHPAGE_SHOWREADME
-!define MUI_FINISHPAGE_SHOWREADME_TEXT "Add Cockpit IDE to PATH"
-!define MUI_FINISHPAGE_SHOWREADME_FUNCTION AddToPath
+!define MUI_FINISHPAGE_RUN_PARAMETERS ""
 !define MUI_LICENSEPAGE_CHECKBOX
 
 !insertmacro MUI_PAGE_WELCOME
@@ -83,6 +82,16 @@ Section "Cockpit IDE" SecMain
   FileWrite $0 'start "" "%~dp0..\CockpitIDE.exe" %*$\r$\n'
   FileClose $0
 
+  ; Add bin to user PATH
+  FileOpen $0 "$TEMP\cockpit-addpath.ps1" w
+  FileWrite $0 "$$bin = '$INSTDIR\bin'$\r$\n"
+  FileWrite $0 "$$path = [Environment]::GetEnvironmentVariable('PATH','User')$\r$\n"
+  FileWrite $0 "if ($$path -notlike '*'+$$bin+'*') { [Environment]::SetEnvironmentVariable('PATH', $$(if($$path){$$path+';'+$$bin}else{$$bin}), 'User') }$\r$\n"
+  FileClose $0
+  ExecWait 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$TEMP\cockpit-addpath.ps1"' $0
+  Delete "$TEMP\cockpit-addpath.ps1"
+  SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+
   ; Uninstaller + Add/Remove Programs entry
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr  HKCU "Software\CockpitIDE" "InstallDir" "$INSTDIR"
@@ -102,11 +111,6 @@ Section "Cockpit IDE" SecMain
     "NoRepair" 1
 SectionEnd
 
-Function AddToPath
-  nsExec::ExecToLog 'powershell.exe -NonInteractive -Command "$$b = ''$INSTDIR\bin''; $$p = [Environment]::GetEnvironmentVariable(''PATH'', ''User''); if ($$p -notlike (''*'' + $$b + ''*'')) { [Environment]::SetEnvironmentVariable(''PATH'', $$(if($$p){$$p + '';'' + $$b}else{$$b}), ''User'') }"'
-  SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
-FunctionEnd
-
 ;--------------------------------
 ; Uninstall
 
@@ -114,7 +118,15 @@ Section "Uninstall"
   ExecWait 'taskkill /F /IM CockpitIDE.exe' $0
 
   ; Remove $INSTDIR\bin from user PATH
-  nsExec::ExecToLog 'powershell.exe -NonInteractive -Command "$$b = ''$INSTDIR\bin''; $$p = [Environment]::GetEnvironmentVariable(''PATH'', ''User''); $$arr = ($$p.Split('';'') | Where-Object { $$_ -ne $$b }); [Environment]::SetEnvironmentVariable(''PATH'', ($$arr -join '';''), ''User'')"'
+  FileOpen $0 "$TEMP\cockpit-rmpath.ps1" w
+  FileWrite $0 "$$bin = '$INSTDIR\bin'$\r$\n"
+  FileWrite $0 "$$path = [Environment]::GetEnvironmentVariable('PATH','User')$\r$\n"
+  FileWrite $0 "$$arr = ($$path -split ';') | Where-Object { $$_ -ne $$bin }$\r$\n"
+  FileWrite $0 "$$new = $$arr -join ';'$\r$\n"
+  FileWrite $0 "if ($$new -eq '') { [Environment]::SetEnvironmentVariable('PATH', $$null, 'User') } else { [Environment]::SetEnvironmentVariable('PATH', $$new, 'User') }$\r$\n"
+  FileClose $0
+  ExecWait 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$TEMP\cockpit-rmpath.ps1"' $0
+  Delete "$TEMP\cockpit-rmpath.ps1"
   SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
 
   ; NSIS copies uninstaller to %TEMP% before running, so deleting $INSTDIR is safe
