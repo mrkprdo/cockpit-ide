@@ -1,2 +1,2 @@
 @echo off
-"%~dp0..\CockpitIDE.exe" %*
+powershell -NoProfile -Command "Start-Process '%~dp0..\CockpitIDE.exe'"

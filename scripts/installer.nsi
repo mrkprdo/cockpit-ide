@@ -79,7 +79,7 @@ Section "Cockpit IDE" SecMain
   CreateDirectory "$INSTDIR\bin"
   FileOpen $0 "$INSTDIR\bin\cockpit.cmd" w
   FileWrite $0 "@echo off$\r$\n"
-  FileWrite $0 '"%~dp0..\CockpitIDE.exe" %*$\r$\n'
+  FileWrite $0 'powershell -NoProfile -Command "Start-Process ''%~dp0..\CockpitIDE.exe''"$\r$\n'
   FileClose $0
 
   ; Add bin to user PATH
