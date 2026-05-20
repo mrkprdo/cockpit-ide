@@ -2,23 +2,14 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const { stamp, restore } = require('./version');
+
 const root = path.join(__dirname, '..');
-const pkgPath = path.join(root, 'package.json');
 
 const d = new Date();
-const date = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-
-const origPkg = fs.readFileSync(pkgPath, 'utf8');
-const pkg = JSON.parse(origPkg);
-const [major, minor] = pkg.version.split('.');
-pkg.version = `${major}.${minor}.${date}`;
-fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+const origPkg = stamp();
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 console.log(`[pack] Version: ${pkg.version}`);
-
-function restore() {
-  fs.writeFileSync(pkgPath, origPkg);
-  console.log('[pack] package.json restored');
-}
 
 function findMakensis() {
   try { execSync('makensis /VERSION', { stdio: 'ignore', shell: true }); return 'makensis'; } catch {}

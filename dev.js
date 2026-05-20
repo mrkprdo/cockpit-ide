@@ -5,6 +5,7 @@
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { stamp, restore } = require('./scripts/version');
 
 let electron = null;
 let building = false;
@@ -37,7 +38,6 @@ function build() {
     execSync('node scripts/build-renderer.js', { stdio: 'inherit' });
     execSync('copy src\\renderer\\*.html dist\\renderer\\', { stdio: 'inherit' });
     execSync('copy src\\renderer\\*.css dist\\renderer\\', { stdio: 'inherit' });
-    execSync('if not exist dist\\vs xcopy /s /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul', { stdio: 'inherit' });
     console.log('[dev] Build complete');
   } catch (e) {
     console.error('[dev] Build failed:', e.message);
@@ -66,4 +66,9 @@ for (const dir of watchDirs) {
 
 // Initial build
 console.log('[dev] Starting initial build...');
+stamp();
 build();
+
+process.on('exit', () => restore());
+process.on('SIGINT', () => { restore(); process.exit(); });
+process.on('SIGTERM', () => { restore(); process.exit(); });
