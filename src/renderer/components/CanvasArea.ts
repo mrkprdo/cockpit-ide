@@ -256,6 +256,7 @@ export class CanvasArea {
       }
       this.onStateChange?.();
     });
+    this.fitAll();
   }
 
   private tilePlugins(): void {
