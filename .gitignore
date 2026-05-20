@@ -1,10 +1,28 @@
 node_modules/
 dist/
+out/
 release/
+build/
+coverage/
+
+# Workspace session state
 .cockpit/
+
+# Logs
 *.log
+npm-debug.log*
+
+# Env
 .env
 .env.*
+
+# OS
 .DS_Store
 Thumbs.db
-coverage/
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user

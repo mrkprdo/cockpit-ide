@@ -1,2 +1,2 @@
 @echo off
-start "" "%~dp0..\Cockpit.exe" %*
+start "" "%~dp0..\CockpitIDE.exe" %*

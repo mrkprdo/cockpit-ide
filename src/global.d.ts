@@ -11,17 +11,14 @@ interface WorkspaceState {
   zoom: number;
   panX: number;
   panY: number;
-  isDark: boolean;
 }
 
 interface DirEntry { name: string; isDirectory: boolean; }
 
-declare const COMMIT_HASH: string;
-
 interface Window {
   electronAPI: {
     platform: string;
-    versions: { node: string; chrome: string; electron: string };
+    versions: { node: string; chrome: string; electron: string; app: string };
     window: {
       newWindow: () => Promise<boolean>;
       minimize: () => void;

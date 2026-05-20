@@ -229,7 +229,7 @@ export class MonacoEditorPlugin {
 
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = vsPath + '/editor/editor.main.css';
+    link.href = vsPath + '/style.css';
     document.head.appendChild(link);
 
     await this.loadScript(vsPath + '/loader.js');

@@ -36,6 +36,10 @@ vi.mock('electron', () => ({
     this.webContents = {
       openDevTools: vi.fn(),
       send: vi.fn(),
+      on: vi.fn(),
+      setWindowOpenHandler: vi.fn(),
+      setZoomLevel: vi.fn(),
+      setVisualZoomLevelLimits: vi.fn(),
     };
   }),
   ipcMain: {
@@ -212,7 +216,7 @@ describe('main.ts IPC handlers', () => {
     it('workspace:load with explicit path reads from that path', async () => {
       const fs = await import('fs');
       vi.mocked(fs.readFileSync).mockClear();
-      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ plugins: [], zOrder: [], zoom: 1, panX: 0, panY: 0, isDark: false }));
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ plugins: [], zOrder: [], zoom: 1, panX: 0, panY: 0 }));
 
       const handler = handleMap.get('workspace:load')!;
       const result = await handler({}, '/custom/workspace');
@@ -261,6 +265,147 @@ describe('main.ts IPC handlers', () => {
 
       const result = await handler({});
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('path security validation', () => {
+    beforeAll(async () => {
+      const main = await import('../main/main');
+      main._testSetWorkspacePath('/safe/workspace');
+    });
+
+    it('fs:readDir rejects path outside workspace', async () => {
+      const handler = handleMap.get('fs:readDir')!;
+      const result = await handler({}, '/etc');
+      expect(result).toBeNull();
+    });
+
+    it('fs:readDir allows path inside workspace', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:readDir')!;
+      vi.mocked(fs.readdirSync).mockReturnValue([]);
+      const result = await handler({}, '/safe/workspace/src');
+      expect(result).toEqual([]);
+    });
+
+    it('fs:readFile rejects path outside workspace', async () => {
+      const handler = handleMap.get('fs:readFile')!;
+      const result = await handler({}, '/etc/passwd');
+      expect(result).toBeNull();
+    });
+
+    it('fs:readFile allows path inside workspace', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:readFile')!;
+      vi.mocked(fs.readFileSync).mockReturnValue('safe content');
+      const result = await handler({}, '/safe/workspace/file.txt');
+      expect(result).toBe('safe content');
+    });
+
+    it('fs:writeFile rejects path outside workspace', async () => {
+      const handler = handleMap.get('fs:writeFile')!;
+      const result = await handler({}, '/etc/evil.sh', 'rm -rf /');
+      expect(result).toBe(false);
+    });
+
+    it('fs:mkdir rejects path outside workspace', async () => {
+      const handler = handleMap.get('fs:mkdir')!;
+      const result = await handler({}, '/etc/evil');
+      expect(result).toBe(false);
+    });
+
+    it('fs:delete rejects path outside workspace', async () => {
+      const handler = handleMap.get('fs:delete')!;
+      const result = await handler({}, '/etc');
+      expect(result).toBe(false);
+    });
+
+    it('fs:copy rejects source outside workspace', async () => {
+      const handler = handleMap.get('fs:copy')!;
+      const result = await handler({}, '/etc/passwd', '/safe/workspace/copy');
+      expect(result).toBe(false);
+    });
+
+    it('fs:copy rejects dest outside workspace', async () => {
+      const handler = handleMap.get('fs:copy')!;
+      const result = await handler({}, '/safe/workspace/file.txt', '/etc/evil');
+      expect(result).toBe(false);
+    });
+
+    it('fs:rename rejects oldPath outside workspace', async () => {
+      const handler = handleMap.get('fs:rename')!;
+      const result = await handler({}, '/etc/passwd', '/safe/workspace/passwd');
+      expect(result).toBe(false);
+    });
+
+    it('fs:rename rejects newPath outside workspace', async () => {
+      const handler = handleMap.get('fs:rename')!;
+      const result = await handler({}, '/safe/workspace/file.txt', '/etc/evil');
+      expect(result).toBe(false);
+    });
+
+    it('workspace:load rejects explicit wsPath outside workspace', async () => {
+      const handler = handleMap.get('workspace:load')!;
+      const result = await handler({}, '/etc');
+      expect(result).toBeNull();
+    });
+
+    it('workspace:save rejects explicit wsPath outside workspace', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const handler = handleMap.get('workspace:save')!;
+      const result = await handler({}, { plugins: [] }, '/etc');
+      expect(result).toBe(false);
+      spy.mockRestore();
+    });
+  });
+
+  describe('shell:openExternal URL validation', () => {
+    it('allows https URLs', async () => {
+      const { shell } = await import('electron');
+      vi.mocked(shell.openExternal).mockResolvedValue(undefined as any);
+      const handler = handleMap.get('shell:openExternal')!;
+      const result = await handler({}, 'https://github.com');
+      expect(result).toBe(true);
+    });
+
+    it('allows http URLs', async () => {
+      const { shell } = await import('electron');
+      vi.mocked(shell.openExternal).mockResolvedValue(undefined as any);
+      const handler = handleMap.get('shell:openExternal')!;
+      const result = await handler({}, 'http://example.com');
+      expect(result).toBe(true);
+    });
+
+    it('allows mailto URLs', async () => {
+      const { shell } = await import('electron');
+      vi.mocked(shell.openExternal).mockResolvedValue(undefined as any);
+      const handler = handleMap.get('shell:openExternal')!;
+      const result = await handler({}, 'mailto:test@example.com');
+      expect(result).toBe(true);
+    });
+
+    it('rejects file URLs', async () => {
+      const handler = handleMap.get('shell:openExternal')!;
+      const result = await handler({}, 'file:///etc/passwd');
+      expect(result).toBe(false);
+    });
+
+    it('rejects javascript URLs', async () => {
+      const handler = handleMap.get('shell:openExternal')!;
+      const result = await handler({}, 'javascript:alert(1)');
+      expect(result).toBe(false);
+    });
+
+    it('rejects ftp URLs', async () => {
+      const handler = handleMap.get('shell:openExternal')!;
+      const result = await handler({}, 'ftp://evil.com');
+      expect(result).toBe(false);
+    });
+
+    it('returns false for invalid URL strings', async () => {
+      const handler = handleMap.get('shell:openExternal')!;
+      const result = await handler({}, 'not-a-url');
+      expect(result).toBe(false);
     });
   });
 

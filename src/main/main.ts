@@ -16,23 +16,47 @@ function resolveCliWorkspace(): string | null {
   return null;
 }
 
-// Enable hot reload in dev mode — watches dist/ for changes
-if (process.argv.includes('--dev')) {
-  try {
-    require('electron-reload')(__dirname, {
-      electron: require('electron'),
-      hardResetMethod: 'exit',
-    });
-  } catch {}
-}
-
 let mainWindow: BrowserWindow | null = null;
 const ptyProcesses = new Map<string, any>();
 const terminalSenders = new Map<string, any>();
 let workspacePath: string | null = null;
 
+// ─── Path security ───
+const ALLOWED_ENV_KEYS = new Set([
+  'PATH', 'HOME', 'USERPROFILE', 'SHELL', 'COMSPEC',
+  'TEMP', 'TMP', 'HOMEDRIVE', 'HOMEPATH',
+  'USERNAME', 'COMPUTERNAME', 'TERM', 'TERMINFO',
+  'LC_ALL', 'LANG', 'LC_CTYPE',
+  'PATHEXT', 'PROMPT', 'PS1',
+  'APPDATA', 'LOCALAPPDATA', 'ProgramFiles', 'SystemRoot',
+  'NODE_PATH', 'npm_config_user_agent',
+]);
+
+function isPathSafe(targetPath: string): boolean {
+  if (!workspacePath) return true;
+  const resolved = path.resolve(targetPath);
+  const ws = path.resolve(workspacePath);
+  if (!resolved.startsWith(ws + path.sep) && resolved !== ws) return false;
+  try {
+    const real = fs.realpathSync(resolved);
+    if (!real.startsWith(ws + path.sep) && real !== ws) return false;
+  } catch { }
+  return true;
+}
+
+function filterEnv(): Record<string, string> {
+  const safe: Record<string, string> = {};
+  for (const key of ALLOWED_ENV_KEYS) {
+    if (process.env[key]) safe[key] = process.env[key]!;
+  }
+  return safe;
+}
+
+ipcMain.on('app:version', (e) => { e.returnValue = app.getVersion(); });
+
 // File system IPC
 ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
+  if (!isPathSafe(dirPath)) return null;
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     return entries.map(e => ({ name: e.name, isDirectory: e.isDirectory() }));
@@ -40,22 +64,24 @@ ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
 });
 
 ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
+  if (!isPathSafe(filePath)) return null;
   try { return fs.readFileSync(filePath, 'utf-8'); } catch { return null; }
 });
 
 ipcMain.handle('fs:writeFile', async (_event, filePath: string, content: string) => {
+  if (!isPathSafe(filePath)) return false;
   try { fs.writeFileSync(filePath, content, 'utf-8'); return true; } catch { return false; }
 });
 
 ipcMain.handle('fs:mkdir', async (_event, dirPath: string) => {
+  if (!isPathSafe(dirPath)) return false;
   try { fs.mkdirSync(dirPath, { recursive: true }); return true; } catch { return false; }
 });
 
 ipcMain.handle('fs:delete', async (_event, targetPath: string) => {
+  if (!isPathSafe(targetPath)) return false;
   let watcherStopped = false;
-  // First attempt — may succeed if no handle contention
   try { fs.rmSync(targetPath, { recursive: true, force: true }); return true; } catch {}
-  // Retry after pausing watcher — on Windows, chokidar can hold handles on directories
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
       if (watcher) { await stopWatching(); watcherStopped = true; }
@@ -70,10 +96,12 @@ ipcMain.handle('fs:delete', async (_event, targetPath: string) => {
 });
 
 ipcMain.handle('fs:copy', async (_event, src: string, dest: string) => {
+  if (!isPathSafe(src) || !isPathSafe(dest)) return false;
   try { fs.cpSync(src, dest, { recursive: true }); return true; } catch { return false; }
 });
 
 ipcMain.handle('fs:rename', async (_event, oldPath: string, newPath: string) => {
+  if (!isPathSafe(oldPath) || !isPathSafe(newPath)) return false;
   try { fs.renameSync(oldPath, newPath); return true; } catch { return false; }
 });
 
@@ -147,7 +175,9 @@ function addRecentWorkspace(p: string): void {
 }
 
 function createWindow(): void {
-  const iconPath = path.join(app.getAppPath(), 'public', 'cockpit_ide_icon.ico');
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'cockpit_ide_icon.ico')
+    : path.join(app.getAppPath(), 'public', 'cockpit_ide_icon.ico');
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -163,6 +193,8 @@ function createWindow(): void {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
     },
   });
 
@@ -170,6 +202,16 @@ function createWindow(): void {
   mainWindow.show();
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+  mainWindow.webContents.on('will-navigate', (event) => { event.preventDefault(); });
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.setZoomLevel(0);
+  mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+  mainWindow.webContents.on('before-input-event', (_e, input) => {
+    if (input.control && (input.key === '-' || input.key === '=' || input.key === '+' || input.key === '0')) {
+      _e.preventDefault();
+    }
+  });
 
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
@@ -198,7 +240,9 @@ function cleanupWindowTerminals(win: BrowserWindow): void {
 }
 
 function createNewWindow(): void {
-  const iconPath = path.join(app.getAppPath(), 'public', 'cockpit_ide_icon.ico');
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'cockpit_ide_icon.ico')
+    : path.join(app.getAppPath(), 'public', 'cockpit_ide_icon.ico');
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -213,11 +257,22 @@ function createNewWindow(): void {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
     },
   });
   win.maximize();
   win.show();
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  win.webContents.on('will-navigate', (event) => { event.preventDefault(); });
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.setZoomLevel(0);
+  win.webContents.setVisualZoomLevelLimits(1, 1);
+  win.webContents.on('before-input-event', (_e, input) => {
+    if (input.control && (input.key === '-' || input.key === '=' || input.key === '+' || input.key === '0')) {
+      _e.preventDefault();
+    }
+  });
   if (process.argv.includes('--dev')) {
     win.webContents.openDevTools();
   }
@@ -279,14 +334,22 @@ app.whenReady().then(async () => {
       shell = process.env.SHELL || '/bin/bash';
     }
     const home = process.env.USERPROFILE || process.env.HOME || '/tmp';
+    let resolvedCwd = cwd || home;
+    if (resolvedCwd) {
+      try {
+        if (!fs.existsSync(resolvedCwd) || !fs.statSync(resolvedCwd).isDirectory()) {
+          resolvedCwd = home;
+        }
+      } catch { resolvedCwd = home; }
+    }
     let pty: any;
     try {
       pty = nodePty.spawn(shell, [], {
         name: 'xterm-color',
         cols: 80,
         rows: 24,
-        cwd: cwd || home,
-        env: process.env as { [key: string]: string },
+        cwd: resolvedCwd,
+        env: filterEnv(),
       });
     } catch { return false; }
 
@@ -358,6 +421,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('workspace:load', (_event, wsPath?: string) => {
     const targetPath = wsPath || workspacePath;
     if (!targetPath) return null;
+    if (wsPath && !isPathSafe(wsPath)) return null;
     const f = path.join(targetPath, '.cockpit', 'window.json');
     try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch { return null; }
   });
@@ -365,6 +429,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('workspace:save', (_event, state: any, wsPath?: string) => {
     const targetPath = wsPath || workspacePath;
     if (!targetPath) { console.error('workspace:save — no workspacePath'); return false; }
+    if (wsPath && !isPathSafe(wsPath)) return false;
     const dir = path.join(targetPath, '.cockpit');
     try {
       cockpitDir(dir);
@@ -377,7 +442,12 @@ app.whenReady().then(async () => {
   ipcMain.handle('workspace:addRecent', (_event, p: string) => { addRecentWorkspace(p); });
 
   ipcMain.handle('shell:openExternal', async (_event, url: string) => {
-    try { await shell.openExternal(url); return true; } catch { return false; }
+    try {
+      const parsed = new URL(url);
+      if (!['https:', 'http:', 'mailto:'].includes(parsed.protocol)) return false;
+      await shell.openExternal(url);
+      return true;
+    } catch { return false; }
   });
 
   // User preferences (saved to userData, not workspace-specific)
@@ -403,3 +473,7 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+// ─── Test helpers ───
+export function _testSetWorkspacePath(p: string | null): void { workspacePath = p; }
+export function _testIsPathSafe(p: string): boolean { return isPathSafe(p); }

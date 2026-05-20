@@ -1,20 +1,16 @@
 {
   "name": "cockpit-ide",
-  "version": "0.0.1",
-  "description": "Cockpit IDE — Art Nouveau × Floating",
+  "version": "0.0.0",
+  "description": "The IDE for developers who thinks spatially",
   "main": "dist/main/main.js",
   "scripts": {
-    "build": "node scripts/build-renderer.js && tsc -p tsconfig.main.json && copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && copy node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ && if not exist dist\\vs xcopy /s /i /y /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul",
+    "build": "node scripts/build-renderer.js && tsc -p tsconfig.main.json && copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && copy node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ && xcopy /s /i /y /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul",
     "start": "npm run build && electron .",
     "dev": "electron . --dev",
     "dev:watch": "concurrently -k \"tsc -p tsconfig.main.json --watch\" \"esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife --watch\" \"copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && npx wait-on dist/main/main.js && copyfiles -u 1 node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ && if not exist dist\\vs xcopy /s /q node_modules\\monaco-editor\\min\\vs dist\\vs >nul\"",
     "prod": "electron .",
-    "generate-assets": "node scripts/generate-installer-assets.js",
     "pack": "node scripts/pack.js",
-    "pack:win": "node scripts/pack.js --win",
-    "pack:mac": "node scripts/pack.js --mac",
-    "pack:linux": "node scripts/pack.js --linux",
-    "clean": "rm -rf dist release",
+    "clean": "rm -rf dist release out",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
@@ -22,61 +18,24 @@
   },
   "devDependencies": {
     "@chenglou/pretext": "^0.0.7",
+    "@electron/packager": "^20.0.0",
     "@vitest/coverage-v8": "^4.1.6",
     "@vitest/ui": "^4.1.6",
     "@xterm/xterm": "^6.0.0",
     "concurrently": "^9.0.0",
     "electron": "^42.1.0",
-    "electron-builder": "^26.8.1",
-    "electron-reload": "^2.0.0-alpha.1",
     "esbuild": "^0.28.0",
     "jsdom": "^29.1.1",
     "marked": "^18.0.3",
     "monaco-editor": "^0.53.0",
     "typescript": "^5.8.0",
     "vitest": "^4.1.6",
-    "wait-on": "^8.0.0",
-    "xterm": "^5.3.0"
+    "wait-on": "^8.0.0"
   },
-  "build": {
-    "appId": "com.cockpit.ide",
-    "productName": "Cockpit IDE",
-    "directories": {
-      "output": "release"
-    },
-    "buildDependenciesFromSource": true,
-    "npmRebuild": true,
-    "files": [
-      "dist/**/*",
-      "public/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "public/cockpit_ide_icon.ico",
-      "executableName": "Cockpit"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "public/cockpit_ide_icon.ico",
-      "category": "public.app-category.developer-tools"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "public/cockpit_ide_icon.ico",
-      "category": "Development"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "license": "installer-assets/license.txt",
-      "installerIcon": "public/cockpit_ide_icon.ico",
-      "uninstallerIcon": "public/cockpit_ide_icon.ico",
-      "installerHeader": "installer-assets/installerHeader.bmp",
-      "installerSidebar": "installer-assets/installerSidebar.bmp",
-      "include": "installer-assets/installer.nsh"
-    },
-    "publish": null
+  "overrides": {
+    "tar": "7.5.15",
+    "tmp": "0.2.5",
+    "@tootallnate/once": "3.0.1"
   },
   "keywords": [],
   "author": "",

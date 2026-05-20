@@ -18,18 +18,21 @@ const { handleCalls, onCalls, sendCalls, invokeCalls } = vi.hoisted(() => {
 vi.mock('electron', () => ({
   contextBridge: {
     exposeInMainWorld: vi.fn((_key: string, api: any) => {
-      // Store the exposed API so tests can inspect it
       (globalThis as any).__exposedAPI = api;
     }),
   },
   ipcRenderer: {
+    sendSync: vi.fn((channel: string) => {
+      if (channel === 'app:version') return '0.0.0';
+      return null;
+    }),
     invoke: vi.fn((channel: string, ...args: any[]) => {
       invokeCalls.push([channel, ...args]);
       return Promise.resolve(null);
     }),
     on: vi.fn((channel: string, handler: (...args: any[]) => void) => {
       onCalls.push([channel, handler]);
-      return () => {}; // unsubscribe function
+      return () => {};
     }),
     send: vi.fn((channel: string, ...args: any[]) => {
       sendCalls.push([channel, ...args]);
@@ -66,6 +69,7 @@ describe('preload.ts — exposed API shape', () => {
       node: '20.0.0',
       chrome: '120.0.0',
       electron: '42.0.0',
+      app: '0.0.0', // from sendSync('app:version') mock
     });
   });
 

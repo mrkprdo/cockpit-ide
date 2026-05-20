@@ -11,8 +11,7 @@ describe('AboutModal', () => {
     expect(document.querySelector('.modal-overlay')).toBeTruthy();
     expect(document.querySelector('.about-modal')).toBeTruthy();
     expect(document.body.textContent).toContain('COCKPIT IDE');
-    expect(document.body.textContent).toContain('0.0.1-20260519');
-    expect(document.body.textContent).toMatch(/0\.0\.1-\d+/);
+    expect(document.body.textContent).toContain('dev');
   });
 
   it('starts hidden', () => {
@@ -49,11 +48,11 @@ describe('AboutModal', () => {
     expect(overlay.style.display).toBe('none');
   });
 
-  it('has a clickable design.md link that opens external URL', () => {
+  it('has a clickable UseDesign.md link that opens external URL', () => {
     new AboutModal();
     const link = document.querySelector('#about-design-link') as HTMLElement;
     expect(link).toBeTruthy();
-    expect(link.textContent).toBe('design.md');
+    expect(link.textContent).toBe('UseDesign.md');
     expect(link.style.cursor).toBe('pointer');
   });
 

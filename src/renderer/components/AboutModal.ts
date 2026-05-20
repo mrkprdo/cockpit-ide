@@ -12,9 +12,8 @@ export class AboutModal {
     this.el.className = 'about-modal';
 
     const v = (window as any).electronAPI?.versions || {};
-    const hash = typeof COMMIT_HASH !== 'undefined' ? COMMIT_HASH : 'dev';
     const specs: { key: string; val: string }[] = [
-      { key: 'VERSION', val: `0.0.1-${hash}` },
+      { key: 'VERSION', val: v.app ?? 'dev' },
       ...(v.electron ? [{ key: 'ELECTRON', val: v.electron.split('.')[0] }] : []),
       ...(v.node ? [{ key: 'NODE', val: v.node.split('.')[0] }] : []),
     ];
@@ -35,7 +34,7 @@ export class AboutModal {
       </div>
       <div class="about-sep"></div>
       <div class="about-foot">
-        <span class="about-link" id="about-design-link" style="cursor:pointer">design.md</span>
+        DESIGN.md by <span class="about-link" id="about-design-link" style="cursor:pointer">UseDesign.md</span>
         <button class="about-close-btn" id="about-close">CLOSE</button>
       </div>
     `;
