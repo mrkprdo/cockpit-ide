@@ -194,18 +194,19 @@ export class CanvasArea {
 
     const row = document.createElement('div');
     row.className = 'arr-input-row';
-    const maxUnits = Math.floor(2000 / this.patternSize);
-    const clamp = (v: string) => {
+    const validate = (v: string): string => {
       const n = parseInt(v);
       if (isNaN(n) || n < 10) return '10';
-      return String(Math.min(n, maxUnits));
+      if (n > 2000) return '2000';
+      return String(n);
     };
     const inpW = document.createElement('input');
     inpW.className = 'arr-input';
     inpW.type = 'text';
     inpW.placeholder = 'W';
     inpW.value = this.tileW;
-    inpW.addEventListener('input', () => { this.tileW = clamp(inpW.value); inpW.value = this.tileW; });
+    inpW.addEventListener('input', () => { this.tileW = inpW.value; });
+    inpW.addEventListener('change', () => { this.tileW = validate(inpW.value); inpW.value = this.tileW; });
     row.appendChild(inpW);
     const sep = document.createElement('span');
     sep.className = 'arr-input-sep';
@@ -216,7 +217,8 @@ export class CanvasArea {
     inpH.type = 'text';
     inpH.placeholder = 'H';
     inpH.value = this.tileH;
-    inpH.addEventListener('input', () => { this.tileH = clamp(inpH.value); inpH.value = this.tileH; });
+    inpH.addEventListener('input', () => { this.tileH = inpH.value; });
+    inpH.addEventListener('change', () => { this.tileH = validate(inpH.value); inpH.value = this.tileH; });
     row.appendChild(inpH);
     panel.appendChild(row);
 
@@ -304,6 +306,7 @@ export class CanvasArea {
       }
       this.onStateChange?.();
     });
+    this.fitAll();
   }
 
   centerView(): void {

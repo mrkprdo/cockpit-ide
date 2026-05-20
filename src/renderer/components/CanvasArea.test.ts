@@ -189,6 +189,163 @@ describe('CanvasArea', () => {
     it('icon has ◢ character', () => {
       expect(getIcon().textContent).toBe('◢');
     });
+
+    describe('W×H input validation', () => {
+      function getInputs(): HTMLInputElement[] {
+        return Array.from(document.querySelectorAll('.arr-input'));
+      }
+
+      function showPanel(): void {
+        const zone = getZone();
+        zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      }
+
+      it('allows typing any value without immediate clamping', () => {
+        showPanel();
+        const [w, h] = getInputs();
+        w.value = '5';
+        w.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(w.value).toBe('5');
+        h.value = '9999';
+        h.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(h.value).toBe('9999');
+      });
+
+      it('allows empty string while typing', () => {
+        showPanel();
+        const [w] = getInputs();
+        w.value = '';
+        w.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(w.value).toBe('');
+      });
+
+      it('allows non-numeric text while typing', () => {
+        showPanel();
+        const [w] = getInputs();
+        w.value = 'abc';
+        w.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(w.value).toBe('abc');
+      });
+
+      it('clamps below-minimum values to 10 on blur', () => {
+        showPanel();
+        const [w, h] = getInputs();
+        w.value = '5';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(w.value).toBe('10');
+
+        h.value = '1';
+        h.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(h.value).toBe('10');
+      });
+
+      it('clamps above-maximum values to 2000 on blur', () => {
+        showPanel();
+        const [w, h] = getInputs();
+        w.value = '9999';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(w.value).toBe('2000');
+
+        h.value = '5000';
+        h.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(h.value).toBe('2000');
+      });
+
+      it('defaults non-numeric text to 10 on blur', () => {
+        showPanel();
+        const [w, h] = getInputs();
+        w.value = 'abc';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(w.value).toBe('10');
+
+        h.value = '---';
+        h.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(h.value).toBe('10');
+      });
+
+      it('defaults empty string to 10 on blur', () => {
+        showPanel();
+        const [w, h] = getInputs();
+        w.value = '';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(w.value).toBe('10');
+
+        h.value = '';
+        h.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(h.value).toBe('10');
+      });
+
+      it('clamps negative values to 10 on blur', () => {
+        showPanel();
+        const [w] = getInputs();
+        w.value = '-50';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(w.value).toBe('10');
+      });
+
+      it('clamps zero to 10 on blur', () => {
+        showPanel();
+        const [w] = getInputs();
+        w.value = '0';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(w.value).toBe('10');
+      });
+
+      it('keeps valid values unchanged on blur', () => {
+        showPanel();
+        const [w, h] = getInputs();
+        w.value = '23';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(w.value).toBe('23');
+
+        h.value = '17';
+        h.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(h.value).toBe('17');
+      });
+
+      it('keeps boundary values unchanged on blur', () => {
+        showPanel();
+        const [w, h] = getInputs();
+        w.value = '10';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(w.value).toBe('10');
+
+        h.value = '2000';
+        h.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(h.value).toBe('2000');
+      });
+
+      it('clamps decimal values to int on blur', () => {
+        showPanel();
+        const [w] = getInputs();
+        w.value = '3.14';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(w.value).toBe('10');
+      });
+
+      it('stores validated value used by tilePlugins layout', async () => {
+        canvas.addTerminal();
+        canvas.addTerminal();
+        await new Promise(r => setTimeout(r, 50));
+
+        showPanel();
+        const [w, h] = getInputs();
+        w.value = '10';
+        w.dispatchEvent(new Event('change', { bubbles: true }));
+        h.value = '7';
+        h.dispatchEvent(new Event('change', { bubbles: true }));
+
+        const items = document.querySelectorAll('.arr-item');
+        (items[1] as HTMLElement).click();
+
+        const state = canvas.getSaveState();
+        expect(state.plugins.length).toBe(2);
+        for (const p of state.plugins) {
+          expect(p.width).toBe(280);
+          expect(p.height).toBe(280);
+        }
+      });
+    });
   });
 
   describe('fit all', () => {
