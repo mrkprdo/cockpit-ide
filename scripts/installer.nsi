@@ -38,6 +38,9 @@ RequestExecutionLevel user
 !define MUI_WELCOMEPAGE_TEXT "The IDE for developers who think spatially.$\r$\n$\r$\nClick Next to continue."
 !define MUI_FINISHPAGE_RUN "$INSTDIR\CockpitIDE.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Launch Cockpit IDE"
+!define MUI_FINISHPAGE_SHOWREADME
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "Add Cockpit IDE to PATH"
+!define MUI_FINISHPAGE_SHOWREADME_FUNCTION AddToPath
 !define MUI_LICENSEPAGE_CHECKBOX
 
 !insertmacro MUI_PAGE_WELCOME
@@ -80,10 +83,6 @@ Section "Cockpit IDE" SecMain
   FileWrite $0 'start "" "%~dp0..\CockpitIDE.exe" %*$\r$\n'
   FileClose $0
 
-  ; Add $INSTDIR\bin to user PATH
-  nsExec::ExecToLog 'powershell.exe -NonInteractive -Command "$$b = ''$INSTDIR\bin''; $$p = [Environment]::GetEnvironmentVariable(''PATH'', ''User''); if ($$p -notlike (''*'' + $$b + ''*'')) { [Environment]::SetEnvironmentVariable(''PATH'', $$(if($$p){$$p + '';'' + $$b}else{$$b}), ''User'') }"'
-  SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
-
   ; Uninstaller + Add/Remove Programs entry
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr  HKCU "Software\CockpitIDE" "InstallDir" "$INSTDIR"
@@ -102,6 +101,11 @@ Section "Cockpit IDE" SecMain
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CockpitIDE" \
     "NoRepair" 1
 SectionEnd
+
+Function AddToPath
+  nsExec::ExecToLog 'powershell.exe -NonInteractive -Command "$$b = ''$INSTDIR\bin''; $$p = [Environment]::GetEnvironmentVariable(''PATH'', ''User''); if ($$p -notlike (''*'' + $$b + ''*'')) { [Environment]::SetEnvironmentVariable(''PATH'', $$(if($$p){$$p + '';'' + $$b}else{$$b}), ''User'') }"'
+  SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+FunctionEnd
 
 ;--------------------------------
 ; Uninstall
