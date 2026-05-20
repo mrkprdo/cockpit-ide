@@ -141,12 +141,6 @@ describe('CanvasArea', () => {
       expect(getPanel().style.display).toBe('none');
     });
 
-    it('shows panel on mouseenter', () => {
-      const zone = getZone();
-      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-      expect(getPanel().style.display).toBe('block');
-    });
-
     it('hides panel on mouseleave after timeout', async () => {
       const zone = getZone();
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));

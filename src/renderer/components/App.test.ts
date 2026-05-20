@@ -88,6 +88,16 @@ describe('App', () => {
     expect(preventDefaultSpy).toHaveBeenCalled();
   });
 
+  it('prevents Meta+W default behavior', () => {
+    new App();
+
+    const event = new KeyboardEvent('keydown', { key: 'w', metaKey: true, bubbles: true });
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+    document.dispatchEvent(event);
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
+  });
+
   it('does not prevent non-Ctrl+W keydown', () => {
     new App();
 

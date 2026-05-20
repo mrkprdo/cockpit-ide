@@ -269,7 +269,7 @@ describe('PluginCard — resize interaction', () => {
     document.body.innerHTML = '';
   });
 
-  it('e edge mousedown starts resize', () => {
+  it('e edge mousedown + mousemove resizes width', () => {
     const card = new PluginCard(makeParent(), {
       title: 'Resize Test',
       x: 100, y: 100, width: 400, height: 300,
@@ -278,10 +278,10 @@ describe('PluginCard — resize interaction', () => {
     const edgeE = card.el.querySelector('.card-edge-e') as HTMLElement;
     edgeE.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 500, clientY: 200 }));
 
-    // Internal resize state should be set
-    expect((card as any).resizing).toBeUndefined(); // resizing is a local variable, not on `this`
-    // But the opts should still have original dimensions
-    expect(card.opts.width).toBe(400);
+    // Move 56px right (2 SNAP units) — should increase width
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 556, clientY: 200, bubbles: true }));
+
+    expect(card.opts.width).toBeGreaterThan(400);
   });
 
   it('resize mousemove updates width', () => {

@@ -401,10 +401,10 @@ describe('E2E Advanced: Card Cycling Through Mixed Types', () => {
     canvas.focusCard('Terminal 1');
     await flushRaf();
 
-    canvas.cycleCard(1);
-    canvas.cycleCard(1);
-    // Should not throw — cycles through remaining 2 cards
-    expect(true).toBe(true);
+    expect(() => {
+      canvas.cycleCard(1);
+      canvas.cycleCard(1);
+    }).not.toThrow();
   });
 
   it('cycles backward through cards', async () => {
@@ -416,19 +416,19 @@ describe('E2E Advanced: Card Cycling Through Mixed Types', () => {
     canvas.focusCard('Context 1');
     await flushRaf();
 
-    canvas.cycleCard(-1);
-    // Should move to Dev — no errors
-    expect(true).toBe(true);
+    expect(() => {
+      canvas.cycleCard(-1);
+    }).not.toThrow();
   });
 
   it('does nothing with fewer than 2 open cards', async () => {
     canvas.addTerminal('/test');
     await flushRaf();
 
-    canvas.cycleCard(1);
-    canvas.cycleCard(-1);
-    // Should not throw
-    expect(true).toBe(true);
+    expect(() => {
+      canvas.cycleCard(1);
+      canvas.cycleCard(-1);
+    }).not.toThrow();
   });
 });
 
@@ -569,13 +569,14 @@ describe('E2E Advanced: Canvas Navigation with Cards', () => {
   });
 
   it('setGridStyle cycles through all styles without errors', () => {
-    for (const style of ['none', 'dots', 'grid'] as const) {
-      canvas.setGridStyle(style);
-    }
-    for (const style of ['none', 'dots', 'grid'] as const) {
-      canvas.setGridStyle(style);
-    }
-    expect(true).toBe(true);
+    expect(() => {
+      for (const style of ['none', 'dots', 'grid'] as const) {
+        canvas.setGridStyle(style);
+      }
+      for (const style of ['none', 'dots', 'grid'] as const) {
+        canvas.setGridStyle(style);
+      }
+    }).not.toThrow();
   });
 
   it('getSaveState with no cards returns correct structure', () => {
@@ -782,8 +783,7 @@ describe('E2E Advanced: ContextPlugin Multi-Tab', () => {
     const ctx = new ContextPlugin(container);
     ctx.title = 'Destroyable';
     ctx.destroy();
-    ctx.destroy();
-    expect(true).toBe(true);
+    expect(() => ctx.destroy()).not.toThrow();
   });
 });
 
@@ -1097,8 +1097,7 @@ describe('E2E Advanced: DevPlugin State Delegation', () => {
     ]);
     const dev = new DevPlugin(container, '/test');
     await flushRaf();
-    dev.setContextOpeners(['Context 1', 'Context 2'], vi.fn());
-    expect(true).toBe(true);
+    expect(() => dev.setContextOpeners(['Context 1', 'Context 2'], vi.fn())).not.toThrow();
   });
 
   it('DevPlugin.restoreEditorState with null exits early', async () => {
@@ -1117,8 +1116,7 @@ describe('E2E Advanced: DevPlugin State Delegation', () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([]);
     const dev = new DevPlugin(container, '/test');
     await flushRaf();
-    dev.updateTheme();
-    expect(true).toBe(true);
+    expect(() => dev.updateTheme()).not.toThrow();
   });
 });
 
@@ -1374,8 +1372,7 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
     card.remove();
-    card.remove();
-    expect(true).toBe(true);
+    expect(() => card.remove()).not.toThrow();
   });
 
   it('mousedown on card body fires onFocus', () => {

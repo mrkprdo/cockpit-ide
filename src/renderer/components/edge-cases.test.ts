@@ -84,11 +84,17 @@ describe('ConfirmModal edge cases', () => {
 
   it('handles HTML in message via innerHTML', () => {
     new ConfirmModal('<b>bold text</b> and <i>italic</i>', 'OK');
-    // HTML tags in the message are rendered as HTML via innerHTML
     const body = document.body.querySelector('.confirm-modal-msg');
     expect(body).toBeTruthy();
     expect(body!.textContent).toContain('bold text');
     expect(body!.textContent).toContain('italic');
+  });
+
+  it('sanitizes script and img onerror XSS vectors', () => {
+    new ConfirmModal('<script>alert(1)</script><img src=x onerror=alert(1)>', 'OK');
+    const body = document.body.querySelector('.confirm-modal-msg')!;
+    expect(body.innerHTML).not.toMatch(/<script/i);
+    expect(body.querySelector('img')).toBeNull();
   });
 
   it('promise rejects on rapid double-confirm correctly', async () => {

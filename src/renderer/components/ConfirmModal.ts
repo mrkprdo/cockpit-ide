@@ -18,7 +18,7 @@ export class ConfirmModal {
 
     const msg = document.createElement('div');
     msg.className = 'confirm-modal-msg';
-    msg.innerHTML = message;
+    msg.textContent = message;
 
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
