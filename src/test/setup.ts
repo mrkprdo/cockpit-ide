@@ -25,6 +25,7 @@ vi.mock('@xterm/addon-fit', () => {
 
 vi.mock('@xterm/xterm', () => {
   class MockTerminal {
+    options: any = {};
     open = vi.fn();
     write = vi.fn();
     focus = vi.fn();
@@ -33,7 +34,9 @@ vi.mock('@xterm/xterm', () => {
     onData = vi.fn().mockReturnValue({ dispose: vi.fn() });
     onResize = vi.fn().mockReturnValue({ dispose: vi.fn() });
     attachCustomKeyEventHandler = vi.fn();
-    constructor(_opts?: any) {}
+    constructor(_opts?: any) {
+      this.options = { ..._opts };
+    }
   }
   return { Terminal: MockTerminal };
 });

@@ -12,6 +12,7 @@ export class TerminalPlugin {
   private exitCleanup: (() => void) | null = null;
   private cwd: string | undefined;
   private scale = 1;
+  private baseFontSize = 13;
 
   constructor(container: HTMLElement, uuid: string, cwd?: string) {
     this.uuid = uuid;
@@ -114,6 +115,7 @@ export class TerminalPlugin {
   setScale(scale: number): void {
     this.scale = scale;
     this.adjustScale();
+    this.term.options.fontSize = Math.max(6, Math.round(this.baseFontSize * scale));
     this.fit();
   }
 

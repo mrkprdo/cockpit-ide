@@ -1118,9 +1118,17 @@ export class CanvasArea {
     this.sbWorkspace.className = 'status-item';
     sb.appendChild(this.sbWorkspace);
 
-    const fill = document.createElement('span');
-    fill.style.cssText = 'flex:1';
-    sb.appendChild(fill);
+    const fillL = document.createElement('span');
+    fillL.style.cssText = 'flex:1';
+    sb.appendChild(fillL);
+
+    const center = document.createElement('span');
+    center.id = 'statusbar-center';
+    sb.appendChild(center);
+
+    const fillR = document.createElement('span');
+    fillR.style.cssText = 'flex:1';
+    sb.appendChild(fillR);
 
     sep();
     const viewAllBtn = document.createElement('button');
@@ -1137,3 +1145,4 @@ export class CanvasArea {
     if (this.sbWorkspace) this.sbWorkspace.textContent = this.workspaceName;
   }
 }
+

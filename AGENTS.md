@@ -29,7 +29,8 @@ D:\cockpit_ide\
 ├── tsconfig.renderer.json         # TS config: renderer (ES2022, module:none, IIFE)
 ├── vitest.config.ts               # Vitest config: jsdom, setup, coverage
 ├── bin/
-│   └── cockpit.bat                # Windows launcher — starts Cockpit.exe with args
+│   ├── cockpit.bat                # Windows launcher — starts Cockpit.exe with args
+│   └── cockpit-mcp-bridge.mjs    # Stdio-to-HTTP MCP bridge for Claude Desktop/opencode
 ├── installer-assets/
 │   ├── installer.nsh              # NSIS custom installer script
 │   ├── installerHeader.bmp        # Installer header graphic (150×57)
@@ -135,6 +136,7 @@ D:\cockpit_ide\
 |------|-------------|
 | `src/main/main.ts` | Electron main process (~395 lines). Creates frameless BrowserWindow (1440x900, maximized) with contextIsolation. Handles all IPC: filesystem (readDir/readFile/writeFile/delete/copy/rename), PTY terminal sessions via node-pty (multi-session, platform-aware shell), chokidar file watching (debounced 100ms, ignores .git/node_modules/.cockpit), workspace persistence (last-workspace.txt, recent-workspaces.json, .cockpit/window.json), window controls (minimize/maximize/close/isMaximized/new), user preferences, native directory picker. Supports multi-window. |
 | `src/main/main.test.ts` | Tests all IPC handlers with mocked electron/fs. Behavioral tests for fs:readDir/readFile/writeFile/delete, window:new, and registration verification for all 20+ IPC channels. |
+| `src/main/mcp-server.ts` | MCP server (~420 lines). Exposes Cockpit as an MCP server over StreamableHTTP on `127.0.0.1:49876`. 24 tools: filesystem (read/write/delete/copy/rename/mkdir/readDir), workspace (getPath/loadState/saveState/getRecent/select), terminal (create/write/kill/list), window (new/minimize/maximize/close), prefs (load/save), shell (openExternal). Uses `@modelcontextprotocol/sdk` + `zod`. |
 
 ### Source: Preload Script
 
@@ -193,3 +195,66 @@ D:\cockpit_ide\
 |------|-------------|
 | `src/test/setup.ts` | Global test mocks (~232 lines). Mocks: @chenglou/pretext, @xterm/xterm (lightweight Terminal), crypto.randomUUID() (deterministic), Canvas2D context (all vi.fn()), ResizeObserver, requestAnimationFrame (setTimeout 0), devicePixelRatio (1). Creates mock `window.electronAPI` with all 24 IPC channels. Sets CSS custom properties. Bootstraps DOM scaffolding. Exports `mockElectronAPI`. |
 | `src/test/README.md` | Test infrastructure docs (~117 lines). Vitest + jsdom setup, 16 test files with 216+ tests (~3s run time). Test patterns, mock access, known limitations (Monaco AMD loader, node-pty, canvas rendering). |
+
+---
+
+## MCP Server
+
+Cockpit IDE runs an MCP (Model Context Protocol) server on `127.0.0.1:49876` (configurable via `COCKPIT_MCP_PORT` env var) using StreamableHTTP transport. This lets AI agents control Cockpit programmatically.
+
+### Tools Exposed
+
+| Tool | Description |
+|------|-------------|
+| `fs_read_dir` | List directory entries |
+| `fs_read_file` | Read file contents |
+| `fs_write_file` | Write content to a file |
+| `fs_mkdir` | Create directory (recursive) |
+| `fs_delete` | Delete file or directory |
+| `fs_copy` | Copy file or directory |
+| `fs_rename` | Rename/move file or directory |
+| `workspace_get_path` | Get current workspace path |
+| `workspace_load_state` | Load `.cockpit/window.json` |
+| `workspace_save_state` | Save state to `.cockpit/window.json` |
+| `workspace_get_recent` | List recent workspaces |
+| `workspace_select` | Open native directory picker |
+| `terminal_list` | List active terminal sessions |
+| `terminal_create` | Create a new PTY terminal |
+| `terminal_write` | Write data to a terminal |
+| `terminal_kill` | Kill a terminal session |
+| `window_new` | Create new Cockpit window |
+| `window_minimize` | Minimize active window |
+| `window_maximize` | Toggle maximize |
+| `window_close` | Close active window |
+| `prefs_load` | Load user preferences |
+| `prefs_save` | Save user preferences |
+| `shell_open_external` | Open URL in browser |
+
+### Configuring Clients
+
+**opencode** (opencode.json):
+```json
+{
+  "mcpServers": {
+    "cockpit-ide": {
+      "command": "node",
+      "args": ["path/to/cockpit-ide/bin/cockpit-mcp-bridge.mjs"],
+      "env": { "COCKPIT_MCP_PORT": "49876" }
+    }
+  }
+}
+```
+
+**Claude Desktop** (claude_desktop_config.json):
+```json
+{
+  "mcpServers": {
+    "cockpit-ide": {
+      "command": "node",
+      "args": ["path/to/cockpit-ide/bin/cockpit-mcp-bridge.mjs"]
+    }
+  }
+}
+```
+
+The bridge script automatically detects the Cockpit MCP port by checking common userData directories. Set `COCKPIT_MCP_PORT` env var to override. Cockpit must already be running for the bridge to connect.

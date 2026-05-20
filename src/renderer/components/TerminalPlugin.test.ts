@@ -93,30 +93,33 @@ describe('TerminalPlugin', () => {
 
     beforeEach(() => { dimContainer(); });
 
-    it('resets to 100% dimensions and no transform at scale 1', () => {
+    it('resets to 100% dimensions and no transform at scale 1, uses base fontSize', () => {
       const term = new TerminalPlugin(container, 'scale-test-1');
       term.setScale(1);
       expect(term['el'].style.width).toBe('100%');
       expect(term['el'].style.height).toBe('100%');
       expect(term['el'].style.transform).toBe('');
+      expect(term['term'].options.fontSize).toBe(13);
     });
 
-    it('applies inverse transform and adjusts dimensions at scale 0.5', () => {
+    it('applies inverse transform and scales fontSize down at scale 0.5', () => {
       const term = new TerminalPlugin(container, 'scale-test-05');
       term.setScale(0.5);
       expect(term['el'].style.width).toBe(`${600 * 0.5}px`);
       expect(term['el'].style.height).toBe(`${400 * 0.5}px`);
       expect(term['el'].style.transform).toBe('scale(2)');
       expect(term['el'].style.transformOrigin).toBe('0 0');
+      expect(term['term'].options.fontSize).toBe(7);
     });
 
-    it('applies inverse transform and adjusts dimensions at scale 2', () => {
+    it('applies inverse transform and scales fontSize up at scale 2', () => {
       const term = new TerminalPlugin(container, 'scale-test-2');
       term.setScale(2);
       expect(term['el'].style.width).toBe(`${600 * 2}px`);
       expect(term['el'].style.height).toBe(`${400 * 2}px`);
       expect(term['el'].style.transform).toBe('scale(0.5)');
       expect(term['el'].style.transformOrigin).toBe('0 0');
+      expect(term['term'].options.fontSize).toBe(26);
     });
 
     it('is a no-op when parent element is missing', () => {
@@ -132,6 +135,13 @@ describe('TerminalPlugin', () => {
       expect(term['el'].style.width).toBe('100%');
       expect(term['el'].style.height).toBe('100%');
       expect(term['el'].style.transform).toBe('');
+      expect(term['term'].options.fontSize).toBe(13);
+    });
+
+    it('clamps minimum fontSize to 6', () => {
+      const term = new TerminalPlugin(container, 'scale-clamp');
+      term.setScale(0.05);
+      expect(term['term'].options.fontSize).toBe(6);
     });
   });
 });
