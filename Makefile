@@ -13,7 +13,7 @@ package: test
 	npm run pack
 
 install:
-	for %%i in (out\CockpitIDESetup-*.exe) do start "" "%%i" && exit /b
+	for /f "delims=" %%i in ('dir /b /o:-n out\CockpitIDESetup-*.exe 2^>nul') do (start "" "out\%%i" & exit /b)
 
 clean:
 	if exist dist rmdir /s /q dist
