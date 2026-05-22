@@ -19,16 +19,24 @@ export class DevPlugin {
     this.explorerCol.style.cssText = 'width:260px;height:100%;overflow:hidden;flex-shrink:0';
 
     const resizeHandle = document.createElement('div');
-    resizeHandle.style.cssText = 'width:2px;height:100%;cursor:col-resize;background:var(--border);flex-shrink:0';
+    resizeHandle.style.cssText = 'width:2px;height:100%;cursor:col-resize;background:var(--border);flex-shrink:0;transition:background 0.15s,opacity 0.15s';
 
     let startX = 0;
     let startW = 260;
+    resizeHandle.addEventListener('mouseenter', () => {
+      if (!this.isDragging) { resizeHandle.style.background = 'var(--accent)'; resizeHandle.style.opacity = '0.5'; }
+    });
+    resizeHandle.addEventListener('mouseleave', () => {
+      if (!this.isDragging) { resizeHandle.style.background = 'var(--border)'; resizeHandle.style.opacity = ''; }
+    });
     resizeHandle.addEventListener('mousedown', (e) => {
       e.stopPropagation();
       e.preventDefault();
       this.isDragging = true;
       startX = e.clientX;
       startW = this.explorerCol.offsetWidth;
+      resizeHandle.style.background = 'var(--accent)';
+      resizeHandle.style.opacity = '0.8';
     });
     document.addEventListener('mousemove', (e) => {
       if (!this.isDragging) return;
@@ -40,6 +48,8 @@ export class DevPlugin {
       if (this.isDragging) {
         this.isDragging = false;
         this.onStateChange?.();
+        resizeHandle.style.background = 'var(--border)';
+        resizeHandle.style.opacity = '';
       }
     });
 

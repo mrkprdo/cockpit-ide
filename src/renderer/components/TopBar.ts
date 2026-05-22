@@ -122,9 +122,9 @@ export class TopBar {
           <div class="menu-item-nested">
             <span>Canvas</span><span class="arrow">▸</span>
             <div class="menu-dropdown-nested">
-              <div class="menu-dropdown-item" data-grid="dots">${this.gridStyle === 'dots' ? '✓ ' : ''}Dot</div>
-              <div class="menu-dropdown-item" data-grid="grid">${this.gridStyle === 'grid' ? '✓ ' : ''}Grid</div>
-              <div class="menu-dropdown-item" data-grid="none">${this.gridStyle === 'none' ? '✓ ' : ''}None</div>
+              <div class="menu-dropdown-item" data-grid="dots">${this.gridStyle === 'dots' ? '<span class="menu-check">✓</span> ' : ''}Dot</div>
+              <div class="menu-dropdown-item" data-grid="grid">${this.gridStyle === 'grid' ? '<span class="menu-check">✓</span> ' : ''}Grid</div>
+              <div class="menu-dropdown-item" data-grid="none">${this.gridStyle === 'none' ? '<span class="menu-check">✓</span> ' : ''}None</div>
             </div>
           </div>
           <div class="menu-dropdown-separator"></div>
@@ -135,7 +135,7 @@ export class TopBar {
               <div class="menu-dropdown-item" id="menu-zoom-out">Zoom Out</div>
               <div class="menu-dropdown-item" id="menu-reset-view">Reset View</div>
               <div class="menu-dropdown-separator"></div>
-              <div class="menu-dropdown-item" id="menu-zoom-lock">${this.zoomLocked ? '✓ ' : ''}Lock</div>
+              <div class="menu-dropdown-item" id="menu-zoom-lock">${this.zoomLocked ? '<span class="menu-check">✓</span> ' : ''}Lock</div>
             </div>
           </div>
         </div>

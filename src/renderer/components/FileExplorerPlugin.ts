@@ -13,14 +13,22 @@ export class FileExplorerPlugin {
 
   constructor(container: HTMLElement, private rootPath: string, private onFileOpen: (path: string) => void) {
     this.el = document.createElement('div');
-    this.el.style.cssText = 'width:100%;height:100%;overflow:auto;background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:12px';
+    this.el.style.cssText = 'width:100%;height:100%;overflow:hidden;display:flex;flex-direction:column;background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:12px';
+
+    const header = document.createElement('div');
+    const rootName = rootPath.split(/[\\/]/).filter(Boolean).pop() ?? 'WORKSPACE';
+    header.style.cssText = 'padding:5px 12px 4px;font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--accent);flex-shrink:0;border-bottom:1px solid var(--border);user-select:none';
+    header.textContent = rootName.toUpperCase();
+    this.el.appendChild(header);
+
     this.treeEl = document.createElement('div');
+    this.treeEl.style.cssText = 'flex:1;overflow:auto';
     this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Loading...</div>';
     this.el.appendChild(this.treeEl);
     container.appendChild(this.el);
 
     // Stop wheel propagation so canvas doesn't zoom when scrolling the tree
-    this.el.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+    this.treeEl.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
 
     // Context menu on empty area: New File
     this.el.addEventListener('contextmenu', (e) => {
@@ -43,6 +51,15 @@ export class FileExplorerPlugin {
   }
 
   private normalize(p: string): string { return p.replace(/\\/g, '/'); }
+
+  private getFileColor(name: string): string {
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    if (['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'].includes(ext)) return 'var(--accent)';
+    if (['css', 'scss', 'sass', 'less'].includes(ext)) return 'var(--accent2)';
+    if (['json', 'yaml', 'yml', 'toml', 'env'].includes(ext)) return 'var(--amber)';
+    if (['md', 'txt', 'rst', 'mdx'].includes(ext)) return 'var(--green)';
+    return 'var(--secondary)';
+  }
 
   setContextOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
     this.contextLabels = labels;
@@ -179,14 +196,22 @@ export class FileExplorerPlugin {
 
       const fullPath = dirPath + '/' + entry.name;
       const isExpanded = this.expanded.has(fullPath);
-      const icon = entry.isDirectory ? (isExpanded ? '▾' : '▸') : ' ';
       const iconSpan = document.createElement('span');
-      iconSpan.style.cssText = 'color:var(--tertiary);width:12px;flex-shrink:0';
-      iconSpan.textContent = icon;
-      item.appendChild(iconSpan);
+      iconSpan.style.cssText = 'width:12px;flex-shrink:0';
       const nameSpan = document.createElement('span');
       nameSpan.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;display:block';
       nameSpan.textContent = entry.name;
+      if (entry.isDirectory) {
+        iconSpan.textContent = isExpanded ? '▾' : '▸';
+        iconSpan.style.color = 'var(--amber)';
+      } else {
+        const fc = this.getFileColor(entry.name);
+        iconSpan.textContent = '·';
+        iconSpan.style.color = fc;
+        iconSpan.style.opacity = '0.6';
+        nameSpan.style.color = fc;
+      }
+      item.appendChild(iconSpan);
       item.appendChild(nameSpan);
 
       if (entry.isDirectory) {
