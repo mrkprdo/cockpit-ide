@@ -1,12 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, clipboard, protocol } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
 process.noDeprecation = true;
-
-protocol.registerSchemesAsPrivileged([
-  { scheme: 'cockpit', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
-]);
 
 function resolveCliWorkspace(): string | null {
   const userArgs = app.isPackaged ? process.argv.slice(1) : process.argv.slice(2);
@@ -287,23 +283,6 @@ app.whenReady().then(async () => {
   // Initialize storage paths
   lastWsFile = path.join(app.getPath('userData'), 'last-workspace.txt');
   recentWsFile = path.join(app.getPath('userData'), 'recent-workspaces.json');
-
-  // Custom protocol for Monaco workers — blob workers with null origin can't
-  // importScripts from file://, so serve dist/ assets via cockpit:// protocol.
-  protocol.handle('cockpit', (request) => {
-    const relPath = decodeURIComponent(new URL(request.url).pathname);
-    const filePath = path.join(__dirname, '..', relPath);
-    try {
-      const data = fs.readFileSync(filePath);
-      const ext = path.extname(filePath).toLowerCase();
-      const mime: Record<string, string> = {
-        '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
-        '.html': 'text/html', '.svg': 'image/svg+xml', '.png': 'image/png',
-        '.woff': 'font/woff', '.woff2': 'font/woff2',
-      };
-      return new Response(data, { headers: { 'content-type': mime[ext] || 'application/octet-stream' } });
-    } catch { return new Response('', { status: 404 }); }
-  });
 
   // CLI workspace path takes precedence over saved state
   const cliPath = resolveCliWorkspace();

@@ -59,10 +59,6 @@ vi.mock('electron', () => ({
   clipboard: {
     readText: vi.fn(() => ''),
   },
-  protocol: {
-    registerSchemesAsPrivileged: vi.fn(),
-    handle: vi.fn(),
-  },
 }));
 
 vi.mock('fs', () => ({

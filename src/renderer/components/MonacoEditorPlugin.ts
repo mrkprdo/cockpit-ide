@@ -269,11 +269,12 @@ export class MonacoEditorPlugin {
     link.href = '../vs/editor/editor.main.css';
     document.head.appendChild(link);
 
-    // Custom cockpit:// protocol (registered in main process) allows Monaco workers
-    // to load via importScripts with a proper origin instead of null-origin blob URLs.
+    // Relative URL resolves to file:// worker — file:// pages can create file:// workers,
+    // and Electron transparently handles ASAR paths. Inside the worker, importScripts
+    // with relative paths resolves correctly relative to the worker file.
     (window as any).MonacoEnvironment = {
       getWorkerUrl: (_moduleId: string, _label: string): string => {
-        return 'cockpit:///vs/base/worker/workerMain.js';
+        return '../vs/base/worker/workerMain.js';
       },
     };
 
