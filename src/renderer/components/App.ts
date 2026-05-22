@@ -42,6 +42,13 @@ export class App {
     this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
     this.canvas.onDevsChanged = (items) => this.topBar.setDevItems(items);
     this.canvas.onContextsChanged = (items) => this.topBar.setContextItems(items);
+    this.canvas.onLockToggle = async () => {
+      this.canvas.locked = !this.canvas.locked;
+      this.topBar.setZoomLocked(this.canvas.locked);
+      const prefs = (await window.electronAPI?.prefs.load()) || {};
+      prefs.zoomLocked = this.canvas.locked;
+      window.electronAPI?.prefs.save(prefs);
+    };
 
     this.about = new AboutModal();
     this.tutorial = new Tutorial();
@@ -80,6 +87,13 @@ export class App {
       onZoomIn: () => this.canvas.zoomIn(),
       onZoomOut: () => this.canvas.zoomOut(),
       onResetView: () => this.canvas.resetView(),
+      onZoomLock: async (locked) => {
+        this.canvas.locked = locked;
+        this.topBar.setZoomLocked(locked);
+        const prefs = (await window.electronAPI?.prefs.load()) || {};
+        prefs.zoomLocked = locked;
+        window.electronAPI?.prefs.save(prefs);
+      },
     });
 
     this.initWindowControls();
@@ -171,6 +185,10 @@ export class App {
     if (prefs?.gridStyle) {
       this.canvas.setGridStyle(prefs.gridStyle);
       this.topBar.setGridStyle(prefs.gridStyle);
+    }
+    if (prefs?.zoomLocked) {
+      this.canvas.locked = true;
+      this.topBar.setZoomLocked(true);
     }
 
     this.canvas.workspaceName = path;

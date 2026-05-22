@@ -20,6 +20,7 @@ interface TopBarCallbacks {
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onResetView?: () => void;
+  onZoomLock?: (locked: boolean) => void;
 }
 
 interface TermItem { uuid: string; title: string; isOpen: boolean; }
@@ -27,6 +28,7 @@ interface TermItem { uuid: string; title: string; isOpen: boolean; }
 export class TopBar {
   private callbacks: TopBarCallbacks;
   private gridStyle: GridStyle = 'dots';
+  private zoomLocked = false;
   private termItems: TermItem[] = [];
   private devItems: TermItem[] = [];
   private ctxItems: TermItem[] = [];
@@ -54,6 +56,11 @@ export class TopBar {
 
   setGridStyle(style: GridStyle): void {
     this.gridStyle = style;
+    this.render();
+  }
+
+  setZoomLocked(locked: boolean): void {
+    this.zoomLocked = locked;
     this.render();
   }
 
@@ -127,6 +134,8 @@ export class TopBar {
               <div class="menu-dropdown-item" id="menu-zoom-in">Zoom In</div>
               <div class="menu-dropdown-item" id="menu-zoom-out">Zoom Out</div>
               <div class="menu-dropdown-item" id="menu-reset-view">Reset View</div>
+              <div class="menu-dropdown-separator"></div>
+              <div class="menu-dropdown-item" id="menu-zoom-lock">${this.zoomLocked ? '✓ ' : ''}Lock</div>
             </div>
           </div>
         </div>
@@ -206,6 +215,10 @@ export class TopBar {
 
     document.getElementById('menu-reset-view')?.addEventListener('click', () => {
       this.callbacks.onResetView?.();
+    });
+
+    document.getElementById('menu-zoom-lock')?.addEventListener('click', () => {
+      this.callbacks.onZoomLock?.(!this.zoomLocked);
     });
 
     this.el.querySelectorAll('[data-grid]').forEach(el => {

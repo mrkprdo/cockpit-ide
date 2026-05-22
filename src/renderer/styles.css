@@ -215,16 +215,17 @@ html, body {
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
-  opacity: 0.35;
+  opacity: 0.6;
   transition: opacity 0.15s;
 }
 .pli-zone:hover { opacity: 1; }
 .pli-icon {
   font-size: 18px;
-  color: var(--tertiary);
-  transition: color 0.15s, transform 0.2s;
+  color: var(--secondary);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+  transition: color 0.15s, transform 0.2s, filter 0.15s;
 }
-.pli-zone:hover .pli-icon { color: var(--primary); transform: rotate(180deg); }
+.pli-zone:hover .pli-icon { color: var(--primary); transform: rotate(180deg); filter: none; }
 
 .plugin-list-panel {
   display: none;
@@ -270,16 +271,17 @@ html, body {
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  opacity: 0.35;
+  opacity: 0.6;
   transition: opacity 0.15s;
 }
 .prr-zone:hover { opacity: 1; }
 .prr-icon {
   font-size: 18px;
-  color: var(--tertiary);
-  transition: color 0.15s, transform 0.2s;
+  color: var(--secondary);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+  transition: color 0.15s, transform 0.2s, filter 0.15s;
 }
-.prr-zone:hover .prr-icon { color: var(--primary); transform: rotate(180deg); }
+.prr-zone:hover .prr-icon { color: var(--primary); transform: rotate(180deg); filter: none; }
 
 .arr-panel {
   display: none;
@@ -378,6 +380,7 @@ html, body {
   user-select: none;
 }
 .status-item { display: flex; align-items: center; gap: 4px; white-space:nowrap; }
+.status-locked { color: var(--red); }
 .status-sep { width: 1px; height: 16px; background: var(--border); flex-shrink:0; }
 .status-btn {
   display: flex;

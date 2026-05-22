@@ -436,9 +436,85 @@ describe('CanvasArea', () => {
       // Cards fit comfortably at 1x, should not zoom in
       expect(canvas.getSaveState().zoom).toBe(1);
     });
+});
+
+describe('fitViewport', () => {
+  function callFitViewport(cs: any): void {
+    (canvas as any).fitViewport(cs);
+  }
+
+  it('resets scale to 1', async () => {
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    canvas.zoomIn();
+    canvas.zoomIn();
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(canvas.getSaveState().zoom).toBe(1);
   });
 
-  describe('auto arrange', () => {
+  it('zeros panX and panY', async () => {
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 400)); // wait for panToCard animation (300ms) to finish
+
+    const cs = (canvas as any).cards[0];
+    // panX/panY are now centered on the card (non-zero)
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    const state = canvas.getSaveState();
+    expect(state.panX).toBe(0);
+    expect(state.panY).toBe(0);
+  });
+
+  it('positions card at origin (0, 0)', async () => {
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    cs.worldX = 1000;
+    cs.worldY = 500;
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(cs.worldX).toBe(0);
+    expect(cs.worldY).toBe(0);
+  });
+
+  it('sizes card to fill viewport exactly', async () => {
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(cs.savedWidth).toBe(1920);
+    expect(cs.savedHeight).toBe(1080);
+    expect(cs.card.opts.width).toBe(1920);
+    expect(cs.card.opts.height).toBe(1080);
+    expect(cs.card.el.style.width).toBe('1920px');
+    expect(cs.card.el.style.height).toBe('1080px');
+  });
+
+  it('fires onStateChange after fitting', async () => {
+    const onChange = vi.fn();
+    canvas.onStateChange = onChange;
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(onChange).toHaveBeenCalled();
+  });
+});
+
+describe('auto arrange', () => {
     it('positions open cards in a left-to-right grid', async () => {
       canvas.addTerminal();
       canvas.addTerminal();

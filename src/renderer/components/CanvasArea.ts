@@ -30,7 +30,13 @@ export class CanvasArea {
   onTerminalsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onDevsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onContextsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
-  locked = false;
+  onLockToggle: (() => void) | null = null;
+  private _locked = false;
+  get locked(): boolean { return this._locked; }
+  set locked(v: boolean) {
+    this._locked = v;
+    this.updateStatusBar();
+  }
   private patternSize = 28;
   private patternDataURL = '';
   private cards: CardState[] = [];
@@ -364,6 +370,7 @@ export class CanvasArea {
         if (!cs) return;
         this.contextMenuOpen = true;
         const menu = new ContextMenu([
+          { label: 'Fit Viewport', action: () => this.fitViewport(cs) },
           ...(cs.isOpen ? [{ label: 'Minimize', action: () => {
             cs.isOpen = false;
             cs.card.el.style.display = 'none';
@@ -512,6 +519,7 @@ export class CanvasArea {
         if (!cs) return;
         this.contextMenuOpen = true;
         const menu = new ContextMenu([
+          { label: 'Fit Viewport', action: () => this.fitViewport(cs) },
           ...(cs.isOpen ? [{ label: 'Minimize', action: () => {
             cs.isOpen = false;
             cs.card.el.style.display = 'none';
@@ -939,6 +947,24 @@ export class CanvasArea {
     this.scheduleTransform();
   }
 
+  private fitViewport(cs: CardState): void {
+    this.scale = 1;
+    this.panX = 0;
+    this.panY = 0;
+    cs.worldX = 0;
+    cs.worldY = 0;
+    const w = this.el.clientWidth;
+    const h = this.el.clientHeight;
+    cs.savedWidth = w;
+    cs.savedHeight = h;
+    cs.card.opts.width = w;
+    cs.card.opts.height = h;
+    cs.card.el.style.width = `${w}px`;
+    cs.card.el.style.height = `${h}px`;
+    this.scheduleTransform();
+    this.onStateChange?.();
+  }
+
   setView(state: { zoom: number; panX: number; panY: number }): void {
     this.scale = state.zoom; this.panX = state.panX; this.panY = state.panY;
     this.scheduleTransform();
@@ -963,8 +989,7 @@ export class CanvasArea {
   private initZoomPan(): void {
     // Canvas wheel zoom (only when over empty canvas area, not over cards)
     this.el.addEventListener('wheel', (e) => {
-      if (e.ctrlKey) return; // handled by global handler below
-      e.preventDefault();
+      if (this.locked || e.ctrlKey) return;
       const rect = this.el.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -1062,12 +1087,19 @@ export class CanvasArea {
       maxY = Math.max(maxY, cs.worldY + cs.savedHeight);
     }
 
-    const worldW = maxX - minX;
-    const worldH = maxY - minY;
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
-    const margin = 80;
 
+    if (this.locked) {
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      this.animatePan(cw / 2 - cx * this.scale, ch / 2 - cy * this.scale);
+      return;
+    }
+
+    const worldW = maxX - minX;
+    const worldH = maxY - minY;
+    const margin = 80;
     const fitX = (cw - margin) / worldW;
     const fitY = (ch - margin) / worldH;
     this.scale = Math.max(0.1, Math.min(fitX, fitY, 1));
@@ -1080,21 +1112,28 @@ export class CanvasArea {
   private panToCard(cs: CardState): void {
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
-    const margin = 80;
 
-    // Force zoom to fit the card with margin (always zoom out, never zoom in past 0.1)
+    if (this.locked) {
+      // Center on card without changing zoom
+      const targetX = cw / 2 - (cs.worldX + cs.savedWidth / 2) * this.scale;
+      const targetY = ch / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;
+      this.animatePan(targetX, targetY);
+      return;
+    }
+
+    const margin = 80;
     const fitX = (cw - margin) / cs.savedWidth;
     const fitY = (ch - margin) / cs.savedHeight;
     const targetScale = Math.min(fitX, fitY, 1);
     this.scale = Math.max(0.1, targetScale);
 
-    // Center on card center (not top-left) using the NEW scale
     const targetX = cw / 2 - (cs.worldX + cs.savedWidth / 2) * this.scale;
     const targetY = ch / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;
     this.animatePan(targetX, targetY);
   }
 
   private sbZoom: HTMLSpanElement | null = null;
+  private sbLocked: HTMLSpanElement | null = null;
   private sbPan: HTMLSpanElement | null = null;
   private sbWorkspace: HTMLSpanElement | null = null;
 
@@ -1107,6 +1146,13 @@ export class CanvasArea {
     this.sbZoom = document.createElement('span');
     this.sbZoom.className = 'status-item';
     sb.appendChild(this.sbZoom);
+    this.sbZoom.addEventListener('click', () => this.onLockToggle?.());
+
+    this.sbLocked = document.createElement('span');
+    this.sbLocked.className = 'status-item status-locked';
+    this.sbLocked.textContent = 'Locked';
+    this.sbLocked.style.display = 'none';
+    sb.appendChild(this.sbLocked);
     sep();
 
     this.sbPan = document.createElement('span');
@@ -1140,7 +1186,13 @@ export class CanvasArea {
 
   private updateStatusBar(): void {
     this.initStatusBar();
-    if (this.sbZoom) this.sbZoom.textContent = `Zoom: ${Math.round(this.scale * 100)}%`;
+    if (this.sbZoom) {
+      const icon = this.locked
+        ? '<svg class="status-locked" width="14" height="14" viewBox="0 0 512 512" style="vertical-align:middle;fill:currentColor;cursor:pointer"><path d="M368 192h-16v-80a96 96 0 10-192 0v80h-16a64.07 64.07 0 00-64 64v176a64.07 64.07 0 0064 64h224a64.07 64.07 0 0064-64V256a64.07 64.07 0 00-64-64zm-48 0H192v-80a64 64 0 11128 0z"/></svg>'
+        : '<svg width="14" height="14" viewBox="0 0 512 512" style="vertical-align:middle;fill:var(--tertiary);cursor:pointer"><path d="M368 192H192v-80a64 64 0 11128 0 16 16 0 0032 0 96 96 0 10-192 0v80h-16a64.07 64.07 0 00-64 64v176a64.07 64.07 0 0064 64h224a64.07 64.07 0 0064-64V256a64.07 64.07 0 00-64-64z"/></svg>';
+      this.sbZoom.innerHTML = `Zoom: ${Math.round(this.scale * 100)}% ${icon}`;
+    }
+    if (this.sbLocked) this.sbLocked.style.display = 'none';
     if (this.sbPan) this.sbPan.textContent = `Pan: ${Math.round(this.panX)}, ${Math.round(this.panY)}`;
     if (this.sbWorkspace) this.sbWorkspace.textContent = this.workspaceName;
   }
