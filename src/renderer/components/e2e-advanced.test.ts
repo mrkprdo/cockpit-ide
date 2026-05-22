@@ -844,7 +844,7 @@ describe('E2E Advanced: FileExplorer Nested Operations', () => {
 
     const tree = container.querySelector('div > div') as HTMLElement;
     const children = Array.from(tree.querySelectorAll('div'))
-      .map(d => d.textContent?.replace(/[▸▾\s]/g, '') || '')
+      .map(d => d.textContent?.replace(/[▸▾·\s]/g, '') || '')
       .filter(Boolean);
 
     // Directories (alpha, gamma) should come before files (beta, zebra)

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DevPlugin } from './DevPlugin';
+import { CommandPalette } from './CommandPalette';
 import { mockElectronAPI } from '../../test/setup';
 
 function makeContainer(): HTMLElement {
@@ -80,5 +81,37 @@ describe('DevPlugin', () => {
       cursors: {},
     });
     // Should not throw
+  });
+
+  it('palette is lazily created on first openFileSearch call', () => {
+    const dev = new DevPlugin(container, '/test/ws');
+    expect(dev.palette).toBeNull();
+    dev.openFileSearch();
+    expect(dev.palette).toBeTruthy();
+  });
+
+  it('openFileSearch opens the palette overlay', () => {
+    const dev = new DevPlugin(container, '/test/ws');
+    dev.openFileSearch();
+    const ov = document.querySelector('.palette-overlay');
+    expect(ov).toBeTruthy();
+    expect(ov!.classList.contains('open')).toBe(true);
+  });
+
+  it('palette is created and opened on openFileSearch', () => {
+    const dev = new DevPlugin(container, '/test/ws');
+    expect(dev.palette).toBeNull();
+    dev.openFileSearch();
+    expect(dev.palette).toBeTruthy();
+    const ov = document.querySelector('.palette-overlay');
+    expect(ov?.classList.contains('open')).toBe(true);
+  });
+
+  it('does not open palette when card is minimized (hidden)', () => {
+    const dev = new DevPlugin(container, '/test/ws');
+    container.style.display = 'none';
+    dev.openFileSearch();
+    const ov = document.querySelector('.palette-overlay');
+    expect(ov?.classList.contains('open')).toBeFalsy();
   });
 });

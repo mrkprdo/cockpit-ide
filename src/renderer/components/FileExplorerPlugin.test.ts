@@ -114,7 +114,9 @@ describe('FileExplorerPlugin', () => {
 
   it('stops wheel propagation on the tree element', () => {
     new FileExplorerPlugin(container, '/test', vi.fn());
-    const treeEl = container.firstElementChild as HTMLElement;
+    // treeEl is the scrollable div (second child of the outer el)
+    const outerEl = container.firstElementChild as HTMLElement;
+    const treeEl = outerEl.querySelector('div:last-child') as HTMLElement;
 
     const wheelEvent = new WheelEvent('wheel', { bubbles: true });
     const stopPropagationSpy = vi.spyOn(wheelEvent, 'stopPropagation');

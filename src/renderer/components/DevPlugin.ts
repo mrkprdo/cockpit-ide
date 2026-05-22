@@ -1,9 +1,11 @@
 import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
+import { CommandPalette } from './CommandPalette';
 
 export class DevPlugin {
   onStateChange: (() => void) | null = null;
   editor: MonacoEditorPlugin;
+  palette: CommandPalette | null = null;
   private splitEl: HTMLDivElement;
   private isDragging = false;
   private explorerCol: HTMLDivElement;
@@ -73,6 +75,25 @@ export class DevPlugin {
     });
     // Retry once after 1s in case DOM wasn't ready
     setTimeout(() => this.explorer.refresh(), 1000);
+  }
+
+  private isHidden(): boolean {
+    let el: HTMLElement | null = this.splitEl;
+    while (el) {
+      if (el.style.display === 'none') return true;
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  openFileSearch(): void {
+    if (this.isHidden()) return;
+    if (!this.palette) {
+      this.palette = new CommandPalette(this.wsPath, (filePath) => {
+        this.editor.openFile(filePath);
+      });
+    }
+    this.palette.open();
   }
 
   setContextOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
