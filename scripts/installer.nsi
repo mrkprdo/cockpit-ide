@@ -75,11 +75,14 @@ Section "Cockpit IDE" SecMain
     "" "$INSTDIR\CockpitIDE.exe" 0
   CreateShortcut "$SMPROGRAMS\Cockpit IDE\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
 
-  ; bin launcher
+  ; bin launcher — forwards all arguments to CockpitIDE.exe
   CreateDirectory "$INSTDIR\bin"
   FileOpen $0 "$INSTDIR\bin\cockpit.cmd" w
   FileWrite $0 "@echo off$\r$\n"
-  FileWrite $0 "powershell -NoProfile -Command $\"Start-Process '%~dp0..\CockpitIDE.exe'$\"$\r$\n"
+  FileWrite $0 "setlocal$\r$\n"
+  FileWrite $0 """%~dp0..\CockpitIDE.exe"" %*$\r$\n"
+  FileWrite $0 "if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%$\r$\n"
+  FileWrite $0 "endlocal$\r$\n"
   FileClose $0
 
   ; Add bin to user PATH
