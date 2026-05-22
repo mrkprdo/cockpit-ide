@@ -224,8 +224,43 @@ export class MonacoEditorPlugin {
     m.editor.setTheme(light ? 'cockpit-light' : 'cockpit-dark');
   }
 
+  private createEditorInstance(m: any): void {
+    this.editor = m.editor.create(this.editorEl, {
+      value: '',
+      language: 'plaintext',
+      theme: this.isLight() ? 'cockpit-light' : 'cockpit-dark',
+      fontSize: 13,
+      fontFamily: '"Space Mono", "Courier New", monospace',
+      lineNumbers: 'on',
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+      wordWrap: 'on',
+      tabSize: 2,
+      renderWhitespace: 'selection',
+      padding: { top: 8 },
+    });
+
+    this.editor.addAction({
+      id: 'save-file',
+      label: 'Save File',
+      keybindings: [m.KeyMod.CtrlCmd | m.KeyCode.KeyS],
+      run: () => this.saveCurrentFile(),
+    });
+
+    let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+    this.editor.onDidChangeModelContent(() => {
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => this.saveCurrentFile(), 1500);
+    });
+  }
+
   private async initMonaco(): Promise<void> {
-    if ((window as any).monaco) return;
+    const existing = (window as any).monaco;
+    if (existing) {
+      this.createEditorInstance(existing);
+      return;
+    }
 
     const vsBase = new URL('../vs', window.location.href).href.replace(/\/$/, '');
 
@@ -234,11 +269,11 @@ export class MonacoEditorPlugin {
     link.href = '../vs/editor/editor.main.css';
     document.head.appendChild(link);
 
-    // Must be set before loader.js so Monaco worker spawning uses correct absolute path
+    // Custom cockpit:// protocol (registered in main process) allows Monaco workers
+    // to load via importScripts with a proper origin instead of null-origin blob URLs.
     (window as any).MonacoEnvironment = {
       getWorkerUrl: (_moduleId: string, _label: string): string => {
-        const src = `self.MonacoEnvironment={baseUrl:'${vsBase}/'};importScripts('${vsBase}/base/worker/workerMain.js');`;
-        return URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+        return 'cockpit:///vs/base/worker/workerMain.js';
       },
     };
 
@@ -289,35 +324,7 @@ export class MonacoEditorPlugin {
           },
         });
 
-        this.editor = m.editor.create(this.editorEl, {
-          value: '',
-          language: 'plaintext',
-          theme: this.isLight() ? 'cockpit-light' : 'cockpit-dark',
-          fontSize: 13,
-          fontFamily: '"Space Mono", "Courier New", monospace',
-          lineNumbers: 'on',
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          automaticLayout: true,
-          wordWrap: 'on',
-          tabSize: 2,
-          renderWhitespace: 'selection',
-          padding: { top: 8 },
-        });
-
-        this.editor.addAction({
-          id: 'save-file',
-          label: 'Save File',
-          keybindings: [m.KeyMod.CtrlCmd | m.KeyCode.KeyS],
-          run: () => this.saveCurrentFile(),
-        });
-
-        let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
-        this.editor.onDidChangeModelContent(() => {
-          if (autoSaveTimer) clearTimeout(autoSaveTimer);
-          autoSaveTimer = setTimeout(() => this.saveCurrentFile(), 1500);
-        });
-
+        this.createEditorInstance(m);
         resolve();
       }, (err: any) => {
         console.error('Monaco failed to load:', err);
