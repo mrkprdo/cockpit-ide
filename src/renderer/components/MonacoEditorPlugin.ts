@@ -1,5 +1,8 @@
 interface Tab { filePath: string; name: string; originalPath: string; }
 
+// Shared across all instances — bootstraps Monaco globals (CSS, loader.js, themes) exactly once.
+let monacoReady: Promise<any> | null = null;
+
 export class MonacoEditorPlugin {
   onStateChange: (() => void) | null = null;
 
@@ -256,12 +259,21 @@ export class MonacoEditorPlugin {
   }
 
   private async initMonaco(): Promise<void> {
-    const existing = (window as any).monaco;
-    if (existing) {
-      this.createEditorInstance(existing);
+    // If another instance already bootstrapped globals, just create this instance's editor.
+    if ((window as any).monaco) {
+      this.createEditorInstance((window as any).monaco);
       return;
     }
+    // Bootstrap once across all instances — loader.js declares top-level vars and
+    // throws if injected twice.
+    if (!monacoReady) {
+      monacoReady = this.bootstrapMonaco();
+    }
+    const m = await monacoReady;
+    if (m) this.createEditorInstance(m);
+  }
 
+  private async bootstrapMonaco(): Promise<any> {
     const vsBase = new URL('../vs', window.location.href).href.replace(/\/$/, '');
 
     const link = document.createElement('link');
@@ -280,7 +292,7 @@ export class MonacoEditorPlugin {
 
     await this.loadScript('../vs/loader.js');
 
-    return new Promise<void>((resolve) => {
+    return new Promise<any>((resolve) => {
       const r = (window as any).require;
       r.config({
         paths: { vs: vsBase },
@@ -289,7 +301,7 @@ export class MonacoEditorPlugin {
 
       r(['vs/editor/editor.main'], () => {
         const m = (window as any).monaco;
-        if (!m) { resolve(); return; }
+        if (!m) { resolve(m); return; }
 
         m.editor.defineTheme('cockpit-dark', {
           base: 'vs-dark', inherit: true, rules: [],
@@ -325,11 +337,10 @@ export class MonacoEditorPlugin {
           },
         });
 
-        this.createEditorInstance(m);
-        resolve();
+        resolve(m);
       }, (err: any) => {
         console.error('Monaco failed to load:', err);
-        resolve();
+        resolve(null);
       });
     });
   }
