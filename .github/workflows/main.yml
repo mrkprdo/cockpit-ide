@@ -64,7 +64,7 @@ jobs:
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: nightly
-                  name: nightly
+                  name: ${{ env.VERSION }}-nightly
                   body: ${{ env.CHANGELOG }}
                   prerelease: true
                   files: |
