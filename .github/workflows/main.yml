@@ -60,6 +60,14 @@ jobs:
                   if (-not $exe) { throw "No installer found in out/" }
                   echo "ARTIFACT_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
 
+            - name: Remove old nightly release (so fresh one is created)
+              shell: pwsh
+              run: |
+                  gh release delete nightly -y 2>$null
+                  git push origin :refs/tags/nightly 2>$null
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
             - name: Publish nightly release
               uses: softprops/action-gh-release@v2
               with:
