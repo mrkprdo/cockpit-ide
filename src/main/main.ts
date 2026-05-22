@@ -1,7 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createAndStartMcpServer } from './mcp-server';
 
 process.noDeprecation = true;
 
@@ -461,28 +460,6 @@ app.whenReady().then(async () => {
   });
 
   createWindow();
-
-  // ─── MCP Server ───
-  if (!process.env.VITEST) {
-    (async () => {
-      try {
-        const mcpServer = await createAndStartMcpServer({
-          workspacePath,
-          isPathSafe,
-          ptyProcesses,
-          terminalSenders,
-          cockpitDir,
-          createNewWindow,
-          filterEnv,
-        });
-        // Write port to userData for client discovery
-        const portFile = path.join(app.getPath('userData'), 'mcp-port.txt');
-        fs.writeFileSync(portFile, String(mcpServer.port), 'utf-8');
-      } catch (e) {
-        console.error('MCP server failed to start:', e);
-      }
-    })();
-  }
 
   app.on('window-all-closed', () => {
     stopWatching().then(() => {
