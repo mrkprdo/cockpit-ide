@@ -31,6 +31,7 @@ vi.mock('@xterm/xterm', () => {
     focus = vi.fn();
     resize = vi.fn();
     dispose = vi.fn();
+    loadAddon = vi.fn();
     onData = vi.fn().mockReturnValue({ dispose: vi.fn() });
     onResize = vi.fn().mockReturnValue({ dispose: vi.fn() });
     attachCustomKeyEventHandler = vi.fn();

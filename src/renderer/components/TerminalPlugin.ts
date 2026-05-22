@@ -1,146 +1,106 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 
+const BASE_FONT_SIZE = 13;
+
 export class TerminalPlugin {
   readonly uuid: string;
+  readonly element: HTMLDivElement;
+
   onExit: (() => void) | null = null;
-  private term: Terminal;
-  private fitAddon: FitAddon;
-  private el: HTMLDivElement;
-  private ro: ResizeObserver;
-  private cleanup: (() => void) | null = null;
-  private exitCleanup: (() => void) | null = null;
-  private cwd: string | undefined;
-  private scale = 1;
-  private baseFontSize = 13;
+
+  private xterm: Terminal | null = null;
+  private fitAddon: FitAddon | null = null;
+  private unlistenData: (() => void) | null = null;
+  private unlistenExit: (() => void) | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+  private destroyed = false;
 
   constructor(container: HTMLElement, uuid: string, cwd?: string) {
     this.uuid = uuid;
-    this.cwd = cwd;
-    this.el = document.createElement('div');
-    this.el.style.cssText = 'width:100%;height:100%;background:#0A0E14';
-    container.appendChild(this.el);
+    this.element = document.createElement('div');
+    this.element.style.cssText = 'width:100%;height:100%;overflow:hidden';
+    container.appendChild(this.element);
 
-    this.fitAddon = new FitAddon();
-    this.term = new Terminal({
-      cursorBlink: true,
-      cursorStyle: 'bar',
-      fontSize: 13,
-      fontFamily: '"Space Mono", "Courier New", monospace',
-      theme: {
-        background: '#0A0E14',
-        foreground: '#C8D6E5',
-        cursor: '#C8D6E5',
-        selectionBackground: '#2A3A4A',
-        black: '#0A0E14',
-        red: '#FF1744',
-        green: '#00E676',
-        yellow: '#FFAB00',
-        blue: '#00E5FF',
-        magenta: '#7C4DFF',
-        cyan: '#00E5FF',
-        white: '#C8D6E5',
-        brightBlack: '#546E7A',
-        brightRed: '#FF1744',
-        brightGreen: '#00E676',
-        brightYellow: '#FFAB00',
-        brightBlue: '#00E5FF',
-        brightMagenta: '#7C4DFF',
-        brightCyan: '#00E5FF',
-        brightWhite: '#ECEFF1',
-      },
-    });
-
-    this.fitAddon.activate(this.term);
-    this.term.open(this.el);
-    this.term.focus();
-
-    this.ro = new ResizeObserver(() => this.fit());
-    this.ro.observe(this.el);
-
-    this.term.attachCustomKeyEventHandler((e) => {
-      if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey) {
-        const text = window.electronAPI?.clipboard.readText();
-        if (text) this.term.paste(text);
-        return false;
-      }
-      if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
-        const text = window.electronAPI?.clipboard.readText();
-        if (text) this.term.paste(text);
-        return false;
-      }
-      return true;
-    });
-
-    this.init();
-  }
-
-  private async init(): Promise<void> {
-    const api = window.electronAPI?.terminal;
+    const api = (window as any).electronAPI;
     if (!api) return;
 
-    await api.create(this.uuid, this.cwd);
-
-    this.cleanup = api.onData((termUuid, data) => {
-      if (termUuid === this.uuid) this.term.write(data);
+    const term = new Terminal({
+      fontSize: BASE_FONT_SIZE,
+      fontFamily: '"Cascadia Code", "Fira Code", monospace',
+      theme: {
+        background: '#161C24',
+        foreground: '#C8D6E5',
+        cursor: '#00E5FF',
+        selectionBackground: 'rgba(0,229,255,0.2)',
+      },
+      cursorBlink: true,
+      allowProposedApi: true,
     });
 
-    this.exitCleanup = api.onExit((termUuid) => {
-      if (termUuid === this.uuid) {
-        this.term.write('\r\n\x1b[31m[Process exited]\x1b[0m\r\n');
-        this.onExit?.();
-      }
+    const fitAddon = new FitAddon();
+    (term as any).loadAddon?.(fitAddon);
+    term.open(this.element);
+    fitAddon.fit();
+
+    this.xterm = term;
+    this.fitAddon = fitAddon;
+
+    term.onData((data: string) => {
+      api.terminal.write(uuid, data);
     });
 
-    this.term.onData((data) => {
-      api.write(this.uuid, data);
+    term.onResize(({ cols, rows }: { cols: number; rows: number }) => {
+      api.terminal.resize(uuid, cols, rows);
     });
 
-    this.term.onResize(({ cols, rows }) => {
-      api.resize(this.uuid, cols, rows);
-    });
+    this.unlistenData = api.terminal.onData((id: string, data: string) => {
+      if (id === uuid) term.write(data);
+    }) ?? null;
 
-    // Fit on next frame
-    requestAnimationFrame(() => this.fit());
+    this.unlistenExit = api.terminal.onExit((id: string) => {
+      if (id === uuid) this.onExit?.();
+    }) ?? null;
+
+    // Adapt cols/rows only when physical container dimensions change (card resize).
+    // Canvas zoom is handled by CSS transform on PluginCard — no PTY resize needed.
+    const ro = new ResizeObserver(() => {
+      if (!this.destroyed) fitAddon.fit();
+    });
+    ro.observe(this.element);
+    this.resizeObserver = ro;
+
+    api.terminal.create(uuid, cwd)?.catch(() => {});
   }
 
   fit(): void {
-    try {
-      this.fitAddon.fit();
-    } catch {
-      // fit may throw if terminal or container isn't rendered yet
-    }
+    this.fitAddon?.fit();
   }
 
-  setScale(scale: number): void {
-    this.scale = scale;
-    this.adjustScale();
-    this.term.options.fontSize = Math.max(6, Math.round(this.baseFontSize * scale));
-    this.fit();
-  }
-
-  private adjustScale(): void {
-    const s = this.scale;
-    const parent = this.el.parentElement;
-    if (!parent) return;
-    if (s === 1) {
-      this.el.style.transform = '';
-      this.el.style.width = '100%';
-      this.el.style.height = '100%';
-      return;
-    }
-    this.el.style.width = `${parent.clientWidth * s}px`;
-    this.el.style.height = `${parent.clientHeight * s}px`;
-    this.el.style.transform = `scale(${1 / s})`;
-    this.el.style.transformOrigin = '0 0';
+  setScale(_scale: number): void {
+    // PluginCard applies transform: scale() for canvas zoom — no fontSize change needed here.
   }
 
   destroy(): void {
-    this.ro.disconnect();
-    this.cleanup?.();
-    this.exitCleanup?.();
-    window.electronAPI?.terminal.kill(this.uuid);
-    this.fitAddon.dispose();
-    this.term.dispose();
+    if (this.destroyed) return;
+    this.destroyed = true;
+
+    const api = (window as any).electronAPI;
+    if (api) api.terminal.kill(this.uuid);
+
+    this.unlistenData?.();
+    this.unlistenExit?.();
+    this.unlistenData = null;
+    this.unlistenExit = null;
+
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+
+    this.fitAddon?.dispose();
+    this.xterm?.dispose();
+    this.fitAddon = null;
+    this.xterm = null;
+
+    this.element.remove();
   }
 }
