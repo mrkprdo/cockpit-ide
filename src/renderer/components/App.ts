@@ -3,7 +3,6 @@ import { CanvasArea, SaveState } from './CanvasArea';
 import { WelcomeModal } from './WelcomeModal';
 import { AboutModal } from './AboutModal';
 import { Tutorial } from './Tutorial';
-import { DashPanel } from './DashPanel';
 import { theme } from '../theme';
 
 export class App {
@@ -11,7 +10,6 @@ export class App {
   private topBar: TopBar;
   private about: AboutModal;
   private tutorial: Tutorial;
-  private dashpanel: DashPanel;
   private lastSaved = '';
   private wsPath = '';
 
@@ -47,7 +45,6 @@ export class App {
 
     this.about = new AboutModal();
     this.tutorial = new Tutorial();
-    this.dashpanel = new DashPanel();
 
     this.topBar = new TopBar(document.getElementById('menu-bar')!, {
       onGridChange: async (style) => {
@@ -178,7 +175,6 @@ export class App {
 
     this.canvas.workspaceName = path;
     this.canvas.refresh();
-    this.initDashPanel();
     this.saveNow();
 
     if (prefs?.showTutorial !== false) {
@@ -192,19 +188,6 @@ export class App {
       prefs.showTutorial = this.tutorial.getShowOnLaunch();
       await window.electronAPI?.prefs.save(prefs);
     });
-  }
-
-  private initDashPanel(): void {
-    const center = document.getElementById('statusbar-center');
-    if (!center) return;
-    const btn = document.createElement('button');
-    btn.className = 'status-btn-dash';
-    btn.textContent = '^';
-    btn.title = 'Toggle Chat';
-    btn.addEventListener('click', () => this.dashpanel.toggle());
-    const updateBtn = () => { btn.classList.toggle('active', this.dashpanel.isOpen); };
-    btn.addEventListener('click', updateBtn);
-    center.appendChild(btn);
   }
 
   private initWindowControls(): void {
