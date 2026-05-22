@@ -34,6 +34,11 @@ export class App {
         e.preventDefault();
         this.canvas.cycleCard(e.shiftKey ? -1 : 1);
       }
+      // Ctrl+P / Cmd+P — open file search palette
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        this.canvas.getActiveDevPlugin()?.openFileSearch();
+      }
     });
 
     this.canvas = new CanvasArea(document.getElementById('canvas')!);
@@ -62,7 +67,7 @@ export class App {
       },
       onThemeToggle: async () => {
         this.canvas.refresh();
-        this.canvas.devPlugin?.updateTheme();
+        this.canvas.getActiveDevPlugin()?.updateTheme();
         const prefs = (await window.electronAPI?.prefs.load()) || {};
         prefs.isDark = theme.isDark;
         window.electronAPI?.prefs.save(prefs);

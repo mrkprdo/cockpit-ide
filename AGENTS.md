@@ -31,16 +31,15 @@ D:\cockpit_ide\
 ├── bin/
 │   ├── cockpit.bat                # Windows launcher — starts Cockpit.exe with args
 │   └── cockpit-mcp-bridge.mjs    # Stdio-to-HTTP MCP bridge for Claude Desktop/opencode
-├── installer-assets/
-│   ├── installer.nsh              # NSIS custom installer script
-│   ├── installerHeader.bmp        # Installer header graphic (150×57)
-│   ├── installerSidebar.bmp       # Installer sidebar graphic (164×314)
-│   └── license.txt               # License shown during install
 ├── public/
 │   ├── cockpit_ide_icon.ico       # App icon (Electron window & installer)
 │   └── icon.svg                   # SVG logo: 4 overlapping circles (Noir palette)
 ├── scripts/
-│   └── generate-installer-assets.js  # Generates installer BMP images (dot-grid pattern)
+│   ├── build-renderer.js          # esbuild renderer bundler + Monaco copy
+│   ├── generate-installer-assets.js  # Generates installer BMP images (dot-grid pattern)
+│   ├── installer.nsi              # NSIS installer script (~115 lines)
+│   ├── pack.js                    # Electron packager + NSIS build orchestrator (~91 lines)
+│   └── version.js                 # Version stamp/restore for builds (~21 lines)
 ├── src/
 │   ├── global.d.ts                # Window.electronAPI type declarations
 │   ├── main/
@@ -79,14 +78,18 @@ D:\cockpit_ide\
 │   │       ├── AboutModal.test.ts # About modal tests: open/close/link/callback (~101 lines)
 │   │       ├── ContextMenu.ts     # Right-click floating context menu (~54 lines)
 │   │       ├── ContextMenu.test.ts # Context menu tests: items/position/actions/singleton (~89 lines)
+│   │       ├── CommandPalette.ts  # Ctrl+P fuzzy file finder (~247 lines)
 │   │       ├── ConfirmModal.ts    # Generic confirmation dialog (~56 lines)
 │   │       ├── ConfirmModal.test.ts # Confirm modal tests: ok/cancel/dismiss (~73 lines)
 │   │       ├── TopBar.ts          # Custom menu bar with dropdowns
 │   │       ├── TopBar.test.ts     # TopBar tests: menus, buttons, callbacks (~166 lines)
+│   │       ├── Tutorial.ts        # Interactive guided tutorial overlay (~324 lines)
+│   │       ├── Tutorial.test.ts   # Tutorial step navigation tests (~179 lines)
+│   │       ├── e2e-advanced.test.ts # Advanced E2E integration tests (~1136 lines)
 │   │       ├── edge-cases.test.ts # 63 edge case tests across all components (~902 lines)
 │   │       └── workflows.test.ts  # 36 integration workflow tests (~1157 lines)
 │   └── test/
-│       ├── README.md              # Test infrastructure docs (16 files, 216+ tests)
+│       ├── README.md              # Test infrastructure docs (20 files, 500+ tests)
 │       └── setup.ts               # Global mocks: IPC, Canvas, xterm, DOM, ResizeObserver
 ```
 
@@ -120,7 +123,11 @@ D:\cockpit_ide\
 | File | Description |
 |------|-------------|
 | `bin/cockpit.bat` | Windows launcher: `start "" "..\Cockpit.exe" %*` — passes CLI args to packaged Electron app. |
+| `scripts/build-renderer.js` | esbuild renderer bundler + Monaco `vs/` copy. Wipes `dist/vs`, re-copies from `node_modules/monaco-editor/min/vs`. |
 | `scripts/generate-installer-assets.js` | Generates installer header (150x57) and sidebar (164x314) BMP files with dot-grid pattern (`#161C24` bg, `#243248` dots). |
+| `scripts/installer.nsi` | NSIS installer script (~115 lines). Build: `makensis /DVERSION="x.y.z" /DOUTDIR="out" /DSRCDIR="out\CockpitIDE-win32-x64" scripts\installer.nsi`. |
+| `scripts/pack.js` | Electron packager + NSIS build orchestrator (~91 lines). Stamps version, runs electron-packager, runs makensis, restores version. |
+| `scripts/version.js` | Version stamp/restore utility (~21 lines). Reads `package.json`, swaps version for build, restores original. |
 | `public/icon.svg` | SVG logo: 4 overlapping circles in gray tones (`#eeeeee`, `#6a6a6a`, `#2a2a2a`, `#4a4a4a`). |
 | `public/cockpit_ide_icon.ico` | Application icon for Electron window and NSIS installer. |
 
@@ -136,7 +143,6 @@ D:\cockpit_ide\
 |------|-------------|
 | `src/main/main.ts` | Electron main process (~395 lines). Creates frameless BrowserWindow (1440x900, maximized) with contextIsolation. Handles all IPC: filesystem (readDir/readFile/writeFile/delete/copy/rename), PTY terminal sessions via node-pty (multi-session, platform-aware shell), chokidar file watching (debounced 100ms, ignores .git/node_modules/.cockpit), workspace persistence (last-workspace.txt, recent-workspaces.json, .cockpit/window.json), window controls (minimize/maximize/close/isMaximized/new), user preferences, native directory picker. Supports multi-window. |
 | `src/main/main.test.ts` | Tests all IPC handlers with mocked electron/fs. Behavioral tests for fs:readDir/readFile/writeFile/delete, window:new, and registration verification for all 20+ IPC channels. |
-| `src/main/mcp-server.ts` | MCP server (~420 lines). Exposes Cockpit as an MCP server over StreamableHTTP on `127.0.0.1:49876`. 24 tools: filesystem (read/write/delete/copy/rename/mkdir/readDir), workspace (getPath/loadState/saveState/getRecent/select), terminal (create/write/kill/list), window (new/minimize/maximize/close), prefs (load/save), shell (openExternal). Uses `@modelcontextprotocol/sdk` + `zod`. |
 
 ### Source: Preload Script
 
@@ -182,11 +188,15 @@ D:\cockpit_ide\
 | `src/renderer/components/AboutModal.test.ts` | Tests: open/close visibility, close button and overlay dismissal, design.md link existence, onClose callback and cleanup. |
 | `src/renderer/components/ContextMenu.ts` | Right-click context menu (~54 lines). Floating singleton menu with items (labels + actions), separators, disabled items. Positions at click coordinates. Closes on outside click or item selection. Tracks all open menus and closes previous before opening new one. |
 | `src/renderer/components/ContextMenu.test.ts` | Tests: item creation, positioning, action firing with menu removal, separators, disabled items, outside-click close, onClose, singleton behavior. |
+| `src/renderer/components/CommandPalette.ts` | Ctrl+P fuzzy file finder (~247 lines). Overlay with input, progress indicator, file index (throttled directory walk), filtered results, recent-file tracking, arrow-key navigation, Enter to open in editor. Debounced refresh on workspace change. |
 | `src/renderer/components/ConfirmModal.ts` | Generic confirmation dialog (~56 lines). Shows message (supports HTML) with Cancel and configurable confirm button (default "Delete"). Returns `Promise<boolean>`. Overlay click = cancel. Removes DOM on resolution. |
 | `src/renderer/components/ConfirmModal.test.ts` | Tests: confirm(true)/cancel(false)/overlay(false) resolution, DOM overlay removal, message display, custom confirm label, default label. |
 | `src/renderer/components/TopBar.ts` | Custom menu bar with dropdown menus (File/View/Help). Plugin submenus (Terminal/Dev/Context) for focus/reopen. Buttons: Open Workspace, New Terminal/Dev/Context, Zoom In/Out, Reset View, Theme Toggle, About. |
 | `src/renderer/components/TopBar.test.ts` | Tests: menu rendering, theme toggle, button callbacks, focus/reopen behavior, empty item lists. |
+| `src/renderer/components/Tutorial.ts` | Interactive guided tutorial overlay (~324 lines). Step-based walkthrough with title, description, optional target element highlighting, extra content renderer, and lifecycle hooks. Dark overlay with tooltip-style step cards. |
+| `src/renderer/components/Tutorial.test.ts` | Tests: step rendering, navigation, lifecycle hooks, skip/finish behavior. |
 | `src/renderer/components/workflows.test.ts` | 36 integration workflow tests (~1157 lines): File CRUD (create/read/delete/copy+paste), Editor tab CRUD, Context tab CRUD (load/render/switch/close/serialize/restore/empty), Dev Plugin workflows (split layout, state delegation, context bridge, theme, restore), Theme persistence, ConfirmModal workflows, E2E file-to-editor/context flows, deep nested directory operations, error recovery. |
+| `src/renderer/components/e2e-advanced.test.ts` | Advanced E2E integration tests (~1136 lines): PluginCard lifecycle (creation/close/remove/double-remove, mousedown focus, setContent, resize handles), CanvasArea instantiation, SaveState structure & plugin tracking, terminal/dev/context create callback chains, canvas viewport management. |
 | `src/renderer/components/edge-cases.test.ts` | 63 edge case tests (~902 lines): Theme (rapid toggles, same-value set), ConfirmModal (empty/long/HTML messages, double-click), ContextMenu (empty/only-separators/error action/extreme coords), WelcomeModal (no electronAPI, long paths), AboutModal (no electronAPI), PluginCard (zero dimensions, long titles, double-remove/click), CanvasArea (zoom bounds, grid cycle, empty save, extreme pan), TopBar (undefined callbacks, empty lists), FileExplorer (empty dir, special chars, paste without copy), Context+Monaco+Dev+Terminal edge cases, cross-component chains. |
 
 ### Source: Test Infrastructure
@@ -194,7 +204,7 @@ D:\cockpit_ide\
 | File | Description |
 |------|-------------|
 | `src/test/setup.ts` | Global test mocks (~232 lines). Mocks: @chenglou/pretext, @xterm/xterm (lightweight Terminal), crypto.randomUUID() (deterministic), Canvas2D context (all vi.fn()), ResizeObserver, requestAnimationFrame (setTimeout 0), devicePixelRatio (1). Creates mock `window.electronAPI` with all 24 IPC channels. Sets CSS custom properties. Bootstraps DOM scaffolding. Exports `mockElectronAPI`. |
-| `src/test/README.md` | Test infrastructure docs (~117 lines). Vitest + jsdom setup, 16 test files with 216+ tests (~3s run time). Test patterns, mock access, known limitations (Monaco AMD loader, node-pty, canvas rendering). |
+| `src/test/README.md` | Test infrastructure docs (~117 lines). Vitest + jsdom setup, 20 test files with 500+ tests (~3s run time). Test patterns, mock access, known limitations (Monaco AMD loader, node-pty, canvas rendering). |
 
 ---
 
@@ -258,3 +268,42 @@ Cockpit IDE runs an MCP (Model Context Protocol) server on `127.0.0.1:49876` (co
 ```
 
 The bridge script automatically detects the Cockpit MCP port by checking common userData directories. Set `COCKPIT_MCP_PORT` env var to override. Cockpit must already be running for the bridge to connect.
+
+<!-- CODEGRAPH_START -->
+## CodeGraph
+
+This project has a CodeGraph index (`.codegraph/` directory exists). CodeGraph is a tree-sitter-parsed knowledge graph of every symbol, edge, and file. When `codegraph_*` tools are available, they offer sub-millisecond structural lookups that grep cannot match. However, these tools are **not available in all sessions** — they depend on MCP server configuration in the client (opencode, Claude Desktop, etc.).
+
+### When `codegraph_*` tools ARE available
+
+Use for **structural** questions — what calls what, what would break, where is X defined, what is X's signature. Use native grep/read only for **literal text** queries (string contents, comments, log messages) or after you already have a specific file open.
+
+| Question | Available Tool |
+|---|---|
+| "Where is X defined?" / "Find symbol named X" | `codegraph_search` |
+| "What calls function Y?" | `codegraph_callers` |
+| "What does Y call?" | `codegraph_callees` |
+| "What would break if I changed Z?" | `codegraph_impact` |
+| "Show me Y's signature / source / docstring" | `codegraph_node` |
+| "Give me focused context for a task/area" | `codegraph_context` |
+| "See several related symbols' source at once" | `codegraph_explore` |
+| "What files exist under path/" | `codegraph_files` |
+| "Is the index healthy?" | `codegraph_status` |
+
+### When `codegraph_*` tools are NOT available (fallback)
+
+Use native tools (grep, glob, read, task) instead. For structural questions, the most efficient approach is:
+
+1. **`glob`** to find files by pattern
+2. **`grep`** to find symbol definitions or usages by name
+3. **`task`** with a `general` agent for larger exploration
+
+### Rules of thumb (when tools ARE available)
+
+- **Answer directly — don't delegate exploration.** For "how does X work" / architecture / trace questions, answer with 2-3 codegraph calls: `codegraph_context` first, then ONE `codegraph_explore` for the source of the symbols it surfaces. Codegraph IS the pre-built index, so spawning a separate file-reading sub-task/agent — or running a grep + read loop — repeats work codegraph already did and costs more for the same answer.
+- **Trust codegraph results.** They come from a full AST parse. Do NOT re-verify them with grep — that's slower, less accurate, and wastes context.
+- **Don't grep first** when looking up a symbol by name. `codegraph_search` is faster and returns kind + location + signature in one call.
+- **Don't chain `codegraph_search` + `codegraph_node`** when you just want context — `codegraph_context` is one call.
+- **Don't loop `codegraph_node` over many symbols** — one `codegraph_explore` call returns several symbols' source grouped in a single capped call, while each separate node/Read call re-reads the whole context and costs far more.
+- **Index lag**: the file watcher debounces ~500ms behind writes; don't re-query immediately after editing a file in the same turn.
+<!-- CODEGRAPH_END -->

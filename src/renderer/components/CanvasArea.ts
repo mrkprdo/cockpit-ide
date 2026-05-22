@@ -22,6 +22,7 @@ interface CardState {
   savedWX: number;
   savedWY: number;
   terminalPlugin: TerminalPlugin | null;
+  devPlugin: DevPlugin | null;
   onCardResize?: () => void;
 }
 
@@ -448,7 +449,6 @@ export class CanvasArea {
   getSaveState(): SaveState {
     // Sort by current z-index to get bottom-to-top order
     const byZ = [...this.cards].sort((a, b) => parseInt(a.card.el.style.zIndex || '1') - parseInt(b.card.el.style.zIndex || '1'));
-    const editorState = this.devPlugin ? this.devPlugin.getEditorState() : null;
     return {
       plugins: this.cards.map(c => {
         // Always read actual DOM dimensions as authoritative source
@@ -457,6 +457,7 @@ export class CanvasArea {
         c.savedWidth = w;
         c.savedHeight = h;
         const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: w, height: h, isOpen: c.isOpen };
+        const editorState = c.devPlugin ? c.devPlugin.getEditorState() : null;
         if (c.savedTitle.startsWith('Dev') && editorState) base.editorState = editorState;
         if (c.savedTitle.startsWith('Context')) {
           const ctx = this.contextPlugins.find(p => p.title === c.savedTitle);
@@ -495,8 +496,17 @@ export class CanvasArea {
   }
 
   private activeEditor: MonacoEditorPlugin | null = null;
-  devPlugin: DevPlugin | null = null;
   private wsPath = '';
+
+  getActiveDevPlugin(): DevPlugin | null {
+    const sorted = [...this.cards].sort((a, b) =>
+      parseInt(b.card.el.style.zIndex || '0') - parseInt(a.card.el.style.zIndex || '0')
+    );
+    for (const cs of sorted) {
+      if (cs.devPlugin && cs.isOpen) return cs.devPlugin;
+    }
+    return null;
+  }
 
   private createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onClose?: () => void }): CardState {
     const card = new PluginCard(this.el, {
@@ -536,7 +546,7 @@ export class CanvasArea {
 
     const cx = this.clampWorld(p.x);
     const cy = this.clampWorld(p.y);
-    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null };
+    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, devPlugin: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
@@ -615,12 +625,12 @@ export class CanvasArea {
             body.style.justifyContent = 'stretch';
             const dev = new DevPlugin(body, wsPath);
             dev.onStateChange = () => this.onStateChange?.();
-            this.devPlugin = dev;
+            cs.devPlugin = dev;
             dev.setContextOpeners(this.getContextLabels(), (filePath, label) => this.openInContext(filePath, label));
             // Restore editor state from plugin entry
             if (p.editorState) {
               const es = p.editorState;
-              setTimeout(() => this.devPlugin?.restoreEditorState(es), 500);
+              setTimeout(() => dev.restoreEditorState(es), 500);
             }
           }
         }
@@ -699,7 +709,7 @@ export class CanvasArea {
         body.style.justifyContent = 'stretch';
         const dev = new DevPlugin(body, wsPath);
         dev.onStateChange = () => this.onStateChange?.();
-        this.devPlugin = dev;
+        cs.devPlugin = dev;
         dev.setContextOpeners(this.getContextLabels(), (filePath, label) => this.openInContext(filePath, label));
         this.notifyDevsChanged();
         this.bringToFront(cs.card);
@@ -850,7 +860,7 @@ export class CanvasArea {
         body.style.justifyContent = 'stretch';
         const dev = new DevPlugin(body, this.wsPath);
         dev.onStateChange = () => this.onStateChange?.();
-        this.devPlugin = dev;
+        cs.devPlugin = dev;
         dev.setContextOpeners(this.getContextLabels(), (filePath, label) => this.openInContext(filePath, label));
       }
       cs.isOpen = true;

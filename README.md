@@ -4,7 +4,7 @@
 
 <h1 align="center">Cockpit IDE</h1>
 <div align="center">
- The IDE for developers who thinks spatialy
+ The IDE for developers who think spatially
 </div>
 
 ---
@@ -62,7 +62,7 @@ make test          # run test
 cockpit .           # open current directory as workspace
 cockpit ~/projects  # open specific directory
 
-# or Just start executable
+# or launch the executable directly
 ```
 
 When launched with a path, Cockpit skips the welcome prompt and opens directly into that workspace.
