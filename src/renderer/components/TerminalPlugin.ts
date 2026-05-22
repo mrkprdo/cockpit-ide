@@ -41,7 +41,6 @@ export class TerminalPlugin {
     const fitAddon = new FitAddon();
     (term as any).loadAddon?.(fitAddon);
     term.open(this.element);
-    fitAddon.fit();
 
     this.xterm = term;
     this.fitAddon = fitAddon;
@@ -69,6 +68,10 @@ export class TerminalPlugin {
     });
     ro.observe(this.element);
     this.resizeObserver = ro;
+
+    requestAnimationFrame(() => {
+      if (!this.destroyed) fitAddon.fit();
+    });
 
     api.terminal.create(uuid, cwd)?.catch(() => {});
   }

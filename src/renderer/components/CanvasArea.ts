@@ -606,7 +606,7 @@ export class CanvasArea {
               term.onExit = () => this.terminateCard(cs);
               cs.card.onDestroy = () => term.destroy();
               cs.terminalPlugin = term;
-              cs.onCardResize = () => term.setScale(this.scale);
+              cs.onCardResize = () => { term.setScale(this.scale); term.fit(); };
               term.setScale(this.scale);
             }
             this.notifyTerminalsChanged();
@@ -776,7 +776,7 @@ export class CanvasArea {
         term.onExit = () => this.terminateCard(cs);
         cs.card.onDestroy = () => term.destroy();
         cs.terminalPlugin = term;
-        cs.onCardResize = () => term.setScale(this.scale);
+        cs.onCardResize = () => { term.setScale(this.scale); term.fit(); };
         term.setScale(this.scale);
       }
       this.notifyTerminalsChanged();
