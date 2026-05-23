@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     save: (state: any, wsPath?: string) => ipcRenderer.invoke('workspace:save', state, wsPath),
     getRecent: () => ipcRenderer.invoke('workspace:getRecent'),
     addRecent: (p: string) => ipcRenderer.invoke('workspace:addRecent', p),
+    removeRecent: (p: string) => ipcRenderer.invoke('workspace:removeRecent', p),
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),

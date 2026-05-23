@@ -41,6 +41,7 @@ interface Window {
       save: (state: WorkspaceState, wsPath?: string) => Promise<void>;
       getRecent: () => Promise<string[]>;
       addRecent: (p: string) => Promise<void>;
+      removeRecent: (p: string) => Promise<void>;
     };
     shell: {
       openExternal: (url: string) => Promise<boolean>;

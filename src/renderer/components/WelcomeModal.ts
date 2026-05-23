@@ -38,7 +38,6 @@ export class WelcomeModal {
 
   async open(): Promise<string | null> {
     this.overlay.style.display = 'flex';
-    // Load recent workspaces
     const recent = await window.electronAPI?.workspace.getRecent() || [];
     const container = this.el.querySelector('#welcome-recent') as HTMLElement;
     if (recent.length > 0) {
@@ -47,8 +46,33 @@ export class WelcomeModal {
       for (const p of recent) {
         const item = document.createElement('div');
         item.className = 'welcome-recent-item';
-        item.textContent = p;
-        item.addEventListener('click', () => { if (p) this.close(p); });
+
+        const pathSpan = document.createElement('span');
+        pathSpan.className = 'welcome-recent-item-path';
+        pathSpan.textContent = p;
+
+        const exists = await window.electronAPI?.fs.readDir(p);
+        if (!exists) {
+          pathSpan.classList.add('welcome-recent-item-missing');
+        }
+
+        item.appendChild(pathSpan);
+        item.addEventListener('click', () => { if (p && exists) this.close(p); });
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'welcome-recent-item-remove';
+        removeBtn.textContent = '×';
+        removeBtn.setAttribute('aria-label', `Remove ${p} from recent`);
+        removeBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await window.electronAPI?.workspace.removeRecent(p);
+          item.remove();
+          if (!container.querySelector('.welcome-recent-item')) {
+            container.style.display = 'none';
+          }
+        });
+        item.appendChild(removeBtn);
+
         container.appendChild(item);
       }
     } else {

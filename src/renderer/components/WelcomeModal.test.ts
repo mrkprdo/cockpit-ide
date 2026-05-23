@@ -7,6 +7,8 @@ describe('WelcomeModal', () => {
     document.body.innerHTML = '';
     (mockElectronAPI.workspace.getRecent as any).mockResolvedValue([]);
     (mockElectronAPI.workspace.select as any).mockResolvedValue('/test/workspace');
+    (mockElectronAPI.workspace.removeRecent as any).mockResolvedValue(undefined);
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue([{ name: 'file.txt', isDirectory: false }]);
   });
 
   it('renders overlay and main elements', () => {
@@ -25,7 +27,7 @@ describe('WelcomeModal', () => {
 
   it('becomes visible immediately when open() is called', () => {
     const modal = new WelcomeModal();
-    modal.open(); // Don't await — open() returns a Promise that only resolves on click
+    modal.open();
 
     const overlay = document.querySelector('.modal-overlay') as HTMLElement;
     expect(overlay.style.display).toBe('flex');
@@ -47,7 +49,6 @@ describe('WelcomeModal', () => {
     const modal = new WelcomeModal();
     const promise = modal.open();
 
-    // Wait for the async getRecent() inside open() to finish
     await new Promise(r => setTimeout(r, 50));
 
     const btn = document.querySelector('#welcome-close') as HTMLElement;
@@ -64,15 +65,13 @@ describe('WelcomeModal', () => {
     ]);
 
     const modal = new WelcomeModal();
-    // open() returns a promise that resolves on click, but recent workspaces
-    // are loaded asynchronously inside open(). Wait for a tick to see them.
     modal.open();
     await new Promise(r => setTimeout(r, 50));
 
     const items = document.querySelectorAll('.welcome-recent-item');
     expect(items.length).toBe(2);
-    expect(items[0].textContent).toBe('/home/user/project1');
-    expect(items[1].textContent).toBe('/home/user/project2');
+    expect(items[0].textContent).toContain('/home/user/project1');
+    expect(items[1].textContent).toContain('/home/user/project2');
   });
 
   it('hides recent section when no recent workspaces', async () => {
@@ -98,5 +97,98 @@ describe('WelcomeModal', () => {
 
     const result = await promise;
     expect(result).toBe('/my/project');
+  });
+
+  it('clicking a missing recent item does NOT resolve', async () => {
+    (mockElectronAPI.workspace.getRecent as any).mockResolvedValue(['/missing/path']);
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue(null);
+
+    const modal = new WelcomeModal();
+    const promise = modal.open();
+    await new Promise(r => setTimeout(r, 50));
+
+    const item = document.querySelector('.welcome-recent-item') as HTMLElement;
+    item.click();
+    await new Promise(r => setTimeout(r, 20));
+
+    const overlay = document.querySelector('.modal-overlay') as HTMLElement;
+    expect(overlay.style.display).toBe('flex');
+  });
+
+  it('marks missing recent workspaces with .welcome-recent-item-missing', async () => {
+    (mockElectronAPI.workspace.getRecent as any).mockResolvedValue(['/exists', '/missing']);
+    (mockElectronAPI.fs.readDir as any).mockImplementation(async (p: string) => {
+      return p === '/exists' ? [{ name: 'foo', isDirectory: false }] : null;
+    });
+
+    const modal = new WelcomeModal();
+    modal.open();
+    await new Promise(r => setTimeout(r, 50));
+
+    const items = document.querySelectorAll('.welcome-recent-item-path');
+    expect(items[0].classList.contains('welcome-recent-item-missing')).toBe(false);
+    expect(items[0].textContent).toBe('/exists');
+    expect(items[1].classList.contains('welcome-recent-item-missing')).toBe(true);
+    expect(items[1].textContent).toBe('/missing');
+  });
+
+  it('each recent item has a remove button', async () => {
+    (mockElectronAPI.workspace.getRecent as any).mockResolvedValue(['/my/project']);
+
+    const modal = new WelcomeModal();
+    modal.open();
+    await new Promise(r => setTimeout(r, 50));
+
+    const removeBtns = document.querySelectorAll('.welcome-recent-item-remove');
+    expect(removeBtns.length).toBe(1);
+    expect(removeBtns[0].textContent).toBe('×');
+  });
+
+  it('clicking remove button calls removeRecent and removes the item', async () => {
+    (mockElectronAPI.workspace.getRecent as any).mockResolvedValue(['/my/project']);
+    (mockElectronAPI.workspace.removeRecent as any).mockResolvedValue(undefined);
+
+    const modal = new WelcomeModal();
+    modal.open();
+    await new Promise(r => setTimeout(r, 50));
+
+    const removeBtn = document.querySelector('.welcome-recent-item-remove') as HTMLElement;
+    removeBtn.click();
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(mockElectronAPI.workspace.removeRecent).toHaveBeenCalledWith('/my/project');
+    expect(document.querySelectorAll('.welcome-recent-item').length).toBe(0);
+  });
+
+  it('clicking remove button does not trigger item click (does not close modal)', async () => {
+    (mockElectronAPI.workspace.getRecent as any).mockResolvedValue(['/my/project']);
+
+    const modal = new WelcomeModal();
+    const promise = modal.open();
+    await new Promise(r => setTimeout(r, 50));
+
+    const removeBtn = document.querySelector('.welcome-recent-item-remove') as HTMLElement;
+    removeBtn.click();
+    await new Promise(r => setTimeout(r, 50));
+
+    const overlay = document.querySelector('.modal-overlay') as HTMLElement;
+    expect(overlay.style.display).toBe('flex');
+  });
+
+  it('hides recent section when all items removed', async () => {
+    (mockElectronAPI.workspace.getRecent as any).mockResolvedValue(['/only/project']);
+
+    const modal = new WelcomeModal();
+    modal.open();
+    await new Promise(r => setTimeout(r, 50));
+
+    const container = document.querySelector('#welcome-recent') as HTMLElement;
+    expect(container.style.display).toBe('block');
+
+    const removeBtn = document.querySelector('.welcome-recent-item-remove') as HTMLElement;
+    removeBtn.click();
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(container.style.display).toBe('none');
   });
 });

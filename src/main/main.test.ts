@@ -266,6 +266,35 @@ describe('main.ts IPC handlers', () => {
       const result = await handler({});
       expect(result).toEqual([]);
     });
+
+    it('workspace:removeRecent removes path from recent list', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('workspace:removeRecent')!;
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(['/ws1', '/ws2', '/ws3']));
+      const writeSpy = vi.mocked(fs.writeFileSync);
+      writeSpy.mockClear();
+      writeSpy.mockImplementation(() => {});
+
+      await handler({}, '/ws2');
+
+      expect(writeSpy).toHaveBeenCalled();
+      const written = JSON.parse(writeSpy.mock.calls[0][1] as string);
+      expect(written).toEqual(['/ws1', '/ws3']);
+    });
+
+    it('workspace:removeRecent handles missing path gracefully', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('workspace:removeRecent')!;
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(['/ws1', '/ws2']));
+      const writeSpy = vi.mocked(fs.writeFileSync);
+      writeSpy.mockClear();
+      writeSpy.mockImplementation(() => {});
+
+      await handler({}, '/nonexistent');
+
+      const written = JSON.parse(writeSpy.mock.calls[0][1] as string);
+      expect(written).toEqual(['/ws1', '/ws2']);
+    });
   });
 
   describe('path security validation', () => {
@@ -508,6 +537,10 @@ describe('main.ts IPC handlers', () => {
 
     it('workspace:addRecent handler is registered', () => {
       expect(handleMap.has('workspace:addRecent')).toBe(true);
+    });
+
+    it('workspace:removeRecent handler is registered', () => {
+      expect(handleMap.has('workspace:removeRecent')).toBe(true);
     });
   });
 

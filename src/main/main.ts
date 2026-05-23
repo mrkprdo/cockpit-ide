@@ -173,6 +173,10 @@ function addRecentWorkspace(p: string): void {
   if (list.length > 5) list.length = 5;
   try { fs.writeFileSync(recentWsFile, JSON.stringify(list, null, 2)); } catch {}
 }
+function removeRecentWorkspace(p: string): void {
+  const list = getRecentWorkspaces().filter(w => w !== p);
+  try { fs.writeFileSync(recentWsFile, JSON.stringify(list, null, 2)); } catch {}
+}
 
 function createWindow(): void {
   const iconPath = app.isPackaged
@@ -440,6 +444,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('workspace:getRecent', () => getRecentWorkspaces());
   ipcMain.handle('workspace:addRecent', (_event, p: string) => { addRecentWorkspace(p); });
+  ipcMain.handle('workspace:removeRecent', (_event, p: string) => { removeRecentWorkspace(p); });
 
   ipcMain.handle('shell:openExternal', async (_event, url: string) => {
     try {

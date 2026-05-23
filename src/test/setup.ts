@@ -180,6 +180,7 @@ if (isDOM) {
       save: vi.fn().mockResolvedValue(undefined),
       getRecent: vi.fn().mockResolvedValue([]),
       addRecent: vi.fn().mockResolvedValue(undefined),
+      removeRecent: vi.fn().mockResolvedValue(undefined),
     },
     shell: {
       openExternal: vi.fn().mockResolvedValue(true),

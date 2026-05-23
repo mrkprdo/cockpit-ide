@@ -205,8 +205,8 @@ describe('WelcomeModal edge cases', () => {
     modal.open();
     await new Promise(r => setTimeout(r, 20));
 
-    const item = document.querySelector('.welcome-recent-item') as HTMLElement;
-    expect(item.textContent).toBe(longPath);
+    const pathSpan = document.querySelector('.welcome-recent-item-path') as HTMLElement;
+    expect(pathSpan.textContent).toBe(longPath);
   });
 
   it('double-click on recent item resolves only once', async () => {
