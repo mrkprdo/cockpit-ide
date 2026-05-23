@@ -18,7 +18,8 @@ function startElectron() {
   }
   const electronPath = require('electron');
   const p = spawn(`"${electronPath}" . --dev`, {
-    stdio: 'inherit',
+    detached: true,
+    stdio: 'ignore',
     shell: true,
     env: { ...process.env, NODE_ENV: 'development' },
   });

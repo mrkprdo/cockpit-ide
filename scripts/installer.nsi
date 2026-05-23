@@ -79,6 +79,11 @@ Section "Cockpit IDE" SecMain
   CreateDirectory "$INSTDIR\bin"
   File "/oname=bin\cockpit.cmd" "..\bin\cockpit.cmd"
 
+  ; launch.js — Node.js launcher for dev/detached spawning
+  SetOutPath "$INSTDIR\scripts"
+  File "..\scripts\launch.js"
+  SetOutPath "$INSTDIR"
+
   ; Add bin to user PATH
   FileOpen $0 "$TEMP\cockpit-addpath.ps1" w
   FileWrite $0 "$$bin = '$INSTDIR\bin'$\r$\n"
