@@ -184,15 +184,16 @@ describe('WelcomeModal edge cases', () => {
     (window as any).electronAPI = undefined;
 
     const modal = new WelcomeModal();
-    const promise = modal.open();
+    modal.open();
     await new Promise(r => setTimeout(r, 20));
 
-    // Click open workspace — should call close(null) since ws is undefined
+    // Click open workspace — silently returns since ws is undefined
     const openBtn = document.querySelector('#welcome-open') as HTMLElement;
-    openBtn.click();
+    expect(() => openBtn.click()).not.toThrow();
 
-    const result = await promise;
-    expect(result).toBeNull();
+    // Modal stays open (promise never resolves — user can click Close)
+    const overlay = document.querySelector('.modal-overlay') as HTMLElement;
+    expect(overlay.style.display).toBe('flex');
 
     (window as any).electronAPI = saved;
   });

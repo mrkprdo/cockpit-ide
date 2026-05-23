@@ -28,9 +28,9 @@ export class WelcomeModal {
 
     this.el.querySelector('#welcome-open')?.addEventListener('click', async () => {
       const ws = window.electronAPI?.workspace;
-      if (!ws) { this.close(null); return; }
+      if (!ws) return;
       const path = await ws.select();
-      this.close(path);
+      if (path) this.close(path);
     });
 
     this.el.querySelector('#welcome-close')?.addEventListener('click', () => this.close(null));

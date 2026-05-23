@@ -11,6 +11,22 @@ describe('WelcomeModal', () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([{ name: 'file.txt', isDirectory: false }]);
   });
 
+  it('does not close modal when Open Workspace is canceled', async () => {
+    (mockElectronAPI.workspace.select as any).mockResolvedValue(null);
+    const modal = new WelcomeModal();
+    const promise = modal.open();
+    // Wait for recent list to populate
+    await new Promise(r => setTimeout(r, 50));
+
+    const btn = document.querySelector('#welcome-open') as HTMLElement;
+    btn.click();
+    // Wait for async handler
+    await new Promise(r => setTimeout(r, 50));
+
+    const overlay = document.querySelector('.modal-overlay') as HTMLElement;
+    expect(overlay.style.display).toBe('flex');
+  });
+
   it('renders overlay and main elements', () => {
     new WelcomeModal();
     expect(document.querySelector('.modal-overlay')).toBeTruthy();
