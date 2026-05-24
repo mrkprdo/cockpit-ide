@@ -185,7 +185,7 @@ describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
     const editor = new MonacoEditorPlugin(container);
 
     // Manually add a tab bypassing Monaco loading
-    editor.tabs.push({ filePath: '/test/other.ts', name: 'other.ts' });
+    editor.tabs.push({ filePath: '/test/other.ts', name: 'other.ts', originalPath: '/test/other.ts' });
     editor.activeTab = '/test/other.ts';
 
     await editor.reloadIfOpen('/test/file.ts');
@@ -195,7 +195,7 @@ describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
 
   it('closes tab when file is deleted (readFile returns null)', async () => {
     const editor = new MonacoEditorPlugin(container);
-    editor.tabs.push({ filePath: '/test/deleted.ts', name: 'deleted.ts' });
+    editor.tabs.push({ filePath: '/test/deleted.ts', name: 'deleted.ts', originalPath: '/test/deleted.ts' });
     editor.activeTab = '/test/deleted.ts';
     (mockElectronAPI.fs.readFile as any).mockResolvedValue(null);
 
@@ -205,7 +205,7 @@ describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
 
   it('updates fileContents cache on successful reload', async () => {
     const editor = new MonacoEditorPlugin(container);
-    editor.tabs.push({ filePath: '/test/file.ts', name: 'file.ts' });
+    editor.tabs.push({ filePath: '/test/file.ts', name: 'file.ts', originalPath: '/test/file.ts' });
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('updated content');
 
     await editor.reloadIfOpen('/test/file.ts');

@@ -105,6 +105,7 @@ describe('preload.ts — exposed API shape', () => {
     expect(typeof api.workspace.save).toBe('function');
     expect(typeof api.workspace.getRecent).toBe('function');
     expect(typeof api.workspace.addRecent).toBe('function');
+    expect(typeof api.workspace.removeRecent).toBe('function');
   });
 
   it('exposes shell namespace', () => {
@@ -123,6 +124,7 @@ describe('preload.ts — exposed API shape', () => {
     expect(typeof api.fs.readDir).toBe('function');
     expect(typeof api.fs.readFile).toBe('function');
     expect(typeof api.fs.writeFile).toBe('function');
+    expect(typeof api.fs.mkdir).toBe('function');
     expect(typeof api.fs.delete).toBe('function');
     expect(typeof api.fs.copy).toBe('function');
     expect(typeof api.fs.rename).toBe('function');
@@ -232,6 +234,90 @@ describe('preload.ts — IPC wiring (invoke-based)', () => {
     const call = invokeCalls.find(c => c[0] === 'workspace:load');
     expect(call).toBeTruthy();
     expect(call![1]).toBeUndefined();
+  });
+
+  it('window.close sends window:close', () => {
+    sendCalls.length = 0;
+    api.window.close();
+    expect(sendCalls.some(c => c[0] === 'window:close')).toBe(true);
+  });
+
+  it('window.isMaximized invokes window:isMaximized', () => {
+    invokeCalls.length = 0;
+    api.window.isMaximized();
+    expect(invokeCalls.some(c => c[0] === 'window:isMaximized')).toBe(true);
+  });
+
+  it('clipboard.readText invokes clipboard:readText', () => {
+    invokeCalls.length = 0;
+    api.clipboard.readText();
+    expect(invokeCalls.some(c => c[0] === 'clipboard:readText')).toBe(true);
+  });
+
+  it('terminal.create invokes terminal:create with uuid', () => {
+    invokeCalls.length = 0;
+    api.terminal.create('term-1');
+    expect(invokeCalls.some(c => c[0] === 'terminal:create' && c[1] === 'term-1')).toBe(true);
+  });
+
+  it('terminal.create passes optional cwd', () => {
+    invokeCalls.length = 0;
+    api.terminal.create('term-2', '/workspace');
+    expect(invokeCalls.some(c => c[0] === 'terminal:create' && c[1] === 'term-2' && c[2] === '/workspace')).toBe(true);
+  });
+
+  it('terminal.write sends terminal:write with uuid and data', () => {
+    sendCalls.length = 0;
+    api.terminal.write('term-1', 'echo hi');
+    expect(sendCalls.some(c => c[0] === 'terminal:write' && c[1] === 'term-1' && c[2] === 'echo hi')).toBe(true);
+  });
+
+  it('terminal.resize sends terminal:resize with cols and rows', () => {
+    sendCalls.length = 0;
+    api.terminal.resize('term-1', 120, 40);
+    expect(sendCalls.some(c => c[0] === 'terminal:resize' && c[1] === 'term-1' && c[2] === 120 && c[3] === 40)).toBe(true);
+  });
+
+  it('terminal.kill sends terminal:kill with uuid', () => {
+    sendCalls.length = 0;
+    api.terminal.kill('term-1');
+    expect(sendCalls.some(c => c[0] === 'terminal:kill' && c[1] === 'term-1')).toBe(true);
+  });
+
+  it('workspace.getPath invokes workspace:getPath', () => {
+    invokeCalls.length = 0;
+    api.workspace.getPath();
+    expect(invokeCalls.some(c => c[0] === 'workspace:getPath')).toBe(true);
+  });
+
+  it('workspace.addRecent invokes workspace:addRecent', () => {
+    invokeCalls.length = 0;
+    api.workspace.addRecent('/ws');
+    expect(invokeCalls.some(c => c[0] === 'workspace:addRecent' && c[1] === '/ws')).toBe(true);
+  });
+
+  it('workspace.removeRecent invokes workspace:removeRecent', () => {
+    invokeCalls.length = 0;
+    api.workspace.removeRecent('/ws');
+    expect(invokeCalls.some(c => c[0] === 'workspace:removeRecent' && c[1] === '/ws')).toBe(true);
+  });
+
+  it('fs.mkdir invokes fs:mkdir', () => {
+    invokeCalls.length = 0;
+    api.fs.mkdir('/new/dir');
+    expect(invokeCalls.some(c => c[0] === 'fs:mkdir' && c[1] === '/new/dir')).toBe(true);
+  });
+
+  it('fs.watch invokes file:watch', () => {
+    invokeCalls.length = 0;
+    api.fs.watch('/workspace');
+    expect(invokeCalls.some(c => c[0] === 'file:watch' && c[1] === '/workspace')).toBe(true);
+  });
+
+  it('fs.unwatch invokes file:unwatch', () => {
+    invokeCalls.length = 0;
+    api.fs.unwatch();
+    expect(invokeCalls.some(c => c[0] === 'file:unwatch')).toBe(true);
   });
 });
 

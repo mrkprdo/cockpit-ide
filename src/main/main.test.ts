@@ -233,9 +233,9 @@ describe('main.ts IPC handlers', () => {
 
     it('workspace:load returns null when explicit path is invalid', async () => {
       const fs = await import('fs');
+      const handler = handleMap.get('workspace:load')!;
       vi.mocked(fs.readFileSync).mockImplementation(() => { throw new Error('ENOENT'); });
 
-      const handler = handleMap.get('workspace:load')!;
       const result = await handler({}, '/nonexistent/path');
       expect(result).toBeNull();
     });
@@ -265,6 +265,36 @@ describe('main.ts IPC handlers', () => {
 
       const result = await handler({});
       expect(result).toEqual([]);
+    });
+
+    it('workspace:addRecent adds path to recent list', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('workspace:addRecent')!;
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(['/ws1']));
+      const writeSpy = vi.mocked(fs.writeFileSync);
+      writeSpy.mockClear();
+      writeSpy.mockImplementation(() => {});
+
+      await handler({}, '/ws2');
+
+      expect(writeSpy).toHaveBeenCalled();
+      const written = JSON.parse(writeSpy.mock.calls[0][1] as string);
+      expect(written).toEqual(['/ws2', '/ws1']);
+    });
+
+    it('workspace:addRecent caps list at 5 entries', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('workspace:addRecent')!;
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(['/ws1', '/ws2', '/ws3', '/ws4', '/ws5']));
+      const writeSpy = vi.mocked(fs.writeFileSync);
+      writeSpy.mockClear();
+      writeSpy.mockImplementation(() => {});
+
+      await handler({}, '/ws6');
+
+      const written = JSON.parse(writeSpy.mock.calls[0][1] as string);
+      expect(written).toEqual(['/ws6', '/ws1', '/ws2', '/ws3', '/ws4']);
+      expect(written.length).toBe(5);
     });
 
     it('workspace:removeRecent removes path from recent list', async () => {
@@ -386,6 +416,75 @@ describe('main.ts IPC handlers', () => {
       expect(result).toBe(false);
       spy.mockRestore();
     });
+
+    it('fs:mkdir creates directory inside workspace', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:mkdir')!;
+      vi.mocked(fs.mkdirSync).mockReturnValue(undefined);
+
+      const result = await handler({}, '/safe/workspace/newdir');
+      expect(result).toBe(true);
+      expect(fs.mkdirSync).toHaveBeenCalledWith('/safe/workspace/newdir', { recursive: true });
+    });
+
+    it('fs:mkdir returns false on error', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:mkdir')!;
+      vi.mocked(fs.mkdirSync).mockImplementation(() => { throw new Error('EACCES'); });
+
+      const result = await handler({}, '/safe/workspace/blocked');
+      expect(result).toBe(false);
+    });
+
+    it('fs:copy copies file inside workspace', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:copy')!;
+      vi.mocked(fs.cpSync).mockReturnValue(undefined);
+
+      const result = await handler({}, '/safe/workspace/src', '/safe/workspace/dest');
+      expect(result).toBe(true);
+      expect(fs.cpSync).toHaveBeenCalledWith('/safe/workspace/src', '/safe/workspace/dest', { recursive: true });
+    });
+
+    it('fs:copy returns false on error', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:copy')!;
+      vi.mocked(fs.cpSync).mockImplementation(() => { throw new Error('ENOENT'); });
+
+      const result = await handler({}, '/safe/workspace/src', '/safe/workspace/dest');
+      expect(result).toBe(false);
+    });
+
+    it('fs:rename renames file inside workspace', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:rename')!;
+      vi.mocked(fs.renameSync).mockReturnValue(undefined);
+
+      const result = await handler({}, '/safe/workspace/old', '/safe/workspace/new');
+      expect(result).toBe(true);
+      expect(fs.renameSync).toHaveBeenCalledWith('/safe/workspace/old', '/safe/workspace/new');
+    });
+
+    it('fs:rename returns false on error', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:rename')!;
+      vi.mocked(fs.renameSync).mockImplementation(() => { throw new Error('ENOENT'); });
+
+      const result = await handler({}, '/safe/workspace/old', '/safe/workspace/new');
+      expect(result).toBe(false);
+    });
+
+    it('file:watch starts watching and returns true', async () => {
+      const handler = handleMap.get('file:watch')!;
+      const result = await handler({}, '/safe/workspace');
+      expect(result).toBe(true);
+    });
+
+    it('file:unwatch stops watching and returns true', async () => {
+      const handler = handleMap.get('file:unwatch')!;
+      const result = await handler({});
+      expect(result).toBe(true);
+    });
   });
 
   describe('shell:openExternal URL validation', () => {
@@ -488,6 +587,151 @@ describe('main.ts IPC handlers', () => {
       const handler = handleMap.get('shell:openExternal')!;
       const result = await handler({}, 'bad://url');
       expect(result).toBe(false);
+    });
+  });
+
+  describe('window:isMaximized behavior', () => {
+    it('returns true when window is maximized', async () => {
+      const { BrowserWindow } = await import('electron');
+      (BrowserWindow as any).fromWebContents = vi.fn(() => ({
+        isMaximized: () => true,
+      }));
+      const handler = handleMap.get('window:isMaximized')!;
+      const result = await handler({ sender: {} });
+      expect(result).toBe(true);
+    });
+
+    it('returns false when window is not maximized', async () => {
+      const { BrowserWindow } = await import('electron');
+      (BrowserWindow as any).fromWebContents = vi.fn(() => ({
+        isMaximized: () => false,
+      }));
+      const handler = handleMap.get('window:isMaximized')!;
+      const result = await handler({ sender: {} });
+      expect(result).toBe(false);
+    });
+
+    it('returns false when no window found', async () => {
+      const { BrowserWindow } = await import('electron');
+      (BrowserWindow as any).fromWebContents = vi.fn(() => null);
+      const handler = handleMap.get('window:isMaximized')!;
+      const result = await handler({ sender: {} });
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('clipboard:readText behavior', () => {
+    it('returns clipboard text', async () => {
+      const { clipboard } = await import('electron');
+      vi.mocked(clipboard.readText).mockReturnValue('copied text');
+      const handler = handleMap.get('clipboard:readText')!;
+      const result = await handler({});
+      expect(result).toBe('copied text');
+    });
+
+    it('returns empty string when clipboard is empty', async () => {
+      const { clipboard } = await import('electron');
+      vi.mocked(clipboard.readText).mockReturnValue('');
+      const handler = handleMap.get('clipboard:readText')!;
+      const result = await handler({});
+      expect(result).toBe('');
+    });
+  });
+
+  describe('terminal:create behavior', () => {
+    it('spawns PTY and returns true', async () => {
+      const handler = handleMap.get('terminal:create')!;
+      const sender = { isDestroyed: () => false, send: vi.fn() };
+      const result = await handler({ sender }, 'test-uuid-1');
+      expect(result).toBe(true);
+    });
+
+    it('spawns PTY with platform shell', async () => {
+      const nodePty = await import('node-pty');
+      const spawnMock = vi.mocked(nodePty.spawn);
+      spawnMock.mockClear();
+
+      const handler = handleMap.get('terminal:create')!;
+      const sender = { isDestroyed: () => false, send: vi.fn() };
+      await handler({ sender }, 'test-uuid-2', '/some/cwd');
+
+      expect(spawnMock).toHaveBeenCalled();
+      const args = spawnMock.mock.calls[0];
+      expect(args[0]).toBeTruthy();
+    });
+
+    it('returns false when spawn throws', async () => {
+      const nodePty = await import('node-pty');
+      const spawnMock = vi.mocked(nodePty.spawn);
+      spawnMock.mockImplementationOnce(() => { throw new Error('spawn failed'); });
+
+      const handler = handleMap.get('terminal:create')!;
+      const sender = { isDestroyed: () => false, send: vi.fn() };
+      const result = await handler({ sender }, 'test-uuid-3');
+      expect(result).toBe(false);
+
+      spawnMock.mockReset();
+      (spawnMock as any).mockReturnValue({ onData: vi.fn(), onExit: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn() });
+    });
+  });
+
+  describe('terminal:write/resize/kill behavior', () => {
+    let ptyMock: any;
+
+    beforeEach(() => {
+      ptyMock = { onData: vi.fn(), onExit: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn() };
+    });
+
+    it('terminal:write sends data to PTY', async () => {
+      const nodePty = await import('node-pty');
+      (nodePty.spawn as any).mockClear();
+      (nodePty.spawn as any).mockReturnValue(ptyMock);
+
+      const createHandler = handleMap.get('terminal:create')!;
+      const sender = { isDestroyed: () => false, send: vi.fn() };
+      await createHandler({ sender }, 'test-uuid-w');
+
+      const writeHandler = onMap.get('terminal:write')!;
+      writeHandler({}, 'test-uuid-w', 'echo hello');
+      expect(ptyMock.write).toHaveBeenCalledWith('echo hello');
+    });
+
+    it('terminal:resize changes PTY dimensions', async () => {
+      const nodePty = await import('node-pty');
+      (nodePty.spawn as any).mockClear();
+      (nodePty.spawn as any).mockReturnValue(ptyMock);
+
+      const createHandler = handleMap.get('terminal:create')!;
+      const sender = { isDestroyed: () => false, send: vi.fn() };
+      await createHandler({ sender }, 'test-uuid-r');
+
+      const resizeHandler = onMap.get('terminal:resize')!;
+      resizeHandler({}, 'test-uuid-r', 100, 40);
+      expect(ptyMock.resize).toHaveBeenCalledWith(100, 40);
+    });
+
+    it('terminal:kill terminates PTY and cleans up', async () => {
+      const nodePty = await import('node-pty');
+      (nodePty.spawn as any).mockClear();
+      (nodePty.spawn as any).mockReturnValue(ptyMock);
+
+      const createHandler = handleMap.get('terminal:create')!;
+      const sender = { isDestroyed: () => false, send: vi.fn() };
+      await createHandler({ sender }, 'test-uuid-k');
+
+      const killHandler = onMap.get('terminal:kill')!;
+      killHandler({}, 'test-uuid-k');
+      expect(ptyMock.kill).toHaveBeenCalled();
+
+      // Second kill should be a no-op (already removed)
+      ptyMock.kill.mockClear();
+      killHandler({}, 'test-uuid-k');
+      expect(ptyMock.kill).not.toHaveBeenCalled();
+    });
+
+    it('terminal:write no-ops for unknown uuid', () => {
+      const writeHandler = onMap.get('terminal:write')!;
+      expect(() => writeHandler({}, 'unknown-uuid', 'data')).not.toThrow();
     });
   });
 

@@ -109,9 +109,7 @@ if (isDOM) {
       imageSmoothingEnabled: true,
       imageSmoothingQuality: 'low' as ImageSmoothingQuality,
       filter: 'none',
-      // @ts-expect-error partial mock
       roundRect: vi.fn(),
-      // @ts-expect-error partial mock
       reset: vi.fn(),
       letterSpacing: '',
       wordSpacing: '',
@@ -120,6 +118,7 @@ if (isDOM) {
 
   const origGetContext = HTMLCanvasElement.prototype.getContext;
   HTMLCanvasElement.prototype.getContext = function (
+    this: HTMLCanvasElement,
     contextId: string,
     options?: any,
   ) {

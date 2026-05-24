@@ -937,7 +937,7 @@ describe('Cross-component edge cases', () => {
     await new Promise(r => setTimeout(r, 100));
 
     // Simulate external change — should trigger refresh timer
-    if (changeCallback) changeCallback('/test/newfile.ts');
+    (changeCallback as any)('/test/newfile.ts');
     // The file explorer uses a 500ms debounce timer
     // No crash expected
     expect(changeCallback).toBeTruthy();

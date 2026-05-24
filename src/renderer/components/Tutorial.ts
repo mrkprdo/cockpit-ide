@@ -233,7 +233,7 @@ export class Tutorial {
       doneBtn.className = 'tutorial-btn tutorial-btn-done';
       doneBtn.textContent = 'Done';
       doneBtn.addEventListener('click', () => {
-        this.startOnLaunch = extra.querySelector('input[type="checkbox"]')?.checked !== true;
+        this.startOnLaunch = (extra.querySelector('input[type="checkbox"]') as HTMLInputElement | null)?.checked !== true;
         this.close();
       });
       btnRow.appendChild(doneBtn);
@@ -269,7 +269,7 @@ export class Tutorial {
     if (step.onLeave) this.prevOnLeave = step.onLeave;
   }
 
-  private applyHighlight(selector: string): void {
+  private applyHighlight(selector: string, overflowHidden?: boolean): void {
     const el = document.querySelector(selector) as HTMLElement | null;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -278,6 +278,9 @@ export class Tutorial {
     this.ring.style.width = rect.width + 'px';
     this.ring.style.height = rect.height + 'px';
     this.ring.style.display = 'block';
+    if (overflowHidden) {
+      el.style.overflow = 'hidden';
+    }
   }
 
   private clearHighlight(): void {

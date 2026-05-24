@@ -1,8 +1,9 @@
-export type GridStyle = 'none' | 'dots' | 'grid';
 export type EditorState = { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> };
 export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; contextState?: ContextState };
 export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number };
 
+import { GridStyle, generateGridPattern, applyGridToElement } from './canvas-grid';
+import { StatusBar } from './canvas-statusbar';
 import { PluginCard } from './PluginCard';
 import { TerminalPlugin } from './TerminalPlugin';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
@@ -36,11 +37,13 @@ export class CanvasArea {
   get locked(): boolean { return this._locked; }
   set locked(v: boolean) {
     this._locked = v;
-    this.updateStatusBar();
+    this.statusBar.update(this._locked, this.scale, this.panX, this.panY, this.workspaceName, this.onLockToggle, () => this.fitAll());
   }
   private patternSize = 28;
   private patternDataURL = '';
   private cards: CardState[] = [];
+
+  private statusBar = new StatusBar();
 
   private contextPlugins: ContextPlugin[] = [];
   private scale = 1;
@@ -135,10 +138,11 @@ export class CanvasArea {
       if (!arrZone.matches(':hover')) this.arrPanel.style.display = 'none';
     });
 
-    this.generatePattern();
-    this.applyGrid();
+    this.patternDataURL = generateGridPattern(this.gridStyle, this.patternSize);
+    applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
     this.initZoomPan();
-    this.updateStatusBar();
+    this.statusBar.init();
+    this.statusBar.update(this._locked, this.scale, this.panX, this.panY, this.workspaceName, this.onLockToggle, () => this.fitAll());
   }
 
   private showPluginList(): void {
@@ -325,8 +329,8 @@ export class CanvasArea {
 
   setGridStyle(style: GridStyle): void {
     this.gridStyle = style;
-    this.generatePattern();
-    this.applyGrid();
+    this.patternDataURL = generateGridPattern(this.gridStyle, this.patternSize);
+    applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
   }
 
   private snap(v: number): number {
@@ -385,7 +389,7 @@ export class CanvasArea {
         menu.onClose = () => { this.contextMenuOpen = false; };
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
-    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null };
+    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, devPlugin: null };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -405,46 +409,7 @@ export class CanvasArea {
     for (const cs of this.cards) this.positionCard(cs);
   }
 
-  private resolveCSSVar(name: string): string {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
 
-  private generatePattern(): void {
-    if (this.gridStyle === 'none') { this.patternDataURL = ''; return; }
-    const s = this.patternSize;
-    const c = document.createElement('canvas');
-    c.width = s; c.height = s;
-    const ctx = c.getContext('2d')!;
-    const color = this.resolveCSSVar('--tertiary');
-
-    if (this.gridStyle === 'dots') {
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.65;
-      ctx.beginPath();
-      ctx.arc(0, 0, 2, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.strokeStyle = color;
-      ctx.globalAlpha = 0.3;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(s, 0); ctx.lineTo(s, s);
-      ctx.moveTo(0, s); ctx.lineTo(s, s);
-      ctx.stroke();
-    }
-    this.patternDataURL = c.toDataURL();
-  }
-
-  private applyGrid(): void {
-    if (this.gridStyle === 'none' || !this.patternDataURL) {
-      this.el.style.backgroundImage = 'none';
-      return;
-    }
-    this.el.style.backgroundImage = `url(${this.patternDataURL})`;
-    this.el.style.backgroundRepeat = 'repeat';
-    this.el.style.backgroundSize = `${this.patternSize * this.scale}px ${this.patternSize * this.scale}px`;
-    this.el.style.backgroundPosition = `${this.panX}px ${this.panY}px`;
-  }
 
   getSaveState(): SaveState {
     // Sort by current z-index to get bottom-to-top order
@@ -987,11 +952,11 @@ export class CanvasArea {
       this.rafId = 0;
       this.clampView();
       this.repositionAllCards();
-      this.applyGrid();
+      applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
       for (const cs of this.cards) cs.card.renderTitle();
       const half = this.patternSize / 2;
 
-      this.updateStatusBar();
+      this.statusBar.update(this._locked, this.scale, this.panX, this.panY, this.workspaceName, this.onLockToggle, () => this.fitAll());
       this.onStateChange?.();
     });
   }
@@ -1142,69 +1107,6 @@ export class CanvasArea {
     this.animatePan(targetX, targetY);
   }
 
-  private sbZoom: HTMLSpanElement | null = null;
-  private sbLocked: HTMLSpanElement | null = null;
-  private sbPan: HTMLSpanElement | null = null;
-  private sbWorkspace: HTMLSpanElement | null = null;
 
-  private initStatusBar(): void {
-    const sb = document.getElementById('statusbar');
-    if (!sb || sb.children.length > 0) return;
-
-    const sep = (): HTMLSpanElement => { const s = document.createElement('span'); s.className = 'status-sep'; sb.appendChild(s); return s; };
-
-    this.sbZoom = document.createElement('span');
-    this.sbZoom.className = 'status-item';
-    sb.appendChild(this.sbZoom);
-    this.sbZoom.addEventListener('click', () => this.onLockToggle?.());
-
-    this.sbLocked = document.createElement('span');
-    this.sbLocked.className = 'status-item status-locked';
-    this.sbLocked.textContent = 'Locked';
-    this.sbLocked.style.display = 'none';
-    sb.appendChild(this.sbLocked);
-    sep();
-
-    this.sbPan = document.createElement('span');
-    this.sbPan.className = 'status-item';
-    sb.appendChild(this.sbPan);
-    sep();
-
-    this.sbWorkspace = document.createElement('span');
-    this.sbWorkspace.className = 'status-item';
-    sb.appendChild(this.sbWorkspace);
-
-    const fillL = document.createElement('span');
-    fillL.style.cssText = 'flex:1';
-    sb.appendChild(fillL);
-
-    const center = document.createElement('span');
-    center.id = 'statusbar-center';
-    sb.appendChild(center);
-
-    const fillR = document.createElement('span');
-    fillR.style.cssText = 'flex:1';
-    sb.appendChild(fillR);
-
-    sep();
-    const viewAllBtn = document.createElement('button');
-    viewAllBtn.className = 'status-btn';
-    viewAllBtn.textContent = 'view all';
-    viewAllBtn.addEventListener('click', () => this.fitAll());
-    sb.appendChild(viewAllBtn);
-  }
-
-  private updateStatusBar(): void {
-    this.initStatusBar();
-    if (this.sbZoom) {
-      const icon = this.locked
-        ? '<svg class="status-locked" width="14" height="14" viewBox="0 0 512 512" style="vertical-align:middle;fill:currentColor;cursor:pointer"><path d="M368 192h-16v-80a96 96 0 10-192 0v80h-16a64.07 64.07 0 00-64 64v176a64.07 64.07 0 0064 64h224a64.07 64.07 0 0064-64V256a64.07 64.07 0 00-64-64zm-48 0H192v-80a64 64 0 11128 0z"/></svg>'
-        : '<svg width="14" height="14" viewBox="0 0 512 512" style="vertical-align:middle;fill:var(--tertiary);cursor:pointer"><path d="M368 192H192v-80a64 64 0 11128 0 16 16 0 0032 0 96 96 0 10-192 0v80h-16a64.07 64.07 0 00-64 64v176a64.07 64.07 0 0064 64h224a64.07 64.07 0 0064-64V256a64.07 64.07 0 00-64-64z"/></svg>';
-      this.sbZoom.innerHTML = `Zoom: ${Math.round(this.scale * 100)}% ${icon}`;
-    }
-    if (this.sbLocked) this.sbLocked.style.display = 'none';
-    if (this.sbPan) this.sbPan.textContent = `Pan: ${Math.round(this.panX)}, ${Math.round(this.panY)}`;
-    if (this.sbWorkspace) this.sbWorkspace.textContent = this.workspaceName;
-  }
 }
 

@@ -322,7 +322,7 @@ describe('Context Tab CRUD workflows', () => {
     // Simulate external file change - update mock response
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Updated Header\n\nNew content.');
 
-    if (changeCallback) await changeCallback('/test/doc.md');
+    await (changeCallback as any)('/test/doc.md');
     await new Promise(r => setTimeout(r, 50));
 
     // Content should now show updated version

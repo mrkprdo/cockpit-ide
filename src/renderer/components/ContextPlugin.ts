@@ -218,10 +218,10 @@ export class ContextPlugin {
     }
     try {
       const renderer = new Renderer();
-      renderer.html = ({ text: rawHtml }) => {
+      renderer.html = ({ text: rawHtml }: { text: string }) => {
         return rawHtml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
       };
-      renderer.link = ({ href, text: linkText }) => {
+      renderer.link = ({ href, text: linkText }: { href: string; text: string }) => {
         if (href && /^javascript:/i.test(href)) {
           return `<span>${linkText}</span>`;
         }
