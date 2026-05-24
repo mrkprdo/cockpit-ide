@@ -36,10 +36,15 @@ function isPathSafe(targetPath: string): boolean {
   if (!workspacePath) return true;
   const resolved = path.resolve(targetPath);
   const ws = path.resolve(workspacePath);
-  if (!resolved.startsWith(ws + path.sep) && resolved !== ws) return false;
+  const sep = path.sep;
+  const isWin = process.platform === 'win32';
+  const a = isWin ? resolved.toLowerCase() : resolved;
+  const b = isWin ? ws.toLowerCase() : ws;
+  if (!a.startsWith(b + sep) && a !== b) return false;
   try {
     const real = fs.realpathSync(resolved);
-    if (!real.startsWith(ws + path.sep) && real !== ws) return false;
+    const c = isWin ? real.toLowerCase() : real;
+    if (!c.startsWith(b + sep) && c !== b) return false;
   } catch { }
   return true;
 }

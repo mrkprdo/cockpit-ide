@@ -112,7 +112,7 @@ export class MonacoEditorPlugin {
     const lcPath = filePath.toLowerCase();
     const tab = this.tabs.find(t => t.filePath === lcPath);
     if (!tab) return;
-    const content = await window.electronAPI?.fs.readFile(filePath);
+    const content = await window.electronAPI?.fs.readFile(tab.originalPath);
     if (content === null) {
       this.closeTab(lcPath);
     } else if (content !== undefined) {
@@ -137,7 +137,7 @@ export class MonacoEditorPlugin {
       return;
     }
 
-    const content = await window.electronAPI?.fs.readFile(lcPath) || '';
+    const content = await window.electronAPI?.fs.readFile(normalized) || '';
     this.fileContents.set(lcPath, content);
 
     this.tabs.push({ filePath: lcPath, name, originalPath: normalized });
@@ -357,9 +357,11 @@ export class MonacoEditorPlugin {
 
   saveCurrentFile(): void {
     if (!this.activeTab || !this.editor) return;
+    const tab = this.tabs.find(t => t.filePath === this.activeTab);
+    if (!tab) return;
     const content = this.editor.getValue();
     if (content === undefined) return;
-    window.electronAPI?.fs.writeFile(this.activeTab, content);
+    window.electronAPI?.fs.writeFile(tab.originalPath, content);
   }
 
   getState(): { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
