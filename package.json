@@ -1,6 +1,6 @@
 {
   "name": "cockpit-ide",
-  "version": "0.0.20260524",
+  "version": "0.0.20260521",
   "description": "The IDE for developers who thinks spatially",
   "main": "dist/main/main.js",
   "scripts": {
@@ -14,7 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "user-stories:verify": "node scripts/ralph/verify-user-stories.mjs",
+    "ralph": "node scripts/ralph/runner.mjs"
   },
   "devDependencies": {
     "@chenglou/pretext": "^0.0.7",

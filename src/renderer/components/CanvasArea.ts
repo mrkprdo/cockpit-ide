@@ -272,8 +272,8 @@ export class CanvasArea {
         maxX = Math.max(maxX, p.rx + p.cs.savedWidth);
         maxY = Math.max(maxY, p.ry + p.cs.savedHeight);
       }
-      const ox = -Math.round(maxX / 2);
-      const oy = -Math.round(maxY / 2);
+      const ox = this.snap(-Math.round(maxX / 2));
+      const oy = this.snap(-Math.round(maxY / 2));
       for (const p of pos) {
         p.cs.worldX = p.rx + ox;
         p.cs.worldY = p.ry + oy;
@@ -313,8 +313,8 @@ export class CanvasArea {
 
       const totalW = cols * (cellW + gap) - gap;
       const totalH = rows * (cellH + gap) - gap;
-      const ox = -Math.round(totalW / 2);
-      const oy = -Math.round(totalH / 2);
+      const ox = this.snap(-Math.round(totalW / 2));
+      const oy = this.snap(-Math.round(totalH / 2));
 
       let idx = 0;
       for (let r = 0; r < rows; r++) {
