@@ -93,6 +93,13 @@ export class PluginCard {
       this.opts.onHeaderContextMenu?.(e);
     });
 
+    this.header.addEventListener('dblclick', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.card-controls')) return;
+      e.stopPropagation();
+      this.opts.onFitViewport?.();
+    });
+
     for (const btn of ['.card-btn-minimize', '.card-btn-fitview', '.card-btn-terminate']) {
       this.el.querySelector(btn)?.addEventListener('mousedown', (e) => {
         e.stopPropagation();

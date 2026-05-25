@@ -178,6 +178,39 @@ describe('PluginCard', () => {
     expect(body.querySelector('canvas')).toBeTruthy();
   });
 
+  it('double-click on header fires onFitViewport', () => {
+    const onFitViewport = vi.fn();
+    const parent = makeParent();
+    const card = new PluginCard(parent, {
+      title: 'DblClick Test',
+      x: 0, y: 0, width: 200, height: 200,
+      onFitViewport,
+    }, getTransform);
+
+    const header = card.el.querySelector('.card-header') as HTMLElement;
+    header.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    expect(onFitViewport).toHaveBeenCalledOnce();
+  });
+
+  it('double-click on control button does not fire onFitViewport', () => {
+    const onFitViewport = vi.fn();
+    const onMinimize = vi.fn();
+    const parent = makeParent();
+    const card = new PluginCard(parent, {
+      title: 'Btn DblClick',
+      x: 0, y: 0, width: 200, height: 200,
+      onFitViewport,
+      onMinimize,
+    }, getTransform);
+
+    const btn = card.el.querySelector('.card-btn-minimize') as HTMLElement;
+    btn.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    expect(onFitViewport).not.toHaveBeenCalled();
+
+    btn.click();
+    expect(onMinimize).toHaveBeenCalledOnce();
+  });
+
   it('calls onHeaderContextMenu on right-click of header', () => {
     const onHeaderContextMenu = vi.fn();
     const parent = makeParent();
@@ -241,6 +274,15 @@ describe('PluginCard — drag interaction', () => {
     header.dispatchEvent(new MouseEvent('mousedown', { button: 2, bubbles: true }));
 
     expect((card as any).isDragging).toBe(false);
+  });
+
+  it('mousedown on control buttons does not start drag', () => {
+    const card = createCard();
+    for (const sel of ['.card-btn-minimize', '.card-btn-fitview', '.card-btn-terminate']) {
+      const btn = card.el.querySelector(sel) as HTMLElement;
+      btn.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }));
+      expect((card as any).isDragging).toBe(false);
+    }
   });
 
   it('mousemove updates card position while dragging', () => {
