@@ -456,21 +456,20 @@ describe('fitViewport', () => {
     expect(canvas.getSaveState().zoom).toBe(1);
   });
 
-  it('zeros panX and panY', async () => {
+  it('centers viewport on origin', async () => {
     canvas.addTerminal();
     await new Promise(r => setTimeout(r, 400)); // wait for panToCard animation (300ms) to finish
 
     const cs = (canvas as any).cards[0];
-    // panX/panY are now centered on the card (non-zero)
     callFitViewport(cs);
     await new Promise(r => setTimeout(r, 50));
 
     const state = canvas.getSaveState();
-    expect(state.panX).toBe(0);
-    expect(state.panY).toBe(0);
+    expect(state.panX).toBe(960);
+    expect(state.panY).toBe(540);
   });
 
-  it('positions card at origin (0, 0)', async () => {
+  it('centers card on origin', async () => {
     canvas.addTerminal();
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
@@ -480,8 +479,8 @@ describe('fitViewport', () => {
     callFitViewport(cs);
     await new Promise(r => setTimeout(r, 50));
 
-    expect(cs.worldX).toBe(0);
-    expect(cs.worldY).toBe(0);
+    expect(cs.worldX).toBe(-960);
+    expect(cs.worldY).toBe(-540);
   });
 
   it('sizes card to fill viewport exactly', async () => {

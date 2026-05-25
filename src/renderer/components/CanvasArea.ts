@@ -943,12 +943,12 @@ export class CanvasArea {
 
   private fitViewport(cs: CardState): void {
     this.scale = 1;
-    this.panX = 0;
-    this.panY = 0;
-    cs.worldX = 0;
-    cs.worldY = 0;
     const w = this.el.clientWidth;
     const h = this.el.clientHeight;
+    this.panX = w / 2;
+    this.panY = h / 2;
+    cs.worldX = -Math.round(w / 2);
+    cs.worldY = -Math.round(h / 2);
     cs.savedWidth = w;
     cs.savedHeight = h;
     cs.card.opts.width = w;
