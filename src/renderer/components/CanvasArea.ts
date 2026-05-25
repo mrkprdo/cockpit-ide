@@ -1068,10 +1068,6 @@ export class CanvasArea {
     this.scale = 1;
     const w = this.el.clientWidth;
     const h = this.el.clientHeight;
-    this.panX = w / 2;
-    this.panY = h / 2;
-    cs.worldX = -Math.round(w / 2);
-    cs.worldY = -Math.round(h / 2);
     cs.savedWidth = w;
     cs.savedHeight = h;
     cs.card.opts.width = w;
