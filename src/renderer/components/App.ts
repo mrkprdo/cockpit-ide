@@ -51,6 +51,7 @@ export class App {
     this.canvas.onStateChange = () => this.trySave();
     this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
     this.canvas.onDevsChanged = (items) => this.topBar.setDevItems(items);
+    this.canvas.onGitChanged = (items) => this.topBar.setGitItems(items);
     this.canvas.onContextsChanged = (items) => this.topBar.setContextItems(items);
     this.canvas.onLockToggle = async () => {
       this.canvas.locked = !this.canvas.locked;
@@ -80,6 +81,7 @@ export class App {
       onOpenWorkspace: () => this.openWorkspace(),
       onNewTerminal: () => this.canvas.addTerminal(this.wsPath),
       onNewDev: () => this.canvas.addDev(this.wsPath),
+      onNewGit: () => this.canvas.addGit(this.wsPath),
       onNewContext: () => this.canvas.addContext(),
       onFocusTerminal: (uuid) => this.canvas.focusTerminal(uuid),
       onReopenTerminal: (uuid) => this.canvas.reopenTerminal(uuid),

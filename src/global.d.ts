@@ -50,6 +50,20 @@ interface Window {
       load: () => Promise<any>;
       save: (prefs: any) => Promise<boolean>;
     };
+    git: {
+      remotes: (repoPath: string) => Promise<{ name: string; url: string }[]>;
+      branches: (repoPath: string) => Promise<{ name: string; current: boolean; isRemote: boolean }[]>;
+      checkout: (repoPath: string, branch: string) => Promise<boolean>;
+      log: (repoPath: string, maxCount?: number) => Promise<{ hash: string; author: string; date: string; message: string }[]>;
+      showTree: (repoPath: string, commit: string) => Promise<{ status: string; path: string }[]>;
+      diff: (repoPath: string, commit: string, filePath?: string) => Promise<string>;
+      currentBranch: (repoPath: string) => Promise<string>;
+      stagedFiles: (repoPath: string) => Promise<{ status: string; path: string }[]>;
+      unstagedFiles: (repoPath: string) => Promise<{ status: string; path: string }[]>;
+      stagedDiff: (repoPath: string, filePath: string) => Promise<string>;
+      unstagedDiff: (repoPath: string, filePath: string) => Promise<string>;
+      commitBody: (repoPath: string, commit: string) => Promise<string>;
+    };
     clipboard: {
       readText: () => string;
     };

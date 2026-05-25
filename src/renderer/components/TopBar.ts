@@ -8,6 +8,7 @@ interface TopBarCallbacks {
   onOpenWorkspace?: () => void;
   onNewTerminal?: () => void;
   onNewDev?: () => void;
+  onNewGit?: () => void;
   onNewContext?: () => void;
   onFocusTerminal?: (uuid: string) => void;
   onReopenTerminal?: (uuid: string) => void;
@@ -31,6 +32,7 @@ export class TopBar {
   private zoomLocked = false;
   private termItems: TermItem[] = [];
   private devItems: TermItem[] = [];
+  private gitItems: TermItem[] = [];
   private ctxItems: TermItem[] = [];
   private docClickHandler: (() => void) | null = null;
 
@@ -46,6 +48,11 @@ export class TopBar {
 
   setDevItems(items: TermItem[]): void {
     this.devItems = items;
+    this.render();
+  }
+
+  setGitItems(items: TermItem[]): void {
+    this.gitItems = items;
     this.render();
   }
 
@@ -112,6 +119,7 @@ export class TopBar {
               }
             </div>
           </div>
+          <div class="menu-dropdown-item" id="menu-new-git">Git</div>
           <div class="menu-item-nested">
             <span>Context</span><span class="arrow">▸</span>
             <div class="menu-dropdown-nested">
@@ -274,6 +282,10 @@ export class TopBar {
     });
 
     // "New" in context submenu
+    document.getElementById('menu-new-git')?.addEventListener('click', () => {
+      this.callbacks.onNewGit?.();
+    });
+
     document.getElementById('menu-new-context')?.addEventListener('click', () => {
       this.callbacks.onNewContext?.();
     });

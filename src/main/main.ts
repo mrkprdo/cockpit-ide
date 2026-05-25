@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFile } from 'child_process';
 
 process.noDeprecation = true;
 
@@ -395,6 +396,153 @@ app.whenReady().then(async () => {
     const pty = ptyProcesses.get(uuid);
     if (pty) { pty.kill(); ptyProcesses.delete(uuid); }
     terminalSenders.delete(uuid);
+  });
+
+  // ─── Git operations ───
+  ipcMain.handle('git:remotes', async (_event, repoPath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['remote', '-v'], { cwd: repoPath }, (err, stdout) => {
+        if (err) { resolve([]); return; }
+        const remotes: { name: string; url: string }[] = [];
+        const seen = new Set<string>();
+        for (const line of stdout.trim().split('\n').filter(Boolean)) {
+          const [name, url] = line.split('\t');
+          if (!seen.has(name)) {
+            seen.add(name);
+            remotes.push({ name, url: (url || '').replace(/\s+\(.*\)$/, '') });
+          }
+        }
+        resolve(remotes);
+      });
+    });
+  });
+
+  ipcMain.handle('git:branches', async (_event, repoPath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['branch', '-a'], { cwd: repoPath }, (err, stdout) => {
+        if (err) { resolve([]); return; }
+        const branches = stdout.trim().split('\n').filter(Boolean).map(line => {
+          const current = line.startsWith('*');
+          const name = line.replace(/^\*\s*/, '').trim();
+          return { name, current, isRemote: name.startsWith('remotes/') };
+        });
+        resolve(branches);
+      });
+    });
+  });
+
+  ipcMain.handle('git:checkout', async (_event, repoPath: string, branch: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['checkout', branch], { cwd: repoPath }, err => {
+        resolve(!err);
+      });
+    });
+  });
+
+  ipcMain.handle('git:log', async (_event, repoPath: string, maxCount: number = 50) => {
+    return new Promise(resolve => {
+      execFile('git', ['log', `--max-count=${maxCount}`, '--format=%H|%an|%ai|%s', '--', '.'], { cwd: repoPath, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+        if (err) { resolve([]); return; }
+        const commits = stdout.trim().split('\n').filter(Boolean).map(line => {
+          const [hash, author, date, ...msgParts] = line.split('|');
+          return { hash, author, date: date || '', message: msgParts.join('|') || '' };
+        });
+        resolve(commits);
+      });
+    });
+  });
+
+  ipcMain.handle('git:showTree', async (_event, repoPath: string, commit: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['diff-tree', '--no-commit-id', '-r', '--name-status', '--root', commit], { cwd: repoPath, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+        if (err) { resolve([]); return; }
+        const files = stdout.trim().split('\n').filter(Boolean).map(line => {
+          const [rawStatus, ...nameParts] = line.split('\t');
+          const status = rawStatus.replace(/[^A-Z]/g, '') || '?';
+          return { status, path: nameParts.join('\t') };
+        });
+        resolve(files);
+      });
+    });
+  });
+
+  ipcMain.handle('git:diff', async (_event, repoPath: string, commit: string, filePath?: string) => {
+    return new Promise(resolve => {
+      const args = ['show', '--no-color', commit];
+      if (filePath) args.push(filePath);
+      execFile('git', args, { cwd: repoPath, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+        if (err) { resolve(''); return; }
+        const idx = stdout.indexOf('diff --git');
+        resolve(idx >= 0 ? stdout.substring(idx) : stdout);
+      });
+    });
+  });
+
+  ipcMain.handle('git:currentBranch', async (_event, repoPath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repoPath }, (err, stdout) => {
+        if (err) { resolve(''); return; }
+        resolve(stdout.trim());
+      });
+    });
+  });
+
+  ipcMain.handle('git:stagedFiles', async (_event, repoPath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['diff', '--cached', '--name-status'], { cwd: repoPath, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+        if (err) { resolve([]); return; }
+        const files = stdout.trim().split('\n').filter(Boolean).map(line => {
+          const [status, ...nameParts] = line.split('\t');
+          return { status: status || '?', path: nameParts.join('\t') };
+        });
+        resolve(files);
+      });
+    });
+  });
+
+  ipcMain.handle('git:unstagedFiles', async (_event, repoPath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['status', '--porcelain'], { cwd: repoPath, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+        if (err) { resolve([]); return; }
+        const files = stdout.trim().split('\n').filter(Boolean).reduce((acc: { status: string; path: string }[], line: string) => {
+          const xy = line.substring(0, 2);
+          const path = line.substring(3).trim();
+          // xy[1] is working-tree status — include if changed or untracked
+          if (xy[1] !== ' ' || xy === '??') {
+            acc.push({ status: xy.trim() || '?', path });
+          }
+          return acc;
+        }, []);
+        resolve(files);
+      });
+    });
+  });
+
+  ipcMain.handle('git:stagedDiff', async (_event, repoPath: string, filePath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['diff', '--cached', '--', filePath], { cwd: repoPath, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+        if (err) { resolve(''); return; }
+        resolve(stdout);
+      });
+    });
+  });
+
+  ipcMain.handle('git:unstagedDiff', async (_event, repoPath: string, filePath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['diff', '--', filePath], { cwd: repoPath, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+        if (err) { resolve(''); return; }
+        resolve(stdout);
+      });
+    });
+  });
+
+  ipcMain.handle('git:commitBody', async (_event, repoPath: string, commit: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['log', '-1', '--format=%B', commit], { cwd: repoPath }, (err, stdout) => {
+        if (err) { resolve(''); return; }
+        resolve(stdout);
+      });
+    });
   });
 
   // Workspace

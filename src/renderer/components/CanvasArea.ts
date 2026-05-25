@@ -9,6 +9,7 @@ import { TerminalPlugin } from './TerminalPlugin';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 import { DevPlugin } from './DevPlugin';
+import { GitPlugin } from './GitPlugin';
 import { ContextMenu } from './ContextMenu';
 import { ContextPlugin, ContextState } from './ContextPlugin';
 
@@ -24,6 +25,7 @@ interface CardState {
   savedWY: number;
   terminalPlugin: TerminalPlugin | null;
   devPlugin: DevPlugin | null;
+  gitPlugin: GitPlugin | null;
   onCardResize?: () => void;
 }
 
@@ -31,6 +33,7 @@ export class CanvasArea {
   onStateChange: (() => void) | null = null;
   onTerminalsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onDevsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
+  onGitChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onContextsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onLockToggle: (() => void) | null = null;
   private _locked = false;
@@ -59,6 +62,7 @@ export class CanvasArea {
   private gridStyle: GridStyle = 'dots';
   private terminalCounter = 0;
   private devCounter = 0;
+  private gitCounter = 0;
   private contextCounter = 0;
   workspaceName = 'no workspace';
 
@@ -376,6 +380,7 @@ export class CanvasArea {
           cs.card.el.style.display = 'none';
           this.notifyTerminalsChanged();
           this.notifyDevsChanged();
+          this.notifyGitChanged();
           this.notifyContextsChanged();
         }
       },
@@ -402,6 +407,7 @@ export class CanvasArea {
             cs.card.el.style.display = 'none';
             this.notifyTerminalsChanged();
             this.notifyDevsChanged();
+            this.notifyGitChanged();
             this.notifyContextsChanged();
             this.onStateChange?.();
           }}] : []),
@@ -410,7 +416,7 @@ export class CanvasArea {
         menu.onClose = () => { this.contextMenuOpen = false; };
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
-    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, devPlugin: null };
+    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, devPlugin: null, gitPlugin: null };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -521,6 +527,7 @@ export class CanvasArea {
             cs.card.el.style.display = 'none';
             this.notifyTerminalsChanged();
             this.notifyDevsChanged();
+            this.notifyGitChanged();
             this.notifyContextsChanged();
             this.onStateChange?.();
           }}] : []),
@@ -532,7 +539,7 @@ export class CanvasArea {
 
     const cx = this.clampWorld(p.x);
     const cy = this.clampWorld(p.y);
-    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, devPlugin: null };
+    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, devPlugin: null, gitPlugin: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
@@ -620,6 +627,24 @@ export class CanvasArea {
             }
           }
         }
+      } else if (p.title === 'Git') {
+        const cs = this.createCardFromDef(p, {
+          onClose: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyGitChanged(); },
+        });
+
+        if (p.isOpen) {
+          const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+          if (body) {
+            body.style.padding = '0';
+            body.style.alignItems = 'stretch';
+            body.style.justifyContent = 'stretch';
+            const git = new GitPlugin(body, wsPath);
+            git.onStateChange = () => this.onStateChange?.();
+            git.onFileOpen = (filePath) => this.getActiveDevPlugin()?.openFile(filePath);
+            cs.gitPlugin = git;
+            cs.card.onDestroy = () => git.destroy();
+          }
+        }
       } else if (p.title.startsWith('Context')) {
         const cs = this.createCardFromDef(p, {
           onClose: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyContextsChanged(); },
@@ -652,6 +677,7 @@ export class CanvasArea {
     this.terminalCounter = highestTerm;
     this.repositionAllCards();
     this.notifyDevsChanged();
+    this.notifyGitChanged();
     this.notifyContextsChanged();
   }
 
@@ -698,6 +724,40 @@ export class CanvasArea {
         cs.devPlugin = dev;
         dev.setContextOpeners(this.getContextLabels(), (filePath, label) => this.openInContext(filePath, label));
         this.notifyDevsChanged();
+        this.bringToFront(cs.card);
+        this.panToCard(cs);
+      }
+    });
+  }
+
+  addGit(wsPath: string): void {
+    // Only one Git plugin instance allowed
+    const existing = this.cards.find(c => c.savedTitle === 'Git');
+    if (existing) {
+      existing.isOpen = true;
+      existing.card.el.style.display = '';
+      existing.worldX = existing.savedWX;
+      existing.worldY = existing.savedWY;
+      this.positionCard(existing);
+      this.bringToFront(existing.card);
+      this.panToCard(existing);
+      this.notifyGitChanged();
+      return;
+    }
+    this.gitCounter = 1;
+    const cs = this.addCard('Git', '', -400, -250, 800, 500);
+    requestAnimationFrame(() => {
+      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+      if (body) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const git = new GitPlugin(body, wsPath);
+        git.onStateChange = () => this.onStateChange?.();
+        git.onFileOpen = (filePath) => this.getActiveDevPlugin()?.openFile(filePath);
+        cs.gitPlugin = git;
+        cs.card.onDestroy = () => git.destroy();
+        this.notifyGitChanged();
         this.bringToFront(cs.card);
         this.panToCard(cs);
       }
@@ -781,6 +841,11 @@ export class CanvasArea {
     if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
   }
 
+  focusGit(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && c.isOpen);
+    if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
+  }
+
   focusContext(uuid: string): void {
     const cs = this.cards.find(c => c.card.uuid === uuid && c.isOpen);
     if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
@@ -829,6 +894,11 @@ export class CanvasArea {
     if (cs) this.reopenCard(cs);
   }
 
+  reopenGit(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
+    if (cs) this.reopenCard(cs);
+  }
+
   reopenContext(uuid: string): void {
     const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
     if (cs) this.reopenCard(cs);
@@ -855,6 +925,25 @@ export class CanvasArea {
       cs.worldY = cs.savedWY;
       this.positionCard(cs);
       this.notifyDevsChanged();
+      this.onStateChange?.();
+    } else if (cs.savedTitle === 'Git') {
+      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+      if (body && !body.hasChildNodes()) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const git = new GitPlugin(body, this.wsPath);
+        git.onStateChange = () => this.onStateChange?.();
+        git.onFileOpen = (filePath) => this.getActiveDevPlugin()?.openFile(filePath);
+        cs.gitPlugin = git;
+        cs.card.onDestroy = () => git.destroy();
+      }
+      cs.isOpen = true;
+      cs.card.el.style.display = '';
+      cs.worldX = cs.savedWX;
+      cs.worldY = cs.savedWY;
+      this.positionCard(cs);
+      this.notifyGitChanged();
       this.onStateChange?.();
     } else if (cs.savedTitle.startsWith('Context')) {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
@@ -893,6 +982,7 @@ export class CanvasArea {
     this.cards.splice(idx, 1);
     this.notifyTerminalsChanged();
     this.notifyDevsChanged();
+    this.notifyGitChanged();
     this.notifyContextsChanged();
     this.onStateChange?.();
   }
@@ -907,6 +997,12 @@ export class CanvasArea {
     const list = this.cards.filter(c => c.savedTitle.startsWith('Dev '))
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.onDevsChanged?.(list);
+  }
+
+  private notifyGitChanged(): void {
+    const list = this.cards.filter(c => c.savedTitle === 'Git')
+      .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
+    this.onGitChanged?.(list);
   }
 
   private notifyContextsChanged(): void {

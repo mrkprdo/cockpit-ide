@@ -86,6 +86,10 @@ export class DevPlugin {
     return false;
   }
 
+  openFile(filePath: string): void {
+    this.editor.openFile(filePath);
+  }
+
   openFileSearch(): void {
     if (this.isHidden()) return;
     if (!this.palette) {
