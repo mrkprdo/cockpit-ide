@@ -93,16 +93,18 @@ export class PluginCard {
       this.opts.onHeaderContextMenu?.(e);
     });
 
-    this.el.querySelector('.card-btn-minimize')?.addEventListener('click', (e) => {
-      e.stopPropagation();
+    for (const btn of ['.card-btn-minimize', '.card-btn-fitview', '.card-btn-terminate']) {
+      this.el.querySelector(btn)?.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+      });
+    }
+    this.el.querySelector('.card-btn-minimize')?.addEventListener('click', () => {
       this.opts.onMinimize?.();
     });
-    this.el.querySelector('.card-btn-fitview')?.addEventListener('click', (e) => {
-      e.stopPropagation();
+    this.el.querySelector('.card-btn-fitview')?.addEventListener('click', () => {
       this.opts.onFitViewport?.();
     });
-    this.el.querySelector('.card-btn-terminate')?.addEventListener('click', (e) => {
-      e.stopPropagation();
+    this.el.querySelector('.card-btn-terminate')?.addEventListener('click', () => {
       this.opts.onTerminate?.();
     });
 
@@ -113,7 +115,7 @@ export class PluginCard {
 
   renderTitle(): void {
     const dpr = window.devicePixelRatio || 1;
-    const w = this.opts.width - 80;
+    const w = this.opts.width - 100;
     const h = 18;
     this.headerCanvas.width = w * dpr;
     this.headerCanvas.height = h * dpr;
@@ -158,6 +160,8 @@ export class PluginCard {
   private initDrag(): void {
     this.header.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
+      const target = e.target as HTMLElement;
+      if (target.closest('.card-controls')) return;
       e.stopPropagation();
       this.isDragging = true;
       this.dragOffsetX = e.clientX;

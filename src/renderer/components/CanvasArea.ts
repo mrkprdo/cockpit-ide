@@ -600,6 +600,8 @@ export class CanvasArea {
             cs.card.el.style.display = 'none';
             this.notifyTerminalsChanged();
           },
+          onFitViewport: () => this.fitViewport(cs),
+          onTerminate: () => this.terminateCard(cs),
         });
 
         if (p.isOpen) {
@@ -622,6 +624,8 @@ export class CanvasArea {
       } else if (p.title.startsWith('Dev')) {
         const cs = this.createCardFromDef(p, {
           onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; },
+          onFitViewport: () => this.fitViewport(cs),
+          onTerminate: () => this.terminateCard(cs),
         });
 
         if (p.isOpen) {
@@ -644,6 +648,8 @@ export class CanvasArea {
       } else if (p.title === 'Git') {
         const cs = this.createCardFromDef(p, {
           onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyGitChanged(); },
+          onFitViewport: () => this.fitViewport(cs),
+          onTerminate: () => this.terminateCard(cs),
         });
 
         if (p.isOpen) {
@@ -665,6 +671,8 @@ export class CanvasArea {
       } else if (p.title.startsWith('Context')) {
         const cs = this.createCardFromDef(p, {
           onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyContextsChanged(); },
+          onFitViewport: () => this.fitViewport(cs),
+          onTerminate: () => this.terminateCard(cs),
         });
 
         if (p.isOpen) {

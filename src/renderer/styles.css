@@ -496,9 +496,10 @@ html, body {
   transition: opacity 0.15s, background 0.1s, color 0.1s;
   padding: 2px;
 }
-.card-btn svg { width: 100%; height: 100%; }
+.card-btn svg, .card-btn svg * { pointer-events: none; width: 100%; height: 100%; }
 .card:hover .card-btn { opacity: 1; }
-.card-btn:hover { background: var(--surface); color: var(--primary); }
+.card-btn-minimize:hover { background: var(--amber); color: oklch(97% 0.006 20); }
+.card-btn-fitview:hover   { background: var(--accent); color: oklch(97% 0.006 20); }
 .card-btn-terminate:hover { background: var(--red); color: oklch(97% 0.006 20); }
 
 .card-body {
