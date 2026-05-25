@@ -530,11 +530,12 @@ describe('auto arrange', () => {
       (items[0] as HTMLElement).click();
 
       const after = canvas.getSaveState();
-      expect(after.plugins[0].x).toBe(0);
-      expect(after.plugins[0].y).toBe(0);
+      // Cards are centered on origin (not at 0,0)
+      expect(after.plugins[0].x).toBeLessThan(0);
+      expect(after.plugins[0].y).toBeLessThan(0);
       // Cards are placed left-to-right with 28 gap
-      expect(after.plugins[1].x).toBe(after.plugins[0].width + 28);
-      expect(after.plugins[2].x).toBe((after.plugins[0].width + 28) * 2);
+      expect(after.plugins[1].x - after.plugins[0].x).toBe(after.plugins[0].width + 28);
+      expect(after.plugins[2].x - after.plugins[1].x).toBe(after.plugins[1].width + 28);
     });
 
     it('calls onStateChange after arranging', async () => {
@@ -618,9 +619,9 @@ describe('auto arrange', () => {
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(4);
-      // 4 cards -> 2x2 grid, row 1 starts at cellH + gap
+      // 4 cards -> 2x2 grid centered on origin, row spacing is cellH + gap
       const cellH = state.plugins[0].height;
-      expect(state.plugins[2].y).toBe(cellH + 28);
+      expect(state.plugins[2].y - state.plugins[0].y).toBe(cellH + 28);
     });
 
   });

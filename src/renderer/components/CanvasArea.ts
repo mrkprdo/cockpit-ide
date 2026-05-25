@@ -55,6 +55,7 @@ export class CanvasArea {
   private panStartPanX = 0;
   private panStartPanY = 0;
   private rafId = 0;
+  private originDot: HTMLDivElement;
   private gridStyle: GridStyle = 'dots';
   private terminalCounter = 0;
   private devCounter = 0;
@@ -137,6 +138,10 @@ export class CanvasArea {
     this.arrPanel.addEventListener('mouseleave', () => {
       if (!arrZone.matches(':hover')) this.arrPanel.style.display = 'none';
     });
+
+    this.originDot = document.createElement('div');
+    this.originDot.className = 'origin-dot';
+    this.el.appendChild(this.originDot);
 
     this.patternDataURL = generateGridPattern(this.gridStyle, this.patternSize);
     applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
@@ -248,22 +253,31 @@ export class CanvasArea {
     const open = this.cards.filter(c => c.isOpen);
     this.animateArrange(open, () => {
       const gap = 28;
-      let x = 0;
-      let y = 0;
-      let rowH = 0;
+      const pos: { cs: CardState; rx: number; ry: number }[] = [];
+      let rx = 0, ry = 0, rowH = 0;
       for (const cs of open) {
-        cs.worldX = x;
-        cs.worldY = y;
-        cs.savedWX = x;
-        cs.savedWY = y;
-        this.positionCard(cs);
-        x += cs.savedWidth + gap;
+        pos.push({ cs, rx, ry });
+        rx += cs.savedWidth + gap;
         rowH = Math.max(rowH, cs.savedHeight);
-        if (x > 1400) {
-          x = 0;
-          y += rowH + gap;
+        if (rx > 1400) {
+          rx = 0;
+          ry += rowH + gap;
           rowH = 0;
         }
+      }
+      let maxX = 0, maxY = 0;
+      for (const p of pos) {
+        maxX = Math.max(maxX, p.rx + p.cs.savedWidth);
+        maxY = Math.max(maxY, p.ry + p.cs.savedHeight);
+      }
+      const ox = -Math.round(maxX / 2);
+      const oy = -Math.round(maxY / 2);
+      for (const p of pos) {
+        p.cs.worldX = p.rx + ox;
+        p.cs.worldY = p.ry + oy;
+        p.cs.savedWX = p.cs.worldX;
+        p.cs.savedWY = p.cs.worldY;
+        this.positionCard(p.cs);
       }
       this.onStateChange?.();
     });
@@ -295,12 +309,17 @@ export class CanvasArea {
         cellH = (availH - (rows - 1) * gap) / rows;
       }
 
+      const totalW = cols * (cellW + gap) - gap;
+      const totalH = rows * (cellH + gap) - gap;
+      const ox = -Math.round(totalW / 2);
+      const oy = -Math.round(totalH / 2);
+
       let idx = 0;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols && idx < open.length; c++) {
           const cs = open[idx];
-          cs.worldX = Math.round(c * (cellW + gap));
-          cs.worldY = Math.round(r * (cellH + gap));
+          cs.worldX = Math.round(c * (cellW + gap)) + ox;
+          cs.worldY = Math.round(r * (cellH + gap)) + oy;
           cs.savedWX = cs.worldX;
           cs.savedWY = cs.worldY;
           const sw = Math.max(28 * 10, Math.round(cellW));
@@ -635,7 +654,7 @@ export class CanvasArea {
   }
 
   addExplorer(wsPath: string): void {
-    const cs = this.addCard('EXPLORER', '', 0, 0, 300, 420);
+    const cs = this.addCard('EXPLORER', '', -150, -210, 300, 420);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {
@@ -650,7 +669,7 @@ export class CanvasArea {
   }
 
   addEditor(): void {
-    const cs = this.addCard('EDITOR', '', 0, 0, 500, 420);
+    const cs = this.addCard('EDITOR', '', -250, -210, 500, 420);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {
@@ -665,7 +684,7 @@ export class CanvasArea {
   addDev(wsPath: string): void {
     this.wsPath = wsPath;
     this.devCounter++;
-    const cs = this.addCard(`Dev ${this.devCounter}`, '', 0, 0, 800, 500);
+    const cs = this.addCard(`Dev ${this.devCounter}`, '', -400, -250, 800, 500);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {
@@ -686,7 +705,7 @@ export class CanvasArea {
   addContext(): Promise<ContextPlugin | null> {
     this.contextCounter++;
     const name = `Context ${this.contextCounter}`;
-    const cs = this.addCard(name, '', 0, 0, 700, 500);
+    const cs = this.addCard(name, '', -350, -250, 700, 500);
     return new Promise(resolve => {
       requestAnimationFrame(() => {
         const body = cs.card.el.querySelector('.card-body') as HTMLElement;
@@ -730,7 +749,7 @@ export class CanvasArea {
   addTerminal(cwd?: string): void {
     this.terminalCounter++;
     const name = `Terminal ${this.terminalCounter}`;
-    const cs = this.addCard(name, '', 0, 0, 560, 420);
+    const cs = this.addCard(name, '', -280, -210, 560, 420);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {
@@ -955,6 +974,9 @@ export class CanvasArea {
       applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
       for (const cs of this.cards) cs.card.renderTitle();
       const half = this.patternSize / 2;
+      this.originDot.style.left = `${this.panX - 3}px`;
+      this.originDot.style.top = `${this.panY - 3}px`;
+      this.originDot.style.transform = `scale(${this.scale})`;
 
       this.statusBar.update(this._locked, this.scale, this.panX, this.panY, this.workspaceName, this.onLockToggle, () => this.fitAll());
       this.onStateChange?.();
