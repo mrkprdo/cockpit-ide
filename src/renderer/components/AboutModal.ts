@@ -22,7 +22,7 @@ export class AboutModal {
     this.el.innerHTML = `
       <div class="about-head">
         <div class="about-name">COCKPIT IDE</div>
-        <div class="about-tagline">The IDE for developers who thinks spatialy</div>
+        <div class="about-tagline">The IDE for developers who think spatially</div>
       </div>
       <div class="about-sep"></div>
       <div class="about-specs">
@@ -35,7 +35,7 @@ export class AboutModal {
       </div>
       <div class="about-sep"></div>
       <div class="about-foot">
-        <button class="about-close-btn" id="about-close">CLOSE</button>
+        <button class="btn-ghost about-close-btn" id="about-close">CLOSE</button>
       </div>
     `;
 

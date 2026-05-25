@@ -551,7 +551,7 @@ html, body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(8,14,22,0.72);
   z-index: 200;
   display: none;
   align-items: center;
@@ -562,10 +562,10 @@ html, body {
 }
 .modal {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px dashed var(--border);
   border-radius: var(--radius-md);
   min-width: 380px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.25);
   animation: modal-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .modal-header {
@@ -705,6 +705,8 @@ html, body {
   width: 340px;
   font-family: var(--font);
   overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.25);
+  animation: modal-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .welcome-head {
   padding: 24px 24px 20px;
@@ -721,7 +723,7 @@ html, body {
   color: var(--tertiary);
   letter-spacing: 0.3px;
 }
-.welcome-sep {
+.welcome-sep, .about-sep, .modal-sep {
   height: 1px;
   margin: 0 24px;
   background: var(--border);
@@ -748,6 +750,42 @@ html, body {
 }
 .welcome-btn:hover { opacity: 0.85; }
 
+/* ===== Shared Modal Button Tokens ===== */
+.btn-primary {
+  display: inline-block;
+  padding: 7px 16px;
+  background: var(--primary);
+  color: var(--bg);
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.85; }
+
+.btn-ghost {
+  display: inline-block;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: var(--font);
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-ghost:hover {
+  background: var(--panel);
+  color: var(--primary);
+  border-color: var(--secondary);
+}
+
 .about-link {
   color: var(--accent);
   cursor: pointer;
@@ -765,6 +803,8 @@ html, body {
   width: 300px;
   font-family: var(--font);
   overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.25);
+  animation: modal-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .about-head {
   padding: 24px 24px 20px;
@@ -781,11 +821,7 @@ html, body {
   color: var(--tertiary);
   letter-spacing: 0.3px;
 }
-.about-sep {
-  height: 1px;
-  margin: 0 24px;
-  background: var(--border);
-}
+/* .about-sep merged into .welcome-sep, .about-sep, .modal-sep group above */
 .about-specs {
   padding: 16px 24px;
 }
@@ -814,23 +850,8 @@ html, body {
   align-items: center;
   justify-content: space-between;
 }
-.about-close-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--secondary);
-  font-size: 10px;
-  font-family: var(--font);
-  letter-spacing: 0.5px;
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s, border-color 0.1s;
-}
-.about-close-btn:hover {
-  background: var(--panel);
-  color: var(--primary);
-  border-color: var(--secondary);
-}
+/* .about-close-btn extends .btn-ghost; compact padding override for tight footer */
+.about-close-btn { padding: 4px 10px; }
 
 .welcome-btn-secondary {
   padding: 6px 12px;

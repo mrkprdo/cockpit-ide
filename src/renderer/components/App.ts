@@ -39,6 +39,11 @@ export class App {
         e.preventDefault();
         this.canvas.getActiveDevPlugin()?.openFileSearch();
       }
+      // Ctrl+J / Cmd+J — new terminal
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
+        e.preventDefault();
+        this.canvas.addTerminal(this.wsPath);
+      }
     });
 
     this.canvas = new CanvasArea(document.getElementById('canvas')!);

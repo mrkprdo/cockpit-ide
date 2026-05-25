@@ -18,19 +18,19 @@ export class ConfirmModal {
 
     const msg = document.createElement('div');
     msg.className = 'confirm-modal-msg';
-    msg.textContent = message;
+    msg.innerHTML = message;
 
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
 
     const cancelBtn = document.createElement('button');
     cancelBtn.id = 'confirm-cancel';
-    cancelBtn.className = 'welcome-btn-secondary';
+    cancelBtn.className = 'btn-ghost';
     cancelBtn.textContent = 'Cancel';
 
     const okBtn = document.createElement('button');
     okBtn.id = 'confirm-ok';
-    okBtn.className = destructive ? 'welcome-btn btn-ok-destructive' : 'welcome-btn';
+    okBtn.className = destructive ? 'btn-primary btn-ok-destructive' : 'btn-primary';
     okBtn.textContent = confirmLabel;
 
     actions.appendChild(cancelBtn);

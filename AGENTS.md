@@ -30,7 +30,7 @@ D:\cockpit_ide\
 ├── vitest.config.ts               # Vitest config: jsdom, setup, coverage
 ├── bin/
 │   ├── cockpit.bat                # Windows launcher — starts Cockpit.exe with args
-│   └── cockpit-mcp-bridge.mjs    # Stdio-to-HTTP MCP bridge for Claude Desktop/opencode
+
 ├── public/
 │   ├── cockpit_ide_icon.ico       # App icon (Electron window & installer)
 │   └── icon.svg                   # SVG logo: 4 overlapping circles (Noir palette)
@@ -239,36 +239,6 @@ Cockpit IDE runs an MCP (Model Context Protocol) server on `127.0.0.1:49876` (co
 | `prefs_load` | Load user preferences |
 | `prefs_save` | Save user preferences |
 | `shell_open_external` | Open URL in browser |
-
-### Configuring Clients
-
-**opencode** (opencode.json):
-```json
-{
-  "mcpServers": {
-    "cockpit-ide": {
-      "command": "node",
-      "args": ["path/to/cockpit-ide/bin/cockpit-mcp-bridge.mjs"],
-      "env": { "COCKPIT_MCP_PORT": "49876" }
-    }
-  }
-}
-```
-
-**Claude Desktop** (claude_desktop_config.json):
-```json
-{
-  "mcpServers": {
-    "cockpit-ide": {
-      "command": "node",
-      "args": ["path/to/cockpit-ide/bin/cockpit-mcp-bridge.mjs"]
-    }
-  }
-}
-```
-
-The bridge script automatically detects the Cockpit MCP port by checking common userData directories. Set `COCKPIT_MCP_PORT` env var to override. Cockpit must already be running for the bridge to connect.
-
 <!-- CODEGRAPH_START -->
 ## CodeGraph
 

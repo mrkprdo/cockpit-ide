@@ -138,6 +138,39 @@ describe('App', () => {
     expect(mockElectronAPI.window.newWindow).toHaveBeenCalled();
   });
 
+  it('Ctrl+J creates a new terminal', async () => {
+    new App();
+    (mockElectronAPI.terminal.create as any).mockClear();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'j',
+      ctrlKey: true,
+      bubbles: true,
+    });
+    document.dispatchEvent(event);
+
+    // addTerminal -> TerminalPlugin -> terminal.create
+    await vi.waitFor(() => {
+      expect(mockElectronAPI.terminal.create).toHaveBeenCalled();
+    });
+  });
+
+  it('Cmd+J creates a new terminal', async () => {
+    new App();
+    (mockElectronAPI.terminal.create as any).mockClear();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'j',
+      metaKey: true,
+      bubbles: true,
+    });
+    document.dispatchEvent(event);
+
+    await vi.waitFor(() => {
+      expect(mockElectronAPI.terminal.create).toHaveBeenCalled();
+    });
+  });
+
   it('Ctrl+N without Shift does not call newWindow', () => {
     new App();
     (mockElectronAPI.window.newWindow as any).mockClear();

@@ -1,6 +1,6 @@
 {
   "name": "cockpit-ide",
-  "version": "0.0.20260521",
+  "version": "0.0.20260524",
   "description": "The IDE for developers who thinks spatially",
   "main": "dist/main/main.js",
   "scripts": {
