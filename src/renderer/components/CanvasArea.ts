@@ -106,6 +106,7 @@ export class CanvasArea {
         }
       }, 200);
     });
+    this.pluginListPanel.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
     this.pluginListPanel.addEventListener('mouseenter', () => { this.pluginListPanel.style.display = 'block'; });
     this.pluginListPanel.addEventListener('mouseleave', () => {
       if (!this.contextMenuOpen && !zone.matches(':hover')) this.pluginListPanel.style.display = 'none';
@@ -134,6 +135,7 @@ export class CanvasArea {
         }
       }, 200);
     });
+    this.arrPanel.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
     this.arrPanel.addEventListener('mouseenter', () => { this.arrPanel.style.display = 'block'; });
     this.arrPanel.addEventListener('mouseleave', () => {
       if (!arrZone.matches(':hover')) this.arrPanel.style.display = 'none';
