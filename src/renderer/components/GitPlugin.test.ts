@@ -587,4 +587,142 @@ describe('GitPlugin', () => {
       expect(diffLines.length).toBeGreaterThan(0);
     });
   });
+
+  describe('commit/push', () => {
+    it('renders commit bar with input, commit button, and push button', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const input = container.querySelector('.git-commit-input') as HTMLInputElement;
+      const commitBtn = container.querySelector('.git-commit-btn') as HTMLButtonElement;
+      const pushBtn = container.querySelector('.git-push-btn') as HTMLButtonElement;
+
+      expect(input).toBeTruthy();
+      expect(commitBtn).toBeTruthy();
+      expect(pushBtn).toBeTruthy();
+      expect(commitBtn.disabled).toBe(true);
+    });
+
+    it('disables commit button when input is empty', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const commitBtn = container.querySelector('.git-commit-btn') as HTMLButtonElement;
+      expect(commitBtn.disabled).toBe(true);
+    });
+
+    it('enables commit button when input has text and staged files exist', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const input = container.querySelector('.git-commit-input') as HTMLInputElement;
+      const commitBtn = container.querySelector('.git-commit-btn') as HTMLButtonElement;
+
+      input.value = 'my commit message';
+      input.dispatchEvent(new Event('input'));
+
+      expect(commitBtn.disabled).toBe(false);
+    });
+
+    it('calls git:commit on commit button click', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const input = container.querySelector('.git-commit-input') as HTMLInputElement;
+      const commitBtn = container.querySelector('.git-commit-btn') as HTMLButtonElement;
+
+      input.value = 'feat: add feature';
+      input.dispatchEvent(new Event('input'));
+
+      commitBtn.click();
+      await flush();
+
+      expect(mockElectronAPI.git.commit).toHaveBeenCalledWith('/test/repo', 'feat: add feature');
+    });
+
+    it('clears input after successful commit and calls refresh', async () => {
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+      vi.clearAllMocks();
+
+      const input = container.querySelector('.git-commit-input') as HTMLInputElement;
+      const commitBtn = container.querySelector('.git-commit-btn') as HTMLButtonElement;
+
+      input.value = 'feat: add feature';
+      input.dispatchEvent(new Event('input'));
+      commitBtn.click();
+      await flush();
+
+      expect(input.value).toBe('');
+      expect(mockElectronAPI.git.remotes).toHaveBeenCalled(); // refresh was called
+    });
+
+    it('calls git:push on push button click', async () => {
+      (mockElectronAPI.git.checkAhead as any).mockResolvedValue(true);
+      new GitPlugin(container, '/test/repo');
+      await flush();
+      vi.clearAllMocks();
+
+      const pushBtn = container.querySelector('.git-push-btn') as HTMLButtonElement;
+      pushBtn.click();
+      await flush();
+
+      expect(mockElectronAPI.git.push).toHaveBeenCalledWith('/test/repo');
+    });
+
+    it('commits via Enter key in input', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+      vi.clearAllMocks();
+
+      const input = container.querySelector('.git-commit-input') as HTMLInputElement;
+      input.value = 'feat: enter commit';
+      input.dispatchEvent(new Event('input'));
+
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await flush();
+
+      expect(mockElectronAPI.git.commit).toHaveBeenCalledWith('/test/repo', 'feat: enter commit');
+    });
+
+    it('push button starts disabled when no unpushed commits', async () => {
+      (mockElectronAPI.git.checkAhead as any).mockResolvedValue(false);
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const pushBtn = container.querySelector('.git-push-btn') as HTMLButtonElement;
+      expect(pushBtn.disabled).toBe(true);
+    });
+
+    it('push button enabled when unpushed commits exist', async () => {
+      (mockElectronAPI.git.checkAhead as any).mockResolvedValue(true);
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const pushBtn = container.querySelector('.git-push-btn') as HTMLButtonElement;
+      expect(pushBtn.disabled).toBe(false);
+    });
+
+    it('calls checkAhead during refresh', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      expect(mockElectronAPI.git.checkAhead).toHaveBeenCalledWith('/test/repo');
+    });
+
+    it('push button disabled after successful push', async () => {
+      (mockElectronAPI.git.checkAhead as any).mockResolvedValue(true);
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const pushBtn = container.querySelector('.git-push-btn') as HTMLButtonElement;
+      expect(pushBtn.disabled).toBe(false);
+
+      (mockElectronAPI.git.checkAhead as any).mockResolvedValue(false);
+      pushBtn.click();
+      await flush();
+
+      expect(pushBtn.disabled).toBe(true);
+    });
+  });
 });

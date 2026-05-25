@@ -216,9 +216,9 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
     expect(termBefore.isOpen).toBe(true);
     const uuid = termBefore.uuid;
 
-    // Minimize via close button
-    const closeBtn = el.querySelector('.card-close') as HTMLElement;
-    closeBtn?.click();
+    // Minimize via minimize button
+    const minBtn = el.querySelector('.card-btn-minimize') as HTMLElement;
+    minBtn?.click();
     await flushRaf();
 
     const savedMinimized = canvas.getSaveState();
@@ -245,9 +245,9 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
     await canvas.addContext();
     await flushRaf();
 
-    // Minimize Dev via close button
-    const closeBtn = el.querySelector('.card-close') as HTMLElement;
-    closeBtn?.click();
+    // Minimize Dev via minimize button
+    const minBtn = el.querySelector('.card-btn-minimize') as HTMLElement;
+    minBtn?.click();
     await flushRaf();
 
     // Dev should appear as closed in notification
@@ -271,8 +271,8 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
 
     const ctxEntry = canvas.getSaveState().plugins.find(p => p.title === 'Context 1')!;
 
-    const closeBtn = el.querySelector('.card-close') as HTMLElement;
-    closeBtn?.click();
+    const minBtn = el.querySelector('.card-btn-minimize') as HTMLElement;
+    minBtn?.click();
     await flushRaf();
 
     const minimized = canvas.getSaveState().plugins.find(p => p.title === 'Context 1')!;
@@ -291,9 +291,9 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
     await canvas.addContext();
     await flushRaf();
 
-    // Close all
-    const closeBtns = el.querySelectorAll('.card-close');
-    for (const btn of Array.from(closeBtns)) {
+    // Minimize all via minimize buttons
+    const minBtns = el.querySelectorAll('.card-btn-minimize');
+    for (const btn of Array.from(minBtns)) {
       (btn as HTMLElement).click();
     }
     await flushRaf();
@@ -479,8 +479,8 @@ describe('E2E Advanced: Arrange & Layout Workflows', () => {
     await flushRaf();
 
     // Minimize Dev (second card)
-    const closeBtns = el?.querySelectorAll('.card-close');
-    (closeBtns[1] as HTMLElement)?.click();
+    const minBtns = el?.querySelectorAll('.card-btn-minimize');
+    (minBtns[1] as HTMLElement)?.click();
     await flushRaf();
 
     canvas.autoArrange();
@@ -629,9 +629,9 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
     const termUuid = beforeState.plugins.find(p => p.title === 'Terminal 1')!.uuid;
     expect(beforeState.plugins.find(p => p.title === 'Terminal 1')!.isOpen).toBe(true);
 
-    // Minimize via close button (this removes from DOM but keeps in state)
-    const closeBtn = document.querySelector('.card-close') as HTMLElement;
-    closeBtn?.click();
+    // Minimize via minimize button (this removes from DOM but keeps in state)
+    const minBtn = document.querySelector('.card-btn-minimize') as HTMLElement;
+    minBtn?.click();
     await flushRaf();
 
     const minimized = canvas.getSaveState();
@@ -1141,9 +1141,9 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
     await canvas.addContext();
     await flushRaf();
 
-    // Minimize all
-    const closeBtns = document.querySelectorAll('.card-close');
-    for (const btn of Array.from(closeBtns)) {
+    // Minimize all via minimize buttons
+    const minBtns = document.querySelectorAll('.card-btn-minimize');
+    for (const btn of Array.from(minBtns)) {
       (btn as HTMLElement).click();
     }
     await flushRaf();
@@ -1327,24 +1327,26 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
 
     const header = card.el.querySelector('.card-header');
     expect(header).toBeTruthy();
-    const closeBtn = card.el.querySelector('.card-close');
-    expect(closeBtn).toBeTruthy();
+    const minBtn = card.el.querySelector('.card-btn-minimize');
+    expect(minBtn).toBeTruthy();
+    expect(card.el.querySelector('.card-btn-fitview')).toBeTruthy();
+    expect(card.el.querySelector('.card-btn-terminate')).toBeTruthy();
     const body = card.el.querySelector('.card-body');
     expect(body).toBeTruthy();
   });
 
-  it('close button fires onClose callback', () => {
+  it('terminate button fires onTerminate callback', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
-    const onClose = vi.fn();
+    const onTerminate = vi.fn();
     const card = new PluginCard(parent, {
-      title: 'Closable', x: 0, y: 0, width: 200, height: 100, onClose,
+      title: 'Terminable', x: 0, y: 0, width: 200, height: 100, onTerminate,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
-    const closeBtn = card.el.querySelector('.card-close') as HTMLElement;
-    closeBtn.click();
-    expect(onClose).toHaveBeenCalledTimes(1);
+    const termBtn = card.el.querySelector('.card-btn-terminate') as HTMLElement;
+    termBtn.click();
+    expect(onTerminate).toHaveBeenCalledTimes(1);
   });
 
   it('remove calls onDestroy and removes from DOM', () => {

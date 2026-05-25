@@ -23,6 +23,12 @@ interface GitRemote {
 
 type DiffViewMode = 'unified' | 'side-by-side';
 
+export type GitState = {
+  selectedCommitHash: string | null;
+  selectedFilePath: string | null;
+  diffViewMode: DiffViewMode;
+} | null;
+
 export class GitPlugin {
   onStateChange: (() => void) | null = null;
   onFileOpen: ((filePath: string) => void) | null = null;
@@ -66,6 +72,13 @@ export class GitPlugin {
   private unstagedCount: HTMLSpanElement | null = null;
   private commitInfoEl: HTMLDivElement | null = null;
   private unwatchFiles: (() => void) | null = null;
+  private vResizeHandle: HTMLDivElement;
+  private isVDragging = false;
+  private topPanel: HTMLDivElement;
+  private bottomPanel: HTMLDivElement;
+  private commitInput: HTMLInputElement | null = null;
+  private commitBtn: HTMLButtonElement | null = null;
+  private pushBtn: HTMLButtonElement | null = null;
 
   constructor(container: HTMLElement, wsPath: string) {
     this.wsPath = wsPath;
@@ -140,6 +153,26 @@ export class GitPlugin {
     this.unwatchFiles = null;
   }
 
+  getState(): GitState {
+    if (!this.selectedCommitHash && !this.selectedFilePath) return null;
+    return {
+      selectedCommitHash: this.selectedCommitHash,
+      selectedFilePath: this.selectedFilePath,
+      diffViewMode: this.diffViewMode,
+    };
+  }
+
+  async restoreState(state: GitState): Promise<void> {
+    if (!state) return;
+    if (state.diffViewMode) this.diffViewMode = state.diffViewMode;
+    if (state.selectedCommitHash && this.commits.some(c => c.hash === state.selectedCommitHash)) {
+      await this.selectCommit(state.selectedCommitHash);
+      if (state.selectedFilePath) {
+        await this.selectFile(state.selectedFilePath);
+      }
+    }
+  }
+
   private buildUI(): void {
     // ─── Left panel ───
 
@@ -147,6 +180,45 @@ export class GitPlugin {
     const changesLabel = this.labelEl('Changes');
     changesLabel.style.cssText = 'padding:6px 8px 2px;font-size:var(--text-2xs);font-weight:700;letter-spacing:0.15em;color:var(--tertiary)';
     this.leftCol.appendChild(changesLabel);
+
+    // Commit bar: input + commit button + push button
+    const commitBar = document.createElement('div');
+    commitBar.className = 'git-commit-bar';
+    this.commitInput = document.createElement('input');
+    this.commitInput.className = 'git-commit-input';
+    this.commitInput.type = 'text';
+    this.commitInput.placeholder = 'Commit message...';
+    this.commitBtn = document.createElement('button');
+    this.commitBtn.className = 'git-commit-btn';
+    this.commitBtn.textContent = 'Commit';
+    this.commitBtn.disabled = true;
+    this.commitBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handleCommit();
+    });
+    this.commitInput.addEventListener('input', () => {
+      if (this.commitBtn) {
+        this.commitBtn.disabled = this.stagedFiles.length === 0 || !this.commitInput?.value.trim();
+      }
+    });
+    this.commitInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && this.commitInput?.value.trim()) {
+        e.stopPropagation();
+        this.handleCommit();
+      }
+    });
+    this.pushBtn = document.createElement('button');
+    this.pushBtn.className = 'git-push-btn';
+    this.pushBtn.textContent = 'Push';
+    this.pushBtn.disabled = true;
+    this.pushBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handlePush();
+    });
+    commitBar.appendChild(this.commitInput);
+    commitBar.appendChild(this.commitBtn);
+    commitBar.appendChild(this.pushBtn);
+    this.leftCol.appendChild(commitBar);
 
     // Staged header + files
     this.stagedHeader = document.createElement('div');
@@ -222,22 +294,35 @@ export class GitPlugin {
     this.leftCol.appendChild(this.commitsContainer);
 
     // ─── Right panel ───
+    this.topPanel = document.createElement('div');
+    this.topPanel.style.cssText = 'flex:none;height:150px;display:flex;flex-direction:column;overflow:hidden';
+    this.rightCol.appendChild(this.topPanel);
+
     const filesHeader = this.labelEl('Changed Files');
     filesHeader.style.cssText = 'padding:4px 8px;font-size:var(--text-2xs);font-weight:700;letter-spacing:0.15em;color:var(--tertiary);border-bottom:1px solid var(--border);flex-shrink:0';
-    this.rightCol.appendChild(filesHeader);
+    this.topPanel.appendChild(filesHeader);
 
     this.commitInfoEl = document.createElement('div');
     this.commitInfoEl.className = 'git-commit-info';
     this.commitInfoEl.style.display = 'none';
-    this.rightCol.appendChild(this.commitInfoEl);
+    this.topPanel.appendChild(this.commitInfoEl);
 
     this.fileTreeContainer = document.createElement('div');
     this.fileTreeContainer.className = 'git-filetree';
-    this.rightCol.appendChild(this.fileTreeContainer);
+    this.topPanel.appendChild(this.fileTreeContainer);
+
+    // Horizontal resize handle
+    this.vResizeHandle = document.createElement('div');
+    this.vResizeHandle.className = 'git-resize git-resize-h';
+    this.rightCol.appendChild(this.vResizeHandle);
+
+    this.bottomPanel = document.createElement('div');
+    this.bottomPanel.style.cssText = 'flex:1;min-height:40px;display:flex;flex-direction:column;overflow:hidden';
+    this.rightCol.appendChild(this.bottomPanel);
 
     // Diff header with view mode dropdown
     const diffHeaderRow = document.createElement('div');
-    diffHeaderRow.style.cssText = 'display:flex;align-items:center;border-top:1px solid var(--border);border-bottom:1px solid var(--border);flex-shrink:0';
+    diffHeaderRow.style.cssText = 'display:flex;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0';
 
     const diffLabel = document.createElement('div');
     diffLabel.className = 'git-label';
@@ -273,7 +358,7 @@ export class GitPlugin {
     btnWrap.appendChild(this.dropdownBtn);
     btnWrap.appendChild(this.dropdownMenu);
     diffHeaderRow.appendChild(btnWrap);
-    this.rightCol.appendChild(diffHeaderRow);
+    this.bottomPanel.appendChild(diffHeaderRow);
 
     this.emptyDiff = document.createElement('div');
     this.emptyDiff.className = 'git-diff-empty';
@@ -282,8 +367,43 @@ export class GitPlugin {
     this.diffContainer.className = 'git-diff';
     this.diffContainer.style.display = 'none';
 
-    this.rightCol.appendChild(this.diffContainer);
-    this.rightCol.appendChild(this.emptyDiff);
+    this.bottomPanel.appendChild(this.diffContainer);
+    this.bottomPanel.appendChild(this.emptyDiff);
+
+    // Vertical divider resize logic
+    let startY = 0;
+    let startH = 200;
+    this.vResizeHandle.addEventListener('mouseenter', () => {
+      if (!this.isVDragging) { this.vResizeHandle.style.background = 'var(--accent)'; this.vResizeHandle.style.opacity = '0.5'; }
+    });
+    this.vResizeHandle.addEventListener('mouseleave', () => {
+      if (!this.isVDragging) { this.vResizeHandle.style.background = 'var(--border)'; this.vResizeHandle.style.opacity = ''; }
+    });
+    this.vResizeHandle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.isVDragging = true;
+      startY = e.clientY;
+      startH = this.topPanel.offsetHeight;
+      this.vResizeHandle.style.background = 'var(--accent)';
+      this.vResizeHandle.style.opacity = '0.8';
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!this.isVDragging) return;
+      const dy = e.clientY - startY;
+      const total = this.rightCol.offsetHeight - this.vResizeHandle.offsetHeight;
+      const newH = Math.max(40, Math.min(total - 40, startH + dy));
+      this.topPanel.style.flex = 'none';
+      this.topPanel.style.height = newH + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+      if (this.isVDragging) {
+        this.isVDragging = false;
+        this.onStateChange?.();
+        this.vResizeHandle.style.background = 'var(--border)';
+        this.vResizeHandle.style.opacity = '';
+      }
+    });
   }
 
   private setDiffViewMode(mode: DiffViewMode): void {
@@ -404,7 +524,73 @@ export class GitPlugin {
         e.stopPropagation();
         this.selectChangesFile(mode, file.path);
       });
+      const actionBtn = document.createElement('button');
+      actionBtn.className = 'git-changes-action';
+      if (mode === 'unstaged') {
+        actionBtn.textContent = '+';
+        actionBtn.title = 'Stage file';
+      actionBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await this.stageFile(file.path);
+      });
+      } else {
+        actionBtn.textContent = '-';
+        actionBtn.title = 'Unstage file';
+        actionBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await this.unstageFile(file.path);
+        });
+      }
+      el.appendChild(actionBtn);
       container.appendChild(el);
+    }
+  }
+
+  private async stageFile(filePath: string): Promise<void> {
+    const ok = await window.electronAPI?.git.stage(this.wsPath, filePath);
+    if (ok) {
+      this.selectedFilePath = null;
+      this.diffContent = '';
+      this.renderDiff();
+      await this.refreshChanges();
+    }
+  }
+
+  private async unstageFile(filePath: string): Promise<void> {
+    const ok = await window.electronAPI?.git.unstage(this.wsPath, filePath);
+    if (ok) {
+      this.selectedFilePath = null;
+      this.diffContent = '';
+      this.renderDiff();
+      await this.refreshChanges();
+    }
+  }
+
+  private async handleCommit(): Promise<void> {
+    const msg = this.commitInput?.value.trim();
+    if (!msg) return;
+    const ok = await window.electronAPI?.git.commit(this.wsPath, msg);
+    if (ok) {
+      if (this.commitInput) this.commitInput.value = '';
+      this.selectedFilePath = null;
+      this.selectedCommitHash = null;
+      this.diffContent = '';
+      this.renderDiff();
+      await this.refresh();
+    }
+  }
+
+  private async handlePush(): Promise<void> {
+    const ok = await window.electronAPI?.git.push(this.wsPath);
+    if (ok) {
+      await this.refresh();
+    }
+  }
+
+  private async updatePushBtn(): Promise<void> {
+    const ahead = await window.electronAPI?.git.checkAhead(this.wsPath);
+    if (this.pushBtn) {
+      this.pushBtn.disabled = !ahead;
     }
   }
 
@@ -595,8 +781,9 @@ export class GitPlugin {
     this.fileChanges = files;
     this.fileTreeContainer.innerHTML = '';
     this.renderFileTree();
-    if (this.emptyDiff) this.emptyDiff.style.display = '';
-    if (this.diffContainer) this.diffContainer.style.display = 'none';
+    if (files.length > 0) {
+      await this.selectFile(files[0].path);
+    }
   }
 
   // ─── File tree (commit) ───
@@ -798,6 +985,7 @@ export class GitPlugin {
       this.unstagedArrow.textContent = '▾';
       this.renderChangesFiles('unstaged', this.unstagedFiles, this.unstagedFilesEl);
     }
+    await this.updatePushBtn();
   }
 
   /** Lightweight refresh — only reload staged/unstaged changes, preserve commit state */
@@ -806,6 +994,10 @@ export class GitPlugin {
       this.loadStagedFiles(),
       this.loadUnstagedFiles(),
     ]);
+    // Disable commit button when no staged files
+    if (this.commitBtn) {
+      this.commitBtn.disabled = this.stagedFiles.length === 0 || !this.commitInput?.value.trim();
+    }
     // Re-render expanded sections
     if (this.stagedFilesEl && this.stagedFilesEl.style.display !== 'none') {
       this.renderChangesFiles('staged', this.stagedFiles, this.stagedFilesEl);

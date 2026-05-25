@@ -545,6 +545,47 @@ app.whenReady().then(async () => {
     });
   });
 
+  ipcMain.handle('git:stage', async (_event, repoPath: string, filePath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['add', filePath], { cwd: repoPath }, (err) => {
+        resolve(!err);
+      });
+    });
+  });
+
+  ipcMain.handle('git:unstage', async (_event, repoPath: string, filePath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['restore', '--staged', filePath], { cwd: repoPath }, (err) => {
+        resolve(!err);
+      });
+    });
+  });
+
+  ipcMain.handle('git:commit', async (_event, repoPath: string, message: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['commit', '-m', message], { cwd: repoPath }, (err) => {
+        resolve(!err);
+      });
+    });
+  });
+
+  ipcMain.handle('git:push', async (_event, repoPath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['push'], { cwd: repoPath, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+        resolve(!err);
+      });
+    });
+  });
+
+  ipcMain.handle('git:checkAhead', async (_event, repoPath: string) => {
+    return new Promise(resolve => {
+      execFile('git', ['rev-list', '--count', '@{u}..HEAD'], { cwd: repoPath }, (err, stdout) => {
+        if (err) { resolve(false); return; }
+        resolve(parseInt(stdout.trim(), 10) > 0);
+      });
+    });
+  });
+
   // Workspace
   // File watcher
   ipcMain.handle('file:watch', async (_event, dir: string) => {

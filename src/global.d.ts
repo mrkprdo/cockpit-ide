@@ -63,6 +63,11 @@ interface Window {
       stagedDiff: (repoPath: string, filePath: string) => Promise<string>;
       unstagedDiff: (repoPath: string, filePath: string) => Promise<string>;
       commitBody: (repoPath: string, commit: string) => Promise<string>;
+      stage: (repoPath: string, filePath: string) => Promise<boolean>;
+      unstage: (repoPath: string, filePath: string) => Promise<boolean>;
+      commit: (repoPath: string, message: string) => Promise<boolean>;
+      push: (repoPath: string) => Promise<boolean>;
+      checkAhead: (repoPath: string) => Promise<boolean>;
     };
     clipboard: {
       readText: () => string;

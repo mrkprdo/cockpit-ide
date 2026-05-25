@@ -1,5 +1,5 @@
 export type EditorState = { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> };
-export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; contextState?: ContextState };
+export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; contextState?: ContextState; gitState?: GitState };
 export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number };
 
 import { GridStyle, generateGridPattern, applyGridToElement } from './canvas-grid';
@@ -9,7 +9,7 @@ import { TerminalPlugin } from './TerminalPlugin';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 import { DevPlugin } from './DevPlugin';
-import { GitPlugin } from './GitPlugin';
+import { GitPlugin, GitState } from './GitPlugin';
 import { ContextMenu } from './ContextMenu';
 import { ContextPlugin, ContextState } from './ContextPlugin';
 
@@ -373,7 +373,7 @@ export class CanvasArea {
     const sh = this.snapSize(h);
     const card = new PluginCard(this.el, {
       title, subtitle, x: 0, y: 0, width: sw, height: sh,
-      onClose: () => {
+      onMinimize: () => {
         const cs = this.cards.find(c => c.card === card);
         if (cs) {
           cs.isOpen = false;
@@ -382,7 +382,16 @@ export class CanvasArea {
           this.notifyDevsChanged();
           this.notifyGitChanged();
           this.notifyContextsChanged();
+          this.onStateChange?.();
         }
+      },
+      onFitViewport: () => {
+        const cs = this.cards.find(c => c.card === card);
+        if (cs) this.fitViewport(cs);
+      },
+      onTerminate: () => {
+        const cs = this.cards.find(c => c.card === card);
+        if (cs) this.terminateCard(cs);
       },
       onDragEnd: (worldX: number, worldY: number) => {
         const cs = this.cards.find(c => c.card === card);
@@ -455,6 +464,9 @@ export class CanvasArea {
           const ctx = this.contextPlugins.find(p => p.title === c.savedTitle);
           if (ctx) base.contextState = ctx.getState();
         }
+        if (c.savedTitle === 'Git' && c.gitPlugin) {
+          base.gitState = c.gitPlugin.getState();
+        }
         return base;
       }),
       zOrder: byZ.map(c => c.card.uuid),
@@ -500,10 +512,12 @@ export class CanvasArea {
     return null;
   }
 
-  private createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onClose?: () => void }): CardState {
+  private createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onMinimize?: () => void; onFitViewport?: () => void; onTerminate?: () => void }): CardState {
     const card = new PluginCard(this.el, {
       title: p.title, subtitle: '', x: 0, y: 0, width: p.width, height: p.height,
-      onClose: callbacks.onClose,
+      onMinimize: callbacks.onMinimize,
+      onFitViewport: callbacks.onFitViewport,
+      onTerminate: callbacks.onTerminate,
       onDragEnd: (worldX, worldY) => {
         const cs = this.cards.find(c => c.card === card);
         if (cs) { cs.worldX = this.clampWorld(worldX); cs.worldY = this.clampWorld(worldY); }
@@ -581,7 +595,7 @@ export class CanvasArea {
     for (const p of state.plugins) {
       if (p.title.startsWith('Terminal')) {
         const cs = this.createCardFromDef(p, {
-          onClose: () => {
+          onMinimize: () => {
             cs.isOpen = false;
             cs.card.el.style.display = 'none';
             this.notifyTerminalsChanged();
@@ -607,7 +621,7 @@ export class CanvasArea {
         }
       } else if (p.title.startsWith('Dev')) {
         const cs = this.createCardFromDef(p, {
-          onClose: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; },
+          onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; },
         });
 
         if (p.isOpen) {
@@ -629,7 +643,7 @@ export class CanvasArea {
         }
       } else if (p.title === 'Git') {
         const cs = this.createCardFromDef(p, {
-          onClose: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyGitChanged(); },
+          onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyGitChanged(); },
         });
 
         if (p.isOpen) {
@@ -643,11 +657,14 @@ export class CanvasArea {
             git.onFileOpen = (filePath) => this.getActiveDevPlugin()?.openFile(filePath);
             cs.gitPlugin = git;
             cs.card.onDestroy = () => git.destroy();
+            if (p.gitState) {
+              setTimeout(() => git.restoreState(p.gitState), 500);
+            }
           }
         }
       } else if (p.title.startsWith('Context')) {
         const cs = this.createCardFromDef(p, {
-          onClose: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyContextsChanged(); },
+          onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyContextsChanged(); },
         });
 
         if (p.isOpen) {

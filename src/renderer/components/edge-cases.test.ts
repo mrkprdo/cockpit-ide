@@ -309,20 +309,19 @@ describe('PluginCard edge cases', () => {
     expect(() => card.remove()).not.toThrow();
   });
 
-  it('close fires onClose at least once per click', () => {
-    const onClose = vi.fn();
+  it('terminate button fires onTerminate at least once per click', () => {
+    const onTerminate = vi.fn();
     const parent = makeParent();
     const card = new PluginCard(parent, {
-      title: 'Close Once',
+      title: 'Term Twice',
       x: 0, y: 0, width: 200, height: 200,
-      onClose,
+      onTerminate,
     }, getTransform);
 
-    const closeBtn = card.el.querySelector('.card-close') as HTMLElement;
-    closeBtn.click();
-    // Second click on detached element still fires event listener
-    closeBtn.click();
-    expect(onClose).toHaveBeenCalled();
+    const btn = card.el.querySelector('.card-btn-terminate') as HTMLElement;
+    btn.click();
+    btn.click();
+    expect(onTerminate).toHaveBeenCalled();
   });
 });
 

@@ -194,6 +194,11 @@ if (isDOM) {
       stagedDiff: vi.fn().mockResolvedValue(''),
       unstagedDiff: vi.fn().mockResolvedValue(''),
       commitBody: vi.fn().mockResolvedValue('Initial commit\n\nThis is the description of the commit.'),
+      stage: vi.fn().mockResolvedValue(true),
+      unstage: vi.fn().mockResolvedValue(true),
+      commit: vi.fn().mockResolvedValue(true),
+      push: vi.fn().mockResolvedValue(true),
+      checkAhead: vi.fn().mockResolvedValue(false),
     },
     shell: {
       openExternal: vi.fn().mockResolvedValue(true),

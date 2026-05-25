@@ -10,11 +10,13 @@ export interface CardOptions {
   width: number;
   height: number;
   content?: string;
-  onClose?: () => void;
   onDragEnd?: (worldX: number, worldY: number) => void;
   onResizeEnd?: (width: number, height: number) => void;
   onFocus?: () => void;
   onHeaderContextMenu?: (e: MouseEvent) => void;
+  onMinimize?: () => void;
+  onFitViewport?: () => void;
+  onTerminate?: () => void;
 }
 
 const SNAP = 28;
@@ -46,7 +48,24 @@ export class PluginCard {
         <div class="card-title-area">
           <canvas class="card-title-canvas" height="28"></canvas>
         </div>
-        <button class="card-close">−</button>
+        <div class="card-controls">
+          <button class="card-btn card-btn-minimize" title="Minimize">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <line x1="2" y1="8" x2="14" y2="8"/>
+            </svg>
+          </button>
+          <button class="card-btn card-btn-fitview" title="Fit Viewport">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <path d="M2 5V3a1 1 0 0 1 1-1h2M2 11v2a1 1 0 0 0 1 1h2M14 5V3a1 1 0 0 0-1-1h-2M14 11v2a1 1 0 0 1-1 1h-2"/>
+            </svg>
+          </button>
+          <button class="card-btn card-btn-terminate" title="Terminate">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <line x1="4" y1="4" x2="12" y2="12"/>
+              <line x1="12" y1="4" x2="4" y2="12"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="card-body"></div>
       <div class="card-edge card-edge-e"></div>
@@ -74,10 +93,17 @@ export class PluginCard {
       this.opts.onHeaderContextMenu?.(e);
     });
 
-    this.el.querySelector('.card-close')?.addEventListener('click', (e) => {
+    this.el.querySelector('.card-btn-minimize')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.remove();
-      this.opts.onClose?.();
+      this.opts.onMinimize?.();
+    });
+    this.el.querySelector('.card-btn-fitview')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.opts.onFitViewport?.();
+    });
+    this.el.querySelector('.card-btn-terminate')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.opts.onTerminate?.();
     });
 
     this.el.addEventListener('mousedown', () => this.opts.onFocus?.(), true);

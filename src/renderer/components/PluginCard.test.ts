@@ -32,7 +32,10 @@ describe('PluginCard', () => {
     expect(el.className).toBe('card');
     expect(el.querySelector('.card-header')).toBeTruthy();
     expect(el.querySelector('.card-body')).toBeTruthy();
-    expect(el.querySelector('.card-close')).toBeTruthy();
+    expect(el.querySelector('.card-controls')).toBeTruthy();
+    expect(el.querySelector('.card-btn-minimize')).toBeTruthy();
+    expect(el.querySelector('.card-btn-fitview')).toBeTruthy();
+    expect(el.querySelector('.card-btn-terminate')).toBeTruthy();
     expect(el.querySelector('.card-edge-e')).toBeTruthy();
     expect(el.querySelector('.card-edge-s')).toBeTruthy();
     expect(el.querySelector('.card-edge-se')).toBeTruthy();
@@ -65,19 +68,46 @@ describe('PluginCard', () => {
     expect(card1.uuid).toMatch(/^[0-9a-f-]+$/);
   });
 
-  it('calls onClose when close button is clicked', () => {
-    const onClose = vi.fn();
+  it('calls onMinimize when minimize button is clicked', () => {
+    const onMinimize = vi.fn();
     const parent = makeParent();
     const card = new PluginCard(parent, {
-      title: 'Close Test',
+      title: 'Min Test',
       x: 0, y: 0, width: 200, height: 200,
-      onClose,
+      onMinimize,
     }, getTransform);
 
-    const closeBtn = card.el.querySelector('.card-close') as HTMLElement;
-    closeBtn.click();
+    const btn = card.el.querySelector('.card-btn-minimize') as HTMLElement;
+    btn.click();
+    expect(onMinimize).toHaveBeenCalledOnce();
+  });
 
-    expect(onClose).toHaveBeenCalledOnce();
+  it('calls onFitViewport when fit viewport button is clicked', () => {
+    const onFitViewport = vi.fn();
+    const parent = makeParent();
+    const card = new PluginCard(parent, {
+      title: 'Fit Test',
+      x: 0, y: 0, width: 200, height: 200,
+      onFitViewport,
+    }, getTransform);
+
+    const btn = card.el.querySelector('.card-btn-fitview') as HTMLElement;
+    btn.click();
+    expect(onFitViewport).toHaveBeenCalledOnce();
+  });
+
+  it('calls onTerminate when terminate button is clicked', () => {
+    const onTerminate = vi.fn();
+    const parent = makeParent();
+    const card = new PluginCard(parent, {
+      title: 'Term Test',
+      x: 0, y: 0, width: 200, height: 200,
+      onTerminate,
+    }, getTransform);
+
+    const btn = card.el.querySelector('.card-btn-terminate') as HTMLElement;
+    btn.click();
+    expect(onTerminate).toHaveBeenCalledOnce();
   });
 
   it('calls onFocus when card is clicked', () => {

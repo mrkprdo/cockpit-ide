@@ -65,6 +65,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     stagedDiff: (repoPath: string, filePath: string) => ipcRenderer.invoke('git:stagedDiff', repoPath, filePath),
     unstagedDiff: (repoPath: string, filePath: string) => ipcRenderer.invoke('git:unstagedDiff', repoPath, filePath),
     commitBody: (repoPath: string, commit: string) => ipcRenderer.invoke('git:commitBody', repoPath, commit),
+    stage: (repoPath: string, filePath: string) => ipcRenderer.invoke('git:stage', repoPath, filePath),
+    unstage: (repoPath: string, filePath: string) => ipcRenderer.invoke('git:unstage', repoPath, filePath),
+    commit: (repoPath: string, message: string) => ipcRenderer.invoke('git:commit', repoPath, message),
+    push: (repoPath: string) => ipcRenderer.invoke('git:push', repoPath),
+    checkAhead: (repoPath: string) => ipcRenderer.invoke('git:checkAhead', repoPath),
   },
   fs: {
     readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),
