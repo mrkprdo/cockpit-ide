@@ -18,7 +18,7 @@ export class ConfirmModal {
 
     const msg = document.createElement('div');
     msg.className = 'confirm-modal-msg';
-    msg.innerHTML = message;
+    msg.innerHTML = message.replace(/<(script|img|iframe|embed|object|link|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '').replace(/<(script|img|iframe|embed|object|link|style)\b[^>]*\/?>/gi, '').replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
 
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
