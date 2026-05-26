@@ -1076,8 +1076,8 @@ export class CanvasArea {
     cs.onCardResize?.();
     this.autoArrange();
     this.scale = 1;
-    this.panX = w / 2 - cs.worldX;
-    this.panY = h / 2 - cs.worldY;
+    this.panX = -cs.worldX;
+    this.panY = -cs.worldY;
     this.scheduleTransform();
   }
 
