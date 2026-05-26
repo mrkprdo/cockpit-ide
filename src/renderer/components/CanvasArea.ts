@@ -1074,8 +1074,9 @@ export class CanvasArea {
     cs.card.opts.height = h;
     cs.card.el.style.width = `${w}px`;
     cs.card.el.style.height = `${h}px`;
+    cs.onCardResize?.();
     this.scheduleTransform();
-    this.onStateChange?.();
+    this.autoArrange();
   }
 
   setView(state: { zoom: number; panX: number; panY: number }): void {

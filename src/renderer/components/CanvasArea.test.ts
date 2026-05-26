@@ -443,31 +443,22 @@ describe('fitViewport', () => {
     (canvas as any).fitViewport(cs);
   }
 
-  it('resets scale to 1', async () => {
+  it('triggers auto arrange after fitting', async () => {
+    canvas.addTerminal();
     canvas.addTerminal();
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
+    const cs2 = (canvas as any).cards[1];
 
-    canvas.zoomIn();
-    canvas.zoomIn();
     callFitViewport(cs);
     await new Promise(r => setTimeout(r, 50));
 
-    expect(canvas.getSaveState().zoom).toBe(1);
-  });
-
-  it('does not move card from current world position', async () => {
-    canvas.addTerminal();
-    await new Promise(r => setTimeout(r, 50));
-    const cs = (canvas as any).cards[0];
-
-    cs.worldX = 1000;
-    cs.worldY = 500;
-    callFitViewport(cs);
-    await new Promise(r => setTimeout(r, 50));
-
-    expect(cs.worldX).toBe(1000);
-    expect(cs.worldY).toBe(500);
+    // Card is resized to viewport
+    expect(cs.savedWidth).toBe(1920);
+    expect(cs.savedHeight).toBe(1080);
+    // Cards are in a grid (autoArrange ran)
+    expect(cs2.worldX).not.toBe(0);
+    expect(cs2.worldY).toBeGreaterThan(cs.worldY);
   });
 
   it('sizes card to fill viewport exactly', async () => {
