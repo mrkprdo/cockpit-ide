@@ -1065,7 +1065,6 @@ export class CanvasArea {
   }
 
   private fitViewport(cs: CardState): void {
-    this.scale = 1;
     const w = this.el.clientWidth;
     const h = this.el.clientHeight;
     cs.savedWidth = w;
@@ -1075,8 +1074,11 @@ export class CanvasArea {
     cs.card.el.style.width = `${w}px`;
     cs.card.el.style.height = `${h}px`;
     cs.onCardResize?.();
-    this.scheduleTransform();
     this.autoArrange();
+    this.scale = 1;
+    this.panX = w / 2 - cs.worldX;
+    this.panY = h / 2 - cs.worldY;
+    this.scheduleTransform();
   }
 
   setView(state: { zoom: number; panX: number; panY: number }): void {
