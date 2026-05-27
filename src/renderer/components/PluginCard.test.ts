@@ -285,6 +285,52 @@ describe('PluginCard — drag interaction', () => {
     }
   });
 
+  it('clicking control button does not trigger drag or focus', () => {
+    const onDragEnd = vi.fn();
+    const onFocus = vi.fn();
+    const onFitViewport = vi.fn();
+    const card = createCard({ onDragEnd, onFocus, onFitViewport });
+    const btn = card.el.querySelector('.card-btn-fitview') as HTMLElement;
+
+    // Simulate full click sequence: mousedown → mouseup → click
+    btn.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 150, clientY: 250 }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // Button callback fires
+    expect(onFitViewport).toHaveBeenCalledOnce();
+    // Drag NOT triggered
+    expect(onDragEnd).not.toHaveBeenCalled();
+    // Focus IS triggered (capture-phase mousedown on card.el)
+    expect(onFocus).toHaveBeenCalled();
+  });
+
+  it('each control button fires only its own callback', () => {
+    const onMinimize = vi.fn();
+    const onFitViewport = vi.fn();
+    const onTerminate = vi.fn();
+    const parent = makeParent();
+    const card = new PluginCard(parent, {
+      title: 'Isolation',
+      x: 0, y: 0, width: 200, height: 200,
+      onMinimize,
+      onFitViewport,
+      onTerminate,
+    }, getTransform);
+
+    card.el.querySelector('.card-btn-minimize')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onMinimize).toHaveBeenCalledOnce();
+    expect(onFitViewport).not.toHaveBeenCalled();
+    expect(onTerminate).not.toHaveBeenCalled();
+
+    card.el.querySelector('.card-btn-fitview')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onFitViewport).toHaveBeenCalledOnce();
+    expect(onTerminate).not.toHaveBeenCalled();
+
+    card.el.querySelector('.card-btn-terminate')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onTerminate).toHaveBeenCalledOnce();
+  });
+
   it('mousemove updates card position while dragging', () => {
     const card = createCard();
     const header = card.el.querySelector('.card-header')!;

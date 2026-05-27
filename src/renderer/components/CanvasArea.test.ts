@@ -443,24 +443,6 @@ describe('fitViewport', () => {
     (canvas as any).fitViewport(cs);
   }
 
-  it('triggers auto arrange after fitting', async () => {
-    canvas.addTerminal();
-    canvas.addTerminal();
-    await new Promise(r => setTimeout(r, 50));
-    const cs = (canvas as any).cards[0];
-    const cs2 = (canvas as any).cards[1];
-
-    callFitViewport(cs);
-    await new Promise(r => setTimeout(r, 50));
-
-    // Card is resized to viewport
-    expect(cs.savedWidth).toBe(1920);
-    expect(cs.savedHeight).toBe(1080);
-    // Cards are in a grid (autoArrange ran)
-    expect(cs2.worldX).not.toBe(0);
-    expect(cs2.worldY).toBeGreaterThan(cs.worldY);
-  });
-
   it('sizes card to fill viewport exactly', async () => {
     canvas.addTerminal();
     await new Promise(r => setTimeout(r, 50));
@@ -477,6 +459,75 @@ describe('fitViewport', () => {
     expect(cs.card.el.style.height).toBe('1080px');
   });
 
+  it('sets scale to 1 (100% zoom)', async () => {
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    canvas.zoomIn();
+    canvas.zoomIn();
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(canvas.getSaveState().zoom).toBe(1);
+  });
+
+  it('calls animatePan to center card in viewport', async () => {
+    const animatePan = vi.fn();
+    (canvas as any).animatePan = animatePan;
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+    animatePan.mockReset(); // clear addTerminal's panToCard call
+
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(animatePan).toHaveBeenCalledOnce();
+    // targetX = 960 - (cs.worldX + 960) = -cs.worldX
+    // targetY = 540 - (cs.worldY + 540) = -cs.worldY
+    const [targetX, targetY] = animatePan.mock.calls[0];
+    expect(targetX).toBe(-cs.worldX);
+    expect(targetY).toBe(-cs.worldY);
+  });
+
+  it('does not rearrange when only one card is open', async () => {
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+    const origX = cs.worldX;
+    const origY = cs.worldY;
+
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(cs.worldX).toBe(origX);
+    expect(cs.worldY).toBe(origY);
+  });
+
+  it('calls onCardResize when defined', async () => {
+    const onResize = vi.fn();
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+    cs.onCardResize = onResize;
+
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(onResize).toHaveBeenCalledOnce();
+  });
+
+  it('does not throw when onCardResize is undefined', async () => {
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+    cs.onCardResize = undefined;
+
+    expect(() => callFitViewport(cs)).not.toThrow();
+    await new Promise(r => setTimeout(r, 50));
+  });
+
   it('fires onStateChange after fitting', async () => {
     const onChange = vi.fn();
     canvas.onStateChange = onChange;
@@ -488,6 +539,178 @@ describe('fitViewport', () => {
     await new Promise(r => setTimeout(r, 50));
 
     expect(onChange).toHaveBeenCalled();
+  });
+
+  it('arranges multiple open cards into a grid', async () => {
+    canvas.addTerminal();
+    canvas.addTerminal();
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+    const cs2 = (canvas as any).cards[1];
+    const cs3 = (canvas as any).cards[2];
+
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    // Card fills viewport
+    expect(cs.savedWidth).toBe(1920);
+    // Other cards are placed below (wrapped to next row)
+    expect(cs2.worldY).toBeGreaterThan(cs.worldY);
+    expect(cs3.worldY).toBeGreaterThan(cs.worldY);
+  });
+
+  it('skips minimized (isOpen=false) cards when arranging', async () => {
+    canvas.addTerminal();
+    canvas.addTerminal();
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+    const cs2 = (canvas as any).cards[1];
+    const cs3 = (canvas as any).cards[2];
+    const cs2origX = cs2.worldX;
+    const cs2origY = cs2.worldY;
+    cs2.isOpen = false;
+
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    // Minimized card position unchanged
+    expect(cs2.worldX).toBe(cs2origX);
+    expect(cs2.worldY).toBe(cs2origY);
+    // Open card cs3 was rearranged
+    expect(cs3.worldY).toBeGreaterThan(cs.worldY);
+  });
+
+  it('handles card already at viewport size gracefully', async () => {
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+    // Pretend card is already viewport-sized
+    cs.savedWidth = 1920;
+    cs.savedHeight = 1080;
+    cs.card.opts.width = 1920;
+    cs.card.opts.height = 1080;
+    cs.card.el.style.width = '1920px';
+    cs.card.el.style.height = '1080px';
+
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    // No change — dimensions remain the same
+    expect(cs.savedWidth).toBe(1920);
+    expect(cs.savedHeight).toBe(1080);
+  });
+});
+
+describe('restore path callbacks', () => {
+  function makeMinimalState(title: string, opts?: Partial<{ width: number; height: number; x: number; y: number; isOpen: boolean }>): any {
+    return {
+      zoom: 1, panX: 0, panY: 0, zOrder: [],
+      plugins: [{
+        title,
+        x: opts?.x ?? 0,
+        y: opts?.y ?? 0,
+        width: opts?.width ?? 560,
+        height: opts?.height ?? 420,
+        isOpen: opts?.isOpen ?? true,
+      }],
+    };
+  }
+
+  it('restored terminal card has working onFitViewport callback', async () => {
+    const fitSpy = vi.fn();
+    (canvas as any).fitViewport = fitSpy;
+    (canvas as any).restorePlugins(makeMinimalState('Terminal 1'), '/test');
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    const btn = cs.card.el.querySelector('.card-btn-fitview') as HTMLElement;
+    btn.click();
+
+    expect(fitSpy).toHaveBeenCalledOnce();
+    expect(fitSpy).toHaveBeenCalledWith(cs);
+  });
+
+  it('restored terminal card has working onTerminate callback', async () => {
+    const termSpy = vi.fn();
+    (canvas as any).terminateCard = termSpy;
+    (canvas as any).restorePlugins(makeMinimalState('Terminal 1'), '/test');
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    const btn = cs.card.el.querySelector('.card-btn-terminate') as HTMLElement;
+    btn.click();
+
+    expect(termSpy).toHaveBeenCalledOnce();
+    expect(termSpy).toHaveBeenCalledWith(cs);
+  });
+
+  it('restored dev card has both onFitViewport and onTerminate callbacks', async () => {
+    const fitSpy = vi.fn();
+    const termSpy = vi.fn();
+    (canvas as any).fitViewport = fitSpy;
+    (canvas as any).terminateCard = termSpy;
+    (canvas as any).restorePlugins(makeMinimalState('Dev 1'), '/test');
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    cs.card.el.querySelector('.card-btn-fitview')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(fitSpy).toHaveBeenCalledOnce();
+    expect(fitSpy).toHaveBeenCalledWith(cs);
+
+    cs.card.el.querySelector('.card-btn-terminate')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(termSpy).toHaveBeenCalledOnce();
+    expect(termSpy).toHaveBeenCalledWith(cs);
+  });
+
+  it('restored git card has both onFitViewport and onTerminate callbacks', async () => {
+    const fitSpy = vi.fn();
+    const termSpy = vi.fn();
+    (canvas as any).fitViewport = fitSpy;
+    (canvas as any).terminateCard = termSpy;
+    (canvas as any).restorePlugins(makeMinimalState('Git'), '/test');
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    cs.card.el.querySelector('.card-btn-fitview')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(fitSpy).toHaveBeenCalledOnce();
+
+    cs.card.el.querySelector('.card-btn-terminate')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(termSpy).toHaveBeenCalledOnce();
+  });
+
+  it('restored context card has both onFitViewport and onTerminate callbacks', async () => {
+    const fitSpy = vi.fn();
+    const termSpy = vi.fn();
+    (canvas as any).fitViewport = fitSpy;
+    (canvas as any).terminateCard = termSpy;
+    (canvas as any).restorePlugins(makeMinimalState('Context 1'), '/test');
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    cs.card.el.querySelector('.card-btn-fitview')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(fitSpy).toHaveBeenCalledOnce();
+
+    cs.card.el.querySelector('.card-btn-terminate')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(termSpy).toHaveBeenCalledOnce();
+  });
+
+  it('restored card that is not open still has callbacks wired', async () => {
+    const fitSpy = vi.fn();
+    const termSpy = vi.fn();
+    (canvas as any).fitViewport = fitSpy;
+    (canvas as any).terminateCard = termSpy;
+    (canvas as any).restorePlugins(makeMinimalState('Terminal 1', { isOpen: false }), '/test');
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+
+    // Card is display:none but the buttons should still be wired
+    cs.card.el.querySelector('.card-btn-fitview')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(fitSpy).toHaveBeenCalledOnce();
+
+    cs.card.el.querySelector('.card-btn-terminate')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(termSpy).toHaveBeenCalledOnce();
   });
 });
 
