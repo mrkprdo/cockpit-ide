@@ -1479,9 +1479,7 @@ html, body {
   margin-top: 1px;
 }
 .git-filetree {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+  flex-shrink: 0;
 }
 .git-file-item {
   padding: 4px 8px;
@@ -1518,6 +1516,7 @@ html, body {
   overflow: auto;
   min-height: 0;
   font-size: var(--text-xs);
+  background: var(--bg);
 }
 .git-diff-empty {
   flex: 1;
@@ -1526,6 +1525,7 @@ html, body {
   justify-content: center;
   font-size: var(--text-xs);
   color: var(--tertiary);
+  background: var(--bg);
 }
 .git-diff-pre {
   margin: 0;

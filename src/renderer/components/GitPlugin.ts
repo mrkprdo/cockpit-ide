@@ -295,7 +295,7 @@ export class GitPlugin {
 
     // ─── Right panel ───
     this.topPanel = document.createElement('div');
-    this.topPanel.style.cssText = 'flex:none;height:150px;display:flex;flex-direction:column;overflow:hidden';
+    this.topPanel.style.cssText = 'flex:none;height:150px;overflow-y:auto';
     this.rightCol.appendChild(this.topPanel);
 
     const filesHeader = this.labelEl('Changed Files');
