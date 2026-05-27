@@ -1074,11 +1074,31 @@ export class CanvasArea {
     cs.card.el.style.width = `${w}px`;
     cs.card.el.style.height = `${h}px`;
     cs.onCardResize?.();
-    this.autoArrange();
-    this.scale = 1;
-    this.panX = -cs.worldX;
-    this.panY = -cs.worldY;
-    this.scheduleTransform();
+    // Arrange open cards in a grid (replicating autoArrange without fitAll)
+    const open = this.cards.filter(c => c.isOpen);
+    if (open.length > 1) {
+      const gap = 28;
+      const pos: { cs: CardState; rx: number; ry: number }[] = [];
+      let rx = 0, ry = 0, rowH = 0;
+      for (const c of open) {
+        pos.push({ cs: c, rx, ry });
+        rx += c.savedWidth + gap;
+        rowH = Math.max(rowH, c.savedHeight);
+        if (rx > 1400) { rx = 0; ry += rowH + gap; rowH = 0; }
+      }
+      let maxX = 0, maxY = 0;
+      for (const p of pos) { maxX = Math.max(maxX, p.rx + p.cs.savedWidth); maxY = Math.max(maxY, p.ry + p.cs.savedHeight); }
+      const ox = this.snap(-Math.round(maxX / 2));
+      const oy = this.snap(-Math.round(maxY / 2));
+      for (const p of pos) {
+        p.cs.worldX = p.rx + ox;
+        p.cs.worldY = p.ry + oy;
+        p.cs.savedWX = p.cs.worldX;
+        p.cs.savedWY = p.cs.worldY;
+      }
+    }
+    this.panToCard(cs);
+    this.onStateChange?.();
   }
 
   setView(state: { zoom: number; panX: number; panY: number }): void {
