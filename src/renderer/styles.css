@@ -1517,6 +1517,7 @@ html, body {
   flex: 1;
   overflow: auto;
   min-height: 0;
+  font-size: var(--text-xs);
 }
 .git-diff-empty {
   flex: 1;
@@ -1528,7 +1529,7 @@ html, body {
 }
 .git-diff-pre {
   margin: 0;
-  padding: 8px;
+  padding: 0;
   font-family: var(--font);
   font-size: var(--text-xs);
   line-height: 1.5;
@@ -1537,6 +1538,7 @@ html, body {
 .git-diff-line {
   white-space: pre;
   min-height: 1.2em;
+  line-height: 1.5;
 }
 .git-diff-line.diff-add { background: rgba(76, 154, 110, 0.15); color: var(--green); }
 .git-diff-line.diff-remove { background: rgba(212, 79, 79, 0.15); color: var(--red); }
@@ -1604,7 +1606,6 @@ html, body {
   font-family: var(--font);
   font-size: var(--text-xs);
   line-height: 1.5;
-  border-bottom: 1px solid transparent;
 }
 .git-sbs-row.diff-add { background: rgba(76, 154, 110, 0.15); }
 .git-sbs-row.diff-remove { background: rgba(212, 79, 79, 0.15); }
