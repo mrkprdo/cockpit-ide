@@ -1097,7 +1097,10 @@ export class CanvasArea {
         p.cs.savedWY = p.cs.worldY;
       }
     }
-    this.panToCard(cs);
+    this.scale = 1;
+    const targetX = w / 2 - (cs.worldX + cs.savedWidth / 2);
+    const targetY = h / 2 - (cs.worldY + cs.savedHeight / 2);
+    this.animatePan(targetX, targetY);
     this.onStateChange?.();
   }
 
