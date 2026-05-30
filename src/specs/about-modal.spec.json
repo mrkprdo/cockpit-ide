@@ -1,0 +1,25 @@
+{
+  "name": "About Modal",
+  "file": "src/renderer/components/AboutModal.ts",
+  "description": "Version/credits dialog. Displays app name, tagline, version (from electron API), Electron/Node version numbers, and a clickable 'UseDesign.md' link that opens an external URL. Close button and overlay click dismiss. Supports optional onClose callback.",
+  "type": "ui",
+  "layer": "modal",
+  "singleton": false,
+  "exports": ["AboutModal"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "app-shell", "file": "App.ts" }
+  ],
+  "ipc": ["shell:openExternal"],
+  "interface": {
+    "constructor": "new AboutModal()",
+    "methods": [
+      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Show overlay, store onClose callback" },
+      { "name": "close", "signature": "() => void", "description": "Hide overlay, fire and clear onClose callback" }
+    ]
+  },
+  "ui": {
+    "spec": "about-modal-ui.spec.json"
+  },
+  "test": "src/renderer/components/AboutModal.test.ts"
+}

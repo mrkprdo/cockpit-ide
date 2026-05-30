@@ -1,0 +1,54 @@
+{
+  "name": "Top Bar",
+  "file": "src/renderer/components/TopBar.ts",
+  "description": "Custom menu bar with hover-based dropdown menus. File menu (Open Workspace, Exit), View menu with nested submenus for Terminal (dynamic instances with focus/reopen), Explorer (New + dynamic instances), Git, Markdown (New + dynamic instances), Canvas grid style (dots/grid/none with check marks), Zoom (in/out/reset/lock). Help menu (Tutorial, About). Theme toggle button (◐). Rendered into the #menu-bar element. Full re-render on any state change (plugin lists, grid style, zoom lock). Hover-based 300ms close timer for menus.",
+  "type": "ui",
+  "layer": "widget",
+  "singleton": true,
+  "exports": ["TopBar"],
+  "dependencies": [
+    { "feature": "theme", "file": "theme.ts", "usage": "theme.toggle() on theme button click" }
+  ],
+  "referenced_by": [
+    { "feature": "app-shell", "file": "App.ts" },
+    { "feature": "tutorial", "file": "Tutorial.ts" }
+  ],
+  "interface": {
+    "constructor": "new TopBar(el: HTMLElement, callbacks: TopBarCallbacks)",
+    "methods": [
+      { "name": "setTerminalItems", "signature": "(items: TermItem[]) => void", "description": "Update terminal submenu items, triggers re-render" },
+      { "name": "setExplorerItems", "signature": "(items: TermItem[]) => void", "description": "Update explorer submenu items, triggers re-render" },
+      { "name": "setGitItems", "signature": "(items: TermItem[]) => void", "description": "Update git submenu items, triggers re-render" },
+      { "name": "setMarkdownItems", "signature": "(items: TermItem[]) => void", "description": "Update markdown submenu items, triggers re-render" },
+      { "name": "setGridStyle", "signature": "(style: GridStyle) => void", "description": "Update canvas grid style state, triggers re-render" },
+      { "name": "setZoomLocked", "signature": "(locked: boolean) => void", "description": "Update zoom lock state, triggers re-render" }
+    ]
+  },
+  "callbacks": [
+    "onGridChange (GridStyle)", "onThemeToggle ()", "onOpenWorkspace ()", "onNewTerminal ()",
+    "onNewExplorer ()", "onNewGit ()", "onNewMarkdown ()",
+    "onFocusTerminal (uuid)", "onReopenTerminal (uuid)",
+    "onFocusExplorer (uuid)", "onReopenExplorer (uuid)",
+    "onFocusMarkdown (uuid)", "onReopenMarkdown (uuid)",
+    "onAbout ()", "onTutorial ()",
+    "onZoomIn ()", "onZoomOut ()", "onResetView ()", "onZoomLock (locked: boolean)"
+  ],
+  "dom": {
+    "container": "#menu-bar",
+    "menus": {
+      "File": ["Open Workspace", "Exit"],
+      "View": ["Terminal > New + instances", "Explorer > New + instances", "Git", "Markdown > New + instances", "Canvas > Dots/Grid/None", "Zoom > In/Out/Reset/Lock"],
+      "Help": ["Tutorial", "About Cockpit IDE"]
+    },
+    "button": "#theme-toggle (◐ icon, toggles dark/light)"
+  },
+  "interactions": [
+    { "name": "hover_menu", "description": "Mouse enter on .menu-item opens dropdown, 300ms close on leave" },
+    { "name": "nested_submenu", "description": "Hover on .menu-item-nested opens nested dropdown with ▸ arrow indicator" },
+    { "name": "click_outside", "description": "Document click closes all open menus" }
+  ],
+  "ui": {
+    "spec": "topbar-ui.spec.json"
+  },
+  "test": "src/renderer/components/TopBar.test.ts"
+}

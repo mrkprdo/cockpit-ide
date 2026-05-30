@@ -1,0 +1,112 @@
+{
+  "name": "Canvas Engine UI",
+  "parent": "canvas-engine",
+  "description": "UI interaction spec for the infinite canvas engine. Core spatial interaction model: pan, zoom, card lifecycle, grid rendering, arrangement controls.",
+  "dom": {
+    "container": "#canvas (fills viewport minus titlebar and statusbar)",
+    "plugin_list": ".plugin-list (lower-left overlay, absolute positioned)",
+    "arrange_panel": ".arrange-panel (lower-right overlay, absolute positioned)",
+    "grid": "CSS background-image via applyGridToElement()"
+  },
+  "interactions": [
+    {
+      "name": "pan",
+      "trigger": "Left-click drag on empty canvas area",
+      "gesture": "mousedown → mousemove → mouseup",
+      "behavior": "Update panX/panY with delta from start position, throttled via requestAnimationFrame",
+      "cursor": "grab (default), grabbing (while panning)"
+    },
+    {
+      "name": "pan_middle_button",
+      "trigger": "Middle-click + drag on canvas",
+      "behavior": "Same as left-click pan",
+      "cursor": "grabbing"
+    },
+    {
+      "name": "zoom",
+      "trigger": "Mouse wheel (no Ctrl)",
+      "step": 0.02,
+      "range": "0.1 – 5.0",
+      "behavior": "Cursor-centered zoom — world point under cursor stays under cursor. zoom = clamp(zoom + direction * step, 0.1, 5.0)"
+    },
+    {
+      "name": "zoom_fine",
+      "trigger": "Ctrl + mouse wheel",
+      "step": 0.005,
+      "behavior": "Fine-grained zoom for precise adjustment"
+    },
+    {
+      "name": "zoom_lock",
+      "trigger": "Click lock icon in status bar or View > Zoom > Lock",
+      "behavior": "Set canvas.locked to true, disables all zoom/pan interactions until unlocked"
+    },
+    {
+      "name": "add_card",
+      "trigger": "addTerminal/addExplorer/addGit/addMarkdown or right-click > New",
+      "behavior": "Create PluginCard with plugin instance, snap to 28px grid, position at default offset or cascaded, push to z-order top, focus"
+    },
+    {
+      "name": "card_focus",
+      "trigger": "Click on card anywhere",
+      "behavior": "Move card's UUID to end of zOrder array, increment z-index"
+    },
+    {
+      "name": "card_close",
+      "trigger": "Click terminate button (X) on card header",
+      "behavior": "Remove card from canvas, destroy plugin instance, fire onStateChange"
+    },
+    {
+      "name": "card_minimize",
+      "trigger": "Click minimize button (—) on card header",
+      "behavior": "Hide card body, set isOpen=false, update TopBar menu item to show dimmed"
+    },
+    {
+      "name": "card_reopen",
+      "trigger": "Click dimmed plugin item in TopBar View menu",
+      "behavior": "Restore card to saved position and dimensions, set isOpen=true"
+    },
+    {
+      "name": "fit_all_viewport",
+      "trigger": "Click status bar 'view all' button or double-click card header",
+      "behavior": "Calculate bounding box of all visible cards, compute zoom to fit with 40px padding, animate pan to center"
+    },
+    {
+      "name": "auto_arrange",
+      "trigger": "Click 'Auto Arrange' in arrangement panel",
+      "behavior": "Tile all open cards in a grid layout, default 2 columns, 800x550 sizing. Cards sorted by uuid for deterministic layout."
+    },
+    {
+      "name": "tile_plugins",
+      "trigger": "Set WxH inputs in arrangement panel, click 'Tile Plugins'",
+      "behavior": "Apply custom width/height to all open cards, re-arrange in grid. Shrinks to fit if needed (min 2 cols)."
+    },
+    {
+      "name": "right_click_empty",
+      "trigger": "Right-click on empty canvas area",
+      "behavior": "ContextMenu with: New Terminal, New Explorer, New Git, New Markdown"
+    },
+    {
+      "name": "snap_to_grid",
+      "trigger": "All card position changes (drag end, auto arrange)",
+      "behavior": "x = round(x / 28) * 28, y = round(y / 28) * 28"
+    },
+    {
+      "name": "animated_pan",
+      "trigger": "animatePanTo(targetX, targetY)",
+      "behavior": "Ease-out cubic interpolation over 300ms: t => 1 - Math.pow(1 - t, 3)"
+    }
+  ],
+  "states": {
+    "default": "Grid visible (dots by default), zoom at 1.0, no cards",
+    "cards_open": "One or more PluginCards visible with z-order stacking",
+    "minimized": "Card header visible but body hidden, isOpen=false",
+    "locked": "Zoom and pan disabled, lock icon shown in status bar",
+    "arranging": "Cards being repositioned by auto-arrange, temporary transition state"
+  },
+  "plugins": {
+    "terminal": { "default_size": { "w": 700, "h": 400 }, "singleton": false },
+    "explorer": { "default_size": { "w": 900, "h": 550 }, "singleton": false },
+    "git": { "default_size": { "w": 950, "h": 600 }, "singleton": true },
+    "markdown": { "default_size": { "w": 600, "h": 450 }, "singleton": false }
+  }
+}

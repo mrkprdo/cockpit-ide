@@ -18,6 +18,7 @@ D:\cockpit_ide\
 ├── AGENTS.md                      # This file — project map
 ├── ARCHITECT.md                   # ~360 lines, comprehensive architecture docs
 ├── DESIGN.md                      # Design system: colors, typography, spacing, components
+├── SPECGEN.md                     # Specs graph format & generation methodology
 ├── LICENSE                        # MIT License
 ├── Makefile                       # Build automation (build/dev/package/test/clean)
 ├── PRODUCT.md                     # Product philosophy, target users, design principles
@@ -88,6 +89,10 @@ D:\cockpit_ide\
 │   │       ├── e2e-advanced.test.ts # Advanced E2E integration tests (~1136 lines)
 │   │       ├── edge-cases.test.ts # 63 edge case tests across all components (~902 lines)
 │   │       └── workflows.test.ts  # 36 integration workflow tests (~1157 lines)
+│   ├── specs/
+│   │   ├── main.spec.json         # Root specs index: features, IPC, shortcuts, dep graph
+│   │   ├── *.spec.json            # 23 feature specs (one per non-test source file)
+│   │   └── *-ui.spec.json         # 10 UI sub-specs (DOM, interactions, states)
 │   └── test/
 │       ├── README.md              # Test infrastructure docs (20 files, 500+ tests)
 │       └── setup.ts               # Global mocks: IPC, Canvas, xterm, DOM, ResizeObserver
@@ -117,6 +122,7 @@ D:\cockpit_ide\
 | `ARCHITECT.md` | Comprehensive architecture doc (~360 lines): startup flow, process model, IPC channels (30+), canvas/card system, plugins, terminal sessions, Monaco loading, file explorer, persistence, theme, build pipeline, design tokens, state management, and notable gaps. |
 | `DESIGN.md` | Design system: Noir palette, Space Mono typography, 8px/4px spacing scale, 8px border radius, component styles (buttons, cards). Art Nouveau x Floating mashup. |
 | `PRODUCT.md` | Product philosophy: target users (vibe coders on small screens), purpose (spatial schematics-viewer), brand personality (precise/quiet/dense), anti-references, 5 design principles. |
+| `SPECGEN.md` | Specs graph format & generation methodology. Defines 3-tier JSON schema (main.spec.json → feature.spec.json → feature-ui.spec.json), feature taxonomy (type + layer), dependency edge format, and 8-phase generation pipeline from source audit. |
 
 ### Scripts & Assets
 
@@ -205,6 +211,14 @@ D:\cockpit_ide\
 |------|-------------|
 | `src/test/setup.ts` | Global test mocks (~232 lines). Mocks: @chenglou/pretext, @xterm/xterm (lightweight Terminal), crypto.randomUUID() (deterministic), Canvas2D context (all vi.fn()), ResizeObserver, requestAnimationFrame (setTimeout 0), devicePixelRatio (1). Creates mock `window.electronAPI` with all 24 IPC channels. Sets CSS custom properties. Bootstraps DOM scaffolding. Exports `mockElectronAPI`. |
 | `src/test/README.md` | Test infrastructure docs (~117 lines). Vitest + jsdom setup, 20 test files with 500+ tests (~3s run time). Test patterns, mock access, known limitations (Monaco AMD loader, node-pty, canvas rendering). |
+
+### Source: Specs Graph
+
+| File | Description |
+|------|-------------|
+| `src/specs/main.spec.json` | Root specs index: project manifest, feature catalog (by layer), IPC channel catalog, dependency graph edges, keyboard shortcuts, test coverage summary. |
+| `src/specs/*.spec.json` | 23 feature specs — one per non-test source file. Each defines: name, description, type/layer taxonomy, dependencies (imports), referenced_by (importers), exports, interface (constructor/methods/properties), state schema (if serialized), IPC channels, lifecycle, test file ref. |
+| `src/specs/*-ui.spec.json` | 10 UI sub-specs — detailed DOM structure, interaction catalog (triggers, gestures, formulas, results), visual states, and rendering notes. Generated for features with complex UI (modals, overlays, cards, menus). |
 
 ---
 

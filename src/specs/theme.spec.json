@@ -1,0 +1,50 @@
+{
+  "name": "Theme",
+  "file": "src/renderer/theme.ts",
+  "description": "Theme singleton managing dark/light color mode. Defines darkTheme (Noir dark: #161C24 bg) and lightTheme (inverse: #f8f8f8 bg) palettes with 7 CSS custom properties (--bg, --surface, --panel, --primary, --secondary, --tertiary, --border). Exports singletons darkTheme/lightTheme constants and a Theme class instance with setDark(), toggle(), and apply() methods that write to document.documentElement.style.",
+  "type": "logic",
+  "layer": "core",
+  "singleton": true,
+  "exports": ["theme", "ThemeColors", "darkTheme", "lightTheme"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "app-shell", "file": "App.ts" },
+    { "feature": "topbar", "file": "TopBar.ts" },
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" },
+    { "feature": "monaco-editor-plugin", "file": "MonacoEditorPlugin.ts" },
+    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" }
+  ],
+  "palettes": {
+    "dark": {
+      "bg": "#161C24",
+      "surface": "#1C2538",
+      "panel": "#243248",
+      "primary": "#C8D6E5",
+      "secondary": "#78909C",
+      "tertiary": "#546E7A",
+      "border": "#2A3A4A"
+    },
+    "light": {
+      "bg": "#f8f8f8",
+      "surface": "#eeeeee",
+      "panel": "#e0e0e0",
+      "primary": "#1a1a1a",
+      "secondary": "#2a2a2a",
+      "tertiary": "#6a6a6a",
+      "border": "#1a1a1a"
+    }
+  },
+  "interface": {
+    "constructor": "new Theme() (auto-applies on import)",
+    "methods": [
+      { "name": "setDark", "signature": "(dark: boolean) => void", "description": "Set mode and apply CSS properties" },
+      { "name": "toggle", "signature": "() => void", "description": "Flip isDark and apply CSS properties" },
+      { "name": "apply", "signature": "() => void", "description": "Write 7 CSS custom properties to :root" }
+    ],
+    "properties": [
+      { "name": "isDark", "type": "boolean", "description": "Current mode (default: true)" },
+      { "name": "colors", "type": "ThemeColors", "description": "Current palette object" }
+    ]
+  },
+  "test": "src/renderer/theme.test.ts"
+}

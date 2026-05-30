@@ -1,0 +1,31 @@
+{
+  "name": "Type Model",
+  "file": "src/global.d.ts",
+  "description": "Global ambient type declarations defining the Window.electronAPI IPC contract interface and domain types (EditorState, WorkspaceState, DirEntry). The single source of truth for the renderer-main process API contract across 9 namespaces.",
+  "type": "model",
+  "layer": "foundation",
+  "singleton": true,
+  "declarations": [
+    { "name": "EditorState", "kind": "interface", "description": "Per-plugin editor serialization state: open file tabs, active file, explorer splitter width, per-file cursor/scroll positions" },
+    { "name": "WorkspaceState", "kind": "interface", "description": "Full workspace session state: plugin array with uuids/positions/dimensions, z-order stack, zoom/pan viewport" },
+    { "name": "DirEntry", "kind": "interface", "description": "Filesystem directory entry: name string plus isDirectory boolean" },
+    { "name": "Window.electronAPI", "kind": "interface", "description": "Top-level IPC bridge namespace. 9 sub-namespaces: window, terminal, workspace, shell, prefs, git, clipboard, fs, plus platform/versions fields" }
+  ],
+  "namespaces": [
+    "window", "clipboard", "terminal", "workspace",
+    "shell", "prefs", "git", "fs"
+  ],
+  "referenced_by": [
+    { "feature": "main-process", "file": "main.ts" },
+    { "feature": "preload-bridge", "file": "preload.ts" },
+    { "feature": "app-shell", "file": "App.ts" },
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" },
+    { "feature": "about-modal", "file": "AboutModal.ts" },
+    { "feature": "terminal-plugin", "file": "TerminalPlugin.ts" },
+    { "feature": "monaco-editor-plugin", "file": "MonacoEditorPlugin.ts" },
+    { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts" },
+    { "feature": "git-plugin", "file": "GitPlugin.ts" },
+    { "feature": "command-palette", "file": "CommandPalette.ts" },
+    { "feature": "welcome-modal", "file": "WelcomeModal.ts" }
+  ]
+}

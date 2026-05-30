@@ -1,0 +1,77 @@
+{
+  "name": "Tutorial UI",
+  "parent": "tutorial",
+  "description": "UI interaction spec for the interactive guided tutorial overlay with 13 steps.",
+  "dom": {
+    "overlay": ".tutorial-overlay (position:fixed; inset:0; z-index:4000; pointer-events:none; background:rgba(0,0,0,0.3))",
+    "tooltip": ".tutorial-tooltip (position:absolute; max-width:360px; padding:16px; border:1px dashed var(--border); border-radius:8px; background:var(--surface); box-shadow:0 4px 24px rgba(0,0,0,0.4); pointer-events:auto; font-size:12px)",
+    "highlight_ring": ".tutorial-ring (position:absolute; border:2px solid var(--accent); border-radius:8px; pointer-events:none; z-index:3999; box-shadow:0 0 0 9999px rgba(0,0,0,0.3))",
+    "structure": [
+      ".tutorial-tooltip-title (font-size:14px; font-weight:700; margin-bottom:8px)",
+      ".tutorial-tooltip-body (color:var(--secondary); line-height:1.5; margin-bottom:12px; white-space:pre-line)",
+      ".tutorial-tooltip-extra (custom content area, optional, defined by step.renderExtra)",
+      ".tutorial-tooltip-actions (display:flex; justify-content:space-between; align-items:center)",
+      ".tutorial-tooltip-nav (display:flex; gap:4px)",
+      "button.tutorial-btn (padding:4px 10px; border:1px dashed var(--border); border-radius:6px; cursor:pointer; font-size:11px)",
+      "button.tutorial-btn-primary (background:var(--accent); color:var(--bg))",
+      ".tutorial-checkbox (display:flex; align-items:center; gap:4px; font-size:10px; color:var(--tertiary))"
+    ]
+  },
+  "interactions": [
+    {
+      "name": "start_tutorial",
+      "trigger": "tutorial.start(onFinish?)",
+      "action": "Reset to step 0, show overlay, render current step"
+    },
+    {
+      "name": "next_step",
+      "trigger": "Click Next button (★ primary button)",
+      "action": "Call prev step.onLeave, increment index, call next step.onEnter, re-render"
+    },
+    {
+      "name": "back_step",
+      "trigger": "Click Back button",
+      "action": "Call prev step.onLeave, decrement index, call next step.onEnter, re-render",
+      "visibility": "Hidden on first step (index === 0)"
+    },
+    {
+      "name": "done",
+      "trigger": "Click Done button (last step) or arrow-key right past last step",
+      "action": "Call step.onLeave, hide overlay, call onFinish callback"
+    },
+    {
+      "name": "skip",
+      "trigger": "Click Skip button",
+      "action": "Immediately hide overlay, call onFinish without completing remaining steps"
+    },
+    {
+      "name": "keyboard_nav",
+      "trigger": "ArrowLeft / ArrowRight keys",
+      "action": "ArrowLeft = Back, ArrowRight = Next/Done"
+    },
+    {
+      "name": "target_highlight",
+      "trigger": "Step has target selector",
+      "action": "Query target element, create highlight ring matching its bounding rect. Reposition on resize/scroll.",
+      "overflow": "If step.overflowHidden, set body overflow:hidden until step changes"
+    },
+    {
+      "name": "extra_content",
+      "trigger": "Step defines renderExtra(container)",
+      "action": "Call renderExtra with tooltip extra area, allows custom interactive content per step"
+    },
+    {
+      "name": "show_on_launch",
+      "trigger": "Toggle checkbox 'Do not show again'",
+      "action": "Flips boolean, read via getShowOnLaunch() saved as showTutorial preference"
+    }
+  ],
+  "states": {
+    "hidden": "Overlay not in DOM or display:none",
+    "showing": "Overlay visible, current step rendered with optional highlight ring",
+    "first_step": "Back button hidden, only Next visible",
+    "last_step": "Next replaced with Done, checkbox visible",
+    "mid_step": "Both Back and Next visible",
+    "body_locked": "body overflow:hidden when step.overflowHidden is true"
+  }
+}

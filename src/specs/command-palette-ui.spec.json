@@ -1,0 +1,58 @@
+{
+  "name": "Command Palette UI",
+  "parent": "command-palette",
+  "description": "UI interaction spec for the Ctrl+P fuzzy file finder overlay.",
+  "dom": {
+    "overlay": ".palette-overlay (position:fixed; inset:0; z-index:4500; display:flex; justify-content:center; padding-top:15vh; background:rgba(0,0,0,0.3))",
+    "palette": ".palette (width:520px; max-height:60vh; border:1px dashed var(--border); border-radius:8px; background:var(--surface); box-shadow:0 4px 24px rgba(0,0,0,0.4); display:flex; flex-direction:column; overflow:hidden)",
+    "structure": [
+      "input.palette-input (width:100%; padding:10px 14px; border:none; border-bottom:1px solid var(--border); background:transparent; color:var(--primary); font-size:14px; font-family:Space Mono; outline:none)",
+      ".palette-progress (display:none by default; height:2px; background:var(--border))",
+      ".palette-progress-bar (height:100%; width:0; background:var(--accent); transition:width 0.2s)",
+      ".palette-results (overflow-y:auto; max-height:calc(60vh - 50px))",
+      ".palette-item (padding:6px 14px; cursor:pointer; font-size:12px; display:flex; justify-content:space-between; border-bottom:1px solid transparent)",
+      ".palette-item.selected (background:var(--panel); border-bottom-color:var(--border))",
+      ".palette-item-name (color:var(--primary); font-weight:500)",
+      ".palette-item-dir (color:var(--tertiary); font-size:10px; margin-left:12px; white-space:nowrap)"
+    ]
+  },
+  "interactions": [
+    {
+      "name": "open",
+      "trigger": "palette.open()",
+      "action": "Show overlay, focus input, load recent files from localStorage, start file index walk if not cached"
+    },
+    {
+      "name": "close",
+      "trigger": "Escape key OR overlay background click",
+      "action": "Hide overlay, clear search"
+    },
+    {
+      "name": "search_input",
+      "trigger": "Type in input field",
+      "action": "Debounced 150ms fuzzy filter: match allFiles against query (lowercase substring match on filename), prioritize exact prefix matches, cap at 50 results"
+    },
+    {
+      "name": "navigate_results",
+      "trigger": "ArrowUp / ArrowDown",
+      "action": "Move .selected class through results, scroll selected into view. selectedIndex wraps at bounds."
+    },
+    {
+      "name": "select_file",
+      "trigger": "Enter key OR click .palette-item",
+      "action": "Add file path to recent files in localStorage (max 10, trim old), call onSelect(filePath), close palette"
+    },
+    {
+      "name": "file_indexing",
+      "trigger": "First open per workspace session",
+      "action": "Recursive directory walk via IPC fs:readDir. Threaded: process in chunks with setTimeout yields to avoid blocking. Progress bar updates (width: 0% → 100%). Respects .gitignore paths (skips .git, node_modules)."
+    }
+  ],
+  "states": {
+    "closed": "Overlay display:none, input cleared",
+    "opened_loading": "Overlay visible, progress bar active, input receives focus but results empty during indexing",
+    "opened_ready": "Overlay visible, file index complete, results populated on input",
+    "filtering": "User typing, 150ms debounce active, results updating",
+    "no_results": "Results area shows 'No matching files'"
+  }
+}

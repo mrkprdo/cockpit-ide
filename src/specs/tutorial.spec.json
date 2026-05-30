@@ -1,0 +1,39 @@
+{
+  "name": "Tutorial",
+  "file": "src/renderer/components/Tutorial.ts",
+  "description": "Interactive step-by-step guided tutorial overlay with 13 steps covering the IDE surface: welcome, canvas pan/zoom, menu bar, terminal tool, dev explorer tool, markdown viewer, theme toggle, plugin cards, plugin list panel, arrange panel, keyboard shortcuts, and useful links. Highlights target DOM elements with a ring, positions tooltip near target, supports arrow-key and button navigation (Back/Next/Done/Skip). 'Do not show again' checkbox. Lifecycle hooks: onEnter/onLeave per step, optional renderExtra for custom content.",
+  "type": "ui",
+  "layer": "overlay",
+  "singleton": true,
+  "exports": ["Tutorial"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "app-shell", "file": "App.ts" }
+  ],
+  "interface": {
+    "constructor": "new Tutorial()",
+    "methods": [
+      { "name": "start", "signature": "(onFinish?: () => Promise<void>) => void", "description": "Begin tutorial from step 0, store finish callback for prefs save" },
+      { "name": "getShowOnLaunch", "signature": "() => boolean", "description": "Whether 'show on launch' checkbox is checked" }
+    ]
+  },
+  "tutorial_steps": [
+    { "step": 1, "title": "Welcome to Cockpit IDE", "description": "Spatial IDE intro" },
+    { "step": 2, "title": "Wide Canvas", "target": "#canvas", "description": "Left-click drag to pan, scroll to zoom" },
+    { "step": 3, "title": "Menu Bar", "target": ".menu-bar", "description": "File, View, Help menus" },
+    { "step": 4, "title": "Terminal Tool", "target": ".menu-bar", "description": "View > Terminal > New" },
+    { "step": 5, "title": "Dev Tool", "target": ".menu-bar", "description": "Monaco editor + file explorer split card" },
+    { "step": 6, "title": "Markdown Viewer", "target": ".menu-bar", "description": "Tabbed .md preview" },
+    { "step": 7, "title": "Theme Toggle", "target": "#theme-toggle", "description": "Dark/light switch" },
+    { "step": 8, "title": "Plugin Cards", "description": "Drag header to move, edge handles to resize, 28px grid snap" },
+    { "step": 9, "title": "Plugin List", "target": ".plugin-list", "description": "Lower-left panel shows all plugin cards" },
+    { "step": 10, "title": "Arrange", "target": ".arrange-panel", "description": "Lower-right panel: Auto Arrage and Tile Plugins" },
+    { "step": 11, "title": "Keyboard Shortcuts", "description": "Ctrl+Tab, Ctrl+J, Ctrl+P, Ctrl+Shift+N" },
+    { "step": 12, "title": "Links", "description": "Design docs, feedback links" },
+    { "step": 13, "title": "You're Ready!", "description": "Final step with Done button" }
+  ],
+  "ui": {
+    "spec": "tutorial-ui.spec.json"
+  },
+  "test": "src/renderer/components/Tutorial.test.ts"
+}

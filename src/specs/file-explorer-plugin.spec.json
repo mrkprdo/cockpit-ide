@@ -1,0 +1,35 @@
+{
+  "name": "File Explorer Plugin",
+  "file": "src/renderer/components/FileExplorerPlugin.ts",
+  "description": "Recursive file tree browser displayed in a sidebar panel. Directories sorted first with expand/collapse toggle (▶/▼ arrow indicators). Context menus via ContextMenu: files (Copy Path, Paste (as copy), Delete, 'Open to Markdown' for .md with MarkdownPlugin labels), directories (New File, New Folder, Copy Path, Paste, Delete). Inline text input for instant file/folder creation (Enter commits, Escape cancels). Copy/paste with _copy_N auto-naming for duplicates. Delete confirmation through ConfirmModal. 500ms debounced external file change refresh via fs:onChanged. Color-coded file type icons (TS, JS, JSON, HTML, CSS, SVG, Markdown, Python, Rust, Go, C/C++, etc.). Scroll wheel propagation stopped to prevent canvas zoom.",
+  "type": "ui",
+  "layer": "plugin",
+  "singleton": false,
+  "exports": ["FileExplorerPlugin"],
+  "dependencies": [
+    { "feature": "context-menu", "file": "ContextMenu.ts", "usage": "Right-click menus on files and directories" },
+    { "feature": "confirm-modal", "file": "ConfirmModal.ts", "usage": "Delete confirmation dialog" }
+  ],
+  "referenced_by": [
+    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" },
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+  ],
+  "ipc": ["fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete", "fs:copy", "fs:rename", "fs:onChanged"],
+  "interface": {
+    "constructor": "new FileExplorerPlugin(container: HTMLElement, rootPath: string, onFileOpen: (path: string) => void)",
+    "methods": [
+      { "name": "refresh", "signature": "() => void", "description": "Reload current visible tree while preserving expand state" },
+      { "name": "setMarkdownOpeners", "signature": "(labels: string[], callback: (filePath: string, label: string) => void) => void", "description": "Set available markdown viewer labels and callback for 'Open to Markdown'" }
+    ]
+  },
+  "features": {
+    "recursive_tree": "Lazy-loaded expand/collapse with directory-first sorting",
+    "context_menus": "File: Copy/Paste/Delete/Open to Markdown. Directory: New File/New Folder/Copy/Paste/Delete",
+    "inline_creation": "Type name in inline input, Enter to commit, Escape to cancel",
+    "copy_paste": "Copy stores path, paste with _copy_N numbering for duplicates",
+    "delete_confirmation": "ConfirmModal before fs:delete",
+    "file_icons": "Color-coded by extension type (TS#3178C6, JS#F0DB4F, JSON#F0DB4F, HTML#E34F26, CSS#2965F1, SVG#FFB13B, MD#C8D6E5, PY#3572A5, RS#DEA584, GO#00ADD8, C#283593, C++#00599C, etc.)",
+    "external_refresh": "500ms debounced tree reload on file:changed event"
+  },
+  "test": "src/renderer/components/FileExplorerPlugin.test.ts"
+}

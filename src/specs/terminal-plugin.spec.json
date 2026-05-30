@@ -1,0 +1,34 @@
+{
+  "name": "Terminal Plugin",
+  "file": "src/renderer/components/TerminalPlugin.ts",
+  "description": "xterm.js PTY terminal emulator embedded in a plugin card body. Connects to node-pty via IPC (create/write/resize/kill). Noir-themed Terminal instance with space-mono-adjacent font (Cascadia Code, Fira Code, monospace). Clipboard paste (Ctrl+Shift+V, context menu + IPC clipboard:readText). ResizeObserver + FitAddon for responsive terminal sizing. Keyboard event handling for special keys. Process exit detection via terminal:exit event listener. BASE_FONT_SIZE 13 for consistent rendering.",
+  "type": "ui",
+  "layer": "plugin",
+  "singleton": false,
+  "exports": ["TerminalPlugin"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+  ],
+  "ipc": ["terminal:create", "terminal:write", "terminal:resize", "terminal:kill", "terminal:onData", "terminal:onExit", "clipboard:readText"],
+  "interface": {
+    "constructor": "new TerminalPlugin(container: HTMLElement, uuid: string, cwd?: string)",
+    "properties": [
+      { "name": "uuid", "type": "string", "description": "Terminal session identifier" },
+      { "name": "element", "type": "HTMLDivElement", "description": "Container for xterm.js DOM" },
+      { "name": "onExit", "type": "(() => void) | null", "description": "Called when PTY process exits" }
+    ],
+    "methods": [
+      { "name": "destroy", "signature": "() => void", "description": "Kill PTY, unlisten events, disconnect ResizeObserver, remove DOM" }
+    ]
+  },
+  "lifecycle": {
+    "creation": "TerminalPlugin is constructed → IPC terminal:create spawns node-pty shell (platform-aware: cmd.exe / zsh / bash)",
+    "data_flow": "PTY onData → IPC terminal:data → xterm.write() → renderer Terminal widget",
+    "input_flow": "xterm onData → IPC terminal:write → PTY stdin",
+    "exit": "PTY onExit → IPC terminal:exit → onExit callback → card removed from canvas",
+    "cleanup": "destroy() → kill PTY, unlisten IPC events, disconnect ResizeObserver"
+  },
+  "external_deps": ["@xterm/xterm (Terminal)", "@xterm/addon-fit (FitAddon)"],
+  "test": "src/renderer/components/TerminalPlugin.test.ts"
+}

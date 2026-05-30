@@ -1,0 +1,37 @@
+{
+  "name": "Markdown Plugin",
+  "file": "src/renderer/components/MarkdownPlugin.ts",
+  "description": "Markdown preview viewer with multi-tab support. Renders .md files via marked.parse() with sanitized HTML (raw HTML escaped, javascript: links blocked, target=_blank on external links). Per-tab scrollTop tracking for position preservation on tab switch. External file change detection via fs:onChanged with auto-reload (preserves scroll on same content, scroll-to-top on different). State serialization/restoration including legacy single-file format migration. Handles empty files (shows '<Empty file>'), deleted files (shows header read error), and loading errors gracefully. Tab bar with close buttons.",
+  "type": "ui",
+  "layer": "plugin",
+  "singleton": false,
+  "exports": ["MarkdownPlugin", "MarkdownState"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+  ],
+  "ipc": ["fs:readFile", "fs:onChanged"],
+  "interface": {
+    "constructor": "new MarkdownPlugin(container: HTMLElement)",
+    "methods": [
+      { "name": "loadFile", "signature": "(filePath: string, label?: string) => Promise<void>", "description": "Read .md file, create or switch to tab, render preview" },
+      { "name": "getState", "signature": "() => MarkdownState", "description": "Serialize tab state for persistence" },
+      { "name": "restoreState", "signature": "(state: MarkdownState) => Promise<void>", "description": "Restore tabs and scroll positions from saved state" },
+      { "name": "destroy", "signature": "() => void", "description": "Unlisten file changes, remove DOM" }
+    ],
+    "properties": [
+      { "name": "title", "type": "string", "description": "Current active tab title" },
+      { "name": "onDestroy", "type": "(() => void) | null", "description": "Cleanup callback" }
+    ]
+  },
+  "features": {
+    "marked_rendering": "marked.parse() with custom Renderer for HTML escaping and link sanitization",
+    "multi_tab": "Multiple .md files open with tab bar and close buttons",
+    "scroll_tracking": "scrollTops Record stored per filePath, restored on tab switch",
+    "external_reload": "fs:onChanged listener — reloads file, preserves scroll if content unchanged",
+    "state_migration": "Supports legacy format (single file with filePath/scrollTop fields) and new format (openFiles[], activeFile, scrollTops{})",
+    "error_handling": "Empty files: '<Empty file>', deleted files: error header message, parse errors: catches and shows inline"
+  },
+  "external_deps": ["marked (marked, Renderer)"],
+  "test": "src/renderer/components/MarkdownPlugin.test.ts"
+}

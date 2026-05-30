@@ -1,0 +1,25 @@
+{
+  "name": "Text Renderer",
+  "file": "src/renderer/components/TextRenderer.ts",
+  "description": "Static utility class for measuring and rendering text on HTML Canvas using @chenglou/pretext for segment-level Unicode-aware text layout. Provides measure() for height calculation, draw() for direct context rendering, createCanvas() for single-style text canvases, and createCanvas2() for multi-style text with variable line heights. Handles DPR scaling for sharp rendering.",
+  "type": "utility",
+  "layer": "widget",
+  "singleton": false,
+  "exports": ["TextRenderer", "TextStyle"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "plugin-card", "file": "PluginCard.ts" }
+  ],
+  "interface": {
+    "types": [
+      { "name": "TextStyle", "definition": "{ font: string; color: string; lineHeight?: number }" }
+    ],
+    "static_methods": [
+      { "name": "measure", "signature": "(text: string, font: string, maxWidth: number) => number", "description": "Returns rendered text height" },
+      { "name": "draw", "signature": "(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, style: TextStyle) => void", "description": "Draw text onto canvas context with given style" },
+      { "name": "createCanvas", "signature": "(text: string, width: number, height: number, style: TextStyle) => HTMLCanvasElement", "description": "Create DPR-scaled canvas with single-style text" },
+      { "name": "createCanvas2", "signature": "(lines: { text: string; style: TextStyle }[], width: number, height: number) => HTMLCanvasElement", "description": "Create DPR-scaled canvas with multi-style text, each line with its own style" }
+    ]
+  },
+  "test": "No dedicated test file"
+}

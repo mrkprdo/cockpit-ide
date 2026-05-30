@@ -1,0 +1,33 @@
+{
+  "name": "Command Palette",
+  "file": "src/renderer/components/CommandPalette.ts",
+  "description": "Ctrl+P fuzzy file finder overlay. Performs a recursive directory walk (threaded with progress indicator bar) to build a file index. Supports fuzzy search with 150ms debounce and 50-result cap. Recent files tracked in localStorage (max 10, sorted by recency). Arrow-key navigation with visual selection, Enter to select, Escape to close. Displays filename with relative directory path. One-time file indexing per workspace (cached after first open).",
+  "type": "ui",
+  "layer": "overlay",
+  "singleton": false,
+  "exports": ["CommandPalette"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" },
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+  ],
+  "ipc": ["fs:readDir"],
+  "interface": {
+    "constructor": "new CommandPalette(wsPath: string, onSelect: (filePath: string) => void)",
+    "methods": [
+      { "name": "open", "signature": "() => void", "description": "Show overlay, focus input, start file indexing if not cached" },
+      { "name": "close", "signature": "() => void", "description": "Hide overlay and cleanup" }
+    ]
+  },
+  "interactions": [
+    { "trigger": "Type in input", "action": "Debounced 150ms fuzzy filter of allFiles, shows top 50 matches" },
+    { "trigger": "ArrowUp/ArrowDown", "action": "Move selection highlight, scroll into view" },
+    { "trigger": "Enter", "action": "Select highlighted file, add to recent, call onSelect, close" },
+    { "trigger": "Escape", "action": "Close palette" },
+    { "trigger": "Click result", "action": "Select file, same as Enter" }
+  ],
+  "ui": {
+    "spec": "command-palette-ui.spec.json"
+  },
+  "test": "No dedicated test file"
+}

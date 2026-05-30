@@ -1,0 +1,64 @@
+{
+  "name": "Canvas Engine",
+  "file": "src/renderer/components/CanvasArea.ts",
+  "description": "Core infinite canvas engine (~1200 lines). Manages world-to-screen coordinate transform (screenX = worldX * scale + panX), pan via left/middle-click drag, zoom via mouse wheel (cursor-centered, 0.1x-5x range, lock toggleable), grid rendering (dots/grid/none patterns via offscreen canvas), plugin card lifecycle (add/remove/minimize/terminate/reopen/focus with z-order stacking), snap-to-grid (28px), plugin creation (Terminal, Explorer/Dev, Git, Markdown), fit-all viewport calculation, animated pan (ease-out cubic 300ms), canvas status bar with zoom/lock/workspace name, plugin list panel (lower-left), arrange panel (auto-arrange + tile plugins with custom WxH), save state serialization, and right-click context menu on empty canvas space.",
+  "type": "ui",
+  "layer": "core",
+  "singleton": true,
+  "exports": ["CanvasArea", "EditorState", "PluginEntry", "SaveState"],
+  "dependencies": [
+    { "feature": "canvas-grid", "file": "canvas-grid.ts", "usage": "generateGridPattern() + applyGridToElement() for grid rendering" },
+    { "feature": "canvas-statusbar", "file": "canvas-statusbar.ts", "usage": "StatusBar widget for zoom/workspace/lock display" },
+    { "feature": "plugin-card", "file": "PluginCard.ts", "usage": "Creates PluginCard instances for each plugin, manages drag/resize/minimize" },
+    { "feature": "terminal-plugin", "file": "TerminalPlugin.ts", "usage": "Instantiated inside terminal plugin cards" },
+    { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts", "usage": "Instantiated inside dev/explorer plugin cards" },
+    { "feature": "monaco-editor-plugin", "file": "MonacoEditorPlugin.ts", "usage": "Instantiated inside dev/explorer plugin cards" },
+    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts", "usage": "Combined split-pane explorer (FileExplorer + MonacoEditor) in a single card" },
+    { "feature": "git-plugin", "file": "GitPlugin.ts", "usage": "Instantiated inside git plugin cards, uses GitState type" },
+    { "feature": "context-menu", "file": "ContextMenu.ts", "usage": "Right-click menu on empty canvas area (new terminal/explorer/git/markdown)" },
+    { "feature": "markdown-plugin", "file": "MarkdownPlugin.ts", "usage": "Instantiated inside markdown plugin cards, uses MarkdownState type" }
+  ],
+  "referenced_by": [
+    { "feature": "app-shell", "file": "App.ts" },
+    { "feature": "tutorial", "file": "Tutorial.ts" }
+  ],
+  "ipc": [],
+  "state": {
+    "schema": "SaveState",
+    "fields": [
+      { "name": "plugins", "type": "PluginEntry[]", "description": "Array of saved plugin cards with uuid, title, position, dimensions, open state, optional editor/markdown/git state" },
+      { "name": "zOrder", "type": "string[]", "description": "UUID stack — last element is topmost card" },
+      { "name": "zoom", "type": "number", "description": "Canvas zoom factor (0.1–5.0)" },
+      { "name": "panX", "type": "number", "description": "Horizontal pan offset in screen pixels" },
+      { "name": "panY", "type": "number", "description": "Vertical pan offset in screen pixels" }
+    ]
+  },
+  "transforms": {
+    "world_to_screen": "screenX = worldX * scale + panX; screenY = worldY * scale + panY",
+    "screen_to_world": "worldX = (screenX - panX) / scale; worldY = (screenY - panY) / scale"
+  },
+  "interactions": [
+    { "name": "pan", "trigger": "Left/middle mouse button drag on canvas", "behavior": "Updates panX/panY, throttled via requestAnimationFrame" },
+    { "name": "zoom", "trigger": "Mouse wheel on canvas", "behavior": "Cursor-centered zoom, 0.02x step, clamped 0.1-5.0" },
+    { "name": "ctrl_zoom", "trigger": "Ctrl+Wheel", "behavior": "Fine zoom at 0.005x step" },
+    { "name": "add_terminal", "trigger": "addTerminal()", "behavior": "Creates PluginCard with TerminalPlugin, snap-to-grid positioned" },
+    { "name": "add_explorer", "trigger": "addExplorer()", "behavior": "Creates PluginCard with ExplorerPlugin, opens root directory" },
+    { "name": "add_git", "trigger": "addGit()", "behavior": "Creates PluginCard with GitPlugin, single-instance enforced" },
+    { "name": "add_markdown", "trigger": "addMarkdown()", "behavior": "Creates PluginCard with MarkdownPlugin, no path needed" },
+    { "name": "fit_all", "trigger": "fitAll() / View All button", "behavior": "Calculates bounding box of all cards, sets zoom/pan to fit viewport with padding" },
+    { "name": "auto_arrange", "trigger": "Arrangement panel button", "behavior": "Tiles all open cards in a grid layout with configurable columns" },
+    { "name": "animate_pan", "trigger": "animatePanTo()", "behavior": "Ease-out cubic interpolation over 300ms to target pan position" }
+  ],
+  "callbacks": {
+    "onStateChange": "() => void — fired when plugin positions change (drag end, resize end, add/remove)",
+    "onTerminalsChanged": "(items[]) => void — terminal plugin list for TopBar menu",
+    "onExplorersChanged": "(items[]) => void — explorer plugin list for TopBar menu",
+    "onGitChanged": "(items[]) => void — git plugin list for TopBar menu",
+    "onMarkdownChanged": "(items[]) => void — markdown plugin list for TopBar menu",
+    "onLockToggle": "() => void — zoom lock toggled from status bar"
+  },
+  "ui": {
+    "spec": "canvas-engine-ui.spec.json"
+  },
+  "test": "src/renderer/components/CanvasArea.test.ts"
+}

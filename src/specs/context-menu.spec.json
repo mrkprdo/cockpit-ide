@@ -1,0 +1,46 @@
+{
+  "name": "Context Menu",
+  "file": "src/renderer/components/ContextMenu.ts",
+  "description": "Floating right-click context menu with singleton pattern. Renders a positioned overlay with items (label + action), separators, and disabled items. Auto-closes on outside click or item selection. Closes all prior open menus before creating a new one (tracks via static openMenus array). Supports onClose callback.",
+  "type": "ui",
+  "layer": "widget",
+  "singleton": false,
+  "exports": ["ContextMenu", "ContextMenuItem"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" },
+    { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts" }
+  ],
+  "interface": {
+    "types": [
+      { "name": "ContextMenuItem", "definition": "{ label?: string; action?: () => void; disabled?: boolean; separator?: boolean }" }
+    ],
+    "constructor": "new ContextMenu(items: ContextMenuItem[], x: number, y: number)",
+    "methods": [
+      { "name": "remove", "signature": "() => void", "description": "Hide and cleanup: remove document listener, splice from static array, call onClose" }
+    ],
+    "properties": [
+      { "name": "onClose", "type": "(() => void) | null", "description": "Called when menu is removed" }
+    ],
+    "static": [
+      { "name": "openMenus", "type": "ContextMenu[]", "description": "Tracks all active menus for singleton enforcement" }
+    ]
+  },
+  "interactions": [
+    { "trigger": "Click item", "action": "Fire item.action() then remove()" },
+    { "trigger": "Click outside", "action": "remove() via document click listener (setTimeout 0 deferred)" },
+    { "trigger": "New ContextMenu created", "action": "All existing menus in openMenus are removed first" }
+  ],
+  "dom": {
+    "root": ".ctx-menu (position: absolute at x,y)",
+    "children": [
+      ".ctx-item (clickable menu item, click removes menu)",
+      ".ctx-item.ctx-disabled (non-clickable grayed out item)",
+      ".ctx-sep (horizontal separator line)"
+    ]
+  },
+  "ui": {
+    "spec": "context-menu-ui.spec.json"
+  },
+  "test": "src/renderer/components/ContextMenu.test.ts"
+}

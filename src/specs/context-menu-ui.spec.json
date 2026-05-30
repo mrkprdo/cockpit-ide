@@ -1,0 +1,40 @@
+{
+  "name": "Context Menu UI",
+  "parent": "context-menu",
+  "description": "UI interaction spec for the floating right-click context menu with singleton enforcement.",
+  "dom": {
+    "root": ".ctx-menu",
+    "style": "position:absolute; min-width:160px; padding:4px 0; border:1px dashed var(--border); border-radius:8px; background:var(--surface); box-shadow:0 4px 16px rgba(0,0,0,0.3); z-index:6000; font-size:11px; font-family:Space Mono",
+    "items": {
+      "clickable": ".ctx-item (padding:5px 12px; cursor:pointer; color:var(--primary))",
+      "disabled": ".ctx-item.ctx-disabled (opacity:0.4; cursor:default; no click action)",
+      "separator": ".ctx-sep (height:1px; margin:4px 8px; background:var(--border))"
+    }
+  },
+  "interactions": [
+    {
+      "name": "create_menu",
+      "trigger": "new ContextMenu(items, x, y)",
+      "action": "Remove all existing menus in static openMenus array, create new .ctx-menu at (x,y), append to body, register in openMenus"
+    },
+    {
+      "name": "click_item",
+      "trigger": "Click .ctx-item (not .ctx-disabled)",
+      "action": "Fire item.action(), then remove() menu"
+    },
+    {
+      "name": "click_outside",
+      "trigger": "Document click (deferred via setTimeout 0)",
+      "action": "Call remove() — closes menu"
+    },
+    {
+      "name": "singleton",
+      "trigger": "Second ContextMenu created while one exists",
+      "action": "forEach openMenus → remove() before creating new one"
+    }
+  ],
+  "states": {
+    "open": "Menu visible at (x,y), document click listener active",
+    "closed": "Menu removed from DOM, listener cleaned up, onClose fired"
+  }
+}

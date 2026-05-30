@@ -1,0 +1,79 @@
+{
+  "name": "Top Bar UI",
+  "parent": "topbar",
+  "description": "UI interaction spec for the custom menu bar with hover-based dropdown menus and theme toggle.",
+  "dom": {
+    "container": "#menu-bar (matches #titlebar height, flex row, Space Mono 11px, user-select:none, -webkit-app-region:drag)",
+    "structure": [
+      ".menu-item (File / View / Help — cursor:default, padding:6px 10px, position:relative)",
+      ".menu-dropdown (position:absolute, left:0, top:100%, min-width:180px, border:1px dashed var(--border), border-radius:8px, background:var(--surface), box-shadow:var(--shadow), z-index:1000)",
+      ".menu-dropdown-item (padding:5px 12px, cursor:pointer, hover:background:var(--panel))",
+      ".menu-dropdown-separator (height:1px, margin:4px 8px, background:var(--border))",
+      ".menu-item-nested (position:relative, padding:5px 12px, cursor:default)",
+      ".menu-dropdown-nested (position:absolute, left:100%, top:0, min-width:180px, border:1px dashed var(--border))",
+      ".menu-check (checkmark ✓ for selected state, e.g. grid style, zoom lock)",
+      "#theme-toggle (button, width:36px, font-size:14px, text-content:'◐')"
+    ]
+  },
+  "interactions": [
+    {
+      "name": "menu_hover_open",
+      "trigger": "Mouse enter .menu-item",
+      "gesture": "Cancel any pending close timer, close all open menus, add .open class to hovered menu item (shows dropdown)",
+      "timing": "Instant open"
+    },
+    {
+      "name": "menu_hover_close",
+      "trigger": "Mouse leave .menu-item or .menu-dropdown",
+      "gesture": "Start 300ms close timer. Timer cancelled if mouse re-enters dropdown.",
+      "timing": "300ms debounced close"
+    },
+    {
+      "name": "nested_hover_open",
+      "trigger": "Mouse enter .menu-item-nested",
+      "gesture": "Nested dropdown appears to right (left:100%) with ▸ arrow indicator",
+      "timing": "Immediate (part of parent menu)"
+    },
+    {
+      "name": "click_outside",
+      "trigger": "Click anywhere on document (not on menu)",
+      "gesture": "Close all open menus. Handler re-registered on each render."
+    },
+    {
+      "name": "menu_item_click",
+      "trigger": "Click .menu-dropdown-item",
+      "gesture": "Fire corresponding callback, close all menus. Click handler stops propagation.",
+      "examples": {
+        "File > Open Workspace": "onOpenWorkspace()",
+        "File > Exit": "window.close()",
+        "View > Terminal > New": "onNewTerminal()",
+        "View > Terminal > {instance}": "onFocusTerminal(uuid) or onReopenTerminal(uuid) based on isOpen",
+        "View > Explorer > New": "onNewExplorer()",
+        "View > Git": "onNewGit()",
+        "View > Markdown > New": "onNewMarkdown()",
+        "View > Canvas > Dots/Grid/None": "onGridChange(style) with check mark update",
+        "View > Zoom > In/Out/Reset": "onZoomIn()/onZoomOut()/onResetView()",
+        "View > Zoom > Lock": "onZoomLock(!locked) with check mark toggle",
+        "Help > Tutorial": "onTutorial()",
+        "Help > About": "onAbout()"
+      }
+    },
+    {
+      "name": "theme_toggle",
+      "trigger": "Click #theme-toggle button",
+      "gesture": "theme.toggle() → onThemeToggle() callback"
+    }
+  ],
+  "states": {
+    "default": "All menus closed, menu items at default styling",
+    "menu_open": ".menu-item has .open class, dropdown visible, 300ms auto-close timer active",
+    "nested_open": ".menu-item-nested shows nested dropdown alongside parent dropdown"
+  },
+  "dynamic_content": {
+    "terminal_submenu": "Generated from termItems[] — shows 'New' + separator + instance list (dimmed if closed)",
+    "explorer_submenu": "Generated from explorerItems[] — shows 'New' + separator + instance list",
+    "markdown_submenu": "Generated from mdItems[] — shows 'New' + separator + instance list",
+    "grid_submenu": "Shows check mark next to active style (dots/grid/none)",
+    "zoom_lock": "Shows check mark when zoom is locked"
+  }
+}

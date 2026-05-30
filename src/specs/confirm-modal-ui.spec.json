@@ -1,0 +1,56 @@
+{
+  "name": "Confirm Modal UI",
+  "parent": "confirm-modal",
+  "description": "UI interaction spec for the generic confirmation dialog.",
+  "dom": {
+    "overlay": ".modal-overlay.confirm (display:flex; align-items:center; justify-content:center; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:5000)",
+    "modal": ".modal[role=dialog][aria-modal=true] (min-width:320px; max-width:480px; padding:20px; border:1px dashed var(--border); border-radius:8px; background:var(--surface); box-shadow:var(--shadow))",
+    "structure": [
+      ".modal-body (display:flex; flex-direction:column; gap:16px)",
+      ".confirm-modal-msg (font-size:12px; color:var(--primary); line-height:1.5; sanitized HTML)",
+      ".modal-actions (display:flex; justify-content:flex-end; gap:8px)",
+      "button.btn-ghost#confirm-cancel (Cancel — padding:6px 14px; background:transparent; border:1px dashed var(--border); cursor:pointer)",
+      "button.btn-primary#confirm-ok (dynamic label — padding:6px 14px; destructive has .btn-ok-destructive class)"
+    ]
+  },
+  "interactions": [
+    {
+      "name": "open",
+      "trigger": "modal.open()",
+      "action": "Set overlay display:flex, register Escape keydown listener, focus Cancel button, return Promise<boolean>"
+    },
+    {
+      "name": "confirm",
+      "trigger": "Click #confirm-ok OR Enter key",
+      "action": "done(true) → remove overlay from DOM, remove Escape listener, resolve(true)"
+    },
+    {
+      "name": "cancel_button",
+      "trigger": "Click #confirm-cancel",
+      "action": "done(false) → remove overlay from DOM, remove Escape listener, resolve(false)"
+    },
+    {
+      "name": "cancel_escape",
+      "trigger": "Press Escape key",
+      "action": "done(false) — same as cancel button"
+    },
+    {
+      "name": "cancel_overlay",
+      "trigger": "Click overlay background (e.target === overlay)",
+      "action": "done(false) — same as cancel button"
+    }
+  ],
+  "security": {
+    "html_sanitization": "Message HTML is sanitized by removing <script>, <img>, <iframe>, <embed>, <object>, <link>, <style> tags and inline event handlers (on*=...)"
+  },
+  "states": {
+    "hidden": "Overlay in DOM but display:none, no keyboard listener active",
+    "visible": "Overlay display:flex, Escape listener active, Cancel button focused",
+    "resolved": "Overlay removed from DOM entirely, promise resolved"
+  },
+  "props": {
+    "message": "string (supports sanitized HTML)",
+    "confirmLabel": "string (default: 'Delete')",
+    "destructive": "boolean (default: true — applies .btn-ok-destructive style to confirm button)"
+  }
+}

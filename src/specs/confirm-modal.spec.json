@@ -1,0 +1,27 @@
+{
+  "name": "Confirm Modal",
+  "file": "src/renderer/components/ConfirmModal.ts",
+  "description": "Generic confirmation dialog with customizable message (HTML, sanitized — scripts, images, iframes, embeds, objects, links, styles, inline event handlers stripped) and button label. Returns Promise<boolean>. Escape key and overlay click = cancel (false). Construction appends to DOM, open() makes visible and returns promise, done() cleans up and removes DOM.",
+  "type": "ui",
+  "layer": "modal",
+  "singleton": false,
+  "exports": ["ConfirmModal"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts" }
+  ],
+  "interface": {
+    "constructor": "new ConfirmModal(message: string, confirmLabel?: string, destructive?: boolean)",
+    "methods": [
+      { "name": "open", "signature": "() => Promise<boolean>", "description": "Show overlay, focus cancel button, return promise resolved on confirm/cancel" },
+      { "name": "done", "signature": "(ok: boolean) => void", "description": "Remove DOM and event listeners, resolve promise" }
+    ]
+  },
+  "security": {
+    "html_sanitization": "Strips <script>, <img>, <iframe>, <embed>, <object>, <link>, <style> tags and inline on* event handlers"
+  },
+  "ui": {
+    "spec": "confirm-modal-ui.spec.json"
+  },
+  "test": "src/renderer/components/ConfirmModal.test.ts"
+}

@@ -1,0 +1,31 @@
+{
+  "name": "Canvas Status Bar",
+  "file": "src/renderer/components/canvas-statusbar.ts",
+  "description": "Status bar widget for the canvas area. Populates the #statusbar div with zoom display (percentage + lock/unlock SVG icon, clickable to toggle zoom lock), locked indicator, workspace path display, and a 'view all' button that triggers fitAll(). Initialized once into the existing #statusbar element.",
+  "type": "ui",
+  "layer": "core",
+  "singleton": true,
+  "exports": ["StatusBar"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+  ],
+  "interface": {
+    "constructor": "new StatusBar()",
+    "methods": [
+      { "name": "init", "signature": "() => void", "description": "Populate #statusbar with zoom/locked/workspace/view-all elements (idempotent if already populated)" },
+      { "name": "update", "signature": "(locked: boolean, scale: number, workspaceName: string, onLockToggle: (() => void) | null, fitAll: () => void) => void", "description": "Refresh all displayed values and wire click handlers" }
+    ]
+  },
+  "dom": {
+    "container": "#statusbar (existing element in index.html)",
+    "elements": [
+      ".status-item (zoom % + lock/unlock icon, clickable)",
+      ".status-item.status-locked (hidden by default, shown when locked)",
+      ".status-item (workspace path)",
+      ".status-sep (visual separators)",
+      ".status-btn (view all button)"
+    ]
+  },
+  "test": "Covered by CanvasArea.test.ts"
+}

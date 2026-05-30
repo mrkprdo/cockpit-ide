@@ -1,0 +1,34 @@
+{
+  "name": "App Shell",
+  "file": "src/renderer/components/App.ts",
+  "description": "Root application orchestrator. Creates CanvasArea and TopBar, manages workspace lifecycle (CLI path resolution, WelcomeModal fallback, workspace load/save), keyboard shortcuts (Ctrl+Shift+N new window, Ctrl+W prevention, Ctrl+Tab card cycling, Ctrl+P file search, Ctrl+J new terminal), auto-save with debounced JSON diff comparison, reloads user preferences (theme, grid style, zoom lock, tutorial), initializes window control buttons (minimize/maximize/close).",
+  "type": "ui",
+  "layer": "core",
+  "singleton": true,
+  "exports": ["App"],
+  "dependencies": [
+    { "feature": "canvas-engine", "file": "CanvasArea.ts", "usage": "Creates and owns CanvasArea instance, wires state change and plugin change callbacks" },
+    { "feature": "topbar", "file": "TopBar.ts", "usage": "Creates TopBar with full callback object (14 handlers) for menus, buttons, zoom, theme, grid" },
+    { "feature": "welcome-modal", "file": "WelcomeModal.ts", "usage": "Shown as fallback when no CLI workspace path is provided" },
+    { "feature": "about-modal", "file": "AboutModal.ts", "usage": "Opened via Help > About, locks canvas during display" },
+    { "feature": "tutorial", "file": "Tutorial.ts", "usage": "Started on first workspace load if showTutorial preference is not false" },
+    { "feature": "theme", "file": "theme.ts", "usage": "Reads/sets dark/light preference on startup and toggle" }
+  ],
+  "ipc": ["prefs:load", "prefs:save", "window:new", "window:minimize", "window:maximize", "window:close", "workspace:getPath", "workspace:load", "workspace:save", "workspace:select", "fs:watch"],
+  "shortcuts": [
+    { "key": "Ctrl+Shift+N / Cmd+Shift+N", "action": "New window via IPC window:new" },
+    { "key": "Ctrl+W / Cmd+W", "action": "Prevent browser close-tab behavior" },
+    { "key": "Ctrl+Tab", "action": "Cycle canvas cards forward/backward (reverse with Shift)" },
+    { "key": "Ctrl+P / Cmd+P", "action": "Open file search palette on active explorer" },
+    { "key": "Ctrl+J / Cmd+J", "action": "Create new terminal card at workspace root" }
+  ],
+  "state": {
+    "wsPath": "string — current workspace directory path",
+    "lastSaved": "string — JSON.stringify'd SaveState for diff-based auto-save",
+    "auto_save": "Debounced via onStateChange callback → JSON diff → IPC workspace:save"
+  },
+  "ui": {
+    "spec": "app-shell-ui.spec.json"
+  },
+  "test": "src/renderer/components/App.test.ts"
+}

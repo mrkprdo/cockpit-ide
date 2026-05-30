@@ -1,0 +1,23 @@
+{
+  "name": "Canvas Grid",
+  "file": "src/renderer/components/canvas-grid.ts",
+  "description": "Grid pattern generator and CSS applicator for the infinite canvas. Generates dots (2px circle at origin, 65% alpha) or grid (bottom-right L-shaped lines, 30% alpha) patterns as data URLs using an offscreen HTML Canvas. Applies pattern as CSS background-image with repeat, scaled size, and panned position. Resolves grid color from --tertiary CSS custom property.",
+  "type": "utility",
+  "layer": "core",
+  "singleton": false,
+  "exports": ["GridStyle", "generateGridPattern", "applyGridToElement"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+  ],
+  "interface": {
+    "functions": [
+      { "name": "generateGridPattern", "signature": "(style: GridStyle, patternSize: number) => string", "description": "Returns data URL for dots or grid pattern, empty string for 'none'" },
+      { "name": "applyGridToElement", "signature": "(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number, scale: number, panX: number, panY: number) => void", "description": "Sets background-image, size, repeat, and position on element" }
+    ],
+    "types": [
+      { "name": "GridStyle", "definition": "'none' | 'dots' | 'grid'" }
+    ]
+  },
+  "test": "Covered by CanvasArea.test.ts"
+}

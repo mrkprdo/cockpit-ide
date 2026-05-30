@@ -1,0 +1,54 @@
+{
+  "name": "Welcome Modal UI",
+  "parent": "welcome-modal",
+  "description": "UI interaction spec for the startup workspace picker modal.",
+  "dom": {
+    "overlay": ".modal-overlay (display:flex; align-items:center; justify-content:center; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:5000)",
+    "modal": ".welcome-modal (width:420px; max-height:80vh; padding:24px; border:1px dashed var(--border); border-radius:8px; background:var(--surface); box-shadow:var(--shadow))",
+    "structure": [
+      ".welcome-head > .welcome-name (font-size:20px; font-weight:700) + .welcome-sub (font-size:12px; color:var(--secondary); margin-top:4px)",
+      ".welcome-sep (height:1px; background:var(--border); margin:14px 0)",
+      ".welcome-actions (display:flex; gap:8px; margin-bottom:12px)",
+      "button.welcome-btn (padding:6px 14px; border:1px dashed var(--border); border-radius:8px; cursor:pointer; font-size:12px)",
+      "button.welcome-btn-secondary (padding:6px 14px; background:transparent; color:var(--tertiary); cursor:pointer)",
+      ".welcome-recent (margin-top:8px)",
+      ".welcome-recent-title (font-size:10px; font-weight:700; color:var(--tertiary); text-transform:uppercase; letter-spacing:1px)",
+      ".welcome-recent-item (display:flex; align-items:center; justify-content:space-between; padding:4px 6px; cursor:pointer; hover:background:var(--panel); border-radius:4px)",
+      ".welcome-recent-item-path (truncated, font-size:11px)",
+      ".welcome-recent-item-missing (color:var(--amber); opacity:0.5; cursor:default)",
+      ".welcome-recent-item-remove (button, × char, background:none; border:none; cursor:pointer; font-size:14px; color:var(--red))"
+    ]
+  },
+  "interactions": [
+    {
+      "name": "open_workspace",
+      "trigger": "Click #welcome-open button",
+      "action": "IPC workspace:select (native directory picker) → resolve(path) → close modal",
+      "result": "App loads workspace at selected path"
+    },
+    {
+      "name": "close_no_workspace",
+      "trigger": "Click #welcome-close button",
+      "action": "resolve(null) → close modal → window.close() (app exits)",
+      "result": "No workspace selected, application quits"
+    },
+    {
+      "name": "recent_click",
+      "trigger": "Click .welcome-recent-item (on path area)",
+      "action": "If path exists (verified via IPC fs:readDir): close(path) → loadWorkspace(path)",
+      "result": "Recent workspace loaded"
+    },
+    {
+      "name": "recent_remove",
+      "trigger": "Click .welcome-recent-item-remove (× button)",
+      "action": "IPC workspace:removeRecent(path) → remove item DOM → hide container if no items left",
+      "propagation": "e.stopPropagation() prevents parent click"
+    }
+  ],
+  "states": {
+    "default": "Overlay visible, recent list populated from IPC workspace:getRecent",
+    "empty_recent": ".welcome-recent hidden (display:none) when no recent workspaces",
+    "missing_recent": "Path shown with .welcome-recent-item-missing class, click disabled, opacity reduced",
+    "closed": "Overlay display:none, promise resolved"
+  }
+}

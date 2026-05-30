@@ -1,0 +1,47 @@
+{
+  "name": "Git Plugin",
+  "file": "src/renderer/components/GitPlugin.ts",
+  "description": "Full Git management plugin (~1000 lines). Shows remotes list, local and remote branches with checkout capability and current branch indicator, commit log (50 commits, clickable to view diff), staged and unstaged file lists with expand/collapse and stage/unstage buttons, commit input bar with commit button, push button with ahead-behind indicator. Diff viewer: unified and side-by-side modes with syntax-colored lines (green for additions, red for deletions). File tree for commit diffs, commit info panel (hash, author, date, message). Resizable split layout (left 260px for tree/branches/changes, right with vertical split for diff viewer). Auto-refresh on file changes via fs:onChanged. Single-instance enforcement (canvas prevents duplicate git plugins).",
+  "type": "ui",
+  "layer": "plugin",
+  "singleton": true,
+  "exports": ["GitPlugin", "GitState"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+  ],
+  "ipc": [
+    "git:remotes", "git:branches", "git:checkout", "git:log", "git:showTree", "git:diff",
+    "git:currentBranch", "git:stagedFiles", "git:unstagedFiles", "git:stagedDiff", "git:unstagedDiff",
+    "git:commitBody", "git:stage", "git:unstage", "git:commit", "git:push", "git:checkAhead",
+    "fs:onChanged"
+  ],
+  "interface": {
+    "constructor": "new GitPlugin(container: HTMLElement, wsPath: string)",
+    "methods": [
+      { "name": "getState", "signature": "() => GitState", "description": "Serialize selected commit hash, file path, and diff view mode" },
+      { "name": "restoreState", "signature": "(state: GitState) => void", "description": "Restore view state from saved session" },
+      { "name": "refresh", "signature": "() => Promise<void>", "description": "Reload all git data: remotes, branches, commits, staged/unstaged files" },
+      { "name": "destroy", "signature": "() => void", "description": "Unlisten file changes, remove DOM" }
+    ],
+    "properties": [
+      { "name": "onStateChange", "type": "(() => void) | null", "description": "State change callback" },
+      { "name": "onFileOpen", "type": "((filePath: string) => void) | null", "description": "Called to open a file from git in an editor" }
+    ]
+  },
+  "features": {
+    "branches": "List local and remote branches, current branch highlighted, click to checkout",
+    "remotes": "Display remote names and URLs",
+    "commit_log": "50 commits with hash, author, date, message — click to view diff tree",
+    "staged_files": "List staged files with expand/collapse, diff view, unstage button",
+    "unstaged_files": "List unstaged files with expand/collapse, diff view, stage button",
+    "commit_bar": "Text input + Commit button, keyboard Enter to commit",
+    "push": "Push button with ahead-behind indicator via git:checkAhead",
+    "diff_viewer": "Unified and side-by-side modes, green/red line coloring, per-commit per-file diffs",
+    "file_tree": "Collapsible tree of changed files per commit with status indicators (A/M/D/R/C)",
+    "commit_info": "Panel showing commit hash, author, date, full commit body",
+    "split_layout": "Left: tree/branches/changes (260px). Right: diff viewer with vertical split",
+    "auto_refresh": "Re-fetches git state when files change (debounced)"
+  },
+  "test": "src/renderer/components/GitPlugin.test.ts"
+}
