@@ -706,21 +706,6 @@ export class CanvasArea {
     this.notifyMarkdownChanged();
   }
 
-  addExplorer(wsPath: string): void {
-    const cs = this.addCard('EXPLORER', '', -150, -210, 300, 420);
-    requestAnimationFrame(() => {
-      const body = cs.card.el.querySelector('.card-body');
-      if (body) {
-        (body as HTMLElement).style.padding = '0';
-        new FileExplorerPlugin(body as HTMLElement, wsPath, (filePath) => {
-          this.activeEditor?.openFile(filePath);
-        });
-      }
-      this.bringToFront(cs.card);
-      this.panToCard(cs);
-    });
-  }
-
   addEditor(): void {
     const cs = this.addCard('EDITOR', '', -250, -210, 500, 420);
     requestAnimationFrame(() => {
