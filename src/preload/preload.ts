@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   clipboard: {
     readText: () => ipcRenderer.invoke('clipboard:readText'),
+    writeText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text),
   },
   terminal: {
     create: (uuid: string, cwd?: string) => ipcRenderer.invoke('terminal:create', uuid, cwd),

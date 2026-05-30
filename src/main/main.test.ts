@@ -58,6 +58,7 @@ vi.mock('electron', () => ({
   },
   clipboard: {
     readText: vi.fn(() => ''),
+    writeText: vi.fn(),
   },
 }));
 

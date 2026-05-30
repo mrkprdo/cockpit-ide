@@ -203,6 +203,10 @@ if (isDOM) {
     shell: {
       openExternal: vi.fn().mockResolvedValue(true),
     },
+    clipboard: {
+      readText: vi.fn().mockReturnValue(''),
+      writeText: vi.fn().mockResolvedValue(undefined),
+    },
     prefs: {
       load: vi.fn().mockResolvedValue({}),
       save: vi.fn().mockResolvedValue(true),

@@ -71,6 +71,7 @@ interface Window {
     };
     clipboard: {
       readText: () => string;
+      writeText: (text: string) => Promise<void>;
     };
     fs: {
       readDir: (dirPath: string) => Promise<DirEntry[] | null>;

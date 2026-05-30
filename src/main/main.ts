@@ -324,6 +324,7 @@ app.whenReady().then(async () => {
     return win?.isMaximized() ?? false;
   });
   ipcMain.handle('clipboard:readText', () => clipboard.readText());
+  ipcMain.handle('clipboard:writeText', (_event, text: string) => { clipboard.writeText(text); });
 
   // Terminal PTY — multi-session
   ipcMain.handle('terminal:create', async (event, uuid: string, cwd?: string) => {

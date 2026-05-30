@@ -38,6 +38,29 @@ export class TerminalPlugin {
       allowProposedApi: true,
     });
 
+    term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      if (event.type !== 'keydown') return true;
+      const { ctrlKey, shiftKey, key } = event;
+
+      // Ctrl+Shift+C → copy selection
+      if (ctrlKey && shiftKey && (key === 'C' || key === 'c')) {
+        const selection = term.getSelection();
+        if (selection) {
+          api.clipboard.writeText(selection).catch(() => {});
+        }
+        return false;
+      }
+
+      // Ctrl+Shift+V → paste
+      if (ctrlKey && shiftKey && (key === 'V' || key === 'v')) {
+        const text = api.clipboard.readText();
+        if (text) term.paste(text);
+        return false;
+      }
+
+      return true;
+    });
+
     const fitAddon = new FitAddon();
     (term as any).loadAddon?.(fitAddon);
     term.open(this.element);
