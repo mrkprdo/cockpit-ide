@@ -42,7 +42,7 @@ Every test file gets:
 | `CanvasArea.test.ts` | 8 | unit | grid styles, zoom bounds, reset view, save state structure, state change callbacks |
 | `TopBar.test.ts` | 13 | unit | menu rendering, all button callbacks, Terminal/Dev/Context item lists, focus vs reopen |
 | `FileExplorerPlugin.test.ts` | 8 | unit | tree rendering, .gitkeep filter, directory sort, file click, refresh, error state, wheel stop |
-| `ContextPlugin.test.ts` | 9 | unit | tab CRUD, duplicate prevention, markdown render, getState/restoreState, file watcher cleanup |
+| `MarkdownPlugin.test.ts` | 9 | unit | tab CRUD, duplicate prevention, markdown render, getState/restoreState, file watcher cleanup |
 | `MonacoEditorPlugin.test.ts` | 8 | unit | editor structure, initial state, getState/getContent/getCurrentFile (empty), reloadIfOpen, file listener |
 | `DevPlugin.test.ts` | 8 | unit | split pane, explorer/editor columns, state delegation, updateTheme, restoreEditorState |
 | `TerminalPlugin.test.ts` | 8 | unit | container, UUID, terminal.create with/without cwd, onData/onExit, destroy, exit callback |

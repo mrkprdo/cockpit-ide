@@ -2,13 +2,13 @@ import { marked, Renderer } from 'marked';
 
 interface Tab { filePath: string; name: string; }
 
-export type ContextState = {
+export type MarkdownState = {
   openFiles: string[];
   activeFile: string;
   scrollTops: Record<string, number>;
 } | null;
 
-export class ContextPlugin {
+export class MarkdownPlugin {
   title = '';
   onDestroy: (() => void) | null = null;
   private el: HTMLDivElement;
@@ -62,7 +62,7 @@ export class ContextPlugin {
     this.unsubFileChanged = null;
   }
 
-  getState(): ContextState {
+  getState(): MarkdownState {
     if (this.tabs.length === 0) return null;
     // Save active tab's scroll before reading state
     if (this.activeTab) {
@@ -75,7 +75,7 @@ export class ContextPlugin {
     };
   }
 
-  async restoreState(state: ContextState): Promise<void> {
+  async restoreState(state: MarkdownState): Promise<void> {
     if (!state) return;
     // Handle legacy single-file format
     if ('loadedFile' in state && typeof (state as any).loadedFile === 'string') {
@@ -235,6 +235,6 @@ export class ContextPlugin {
   }
 
   private styleMarkdown(html: string): string {
-    return `<div class="ctx-markdown">${html}</div>`;
+    return `<div class="md-content">${html}</div>`;
   }
 }

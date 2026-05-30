@@ -18,6 +18,10 @@ export class App {
 
     // Load persisted theme preference before any UI renders
     this.loadThemePref();
+    document.title = 'Cockpit IDE';
+
+    // Load persisted theme preference before any UI renders
+    this.loadThemePref();
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -50,9 +54,9 @@ export class App {
 
     this.canvas.onStateChange = () => this.trySave();
     this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
-    this.canvas.onDevsChanged = (items) => this.topBar.setDevItems(items);
+    this.canvas.onExplorersChanged = (items) => this.topBar.setExplorerItems(items);
     this.canvas.onGitChanged = (items) => this.topBar.setGitItems(items);
-    this.canvas.onContextsChanged = (items) => this.topBar.setContextItems(items);
+    this.canvas.onMarkdownChanged = (items) => this.topBar.setMarkdownItems(items);
     this.canvas.onLockToggle = async () => {
       this.canvas.locked = !this.canvas.locked;
       this.topBar.setZoomLocked(this.canvas.locked);
@@ -80,15 +84,15 @@ export class App {
       },
       onOpenWorkspace: () => this.openWorkspace(),
       onNewTerminal: () => this.canvas.addTerminal(this.wsPath),
-      onNewDev: () => this.canvas.addDev(this.wsPath),
+      onNewExplorer: () => this.canvas.addExplorer(this.wsPath),
       onNewGit: () => this.canvas.addGit(this.wsPath),
-      onNewContext: () => this.canvas.addContext(),
+      onNewMarkdown: () => this.canvas.addMarkdown(),
       onFocusTerminal: (uuid) => this.canvas.focusTerminal(uuid),
       onReopenTerminal: (uuid) => this.canvas.reopenTerminal(uuid),
-      onFocusDev: (uuid) => this.canvas.focusDev(uuid),
-      onReopenDev: (uuid) => this.canvas.reopenDev(uuid),
-      onFocusContext: (uuid) => this.canvas.focusContext(uuid),
-      onReopenContext: (uuid) => this.canvas.reopenContext(uuid),
+      onFocusExplorer: (uuid) => this.canvas.focusExplorer(uuid),
+      onReopenExplorer: (uuid) => this.canvas.reopenExplorer(uuid),
+      onFocusMarkdown: (uuid) => this.canvas.focusMarkdown(uuid),
+      onReopenMarkdown: (uuid) => this.canvas.reopenMarkdown(uuid),
       onAbout: () => {
         this.canvas.locked = true;
         this.about.open(() => { this.canvas.locked = false; });
@@ -181,7 +185,7 @@ export class App {
       this.canvas.restorePlugins(state, path);
     } else {
       // First time — create default plugins and auto arrange
-      this.canvas.addDev(path);
+      this.canvas.addExplorer(path);
       this.canvas.addTerminal(path);
       this.canvas.autoArrange();
     }

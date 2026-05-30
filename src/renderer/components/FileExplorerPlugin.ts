@@ -8,8 +8,8 @@ export class FileExplorerPlugin {
   private copiedPath: string | null = null;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubFiles: (() => void) | null = null;
-  private contextLabels: string[] = [];
-  private onOpenInContext: ((filePath: string, label: string) => void) | null = null;
+  private markdownLabels: string[] = [];
+  private onOpenInMarkdown: ((filePath: string, label: string) => void) | null = null;
 
   constructor(container: HTMLElement, private rootPath: string, private onFileOpen: (path: string) => void) {
     this.el = document.createElement('div');
@@ -61,9 +61,9 @@ export class FileExplorerPlugin {
     return 'var(--secondary)';
   }
 
-  setContextOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
-    this.contextLabels = labels;
-    this.onOpenInContext = callback;
+  setMarkdownOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
+    this.markdownLabels = labels;
+    this.onOpenInMarkdown = callback;
   }
 
   async refresh(): Promise<void> {
@@ -272,21 +272,21 @@ export class FileExplorerPlugin {
             { label: 'Copy', action: () => { this.copiedPath = fullPath; } },
             { label: 'Paste', action: () => this.pasteHere(dirPath), disabled: !this.copiedPath },
           ];
-          // If .md file, add context plugin options
+          // If .md file, add markdown plugin options
           const ext = entry.name.split('.').pop()?.toLowerCase();
           if (ext === 'md') {
             items.push({ separator: true });
-            if (this.contextLabels.length > 0) {
-              for (const label of this.contextLabels) {
+            if (this.markdownLabels.length > 0) {
+              for (const label of this.markdownLabels) {
                 items.push({
                   label: `Open to ${label}`,
-                  action: () => this.onOpenInContext?.(fullPath, label),
+                  action: () => this.onOpenInMarkdown?.(fullPath, label),
                 });
               }
             } else {
               items.push({
-                label: 'View in CONTEXT',
-                action: () => this.onOpenInContext?.(fullPath, ''),
+                label: 'View in Markdown',
+                action: () => this.onOpenInMarkdown?.(fullPath, ''),
               });
             }
           }

@@ -8,9 +8,9 @@ import { PluginCard } from './PluginCard';
 import { CanvasArea } from './CanvasArea';
 import { TopBar } from './TopBar';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
-import { ContextPlugin } from './ContextPlugin';
+import { MarkdownPlugin } from './MarkdownPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
-import { DevPlugin } from './DevPlugin';
+import { ExplorerPlugin } from './ExplorerPlugin';
 import { TerminalPlugin } from './TerminalPlugin';
 import { mockElectronAPI } from '../../test/setup';
 
@@ -418,8 +418,8 @@ describe('CanvasArea edge cases', () => {
     // Trigger via zoom which calls scheduleTransform which calls onStateChange
     // but terminals changed is only called when cards change
     canvas.onTerminalsChanged = onTerm;
-    canvas.onDevsChanged = vi.fn();
-    canvas.onContextsChanged = vi.fn();
+    canvas.onExplorersChanged = vi.fn();
+    canvas.onMarkdownChanged = vi.fn();
     // No cards = no terminal changes fired
     expect(onTerm).not.toHaveBeenCalled();
   });
@@ -454,18 +454,18 @@ describe('TopBar edge cases', () => {
     expect(document.body.textContent).toContain('(none)');
   });
 
-  it('setDevItems with empty array renders (none)', () => {
+  it('setExplorerItems with empty array renders (none)', () => {
     const bar = new TopBar(makeBarEl(), {} as any);
-    bar.setDevItems([]);
+    bar.setExplorerItems([]);
     expect(document.body.textContent).toContain('(none)');
   });
 
-  it('setContextItems with empty array renders (none)', () => {
+  it('setMarkdownItems with empty array renders (none)', () => {
     const bar = new TopBar(makeBarEl(), {} as any);
-    bar.setContextItems([]);
+    bar.setMarkdownItems([]);
     // Context submenu has (none) item
-    const ctxItems = document.querySelectorAll('.ctx-instance');
-    expect(ctxItems.length).toBe(0);
+    const mdItems = document.querySelectorAll('.md-instance');
+    expect(mdItems.length).toBe(0);
   });
 
   it('multiple rapid setItem calls do not cause errors', () => {
@@ -476,8 +476,8 @@ describe('TopBar edge cases', () => {
     ];
     for (let i = 0; i < 20; i++) {
       bar.setTerminalItems(items);
-      bar.setDevItems(items);
-      bar.setContextItems(items);
+      bar.setExplorerItems(items);
+      bar.setMarkdownItems(items);
     }
     // Should not throw
     expect(document.querySelectorAll('.term-instance').length).toBe(2);
@@ -653,10 +653,10 @@ describe('FileExplorerPlugin edge cases', () => {
 });
 
 // ─────────────────────────────────────────────
-// CONTEXT PLUGIN EDGE CASES
+// MARKDOWN PLUGIN EDGE CASES
 // ─────────────────────────────────────────────
 
-describe('ContextPlugin edge cases', () => {
+describe('MarkdownPlugin edge cases', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -668,13 +668,13 @@ describe('ContextPlugin edge cases', () => {
 
   it('handles file with no content gracefully', async () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue(null);
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.loadFile('/test/empty.md');
     expect(container.textContent).toContain('No file loaded');
   });
 
   it('handles legacy single-file state format', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     const legacyState: any = {
       loadedFile: '/test/old.md',
       scrollTop: 150,
@@ -687,13 +687,13 @@ describe('ContextPlugin edge cases', () => {
   });
 
   it('destroy called twice does not throw', () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     ctx.destroy();
     expect(() => ctx.destroy()).not.toThrow();
   });
 
   it('restoreState with file paths using backslashes normalizes them', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.restoreState({
       openFiles: ['C:\\Users\\test\\file.md'],
       activeFile: 'C:\\Users\\test\\file.md',
@@ -705,7 +705,7 @@ describe('ContextPlugin edge cases', () => {
   });
 
   it('switch tab preserves scroll positions', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.loadFile('/test/a.md');
     await ctx.loadFile('/test/b.md');
 
@@ -717,7 +717,7 @@ describe('ContextPlugin edge cases', () => {
   });
 
   it('three tabs then close middle tab shifts active correctly', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.loadFile('/test/1.md');
     await ctx.loadFile('/test/2.md');
     await ctx.loadFile('/test/3.md');
@@ -787,7 +787,7 @@ describe('MonacoEditorPlugin edge cases', () => {
 // DEV PLUGIN EDGE CASES
 // ─────────────────────────────────────────────
 
-describe('DevPlugin edge cases', () => {
+describe('ExplorerPlugin edge cases', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -800,7 +800,7 @@ describe('DevPlugin edge cases', () => {
   });
 
   it('resize handle mousedown event stops propagation', () => {
-    new DevPlugin(container, '/test/ws');
+    new ExplorerPlugin(container, '/test/ws');
     const splitEl = container.firstElementChild!;
     const handle = splitEl.children[1] as HTMLElement;
 
@@ -812,7 +812,7 @@ describe('DevPlugin edge cases', () => {
   });
 
   it('restoreEditorState with no openFiles returns early', async () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     await dev.restoreEditorState({
       openFiles: [],
       activeFile: '',
@@ -826,12 +826,12 @@ describe('DevPlugin edge cases', () => {
   });
 
   it('getEditorState returns null with no files', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     expect(dev.getEditorState()).toBeNull();
   });
 
   it('onStateChange propagates from editor', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     const onChange = vi.fn();
     dev.onStateChange = onChange;
     // Trigger via editor's onStateChange
@@ -891,25 +891,25 @@ describe('Cross-component edge cases', () => {
     (mockElectronAPI.terminal.create as any).mockResolvedValue(true);
   });
 
-  it('DevPlugin → ContextPlugin context opener bridge works end-to-end', () => {
+  it('ExplorerPlugin → MarkdownPlugin context opener bridge works end-to-end', () => {
     const devContainer = makeContainer(800, 500);
     const ctxContainer = makeContainer(600, 400);
 
-    const dev = new DevPlugin(devContainer, '/test/ws');
-    const ctx = new ContextPlugin(ctxContainer);
-    ctx.title = 'Context 1';
+    const dev = new ExplorerPlugin(devContainer, '/test/ws');
+    const ctx = new MarkdownPlugin(ctxContainer);
+    ctx.title = 'Markdown 1';
 
     // Bridge: set explorer context openers to point to the context plugin
     const callback = vi.fn();
-    dev.setContextOpeners(['Context 1'], callback);
+    dev.setMarkdownOpeners(['Markdown 1'], callback);
 
     // Verify no errors
     expect(callback).not.toHaveBeenCalled();
   });
 
-  it('theme toggle propagates through DevPlugin.editor chain', () => {
+  it('theme toggle propagates through ExplorerPlugin.editor chain', () => {
     const container = makeContainer(800, 500);
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
 
     theme.toggle();
     dev.updateTheme();
@@ -942,14 +942,14 @@ describe('Cross-component edge cases', () => {
     expect(changeCallback).toBeTruthy();
   });
 
-  it('Context plugin destroy cleans up file watcher before second instance', () => {
+  it('Markdown plugin destroy cleans up file watcher before second instance', () => {
     const container1 = makeContainer(600, 400);
-    const ctx1 = new ContextPlugin(container1);
+    const ctx1 = new MarkdownPlugin(container1);
     ctx1.destroy();
 
     // Second instance should work fine
     const container2 = makeContainer(600, 400);
-    const ctx2 = new ContextPlugin(container2);
+    const ctx2 = new MarkdownPlugin(container2);
     expect(container2.textContent).toContain('No file loaded');
   });
 });

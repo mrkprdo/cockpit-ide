@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CanvasArea } from './CanvasArea';
-import { DevPlugin } from './DevPlugin';
-import { ContextPlugin } from './ContextPlugin';
+import { ExplorerPlugin } from './ExplorerPlugin';
+import { MarkdownPlugin } from './MarkdownPlugin';
 import { PluginCard } from './PluginCard';
 import { ConfirmModal } from './ConfirmModal';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
@@ -83,17 +83,17 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
 
   it('saves and restores multiple mixed plugins with positions and sizes', async () => {
     canvas.addTerminal('/test');
-    canvas.addDev('/test');
+    canvas.addExplorer('/test');
     await flushRaf();
 
     canvas.offsetCard('Terminal 1', 100, 200);
-    canvas.offsetCard('Dev 1', 500, 100);
+    canvas.offsetCard('Explorer 1', 500, 100);
     await flushRaf();
 
-    const ctx = await canvas.addContext();
+    const ctx = await canvas.addMarkdown();
     ctx?.loadFile('/test/README.md');
     await flushRaf();
-    canvas.offsetCard('Context 1', 900, 300);
+    canvas.offsetCard('Markdown 1', 900, 300);
     await flushRaf();
 
     const saved = canvas.getSaveState();
@@ -108,14 +108,14 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
     expect(termEntry.height).toBeGreaterThan(0);
     expect(termEntry.isOpen).toBe(true);
 
-    const devEntry = saved.plugins.find(p => p.title === 'Dev 1')!;
+    const devEntry = saved.plugins.find(p => p.title === 'Explorer 1')!;
     expect(devEntry).toBeTruthy();
     expect(devEntry.isOpen).toBe(true);
 
-    const ctxEntry = saved.plugins.find(p => p.title === 'Context 1')!;
+    const ctxEntry = saved.plugins.find(p => p.title === 'Markdown 1')!;
     expect(ctxEntry).toBeTruthy();
-    expect(ctxEntry.contextState).toBeTruthy();
-    expect(ctxEntry.contextState!.openFiles.length).toBe(1);
+    expect(ctxEntry.markdownState).toBeTruthy();
+    expect(ctxEntry.markdownState!.openFiles.length).toBe(1);
 
     // Restore into a fresh canvas
     document.body.innerHTML = '';
@@ -135,18 +135,18 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
 
     // Verify card types are restored
     expect(restored.plugins.some(p => p.title === 'Terminal 1')).toBe(true);
-    expect(restored.plugins.some(p => p.title === 'Dev 1')).toBe(true);
-    expect(restored.plugins.some(p => p.title === 'Context 1')).toBe(true);
+    expect(restored.plugins.some(p => p.title === 'Explorer 1')).toBe(true);
+    expect(restored.plugins.some(p => p.title === 'Markdown 1')).toBe(true);
 
-    const rCtx = restored.plugins.find(p => p.title === 'Context 1')!;
-    expect(rCtx.contextState).toBeTruthy();
-    expect(rCtx.contextState!.openFiles.length).toBe(1);
+    const rCtx = restored.plugins.find(p => p.title === 'Markdown 1')!;
+    expect(rCtx.markdownState).toBeTruthy();
+    expect(rCtx.markdownState!.openFiles.length).toBe(1);
   });
 
   it('preserves z-order card count through save/restore cycle', async () => {
     canvas.addTerminal('/test');
-    canvas.addDev('/test');
-    await canvas.addContext();
+    canvas.addExplorer('/test');
+    await canvas.addMarkdown();
     await flushRaf();
 
     const saved = canvas.getSaveState();
@@ -239,56 +239,56 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
 
   it('minimizes and reopens dev plugin', async () => {
     const onDev = vi.fn();
-    canvas.onDevsChanged = onDev;
+    canvas.onExplorersChanged = onDev;
 
-    canvas.addDev('/test');
-    await canvas.addContext();
+    canvas.addExplorer('/test');
+    await canvas.addMarkdown();
     await flushRaf();
 
-    // Minimize Dev via minimize button
+    // Minimize Explorer via minimize button
     const minBtn = el.querySelector('.card-btn-minimize') as HTMLElement;
     minBtn?.click();
     await flushRaf();
 
-    // Dev should appear as closed in notification
+    // Explorer should appear as closed in notification
     const closedCall = onDev.mock.calls.find((c: any) => c[0]?.some((i: any) => !i.isOpen));
     if (closedCall) {
       expect(closedCall[0].some((i: any) => !i.isOpen)).toBe(true);
     }
 
-    const devUuid = canvas.getSaveState().plugins.find(p => p.title === 'Dev 1')!.uuid;
-    canvas.reopenDev(devUuid);
+    const devUuid = canvas.getSaveState().plugins.find(p => p.title === 'Explorer 1')!.uuid;
+    canvas.reopenExplorer(devUuid);
     await flushRaf();
 
     const after = canvas.getSaveState();
-    expect(after.plugins.find(p => p.title === 'Dev 1')!.isOpen).toBe(true);
+    expect(after.plugins.find(p => p.title === 'Explorer 1')!.isOpen).toBe(true);
   });
 
   it('minimizes and reopens context plugin', async () => {
-    const ctx = await canvas.addContext();
+    const ctx = await canvas.addMarkdown();
     ctx?.loadFile('/test/README.md');
     await flushRaf();
 
-    const ctxEntry = canvas.getSaveState().plugins.find(p => p.title === 'Context 1')!;
+    const ctxEntry = canvas.getSaveState().plugins.find(p => p.title === 'Markdown 1')!;
 
     const minBtn = el.querySelector('.card-btn-minimize') as HTMLElement;
     minBtn?.click();
     await flushRaf();
 
-    const minimized = canvas.getSaveState().plugins.find(p => p.title === 'Context 1')!;
+    const minimized = canvas.getSaveState().plugins.find(p => p.title === 'Markdown 1')!;
     expect(minimized.isOpen).toBe(false);
 
-    canvas.reopenContext(ctxEntry.uuid);
+    canvas.reopenMarkdown(ctxEntry.uuid);
     await flushRaf();
 
-    const reopened = canvas.getSaveState().plugins.find(p => p.title === 'Context 1')!;
+    const reopened = canvas.getSaveState().plugins.find(p => p.title === 'Markdown 1')!;
     expect(reopened.isOpen).toBe(true);
   });
 
   it('minimizing all cards keeps them in plugins array as closed', async () => {
     canvas.addTerminal('/test');
-    canvas.addDev('/test');
-    await canvas.addContext();
+    canvas.addExplorer('/test');
+    await canvas.addMarkdown();
     await flushRaf();
 
     // Minimize all via minimize buttons
@@ -305,10 +305,10 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
 });
 
 // ═══════════════════════════════════════════════
-// E2E ADVANCED: MULTI-CONTEXT BRIDGING
+// E2E ADVANCED: MULTI-MARKDOWN BRIDGING
 // ═══════════════════════════════════════════════
 
-describe('E2E Advanced: Multi-Context + DevPlugin Bridging', () => {
+describe('E2E Advanced: Multi-Markdown + ExplorerPlugin Bridging', () => {
   let canvas: CanvasArea;
 
   beforeEach(() => {
@@ -319,61 +319,61 @@ describe('E2E Advanced: Multi-Context + DevPlugin Bridging', () => {
     canvas = new CanvasArea(el);
   });
 
-  it('collects labels from multiple ContextPlugins', async () => {
-    await canvas.addContext();
-    await canvas.addContext();
-    await canvas.addContext();
-    canvas.addDev('/test');
+  it('collects labels from multiple MarkdownPlugins', async () => {
+    await canvas.addMarkdown();
+    await canvas.addMarkdown();
+    await canvas.addMarkdown();
+    canvas.addExplorer('/test');
     await flushRaf();
 
-    const labels = canvas.getContextLabels();
-    expect(labels).toContain('Context 1');
-    expect(labels).toContain('Context 2');
-    expect(labels).toContain('Context 3');
+    const labels = canvas.getMarkdownLabels();
+    expect(labels).toContain('Markdown 1');
+    expect(labels).toContain('Markdown 2');
+    expect(labels).toContain('Markdown 3');
     expect(labels.length).toBe(3);
 
     const state = canvas.getSaveState();
-    const ctxPlugins = state.plugins.filter(p => p.title.startsWith('Context'));
+    const ctxPlugins = state.plugins.filter(p => p.title.startsWith('Markdown'));
     expect(ctxPlugins.length).toBe(3);
   });
 
-  it('openInContext targets a specific ContextPlugin by label', async () => {
-    await canvas.addContext();
-    await canvas.addContext();
+  it('openInMarkdown targets a specific MarkdownPlugin by label', async () => {
+    await canvas.addMarkdown();
+    await canvas.addMarkdown();
 
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Hello Context 2');
-    await canvas.openInContext('/test/target.md', 'Context 2');
+    await canvas.openInMarkdown('/test/target.md', 'Markdown 2');
     await flushRaf();
 
     const state = canvas.getSaveState();
-    const ctx2 = state.plugins.find(p => p.title === 'Context 2')!;
-    expect(ctx2.contextState).toBeTruthy();
-    expect(ctx2.contextState!.openFiles).toContain('/test/target.md');
+    const ctx2 = state.plugins.find(p => p.title === 'Markdown 2')!;
+    expect(ctx2.markdownState).toBeTruthy();
+    expect(ctx2.markdownState!.openFiles).toContain('/test/target.md');
 
-    const ctx1 = state.plugins.find(p => p.title === 'Context 1')!;
-    expect(ctx1.contextState?.openFiles?.length || 0).toBe(0);
+    const ctx1 = state.plugins.find(p => p.title === 'Markdown 1')!;
+    expect(ctx1.markdownState?.openFiles?.length || 0).toBe(0);
   });
 
-  it('openInContext without label uses first ContextPlugin', async () => {
-    await canvas.addContext();
+  it('openInMarkdown without label uses first MarkdownPlugin', async () => {
+    await canvas.addMarkdown();
 
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Auto');
-    await canvas.openInContext('/test/auto.md');
+    await canvas.openInMarkdown('/test/auto.md');
     await flushRaf();
 
-    const ctx = canvas.getSaveState().plugins.find(p => p.title === 'Context 1')!;
-    expect(ctx.contextState!.openFiles).toContain('/test/auto.md');
+    const ctx = canvas.getSaveState().plugins.find(p => p.title === 'Markdown 1')!;
+    expect(ctx.markdownState!.openFiles).toContain('/test/auto.md');
   });
 
-  it('openInContext auto-creates ContextPlugin when none exist', async () => {
+  it('openInMarkdown auto-creates MarkdownPlugin when none exist', async () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Fresh');
-    await canvas.openInContext('/test/fresh.md');
+    await canvas.openInMarkdown('/test/fresh.md');
     await flushRaf();
 
     const state = canvas.getSaveState();
-    const ctxPlugins = state.plugins.filter(p => p.title.startsWith('Context'));
+    const ctxPlugins = state.plugins.filter(p => p.title.startsWith('Markdown'));
     expect(ctxPlugins.length).toBe(1);
-    expect(ctxPlugins[0].contextState!.openFiles).toContain('/test/fresh.md');
+    expect(ctxPlugins[0].markdownState!.openFiles).toContain('/test/fresh.md');
   });
 });
 
@@ -394,8 +394,8 @@ describe('E2E Advanced: Card Cycling Through Mixed Types', () => {
 
   it('cycles forward without errors', async () => {
     canvas.addTerminal('/test');
-    canvas.addDev('/test');
-    await canvas.addContext();
+    canvas.addExplorer('/test');
+    await canvas.addMarkdown();
     await flushRaf();
 
     canvas.focusCard('Terminal 1');
@@ -409,11 +409,11 @@ describe('E2E Advanced: Card Cycling Through Mixed Types', () => {
 
   it('cycles backward through cards', async () => {
     canvas.addTerminal('/test');
-    canvas.addDev('/test');
-    await canvas.addContext();
+    canvas.addExplorer('/test');
+    await canvas.addMarkdown();
     await flushRaf();
 
-    canvas.focusCard('Context 1');
+    canvas.focusCard('Markdown 1');
     await flushRaf();
 
     expect(() => {
@@ -453,8 +453,8 @@ describe('E2E Advanced: Arrange & Layout Workflows', () => {
     canvas.onStateChange = onChange;
 
     canvas.addTerminal('/test');
-    canvas.addDev('/test');
-    await canvas.addContext();
+    canvas.addExplorer('/test');
+    await canvas.addMarkdown();
     canvas.addTerminal('/test');
     await flushRaf();
     onChange.mockClear();
@@ -474,11 +474,11 @@ describe('E2E Advanced: Arrange & Layout Workflows', () => {
 
   it('auto arranges only open cards, not minimized', async () => {
     canvas.addTerminal('/test');
-    canvas.addDev('/test');
-    await canvas.addContext();
+    canvas.addExplorer('/test');
+    await canvas.addMarkdown();
     await flushRaf();
 
-    // Minimize Dev (second card)
+    // Minimize Explorer (second card)
     const minBtns = el?.querySelectorAll('.card-btn-minimize');
     (minBtns[1] as HTMLElement)?.click();
     await flushRaf();
@@ -651,9 +651,9 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
 
   it('terminates dev plugin and removes from state', async () => {
     const onDev = vi.fn();
-    canvas.onDevsChanged = onDev;
+    canvas.onExplorersChanged = onDev;
 
-    canvas.addDev('/test');
+    canvas.addExplorer('/test');
     await flushRaf();
     expect(onDev).toHaveBeenCalled();
 
@@ -661,30 +661,30 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
     await flushRaf();
 
     const state = canvas.getSaveState();
-    expect(state.plugins.filter(p => p.title.startsWith('Dev')).length).toBe(0);
+    expect(state.plugins.filter(p => p.title.startsWith('Explorer')).length).toBe(0);
   });
 
-  it('terminates context plugin and cleans up tracking', async () => {
-    const onCtx = vi.fn();
-    canvas.onContextsChanged = onCtx;
+  it('terminates markdown plugin and cleans up tracking', async () => {
+    const onMd = vi.fn();
+    canvas.onMarkdownChanged = onMd;
 
-    await canvas.addContext();
+    await canvas.addMarkdown();
     await flushRaf();
-    expect(canvas.getContextLabels().length).toBe(1);
+    expect(canvas.getMarkdownLabels().length).toBe(1);
 
     clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Terminate');
     await flushRaf();
 
-    expect(canvas.getContextLabels().length).toBe(0);
+    expect(canvas.getMarkdownLabels().length).toBe(0);
     expect(canvas.getSaveState().plugins.length).toBe(0);
   });
 });
 
 // ═══════════════════════════════════════════════
-// E2E ADVANCED: CONTEXT PLUGIN MULTI-TAB
+// E2E ADVANCED: MARKDOWN PLUGIN MULTI-TAB
 // ═══════════════════════════════════════════════
 
-describe('E2E Advanced: ContextPlugin Multi-Tab', () => {
+describe('E2E Advanced: MarkdownPlugin Multi-Tab', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -696,8 +696,8 @@ describe('E2E Advanced: ContextPlugin Multi-Tab', () => {
   });
 
   it('loads multiple .md files as separate tabs', async () => {
-    const ctx = new ContextPlugin(container);
-    ctx.title = 'Context T1';
+    const ctx = new MarkdownPlugin(container);
+    ctx.title = 'Markdown T1';
 
     (mockElectronAPI.fs.readFile as any)
       .mockResolvedValueOnce('# One')
@@ -716,8 +716,8 @@ describe('E2E Advanced: ContextPlugin Multi-Tab', () => {
   });
 
   it('does not duplicate when loading same file twice', async () => {
-    const ctx = new ContextPlugin(container);
-    ctx.title = 'Context T2';
+    const ctx = new MarkdownPlugin(container);
+    ctx.title = 'Markdown T2';
 
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Dup');
     await ctx.loadFile('/test/dup.md');
@@ -728,8 +728,8 @@ describe('E2E Advanced: ContextPlugin Multi-Tab', () => {
   });
 
   it('serializes and restores multi-tab state', async () => {
-    const ctx = new ContextPlugin(container);
-    ctx.title = 'Context T3';
+    const ctx = new MarkdownPlugin(container);
+    ctx.title = 'Markdown T3';
 
     (mockElectronAPI.fs.readFile as any)
       .mockResolvedValueOnce('# A').mockResolvedValueOnce('# B').mockResolvedValueOnce('# C');
@@ -747,8 +747,8 @@ describe('E2E Advanced: ContextPlugin Multi-Tab', () => {
     container2.style.cssText = 'width:700px;height:500px';
     document.body.appendChild(container2);
 
-    const ctx2 = new ContextPlugin(container2);
-    ctx2.title = 'Context T3';
+    const ctx2 = new MarkdownPlugin(container2);
+    ctx2.title = 'Markdown T3';
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Restored');
 
     await ctx2.restoreState(state);
@@ -760,8 +760,8 @@ describe('E2E Advanced: ContextPlugin Multi-Tab', () => {
   });
 
   it('handles legacy single-file state format', async () => {
-    const ctx = new ContextPlugin(container);
-    ctx.title = 'Context Legacy';
+    const ctx = new MarkdownPlugin(container);
+    ctx.title = 'Markdown Legacy';
 
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Legacy');
 
@@ -774,13 +774,13 @@ describe('E2E Advanced: ContextPlugin Multi-Tab', () => {
   });
 
   it('getState returns null when no files loaded', () => {
-    const ctx = new ContextPlugin(container);
-    ctx.title = 'Empty Context';
+    const ctx = new MarkdownPlugin(container);
+    ctx.title = 'Empty Markdown';
     expect(ctx.getState()).toBeNull();
   });
 
   it('double destroy does not throw', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     ctx.title = 'Destroyable';
     ctx.destroy();
     expect(() => ctx.destroy()).not.toThrow();
@@ -956,34 +956,34 @@ describe('E2E Advanced: Notification Chain Integrity', () => {
     expect(finalList.length).toBe(1);
   });
 
-  it('onDevsChanged receives correct titles', async () => {
+  it('onExplorersChanged receives correct titles', async () => {
     const onDev = vi.fn();
-    canvas.onDevsChanged = onDev;
+    canvas.onExplorersChanged = onDev;
 
-    canvas.addDev('/test');
-    canvas.addDev('/test');
+    canvas.addExplorer('/test');
+    canvas.addExplorer('/test');
     await flushRaf();
 
     const lastCall = onDev.mock.calls[onDev.mock.calls.length - 1][0];
     expect(lastCall.length).toBe(2);
     const titles = lastCall.map((i: any) => i.title);
-    expect(titles).toContain('Dev 1');
-    expect(titles).toContain('Dev 2');
+    expect(titles).toContain('Explorer 1');
+    expect(titles).toContain('Explorer 2');
   });
 
-  it('onContextsChanged receives correct titles', async () => {
-    const onCtx = vi.fn();
-    canvas.onContextsChanged = onCtx;
+  it('onMarkdownChanged receives correct titles', async () => {
+    const onMd = vi.fn();
+    canvas.onMarkdownChanged = onMd;
 
-    await canvas.addContext();
-    await canvas.addContext();
+    await canvas.addMarkdown();
+    await canvas.addMarkdown();
     await flushRaf();
 
-    const lastCall = onCtx.mock.calls[onCtx.mock.calls.length - 1][0];
+    const lastCall = onMd.mock.calls[onMd.mock.calls.length - 1][0];
     expect(lastCall.length).toBe(2);
     const titles = lastCall.map((i: any) => i.title);
-    expect(titles).toContain('Context 1');
-    expect(titles).toContain('Context 2');
+    expect(titles).toContain('Markdown 1');
+    expect(titles).toContain('Markdown 2');
   });
 
   it('onStateChange fires after position change via offsetCard', async () => {
@@ -1043,7 +1043,7 @@ describe('E2E Advanced: Plugin Counter Continuity', () => {
     const state = {
       plugins: [
         { uuid: 't5', title: 'Terminal 5', x: 0, y: 0, width: 560, height: 420, isOpen: false },
-        { uuid: 'd3', title: 'Dev 3', x: 100, y: 100, width: 800, height: 500, isOpen: false },
+        { uuid: 'd3', title: 'Explorer 3', x: 100, y: 100, width: 800, height: 500, isOpen: false },
       ],
       zOrder: ['t5', 'd3'],
       zoom: 1, panX: 0, panY: 0,
@@ -1065,7 +1065,7 @@ describe('E2E Advanced: Plugin Counter Continuity', () => {
 // E2E ADVANCED: DEVPLUGIN STATE DELEGATION
 // ═══════════════════════════════════════════════
 
-describe('E2E Advanced: DevPlugin State Delegation', () => {
+describe('E2E Advanced: ExplorerPlugin State Delegation', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -1076,8 +1076,8 @@ describe('E2E Advanced: DevPlugin State Delegation', () => {
     document.body.appendChild(container);
   });
 
-  it('DevPlugin initializes split layout with explorer + handle + editor', () => {
-    const dev = new DevPlugin(container, '/test');
+  it('ExplorerPlugin initializes split layout with explorer + handle + editor', () => {
+    const dev = new ExplorerPlugin(container, '/test');
     const splitEl = container.children[0] as HTMLElement;
 
     expect(splitEl).toBeTruthy();
@@ -1086,35 +1086,35 @@ describe('E2E Advanced: DevPlugin State Delegation', () => {
     expect(splitEl.children.length).toBe(3);
   });
 
-  it('DevPlugin returns null editor state when no files open', () => {
-    const dev = new DevPlugin(container, '/test');
+  it('ExplorerPlugin returns null editor state when no files open', () => {
+    const dev = new ExplorerPlugin(container, '/test');
     expect(dev.getEditorState()).toBeNull();
   });
 
-  it('DevPlugin.setContextOpeners does not throw', async () => {
+  it('ExplorerPlugin.setMarkdownOpeners does not throw', async () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([
       { name: 'readme.md', isDirectory: false },
     ]);
-    const dev = new DevPlugin(container, '/test');
+    const dev = new ExplorerPlugin(container, '/test');
     await flushRaf();
-    expect(() => dev.setContextOpeners(['Context 1', 'Context 2'], vi.fn())).not.toThrow();
+    expect(() => dev.setMarkdownOpeners(['Markdown 1', 'Markdown 2'], vi.fn())).not.toThrow();
   });
 
-  it('DevPlugin.restoreEditorState with null exits early', async () => {
-    const dev = new DevPlugin(container, '/test');
+  it('ExplorerPlugin.restoreEditorState with null exits early', async () => {
+    const dev = new ExplorerPlugin(container, '/test');
     await dev.restoreEditorState(null as any);
     expect(dev.getEditorState()).toBeNull();
   });
 
-  it('DevPlugin.restoreEditorState with empty openFiles exits early', async () => {
-    const dev = new DevPlugin(container, '/test');
+  it('ExplorerPlugin.restoreEditorState with empty openFiles exits early', async () => {
+    const dev = new ExplorerPlugin(container, '/test');
     await dev.restoreEditorState({ openFiles: [], activeFile: '', explorerWidth: 260, cursors: {} } as any);
     expect(dev.getEditorState()).toBeNull();
   });
 
-  it('DevPlugin.updateTheme does not throw when editor not loaded', async () => {
+  it('ExplorerPlugin.updateTheme does not throw when editor not loaded', async () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([]);
-    const dev = new DevPlugin(container, '/test');
+    const dev = new ExplorerPlugin(container, '/test');
     await flushRaf();
     expect(() => dev.updateTheme()).not.toThrow();
   });
@@ -1137,8 +1137,8 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
 
   it('save state includes minimized cards with isOpen=false', async () => {
     canvas.addTerminal('/test');
-    canvas.addDev('/test');
-    await canvas.addContext();
+    canvas.addExplorer('/test');
+    await canvas.addMarkdown();
     await flushRaf();
 
     // Minimize all via minimize buttons
@@ -1153,7 +1153,7 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
     expect(state.plugins.every(p => p.isOpen === false)).toBe(true);
   });
 
-  it('restorePlugins normalizes legacy "Dev" title to "Dev 1"', async () => {
+  it('restorePlugins normalizes legacy "Dev" title to "Explorer 1"', async () => {
     canvas.restorePlugins({
       plugins: [
         { uuid: 'u1', title: 'Dev', x: 0, y: 0, width: 800, height: 500, isOpen: false },
@@ -1164,7 +1164,7 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
     await flushRaf();
 
     const saved = canvas.getSaveState();
-    expect(saved.plugins.some(p => p.title === 'Dev 1')).toBe(true);
+    expect(saved.plugins.some(p => p.title === 'Explorer 1')).toBe(true);
   });
 
   it('restorePlugins handles empty plugins array', async () => {
@@ -1230,7 +1230,7 @@ describe('E2E Advanced: Terminal Exit Flow', () => {
   });
 
   it('terminate non-terminal card does not call terminal.kill', async () => {
-    canvas.addDev('/test');
+    canvas.addExplorer('/test');
     await flushRaf();
 
     expect(canvas.getSaveState().plugins.length).toBe(1);
@@ -1282,27 +1282,27 @@ describe('E2E Advanced: Callback Data Shape Integrity', () => {
 
   it('dev callback items have uuid, title, isOpen', async () => {
     const onDev = vi.fn();
-    canvas.onDevsChanged = onDev;
+    canvas.onExplorersChanged = onDev;
 
-    canvas.addDev('/test');
+    canvas.addExplorer('/test');
     await flushRaf();
 
     const call = onDev.mock.calls[onDev.mock.calls.length - 1][0];
     expect(call[0]).toHaveProperty('uuid');
-    expect(call[0].title).toBe('Dev 1');
+    expect(call[0].title).toBe('Explorer 1');
     expect(call[0].isOpen).toBe(true);
   });
 
-  it('context callback items have uuid, title, isOpen', async () => {
-    const onCtx = vi.fn();
-    canvas.onContextsChanged = onCtx;
+  it('markdown callback items have uuid, title, isOpen', async () => {
+    const onMd = vi.fn();
+    canvas.onMarkdownChanged = onMd;
 
-    await canvas.addContext();
+    await canvas.addMarkdown();
     await flushRaf();
 
-    const call = onCtx.mock.calls[onCtx.mock.calls.length - 1][0];
+    const call = onMd.mock.calls[onMd.mock.calls.length - 1][0];
     expect(call[0]).toHaveProperty('uuid');
-    expect(call[0].title).toBe('Context 1');
+    expect(call[0].title).toBe('Markdown 1');
     expect(call[0].isOpen).toBe(true);
   });
 });

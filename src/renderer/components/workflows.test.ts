@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FileExplorerPlugin } from './FileExplorerPlugin';
-import { ContextPlugin } from './ContextPlugin';
+import { MarkdownPlugin } from './MarkdownPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
-import { DevPlugin } from './DevPlugin';
+import { ExplorerPlugin } from './ExplorerPlugin';
 import { ConfirmModal } from './ConfirmModal';
 import { theme, darkTheme, lightTheme } from '../theme';
 import { mockElectronAPI } from '../../test/setup';
@@ -274,10 +274,10 @@ describe('Editor Tab CRUD workflows', () => {
 });
 
 // ─────────────────────────────────────────────
-// CONTEXT TAB CRUD WORKFLOWS  
+// MARKDOWN TAB CRUD WORKFLOWS  
 // ─────────────────────────────────────────────
 
-describe('Context Tab CRUD workflows', () => {
+describe('Markdown Tab CRUD workflows', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -288,7 +288,7 @@ describe('Context Tab CRUD workflows', () => {
   });
 
   it('CREATE: loadFile opens a tab and renders markdown', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.loadFile('/test/doc.md');
 
     expect(container.textContent).toContain('doc.md');
@@ -297,7 +297,7 @@ describe('Context Tab CRUD workflows', () => {
   });
 
   it('READ: same file loaded twice does not duplicate tab', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.loadFile('/test/doc.md');
     await ctx.loadFile('/test/doc.md');
 
@@ -313,7 +313,7 @@ describe('Context Tab CRUD workflows', () => {
       return vi.fn();
     });
 
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.loadFile('/test/doc.md');
 
     // Verify initial content
@@ -331,7 +331,7 @@ describe('Context Tab CRUD workflows', () => {
   });
 
   it('DELETE: closing the last tab shows "No file loaded"', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.loadFile('/test/doc.md');
 
     expect(container.textContent).toContain('doc.md');
@@ -348,7 +348,7 @@ describe('Context Tab CRUD workflows', () => {
   });
 
   it('SERIALIZE: getState preserves tab order and active file', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.loadFile('/test/a.md');
     await ctx.loadFile('/test/b.md');
 
@@ -360,7 +360,7 @@ describe('Context Tab CRUD workflows', () => {
   });
 
   it('RESTORE: restoreState recreates tabs from serialized state', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.restoreState({
       openFiles: ['/test/x.md', '/test/y.md'],
       activeFile: '/test/x.md',
@@ -373,7 +373,7 @@ describe('Context Tab CRUD workflows', () => {
 
   it('SHOW EMPTY: empty file content displays "Empty file"', async () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('   ');
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
     await ctx.loadFile('/test/empty.md');
 
     expect(container.textContent).toContain('Empty file');
@@ -384,7 +384,7 @@ describe('Context Tab CRUD workflows', () => {
 // DEV PLUGIN (EXPLORER + EDITOR) WORKFLOWS
 // ─────────────────────────────────────────────
 
-describe('Dev Plugin workflows', () => {
+describe('Explorer Plugin workflows', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -399,8 +399,8 @@ describe('Dev Plugin workflows', () => {
     (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
   });
 
-  it('init: DevPlugin creates split layout with explorer and editor', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+  it('init: ExplorerPlugin creates split layout with explorer and editor', () => {
+    const dev = new ExplorerPlugin(container, '/test/ws');
 
     // Split pane: 3 children (explorer, resize handle, editor)
     const splitEl = container.firstElementChild!;
@@ -412,27 +412,27 @@ describe('Dev Plugin workflows', () => {
   });
 
   it('state: getEditorState returns explorer width in state', async () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
 
     // No tabs open -> null
     expect(dev.getEditorState()).toBeNull();
   });
 
-  it('context: setContextOpeners bridges labels to explorer', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+  it('markdown: setMarkdownOpeners bridges labels to explorer', () => {
+    const dev = new ExplorerPlugin(container, '/test/ws');
     const callback = vi.fn();
-    dev.setContextOpeners(['Context 1', 'Context 2'], callback);
+    dev.setMarkdownOpeners(['Markdown 1', 'Markdown 2'], callback);
     // Should not throw
   });
 
   it('theme: updateTheme propagates to editor', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     dev.updateTheme();
     // Should not throw
   });
 
   it('restore: restoreEditorState sets explorer column width', async () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
 
     // restoreEditorState only proceeds if openFiles is non-empty
     // When openFiles is empty, it returns early (columns not restored)
@@ -451,7 +451,7 @@ describe('Dev Plugin workflows', () => {
   });
 
   it('resize: explorer column has resize handle between columns', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     const splitEl = container.firstElementChild!;
 
     // Middle child is the resize handle
@@ -563,10 +563,10 @@ describe('ConfirmModal workflow', () => {
 });
 
 // ─────────────────────────────────────────────
-// END-TO-END: FILE → EDITOR → CONTEXT WORKFLOW
+// END-TO-END: FILE → EDITOR → MARKDOWN WORKFLOW
 // ─────────────────────────────────────────────
 
-describe('End-to-end: File → Editor → Context', () => {
+describe('End-to-end: File → Editor → Markdown', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -584,7 +584,7 @@ describe('End-to-end: File → Editor → Context', () => {
     (mockElectronAPI.fs.copy as any).mockResolvedValue(true);
   });
 
-  it('browse files → open .md in context → verify markdown render', async () => {
+  it('browse files → open .md in markdown → verify markdown render', async () => {
     // Set up file explorer
     const onFileOpen = vi.fn();
     new FileExplorerPlugin(container, '/test', onFileOpen);
@@ -597,7 +597,7 @@ describe('End-to-end: File → Editor → Context', () => {
     expect(text).toContain('src');
   });
 
-  it('browse files → right-click .md → Context menu options appear', async () => {
+  it('browse files → right-click .md → Markdown options appear', async () => {
     new FileExplorerPlugin(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
@@ -612,15 +612,15 @@ describe('End-to-end: File → Editor → Context', () => {
 
     await new Promise(r => setTimeout(r, 10));
 
-    // The context menu should show "View in CONTEXT" for .md files
+    // The context menu should show "View in Markdown" for .md files
     const menuText = Array.from(document.querySelectorAll('.ctx-item'))
       .map(m => m.textContent)
       .join(' ');
-    expect(menuText).toContain('CONTEXT');
+    expect(menuText).toContain('Markdown');
   });
 
-  it('ContextPlugin: full CRUD cycle — load, verify state, close tab reduces count', async () => {
-    const ctx = new ContextPlugin(container);
+  it('MarkdownPlugin: full CRUD cycle — load, verify state, close tab reduces count', async () => {
+    const ctx = new MarkdownPlugin(container);
 
     // CREATE: load three files
     await ctx.loadFile('/test/a.md');
@@ -957,10 +957,10 @@ describe('FileExplorer — error recovery', () => {
 });
 
 // ─────────────────────────────────────────────
-// CONTEXT — MULTI-TAB NAVIGATION
+// MARKDOWN — MULTI-TAB NAVIGATION
 // ─────────────────────────────────────────────
 
-describe('ContextPlugin — multi-tab navigation', () => {
+describe('MarkdownPlugin — multi-tab navigation', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -977,7 +977,7 @@ describe('ContextPlugin — multi-tab navigation', () => {
   });
 
   it('switch between tabs shows correct content', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
 
     await ctx.loadFile('/test/a.md');
     expect(container.textContent).toContain('File A');
@@ -997,7 +997,7 @@ describe('ContextPlugin — multi-tab navigation', () => {
   });
 
   it('close middle tab shifts active correctly', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
 
     await ctx.loadFile('/test/a.md');
     await ctx.loadFile('/test/b.md');
@@ -1031,7 +1031,7 @@ describe('ContextPlugin — multi-tab navigation', () => {
   });
 
   it('close all tabs returns to "No file loaded"', async () => {
-    const ctx = new ContextPlugin(container);
+    const ctx = new MarkdownPlugin(container);
 
     await ctx.loadFile('/test/one.md');
 
@@ -1052,7 +1052,7 @@ describe('ContextPlugin — multi-tab navigation', () => {
 });
 
 // ─────────────────────────────────────────────
-// CROSS-COMPONENT: FILE → EDITOR, FILE → CONTEXT
+// CROSS-COMPONENT: FILE → EDITOR, FILE → MARKDOWN
 // ─────────────────────────────────────────────
 
 describe('Cross-component — file open flows', () => {
@@ -1088,9 +1088,9 @@ describe('Cross-component — file open flows', () => {
     );
   });
 
-  it('right-click on .md shows Context options when context openers are set', async () => {
+  it('right-click on .md shows Markdown options when markdown openers are set', async () => {
     const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
-    explorer.setContextOpeners(['Preview 1', 'Preview 2'], vi.fn());
+    explorer.setMarkdownOpeners(['Preview 1', 'Preview 2'], vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on README.md
@@ -1111,10 +1111,10 @@ describe('Cross-component — file open flows', () => {
     expect(menuText).toContain('Preview 2');
   });
 
-  it('clicking "Open to Preview 1" on .md calls context opener callback', async () => {
-    const onOpenInContext = vi.fn();
+  it('clicking "Open to Preview 1" on .md calls markdown opener callback', async () => {
+    const onOpenInMarkdown = vi.fn();
     const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
-    explorer.setContextOpeners(['Preview 1'], onOpenInContext);
+    explorer.setMarkdownOpeners(['Preview 1'], onOpenInMarkdown);
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on README.md
@@ -1132,13 +1132,13 @@ describe('Cross-component — file open flows', () => {
       .find(m => m.textContent === 'Open to Preview 1');
     (previewItem as HTMLElement)?.click();
 
-    expect(onOpenInContext).toHaveBeenCalledWith(
+    expect(onOpenInMarkdown).toHaveBeenCalledWith(
       expect.stringContaining('README.md'),
       'Preview 1',
     );
   });
 
-  it('non-.md files do not show Context menu options', async () => {
+  it('non-.md files do not show Markdown menu options', async () => {
     new FileExplorerPlugin(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
@@ -1156,6 +1156,6 @@ describe('Cross-component — file open flows', () => {
     const menuText = Array.from(document.querySelectorAll('.ctx-item'))
       .map(m => m.textContent)
       .join(' ');
-    expect(menuText).not.toContain('CONTEXT');
+    expect(menuText).not.toContain('Markdown');
   });
 });

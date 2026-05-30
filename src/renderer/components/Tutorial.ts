@@ -35,8 +35,8 @@ const STEPS: TutorialStep[] = [
     target: '.menu-bar',
   },
   {
-    title: 'Context Viewer',
-    description: 'Tabbed markdown preview. Right-click .md files → "Open to CONTEXT". Great for docs and notes.',
+    title: 'Markdown Viewer',
+    description: 'Tabbed markdown preview. Right-click .md files → "Open to Markdown". Great for docs and notes.',
     target: '.menu-bar',
   },
   {

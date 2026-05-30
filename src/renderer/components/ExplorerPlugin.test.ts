@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DevPlugin } from './DevPlugin';
+import { ExplorerPlugin } from './ExplorerPlugin';
 import { CommandPalette } from './CommandPalette';
 import { mockElectronAPI } from '../../test/setup';
 
@@ -10,7 +10,7 @@ function makeContainer(): HTMLElement {
   return el;
 }
 
-describe('DevPlugin', () => {
+describe('ExplorerPlugin', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -23,7 +23,7 @@ describe('DevPlugin', () => {
   });
 
   it('creates split pane with flex layout', () => {
-    new DevPlugin(container, '/test/ws');
+    new ExplorerPlugin(container, '/test/ws');
 
     // Container should have a child with flex direction row
     const children = container.children;
@@ -35,45 +35,45 @@ describe('DevPlugin', () => {
   });
 
   it('has three children: explorer, resize handle, editor', () => {
-    new DevPlugin(container, '/test/ws');
+    new ExplorerPlugin(container, '/test/ws');
 
     const splitEl = container.firstElementChild!;
     expect(splitEl.children.length).toBe(3);
   });
 
   it('has a MonacoEditorPlugin accessible as .editor', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     expect(dev.editor).toBeTruthy();
     expect(dev.editor.tabs).toEqual([]);
   });
 
-  it('setContextOpeners delegates to explorer without throwing', () => {
-    const dev = new DevPlugin(container, '/test/ws');
-    const labels = ['Context 1', 'Context 2'];
+  it('setMarkdownOpeners delegates to explorer without throwing', () => {
+    const dev = new ExplorerPlugin(container, '/test/ws');
+    const labels = ['Markdown 1', 'Markdown 2'];
     const callback = vi.fn();
 
-    expect(() => dev.setContextOpeners(labels, callback)).not.toThrow();
+    expect(() => dev.setMarkdownOpeners(labels, callback)).not.toThrow();
   });
 
   it('updateTheme calls editor updateTheme without throwing', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     expect(() => dev.updateTheme()).not.toThrow();
   });
 
   it('getEditorState returns null when no files are open', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     const state = dev.getEditorState();
     expect(state).toBeNull();
   });
 
   it('restoreEditorState handles null state', async () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     await dev.restoreEditorState(null);
     // Should not throw
   });
 
   it('restoreEditorState handles state with no open files', async () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     await dev.restoreEditorState({
       openFiles: [],
       activeFile: '',
@@ -84,14 +84,14 @@ describe('DevPlugin', () => {
   });
 
   it('palette is lazily created on first openFileSearch call', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     expect(dev.palette).toBeNull();
     dev.openFileSearch();
     expect(dev.palette).toBeTruthy();
   });
 
   it('openFileSearch opens the palette overlay', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     dev.openFileSearch();
     const ov = document.querySelector('.palette-overlay');
     expect(ov).toBeTruthy();
@@ -99,7 +99,7 @@ describe('DevPlugin', () => {
   });
 
   it('palette is created and opened on openFileSearch', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     expect(dev.palette).toBeNull();
     dev.openFileSearch();
     expect(dev.palette).toBeTruthy();
@@ -108,7 +108,7 @@ describe('DevPlugin', () => {
   });
 
   it('does not open palette when card is minimized (hidden)', () => {
-    const dev = new DevPlugin(container, '/test/ws');
+    const dev = new ExplorerPlugin(container, '/test/ws');
     container.style.display = 'none';
     dev.openFileSearch();
     const ov = document.querySelector('.palette-overlay');

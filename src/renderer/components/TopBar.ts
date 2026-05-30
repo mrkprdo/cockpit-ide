@@ -7,15 +7,13 @@ interface TopBarCallbacks {
   onThemeToggle?: () => void;
   onOpenWorkspace?: () => void;
   onNewTerminal?: () => void;
-  onNewDev?: () => void;
-  onNewGit?: () => void;
-  onNewContext?: () => void;
+  onNewExplorer?: () => void;
   onFocusTerminal?: (uuid: string) => void;
   onReopenTerminal?: (uuid: string) => void;
-  onFocusDev?: (uuid: string) => void;
-  onReopenDev?: (uuid: string) => void;
-  onFocusContext?: (uuid: string) => void;
-  onReopenContext?: (uuid: string) => void;
+  onFocusExplorer?: (uuid: string) => void;
+  onReopenExplorer?: (uuid: string) => void;
+  onFocusMarkdown?: (uuid: string) => void;
+  onReopenMarkdown?: (uuid: string) => void;
   onAbout?: () => void;
   onTutorial?: () => void;
   onZoomIn?: () => void;
@@ -31,9 +29,9 @@ export class TopBar {
   private gridStyle: GridStyle = 'dots';
   private zoomLocked = false;
   private termItems: TermItem[] = [];
-  private devItems: TermItem[] = [];
+  private explorerItems: TermItem[] = [];
   private gitItems: TermItem[] = [];
-  private ctxItems: TermItem[] = [];
+  private mdItems: TermItem[] = [];
   private docClickHandler: (() => void) | null = null;
 
   constructor(private el: HTMLElement, callbacks: TopBarCallbacks) {
@@ -46,8 +44,8 @@ export class TopBar {
     this.render();
   }
 
-  setDevItems(items: TermItem[]): void {
-    this.devItems = items;
+  setExplorerItems(items: TermItem[]): void {
+    this.explorerItems = items;
     this.render();
   }
 
@@ -56,8 +54,8 @@ export class TopBar {
     this.render();
   }
 
-  setContextItems(items: TermItem[]): void {
-    this.ctxItems = items;
+  setMarkdownItems(items: TermItem[]): void {
+    this.mdItems = items;
     this.render();
   }
 
@@ -74,12 +72,12 @@ export class TopBar {
   private render(): void {
     const hideStyle = (isOpen: boolean) => isOpen ? '' : 'opacity:0.45';
 
-    const ctxSubHtml = '<div class="menu-dropdown-item" id="menu-new-context">New</div>'
+    const mdSubHtml = '<div class="menu-dropdown-item" id="menu-new-markdown">New</div>'
       + '<div class="menu-dropdown-separator"></div>'
-      + (this.ctxItems.length === 0
+      + (this.mdItems.length === 0
         ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">(none)</div>'
-        : this.ctxItems.map(t =>
-            `<div class="menu-dropdown-item ctx-instance" data-ctx-uuid="${t.uuid}" data-ctx-open="${t.isOpen}" style="${hideStyle(t.isOpen)}">${t.title}</div>`
+        : this.mdItems.map(t =>
+            `<div class="menu-dropdown-item md-instance" data-md-uuid="${t.uuid}" data-md-open="${t.isOpen}" style="${hideStyle(t.isOpen)}">${t.title}</div>`
           ).join(''));
 
     const termSubHtml = '<div class="menu-dropdown-item" id="menu-new-terminal">New</div>'
@@ -109,21 +107,21 @@ export class TopBar {
             </div>
           </div>
           <div class="menu-item-nested">
-            <span>Dev</span><span class="arrow">▸</span>
+            <span>Explorer</span><span class="arrow">▸</span>
             <div class="menu-dropdown-nested">
-              <div class="menu-dropdown-item" id="menu-new-dev">New</div>
+              <div class="menu-dropdown-item" id="menu-new-explorer">New</div>
               <div class="menu-dropdown-separator"></div>
-              ${this.devItems.length === 0
+              ${this.explorerItems.length === 0
                 ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">(none)</div>'
-                : this.devItems.map(d => `<div class="menu-dropdown-item dev-instance" data-dev-uuid="${d.uuid}" data-dev-open="${d.isOpen}" style="${d.isOpen ? '' : 'opacity:0.45'}">${d.title}</div>`).join('')
+                : this.explorerItems.map(d => `<div class="menu-dropdown-item explorer-instance" data-explorer-uuid="${d.uuid}" data-explorer-open="${d.isOpen}" style="${d.isOpen ? '' : 'opacity:0.45'}">${d.title}</div>`).join('')
               }
             </div>
           </div>
           <div class="menu-dropdown-item" id="menu-new-git">Git</div>
           <div class="menu-item-nested">
-            <span>Context</span><span class="arrow">▸</span>
+            <span>Markdown</span><span class="arrow">▸</span>
             <div class="menu-dropdown-nested">
-              ${ctxSubHtml}
+              ${mdSubHtml}
             </div>
           </div>
           <div class="menu-dropdown-separator"></div>
@@ -201,8 +199,8 @@ export class TopBar {
       this.callbacks.onNewTerminal?.();
     });
 
-    document.getElementById('menu-new-dev')?.addEventListener('click', () => {
-      this.callbacks.onNewDev?.();
+    document.getElementById('menu-new-explorer')?.addEventListener('click', () => {
+      this.callbacks.onNewExplorer?.();
     });
 
     document.getElementById('menu-tutorial')?.addEventListener('click', () => {
@@ -254,40 +252,40 @@ export class TopBar {
       });
     });
 
-    // Dev instances — click to focus (open) or reopen (closed)
-    this.el.querySelectorAll('.dev-instance').forEach(el => {
+    // Explorer instances — click to focus (open) or reopen (closed)
+    this.el.querySelectorAll('.explorer-instance').forEach(el => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         const target = e.currentTarget as HTMLElement;
-        const uuid = target.dataset.devUuid || '';
-        const isOpen = target.dataset.devOpen === 'true';
+        const uuid = target.dataset.explorerUuid || '';
+        const isOpen = target.dataset.explorerOpen === 'true';
         if (isOpen) {
-          this.callbacks.onFocusDev?.(uuid);
+          this.callbacks.onFocusExplorer?.(uuid);
         } else {
-          this.callbacks.onReopenDev?.(uuid);
+          this.callbacks.onReopenExplorer?.(uuid);
         }
       });
     });
 
-    // Context instances
-    this.el.querySelectorAll('.ctx-instance').forEach(el => {
+    // Markdown instances
+    this.el.querySelectorAll('.md-instance').forEach(el => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         const target = e.currentTarget as HTMLElement;
-        const uuid = target.dataset.ctxUuid || '';
-        const isOpen = target.dataset.ctxOpen === 'true';
-        if (isOpen) this.callbacks.onFocusContext?.(uuid);
-        else this.callbacks.onReopenContext?.(uuid);
+        const uuid = target.dataset.mdUuid || '';
+        const isOpen = target.dataset.mdOpen === 'true';
+        if (isOpen) this.callbacks.onFocusMarkdown?.(uuid);
+        else this.callbacks.onReopenMarkdown?.(uuid);
       });
     });
 
-    // "New" in context submenu
+    // "New" in markdown submenu
     document.getElementById('menu-new-git')?.addEventListener('click', () => {
       this.callbacks.onNewGit?.();
     });
 
-    document.getElementById('menu-new-context')?.addEventListener('click', () => {
-      this.callbacks.onNewContext?.();
+    document.getElementById('menu-new-markdown')?.addEventListener('click', () => {
+      this.callbacks.onNewMarkdown?.();
     });
 
     document.getElementById('theme-toggle')?.addEventListener('click', () => {

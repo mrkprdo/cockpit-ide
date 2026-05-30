@@ -82,15 +82,15 @@ describe('CanvasArea', () => {
   it('initial term/dev/ctx change callbacks are not called without cards', () => {
     const onTerm = vi.fn();
     const onDev = vi.fn();
-    const onCtx = vi.fn();
+    const onMd = vi.fn();
 
     canvas.onTerminalsChanged = onTerm;
-    canvas.onDevsChanged = onDev;
-    canvas.onContextsChanged = onCtx;
+    canvas.onExplorersChanged = onDev;
+    canvas.onMarkdownChanged = onMd;
 
     expect(onTerm).not.toHaveBeenCalled();
     expect(onDev).not.toHaveBeenCalled();
-    expect(onCtx).not.toHaveBeenCalled();
+    expect(onMd).not.toHaveBeenCalled();
   });
 
   describe('arrange panel (lower-right triangle)', () => {
@@ -651,7 +651,7 @@ describe('restore path callbacks', () => {
     const termSpy = vi.fn();
     (canvas as any).fitViewport = fitSpy;
     (canvas as any).terminateCard = termSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Dev 1'), '/test');
+    (canvas as any).restorePlugins(makeMinimalState('Explorer 1'), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 
@@ -685,7 +685,7 @@ describe('restore path callbacks', () => {
     const termSpy = vi.fn();
     (canvas as any).fitViewport = fitSpy;
     (canvas as any).terminateCard = termSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Context 1'), '/test');
+    (canvas as any).restorePlugins(makeMinimalState('Markdown 1'), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 

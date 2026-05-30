@@ -2,7 +2,7 @@ import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 import { CommandPalette } from './CommandPalette';
 
-export class DevPlugin {
+export class ExplorerPlugin {
   onStateChange: (() => void) | null = null;
   editor: MonacoEditorPlugin;
   palette: CommandPalette | null = null;
@@ -100,8 +100,8 @@ export class DevPlugin {
     this.palette.open();
   }
 
-  setContextOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
-    this.explorer.setContextOpeners(labels, callback);
+  setMarkdownOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
+    this.explorer.setMarkdownOpeners(labels, callback);
   }
 
   updateTheme(): void {

@@ -20,14 +20,14 @@ describe('TopBar', () => {
       onNewTerminal: vi.fn(),
       onNewExplorer: vi.fn(),
       onNewEditor: vi.fn(),
-      onNewDev: vi.fn(),
-      onNewContext: vi.fn(),
+      onNewExplorer: vi.fn(),
+      onNewMarkdown: vi.fn(),
       onFocusTerminal: vi.fn(),
       onReopenTerminal: vi.fn(),
-      onFocusDev: vi.fn(),
-      onReopenDev: vi.fn(),
-      onFocusContext: vi.fn(),
-      onReopenContext: vi.fn(),
+      onFocusExplorer: vi.fn(),
+      onReopenExplorer: vi.fn(),
+      onFocusMarkdown: vi.fn(),
+      onReopenMarkdown: vi.fn(),
       onAbout: vi.fn(),
       onTutorial: vi.fn(),
       onZoomIn: vi.fn(),
@@ -72,11 +72,11 @@ describe('TopBar', () => {
     expect(callbacks.onNewTerminal).toHaveBeenCalledOnce();
   });
 
-  it('clicking "New" under Dev calls onNewDev', () => {
+  it('clicking "New" under Explorer calls onNewExplorer', () => {
     new TopBar(makeTopBarEl(), callbacks);
-    const btn = document.querySelector('#menu-new-dev') as HTMLElement;
+    const btn = document.querySelector('#menu-new-explorer') as HTMLElement;
     btn.click();
-    expect(callbacks.onNewDev).toHaveBeenCalledOnce();
+    expect(callbacks.onNewExplorer).toHaveBeenCalledOnce();
   });
 
   it('clicking "Tutorial" calls onTutorial', () => {
@@ -127,26 +127,26 @@ describe('TopBar', () => {
     expect(items[1].textContent).toBe('Terminal 2');
   });
 
-  it('shows dev items in the Dev submenu', () => {
+  it('shows explorer items in the Explorer submenu', () => {
     const bar = new TopBar(makeTopBarEl(), callbacks);
-    bar.setDevItems([
-      { uuid: 'd1', title: 'Dev 1', isOpen: true },
+    bar.setExplorerItems([
+      { uuid: 'd1', title: 'Explorer 1', isOpen: true },
     ]);
 
-    const items = document.querySelectorAll('.dev-instance');
+    const items = document.querySelectorAll('.explorer-instance');
     expect(items.length).toBe(1);
-    expect(items[0].textContent).toBe('Dev 1');
+    expect(items[0].textContent).toBe('Explorer 1');
   });
 
-  it('shows context items in the Context submenu', () => {
+  it('shows markdown items in the Markdown submenu', () => {
     const bar = new TopBar(makeTopBarEl(), callbacks);
-    bar.setContextItems([
-      { uuid: 'c1', title: 'Context 1', isOpen: true },
+    bar.setMarkdownItems([
+      { uuid: 'c1', title: 'Markdown 1', isOpen: true },
     ]);
 
-    const items = document.querySelectorAll('.ctx-instance');
+    const items = document.querySelectorAll('.md-instance');
     expect(items.length).toBe(1);
-    expect(items[0].textContent).toBe('Context 1');
+    expect(items[0].textContent).toBe('Markdown 1');
   });
 
   it('directs terminal item click properly for open vs closed', () => {
@@ -165,10 +165,10 @@ describe('TopBar', () => {
     expect(callbacks.onReopenTerminal).toHaveBeenCalledWith('t2');
   });
 
-  it('"New" in Context submenu calls onNewContext', () => {
+  it('"New" in Markdown submenu calls onNewMarkdown', () => {
     new TopBar(makeTopBarEl(), callbacks);
-    const btn = document.querySelector('#menu-new-context') as HTMLElement;
+    const btn = document.querySelector('#menu-new-markdown') as HTMLElement;
     btn.click();
-    expect(callbacks.onNewContext).toHaveBeenCalledOnce();
+    expect(callbacks.onNewMarkdown).toHaveBeenCalledOnce();
   });
 });

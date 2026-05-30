@@ -1,7 +1,6 @@
 export class StatusBar {
   private sbZoom: HTMLSpanElement | null = null;
   private sbLocked: HTMLSpanElement | null = null;
-  private sbPan: HTMLSpanElement | null = null;
   private sbWorkspace: HTMLSpanElement | null = null;
   private lockToggleCb: (() => void) | null = null;
   private fitAllCb: (() => void) | null = null;
@@ -27,12 +26,6 @@ export class StatusBar {
     this.sbLocked.textContent = 'Locked';
     this.sbLocked.style.display = 'none';
     sb.appendChild(this.sbLocked);
-    sep();
-
-    this.sbPan = document.createElement('span');
-    this.sbPan.className = 'status-item';
-    sb.appendChild(this.sbPan);
-    sep();
 
     this.sbWorkspace = document.createElement('span');
     this.sbWorkspace.className = 'status-item';
@@ -58,7 +51,7 @@ export class StatusBar {
     sb.appendChild(viewAllBtn);
   }
 
-  update(locked: boolean, scale: number, panX: number, panY: number, workspaceName: string, onLockToggle: (() => void) | null, fitAll: () => void): void {
+  update(locked: boolean, scale: number, workspaceName: string, onLockToggle: (() => void) | null, fitAll: () => void): void {
     this.lockToggleCb = onLockToggle;
     this.fitAllCb = fitAll;
     if (this.sbZoom) {
@@ -68,7 +61,6 @@ export class StatusBar {
       this.sbZoom.innerHTML = `Zoom: ${Math.round(scale * 100)}% ${icon}`;
     }
     if (this.sbLocked) this.sbLocked.style.display = 'none';
-    if (this.sbPan) this.sbPan.textContent = `Pan: ${Math.round(panX)}, ${Math.round(panY)}`;
     if (this.sbWorkspace) this.sbWorkspace.textContent = workspaceName;
   }
 }
