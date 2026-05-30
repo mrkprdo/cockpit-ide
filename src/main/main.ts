@@ -59,6 +59,7 @@ function filterEnv(): Record<string, string> {
 }
 
 ipcMain.on('app:version', (e) => { e.returnValue = app.getVersion(); });
+ipcMain.on('clipboard:readText', (e) => { e.returnValue = clipboard.readText(); });
 
 // File system IPC
 ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
@@ -323,7 +324,6 @@ app.whenReady().then(async () => {
     const win = BrowserWindow.fromWebContents(event.sender);
     return win?.isMaximized() ?? false;
   });
-  ipcMain.handle('clipboard:readText', () => clipboard.readText());
   ipcMain.handle('clipboard:writeText', (_event, text: string) => { clipboard.writeText(text); });
 
   // Terminal PTY — multi-session

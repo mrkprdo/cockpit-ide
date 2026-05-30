@@ -6,7 +6,6 @@ import { GridStyle, generateGridPattern, applyGridToElement } from './canvas-gri
 import { StatusBar } from './canvas-statusbar';
 import { PluginCard } from './PluginCard';
 import { TerminalPlugin } from './TerminalPlugin';
-import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 import { ExplorerPlugin } from './ExplorerPlugin';
 import { GitPlugin, GitState } from './GitPlugin';

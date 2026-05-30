@@ -13,8 +13,7 @@
   "interface": {
     "constructor": "new ConfirmModal(message: string, confirmLabel?: string, destructive?: boolean)",
     "methods": [
-      { "name": "open", "signature": "() => Promise<boolean>", "description": "Show overlay, focus cancel button, return promise resolved on confirm/cancel" },
-      { "name": "done", "signature": "(ok: boolean) => void", "description": "Remove DOM and event listeners, resolve promise" }
+      { "name": "open", "signature": "() => Promise<boolean>", "description": "Show overlay, register Escape listener, focus Cancel button, return promise resolved true (confirm) or false (cancel/escape/overlay-click)" }
     ]
   },
   "security": {

@@ -14,8 +14,7 @@
   "interface": {
     "constructor": "new AboutModal()",
     "methods": [
-      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Show overlay, store onClose callback" },
-      { "name": "close", "signature": "() => void", "description": "Hide overlay, fire and clear onClose callback" }
+      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Show overlay, store onClose callback. Close via close button, overlay click, or onClose callback." }
     ]
   },
   "ui": {

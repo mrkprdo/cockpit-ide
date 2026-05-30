@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   },
   clipboard: {
-    readText: () => ipcRenderer.invoke('clipboard:readText'),
+    readText: () => ipcRenderer.sendSync('clipboard:readText'),
     writeText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text),
   },
   terminal: {

@@ -14,8 +14,7 @@
   "interface": {
     "constructor": "new WelcomeModal()",
     "methods": [
-      { "name": "open", "signature": "() => Promise<string | null>", "description": "Show overlay, load recent workspaces, return path on selection or null on close" },
-      { "name": "close", "signature": "(path: string | null) => void", "description": "Hide overlay and resolve promise" }
+      { "name": "open", "signature": "() => Promise<string | null>", "description": "Show overlay, load recent workspaces, return path on selection or null on close" }
     ]
   },
   "ui": {

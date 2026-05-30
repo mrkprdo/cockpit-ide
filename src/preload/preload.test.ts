@@ -7,12 +7,13 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 
 // ─── Capture IPC calls ───
-const { handleCalls, onCalls, sendCalls, invokeCalls } = vi.hoisted(() => {
+const { handleCalls, onCalls, sendCalls, invokeCalls, sendSyncCalls } = vi.hoisted(() => {
   const handleCalls: [string, ...any[]][] = [];
   const onCalls: [string, ...any[]][] = [];
   const sendCalls: [string, ...any[]][] = [];
   const invokeCalls: [string, ...any[]][] = [];
-  return { handleCalls, onCalls, sendCalls, invokeCalls };
+  const sendSyncCalls: [string, ...any[]][] = [];
+  return { handleCalls, onCalls, sendCalls, invokeCalls, sendSyncCalls };
 });
 
 vi.mock('electron', () => ({
@@ -22,7 +23,8 @@ vi.mock('electron', () => ({
     }),
   },
   ipcRenderer: {
-    sendSync: vi.fn((channel: string) => {
+    sendSync: vi.fn((channel: string, ...args: any[]) => {
+      sendSyncCalls.push([channel, ...args]);
       if (channel === 'app:version') return '0.0.0';
       return null;
     }),
@@ -249,9 +251,9 @@ describe('preload.ts — IPC wiring (invoke-based)', () => {
   });
 
   it('clipboard.readText invokes clipboard:readText', () => {
-    invokeCalls.length = 0;
+    sendSyncCalls.length = 0;
     api.clipboard.readText();
-    expect(invokeCalls.some(c => c[0] === 'clipboard:readText')).toBe(true);
+    expect(sendSyncCalls.some(c => c[0] === 'clipboard:readText')).toBe(true);
   });
 
   it('terminal.create invokes terminal:create with uuid', () => {

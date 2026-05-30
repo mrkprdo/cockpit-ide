@@ -18,10 +18,6 @@ export class App {
 
     // Load persisted theme preference before any UI renders
     this.loadThemePref();
-    document.title = 'Cockpit IDE';
-
-    // Load persisted theme preference before any UI renders
-    this.loadThemePref();
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -41,7 +37,7 @@ export class App {
       // Ctrl+P / Cmd+P — open file search palette
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
-        this.canvas.getActiveDevPlugin()?.openFileSearch();
+        this.canvas.getActiveExplorerPlugin()?.openFileSearch();
       }
       // Ctrl+J / Cmd+J — new terminal
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
@@ -77,7 +73,7 @@ export class App {
       },
       onThemeToggle: async () => {
         this.canvas.refresh();
-        this.canvas.getActiveDevPlugin()?.updateTheme();
+        this.canvas.getActiveExplorerPlugin()?.updateTheme();
         const prefs = (await window.electronAPI?.prefs.load()) || {};
         prefs.isDark = theme.isDark;
         window.electronAPI?.prefs.save(prefs);

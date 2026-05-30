@@ -13,6 +13,7 @@
       ".about-spec-key (color:var(--tertiary); min-width:80px)",
       ".about-spec-val (color:var(--primary))",
       ".about-link (color:var(--accent); cursor:pointer; text-decoration:underline)",
+      ".about-sep (height:1px; background:var(--border); margin:14px 0) — second separator before footer",
       ".about-foot (display:flex; justify-content:flex-end)",
       "button.btn-ghost.about-close-btn (padding:6px 14px; background:transparent; border:1px dashed var(--border); cursor:pointer; font-size:11px)"
     ]

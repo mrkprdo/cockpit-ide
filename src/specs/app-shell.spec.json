@@ -8,7 +8,7 @@
   "exports": ["App"],
   "dependencies": [
     { "feature": "canvas-engine", "file": "CanvasArea.ts", "usage": "Creates and owns CanvasArea instance, wires state change and plugin change callbacks" },
-    { "feature": "topbar", "file": "TopBar.ts", "usage": "Creates TopBar with full callback object (14 handlers) for menus, buttons, zoom, theme, grid" },
+    { "feature": "topbar", "file": "TopBar.ts", "usage": "Creates TopBar with full callback object (19 handlers) for menus, buttons, zoom, theme, grid" },
     { "feature": "welcome-modal", "file": "WelcomeModal.ts", "usage": "Shown as fallback when no CLI workspace path is provided" },
     { "feature": "about-modal", "file": "AboutModal.ts", "usage": "Opened via Help > About, locks canvas during display" },
     { "feature": "tutorial", "file": "Tutorial.ts", "usage": "Started on first workspace load if showTutorial preference is not false" },

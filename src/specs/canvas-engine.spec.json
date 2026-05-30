@@ -1,7 +1,7 @@
 {
   "name": "Canvas Engine",
   "file": "src/renderer/components/CanvasArea.ts",
-  "description": "Core infinite canvas engine (~1200 lines). Manages world-to-screen coordinate transform (screenX = worldX * scale + panX), pan via left/middle-click drag, zoom via mouse wheel (cursor-centered, 0.1x-5x range, lock toggleable), grid rendering (dots/grid/none patterns via offscreen canvas), plugin card lifecycle (add/remove/minimize/terminate/reopen/focus with z-order stacking), snap-to-grid (28px), plugin creation (Terminal, Explorer/Dev, Git, Markdown), fit-all viewport calculation, animated pan (ease-out cubic 300ms), canvas status bar with zoom/lock/workspace name, plugin list panel (lower-left), arrange panel (auto-arrange + tile plugins with custom WxH), save state serialization, and right-click context menu on empty canvas space.",
+  "description": "Core infinite canvas engine (~1260 lines). Manages world-to-screen coordinate transform (screenX = worldX * scale + panX), pan via left/middle-click drag, zoom via mouse wheel (cursor-centered, 0.1x-5x range, lock toggleable), grid rendering (dots/grid/none patterns via offscreen canvas), plugin card lifecycle (add/remove/minimize/terminate/reopen/focus with z-order stacking), snap-to-grid (28px), plugin creation (Terminal, Explorer/Dev, Git, Markdown), fit-all viewport calculation, animated pan (ease-out cubic 300ms), canvas status bar with zoom/lock/workspace name, plugin list panel (lower-left), arrange panel (auto-arrange + tile plugins with custom WxH), save state serialization, and right-click context menu on empty canvas space.",
   "type": "ui",
   "layer": "core",
   "singleton": true,
@@ -11,11 +11,10 @@
     { "feature": "canvas-statusbar", "file": "canvas-statusbar.ts", "usage": "StatusBar widget for zoom/workspace/lock display" },
     { "feature": "plugin-card", "file": "PluginCard.ts", "usage": "Creates PluginCard instances for each plugin, manages drag/resize/minimize" },
     { "feature": "terminal-plugin", "file": "TerminalPlugin.ts", "usage": "Instantiated inside terminal plugin cards" },
-    { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts", "usage": "Instantiated inside dev/explorer plugin cards" },
-    { "feature": "monaco-editor-plugin", "file": "MonacoEditorPlugin.ts", "usage": "Instantiated inside dev/explorer plugin cards" },
+    { "feature": "monaco-editor-plugin", "file": "MonacoEditorPlugin.ts", "usage": "Instantiated inside standalone addEditor() cards" },
     { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts", "usage": "Combined split-pane explorer (FileExplorer + MonacoEditor) in a single card" },
     { "feature": "git-plugin", "file": "GitPlugin.ts", "usage": "Instantiated inside git plugin cards, uses GitState type" },
-    { "feature": "context-menu", "file": "ContextMenu.ts", "usage": "Right-click menu on empty canvas area (new terminal/explorer/git/markdown)" },
+    { "feature": "context-menu", "file": "ContextMenu.ts", "usage": "Right-click on empty canvas (View All / Auto Arrange) and plugin-list right-click (Show / Terminate) and card header right-click (Fit Viewport / Minimize / Terminate)" },
     { "feature": "markdown-plugin", "file": "MarkdownPlugin.ts", "usage": "Instantiated inside markdown plugin cards, uses MarkdownState type" }
   ],
   "referenced_by": [
@@ -39,8 +38,8 @@
   },
   "interactions": [
     { "name": "pan", "trigger": "Left/middle mouse button drag on canvas", "behavior": "Updates panX/panY, throttled via requestAnimationFrame" },
-    { "name": "zoom", "trigger": "Mouse wheel on canvas", "behavior": "Cursor-centered zoom, 0.02x step, clamped 0.1-5.0" },
-    { "name": "ctrl_zoom", "trigger": "Ctrl+Wheel", "behavior": "Fine zoom at 0.005x step" },
+    { "name": "zoom", "trigger": "Mouse wheel on canvas (empty area, no Ctrl)", "behavior": "Cursor-centered proportional zoom: scale *= (1 + -deltaY*0.001), clamped 0.1–5.0" },
+    { "name": "ctrl_zoom", "trigger": "Ctrl+Wheel (global, capture phase, fires over cards too)", "behavior": "Same proportional formula as regular zoom; preventDefault stops browser zoom" },
     { "name": "add_terminal", "trigger": "addTerminal()", "behavior": "Creates PluginCard with TerminalPlugin, snap-to-grid positioned" },
     { "name": "add_explorer", "trigger": "addExplorer()", "behavior": "Creates PluginCard with ExplorerPlugin, opens root directory" },
     { "name": "add_git", "trigger": "addGit()", "behavior": "Creates PluginCard with GitPlugin, single-instance enforced" },

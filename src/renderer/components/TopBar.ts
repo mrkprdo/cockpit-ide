@@ -8,6 +8,8 @@ interface TopBarCallbacks {
   onOpenWorkspace?: () => void;
   onNewTerminal?: () => void;
   onNewExplorer?: () => void;
+  onNewGit?: () => void;
+  onNewMarkdown?: () => void;
   onFocusTerminal?: (uuid: string) => void;
   onReopenTerminal?: (uuid: string) => void;
   onFocusExplorer?: (uuid: string) => void;

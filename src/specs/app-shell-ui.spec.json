@@ -17,7 +17,7 @@
     { "trigger": "Ctrl+W", "action": "preventDefault (blocks browser close-tab)" },
     { "trigger": "Ctrl+Tab", "action": "canvas.cycleCard(direction)" },
     { "trigger": "Ctrl+Shift+Tab", "action": "canvas.cycleCard(-1) — reverse" },
-    { "trigger": "Ctrl+P", "action": "canvas.getActiveDevPlugin()?.openFileSearch()" },
+    { "trigger": "Ctrl+P", "action": "canvas.getActiveExplorerPlugin()?.openFileSearch()" },
     { "trigger": "Ctrl+J", "action": "canvas.addTerminal(wsPath)" },
     { "trigger": "State change (drag/resize/add/remove)", "action": "Debounced JSON diff → IPC workspace:save" },
     { "trigger": "TopBar onOpenWorkspace", "action": "Save current state → IPC workspace:select → loadWorkspace()" },

@@ -625,17 +625,19 @@ describe('main.ts IPC handlers', () => {
     it('returns clipboard text', async () => {
       const { clipboard } = await import('electron');
       vi.mocked(clipboard.readText).mockReturnValue('copied text');
-      const handler = handleMap.get('clipboard:readText')!;
-      const result = await handler({});
-      expect(result).toBe('copied text');
+      const handler = onMap.get('clipboard:readText')!;
+      const event = {} as any;
+      handler(event);
+      expect(event.returnValue).toBe('copied text');
     });
 
     it('returns empty string when clipboard is empty', async () => {
       const { clipboard } = await import('electron');
       vi.mocked(clipboard.readText).mockReturnValue('');
-      const handler = handleMap.get('clipboard:readText')!;
-      const result = await handler({});
-      expect(result).toBe('');
+      const handler = onMap.get('clipboard:readText')!;
+      const event = {} as any;
+      handler(event);
+      expect(event.returnValue).toBe('');
     });
   });
 

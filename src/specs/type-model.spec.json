@@ -9,7 +9,7 @@
     { "name": "EditorState", "kind": "interface", "description": "Per-plugin editor serialization state: open file tabs, active file, explorer splitter width, per-file cursor/scroll positions" },
     { "name": "WorkspaceState", "kind": "interface", "description": "Full workspace session state: plugin array with uuids/positions/dimensions, z-order stack, zoom/pan viewport" },
     { "name": "DirEntry", "kind": "interface", "description": "Filesystem directory entry: name string plus isDirectory boolean" },
-    { "name": "Window.electronAPI", "kind": "interface", "description": "Top-level IPC bridge namespace. 9 sub-namespaces: window, terminal, workspace, shell, prefs, git, clipboard, fs, plus platform/versions fields" }
+    { "name": "Window.electronAPI", "kind": "interface", "description": "Top-level IPC bridge namespace. 8 namespaces: window, terminal, workspace, shell, prefs, git, clipboard, fs. Plus top-level platform (string) and versions ({node, chrome, electron, app}) fields." }
   ],
   "namespaces": [
     "window", "clipboard", "terminal", "workspace",

@@ -15,12 +15,12 @@
     "platform": "exposes process.platform",
     "versions": "exposes { node, chrome, electron, app } from process.versions + sync IPC app:version",
     "window": "newWindow (invoke), minimize/maximize/close (send), isMaximized (invoke)",
-    "clipboard": "readText/writeText via ipcRenderer.invoke",
+    "clipboard": "readText via ipcRenderer.sendSync (sync, returns string), writeText via ipcRenderer.invoke",
     "terminal": "create (invoke), write/resize/kill (send), onData/onExit (listener + unsubscribe)",
     "workspace": "select/getPath/load/save/getRecent/addRecent/removeRecent (invoke)",
     "shell": "openExternal (invoke)",
     "prefs": "load/save (invoke)",
-    "git": "16 git operations (remotes, branches, checkout, log, showTree, diff, currentBranch, stagedFiles, unstagedFiles, stagedDiff, unstagedDiff, commitBody, stage, unstage, commit, push, checkAhead)",
+    "git": "17 git operations (remotes, branches, checkout, log, showTree, diff, currentBranch, stagedFiles, unstagedFiles, stagedDiff, unstagedDiff, commitBody, stage, unstage, commit, push, checkAhead)",
     "fs": "readDir/readFile/writeFile/mkdir/delete/copy/rename/watch/unwatch (invoke), onChanged (listener + unsubscribe)"
   },
   "event_listeners": [
