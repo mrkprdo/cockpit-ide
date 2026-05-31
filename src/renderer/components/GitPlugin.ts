@@ -500,6 +500,11 @@ export class GitPlugin {
     }
   }
 
+  private normalizeStatus(raw: string): string {
+    if (raw === '??' || raw === '?') return 'U';
+    return raw;
+  }
+
   private renderChangesFiles(mode: 'staged' | 'unstaged', files: GitFileChange[], container: HTMLDivElement): void {
     container.innerHTML = '';
     if (files.length === 0) {
@@ -510,11 +515,12 @@ export class GitPlugin {
       return;
     }
     for (const file of files) {
+      const displayStatus = this.normalizeStatus(file.status);
       const el = document.createElement('div');
       el.className = 'git-changes-file' + (file.path === this.selectedFilePath ? ' is-selected' : '');
       const status = document.createElement('span');
-      status.className = 'git-file-status git-status-' + file.status.toLowerCase();
-      status.textContent = file.status;
+      status.className = 'git-file-status git-status-' + displayStatus.toLowerCase();
+      status.textContent = displayStatus;
       const name = document.createElement('span');
       name.className = 'git-file-name';
       name.textContent = file.path;

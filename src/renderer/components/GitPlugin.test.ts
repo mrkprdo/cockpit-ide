@@ -401,6 +401,29 @@ describe('GitPlugin', () => {
       expect(diffLines.length).toBeGreaterThan(0);
     });
 
+    it('clicking an untracked file loads unstaged diff', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const untrackedFile = container.querySelectorAll('.git-changes-file')[2] as HTMLElement;
+      untrackedFile.click();
+      await flush();
+
+      expect(mockElectronAPI.git.unstagedDiff).toHaveBeenCalledWith('/test/repo', 'src/new.ts');
+      const diffLines = container.querySelectorAll('.git-diff-line');
+      expect(diffLines.length).toBeGreaterThan(0);
+    });
+
+    it('shows U status for untracked files', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const unstagedFiles = container.querySelectorAll('.git-changes-file');
+      const statusSpans = unstagedFiles[2].querySelectorAll('.git-file-status');
+      expect(statusSpans.length).toBe(1);
+      expect(statusSpans[0].textContent).toBe('U');
+    });
+
     it('selecting a file from staged shows diff in right panel', async () => {
       new GitPlugin(container, '/test/repo');
       await flush();

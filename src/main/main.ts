@@ -532,7 +532,34 @@ app.whenReady().then(async () => {
     return new Promise(resolve => {
       execFile('git', ['diff', '--', filePath], { cwd: repoPath, maxBuffer: 1024 * 1024 }, (err, stdout) => {
         if (err) { resolve(''); return; }
-        resolve(stdout);
+        if (stdout.trim()) { resolve(stdout); return; }
+        // Empty diff — file may be untracked (new). Check and show full content as addition.
+        execFile('git', ['ls-files', '--error-unmatch', filePath], { cwd: repoPath }, (lsErr) => {
+          if (lsErr) {
+            // File is untracked — read it and build a new-file diff
+            const fullPath = path.resolve(repoPath, filePath);
+            try {
+              const content = fs.readFileSync(fullPath, 'utf-8');
+              const lines = content.split('\n');
+              const lineCount = lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
+              const safePath = filePath.replace(/\\/g, '/');
+              let diff =
+                'diff --git a/' + safePath + ' b/' + safePath + '\n' +
+                'new file mode 100644\n' +
+                'index 0000000..0000000\n' +
+                '--- /dev/null\n' +
+                '+++ b/' + safePath + '\n' +
+                '@@ -0,0 +1,' + lineCount + ' @@\n';
+              diff += lines
+                .filter((_, i) => !(i === lines.length - 1 && lines[i] === ''))
+                .map(l => '+' + l)
+                .join('\n');
+              resolve(diff);
+            } catch { resolve(''); }
+          } else {
+            resolve('');
+          }
+        });
       });
     });
   });
