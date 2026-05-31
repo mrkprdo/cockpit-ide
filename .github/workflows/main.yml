@@ -30,17 +30,7 @@ jobs:
             - name: Generate changelog
               shell: pwsh
               run: |
-                  $lastTag = git describe --tags --abbrev=0 2>$null
-                  if (-not $lastTag) {
-                      $log = git log --oneline --no-decorate -30
-                  } else {
-                      $log = git log "$lastTag..HEAD" --oneline --no-decorate
-                  }
-                  if (-not $log) { $log = "No new commits since last tag" }
-                  $changelog = "## Changes since $($lastTag ?? 'beginning')`n`n$log"
-                  echo "CHANGELOG<<EOF" >> $env:GITHUB_ENV
-                  echo $changelog >> $env:GITHUB_ENV
-                  echo "EOF" >> $env:GITHUB_ENV
+                  $since = "$((Get-Date).AddDays(-1).ToString('yyyy-MM-dd')) 23:56"; $until = "$(Get-Date -Format 'yyyy-MM-dd') 23:55"; $log = git log --oneline --no-decorate --since="$since" --until="$until"; if (-not $log) { $log = "No commits in this window" }; $changelog = "### Commits from $since to $until`n`n$log"; echo "CHANGELOG<<EOF" >> $env:GITHUB_ENV; echo $changelog >> $env:GITHUB_ENV; echo "EOF" >> $env:GITHUB_ENV
 
             - name: Compute version
               shell: pwsh
