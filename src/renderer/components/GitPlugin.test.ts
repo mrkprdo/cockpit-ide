@@ -766,7 +766,15 @@ describe('GitPlugin', () => {
   });
 
   describe('getState', () => {
-    it('getState() returns object with selectedHash', async () => {
+    it('getState() returns null when nothing selected', async () => {
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const state = (git as any).getState();
+      expect(state).toBeNull();
+    });
+
+    it('getState() returns object with selectedHash and splitter sizes', async () => {
       const git = new GitPlugin(container, '/test/repo');
       await flush();
 
@@ -777,6 +785,8 @@ describe('GitPlugin', () => {
       const state = (git as any).getState();
       expect(state).not.toBeNull();
       expect(state.selectedCommitHash).not.toBeUndefined();
+      expect(typeof state.leftColWidth).toBe('number');
+      expect(typeof state.topPanelHeight).toBe('number');
     });
   });
 
@@ -792,6 +802,22 @@ describe('GitPlugin', () => {
           diffViewMode: 'unified',
         });
       }).not.toThrow();
+    });
+
+    it('restoreState restores splitter sizes', async () => {
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+
+      await (git as any).restoreState({
+        selectedCommitHash: null,
+        selectedFilePath: null,
+        diffViewMode: 'unified',
+        leftColWidth: 180,
+        topPanelHeight: 200,
+      });
+
+      expect((git as any).leftCol.style.width).toBe('180px');
+      expect((git as any).topPanel.style.height).toBe('200px');
     });
   });
 

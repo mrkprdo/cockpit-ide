@@ -13,8 +13,8 @@
       "fitview_btn": "button.card-btn.card-btn-fitview (width:22px; height:22px; border:none; background:transparent; cursor:pointer; opacity:0.5; hover:opacity:1)",
       "terminate_btn": "button.card-btn.card-btn-terminate (width:22px; height:22px; border:none; background:transparent; cursor:pointer; opacity:0.5; hover:opacity:1; color:var(--red))",
       "body": ".card-body (flex:1; overflow:hidden; position:relative)",
-      "resize_e": ".card-edge.card-edge-e (position:absolute; right:0; top:0; bottom:16px; width:4px; cursor:ew-resize)",
-      "resize_s": ".card-edge.card-edge-s (position:absolute; bottom:0; left:0; right:16px; height:4px; cursor:ns-resize)",
+      "resize_e": ".card-edge.card-edge-e (position:absolute; right:0; top:0; bottom:16px; width:3px; cursor:ew-resize)",
+      "resize_s": ".card-edge.card-edge-s (position:absolute; bottom:0; left:0; right:16px; height:3px; cursor:ns-resize)",
       "resize_se": ".card-edge.card-edge-se (position:absolute; right:0; bottom:0; width:16px; height:16px; cursor:nwse-resize)"
     }
   },

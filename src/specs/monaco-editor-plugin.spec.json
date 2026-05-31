@@ -18,6 +18,7 @@
     "constructor": "new MonacoEditorPlugin(container: HTMLElement)",
     "methods": [
       { "name": "openFile", "signature": "(filePath: string) => Promise<void>", "description": "Read file via IPC, create or switch to tab, load into editor" },
+      { "name": "closeActiveTab", "signature": "() => void", "description": "Close the currently active tab" },
       { "name": "closeOtherTabs", "signature": "(filePath: string) => void", "description": "Close all tabs except the one specified" },
       { "name": "closeAllTabs", "signature": "() => void", "description": "Close all open tabs" },
       { "name": "getState", "signature": "() => { openFiles, activeFile, cursors } | null", "description": "Serialize current tab state for persistence" },
@@ -41,7 +42,7 @@
     "tab_drag_reorder": "Drag-and-drop tabs to reorder them via native HTML5 DnD. Visual feedback during drag (opacity on source, border-left indicator on hover target). Triggers onStateChange after reorder.",
     "tab_middle_click_close": "Middle-click (mouse button 1) on any tab closes it without switching.",
     "tab_context_menu": "Right-click on tab opens ContextMenu with: Close, Close Others (keep only this tab), Close All (clear all tabs), Copy File Path (copies full path to clipboard via clipboard:writeText).",
-    "tab_auto_scroll": "Active tab auto-scrolls into view in the tab bar when switching (inline: nearest).",
+    "tab_auto_scroll": "Active tab auto-scrolled into view in the tab bar via manual scrollLeft math (avoids scrollIntoView which can scroll ancestor overflow:hidden containers like #canvas).",
     "tab_dirty_indicator": "Amber dot (●) on tab when file has unsaved changes. Set on content change via onDidChangeModelContent. Cleared on save via saveCurrentFile. Shown via .is-dirty CSS class."
   },
   "external_deps": ["monaco-editor (AMD-loaded via require())"],

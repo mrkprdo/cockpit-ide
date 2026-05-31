@@ -19,6 +19,7 @@
     "constructor": "new ExplorerPlugin(container: HTMLElement, wsPath: string)",
     "methods": [
       { "name": "openFile", "signature": "(filePath: string) => void", "description": "Delegate to editor.openFile()" },
+      { "name": "closeActiveTab", "signature": "() => void", "description": "Delegate to editor.closeActiveTab()" },
       { "name": "openFileSearch", "signature": "() => void", "description": "Create CommandPalette if null, then open it" },
       { "name": "setMarkdownOpeners", "signature": "(labels: string[], callback) => void", "description": "Delegate to file explorer" },
       { "name": "updateTheme", "signature": "() => void", "description": "Forward theme update to Monaco editor" },

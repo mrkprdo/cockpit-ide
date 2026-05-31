@@ -26,9 +26,10 @@ export class App {
         e.preventDefault();
         window.electronAPI?.window.newWindow();
       }
-      // Disable Ctrl+W (browser close tab shortcut)
+      // Ctrl+W / Cmd+W — close active editor tab
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
+        this.canvas.getActiveExplorerPlugin()?.closeActiveTab();
       }
       if (e.ctrlKey && e.key === 'Tab') {
         e.preventDefault();

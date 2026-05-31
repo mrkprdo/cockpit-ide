@@ -671,6 +671,7 @@ export class CanvasArea {
             cs.gitPlugin = git;
             cs.card.onDestroy = () => git.destroy();
             if (p.gitState) {
+              git.applyLayout(p.gitState);
               setTimeout(() => git.restoreState(p.gitState), 500);
             }
           }

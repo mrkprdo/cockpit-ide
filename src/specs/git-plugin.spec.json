@@ -19,8 +19,9 @@
   "interface": {
     "constructor": "new GitPlugin(container: HTMLElement, wsPath: string)",
     "methods": [
-      { "name": "getState", "signature": "() => GitState", "description": "Serialize selected commit hash, file path, and diff view mode" },
-      { "name": "restoreState", "signature": "(state: GitState) => void", "description": "Restore view state from saved session" },
+      { "name": "getState", "signature": "() => GitState", "description": "Serialize selected commit hash, file path, diff view mode, and splitter sizes" },
+      { "name": "applyLayout", "signature": "(state: GitState) => void", "description": "Immediately apply saved splitter sizes without async delay" },
+      { "name": "restoreState", "signature": "(state: GitState) => void", "description": "Restore view state and splitter sizes from saved session" },
       { "name": "refresh", "signature": "() => Promise<void>", "description": "Reload all git data: remotes, branches, commits, staged/unstaged files" },
       { "name": "destroy", "signature": "() => void", "description": "Unlisten file changes, remove DOM" }
     ],
@@ -40,7 +41,7 @@
     "diff_viewer": "Unified and side-by-side modes, green/red line coloring, per-commit per-file diffs",
     "file_tree": "Collapsible tree of changed files per commit with status indicators (A/M/D/R/C)",
     "commit_info": "Panel showing commit hash, author, date, full commit body",
-    "split_layout": "Left: tree/branches/changes (260px). Right: diff viewer with vertical split",
+    "split_layout": "Left: tree/branches/changes (260px default, resizable 120-600px). Right: diff viewer with vertical split (top file tree 150px default, resizable min 40px). Sizes persisted in GitState",
     "auto_refresh": "Re-fetches git state when files change (debounced)"
   },
   "test": "src/renderer/components/GitPlugin.test.ts"

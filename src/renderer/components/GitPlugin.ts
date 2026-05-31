@@ -27,6 +27,8 @@ export type GitState = {
   selectedCommitHash: string | null;
   selectedFilePath: string | null;
   diffViewMode: DiffViewMode;
+  leftColWidth: number;
+  topPanelHeight: number;
 } | null;
 
 export class GitPlugin {
@@ -159,12 +161,27 @@ export class GitPlugin {
       selectedCommitHash: this.selectedCommitHash,
       selectedFilePath: this.selectedFilePath,
       diffViewMode: this.diffViewMode,
+      leftColWidth: this.leftCol.offsetWidth || 260,
+      topPanelHeight: this.topPanel.offsetHeight || 150,
     };
+  }
+
+  /** Apply saved splitter sizes immediately (sync, no delay) */
+  applyLayout(state: GitState): void {
+    if (!state) return;
+    if (state.leftColWidth > 0) {
+      this.leftCol.style.width = state.leftColWidth + 'px';
+    }
+    if (state.topPanelHeight > 0) {
+      this.topPanel.style.flex = 'none';
+      this.topPanel.style.height = state.topPanelHeight + 'px';
+    }
   }
 
   async restoreState(state: GitState): Promise<void> {
     if (!state) return;
     if (state.diffViewMode) this.diffViewMode = state.diffViewMode;
+    this.applyLayout(state);
     if (state.selectedCommitHash && this.commits.some(c => c.hash === state.selectedCommitHash)) {
       await this.selectCommit(state.selectedCommitHash);
       if (state.selectedFilePath) {

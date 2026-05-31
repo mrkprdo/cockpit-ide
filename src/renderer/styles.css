@@ -549,7 +549,7 @@ html, body {
   position: absolute;
   right: 0;
   top: 0;
-  width: 6px;
+  width: 3px;
   height: 100%;
   cursor: ew-resize;
   z-index: 2;
@@ -559,7 +559,7 @@ html, body {
   left: 0;
   bottom: 0;
   width: 100%;
-  height: 6px;
+  height: 3px;
   cursor: ns-resize;
   z-index: 2;
 }
@@ -685,7 +685,7 @@ html, body {
 .editor-tab-bar {
   display: flex;
   align-items: center;
-  height: 30px;
+  height: 36px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   overflow: hidden;
@@ -697,9 +697,15 @@ html, body {
   flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: none;
+  background: transparent;
+  scrollbar-color: transparent transparent;
 }
-.editor-tab-scroll::-webkit-scrollbar { display: none; }
+.editor-tab-scroll:hover {
+  scrollbar-color: var(--border) transparent;
+}
+.editor-tab-scroll::-webkit-scrollbar { height: 6px; }
+.editor-tab-scroll::-webkit-scrollbar-thumb { background: transparent !important; }
+.editor-tab-scroll:hover::-webkit-scrollbar-thumb { background: var(--border) !important; }
 .editor-tab {
   display: flex;
   align-items: center;
@@ -715,9 +721,8 @@ html, body {
   background: transparent;
   user-select: none;
   transition: color 0.1s, background 0.1s;
-  min-width: 60px;
-  max-width: 140px;
   overflow: hidden;
+  width: 120px;
   flex-shrink: 0;
 }
 .editor-tab:hover { background: var(--panel); color: var(--secondary); }
@@ -725,6 +730,7 @@ html, body {
   color: var(--primary);
   background: var(--panel);
   border-top-color: var(--accent);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 .editor-tab-close {
   font-size: var(--text-2xs);

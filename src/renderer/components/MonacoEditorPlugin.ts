@@ -156,10 +156,17 @@ export class MonacoEditorPlugin {
       this.tabContainer.appendChild(tabEl);
     }
 
-    // Auto-scroll active tab into view
+    // Auto-scroll active tab into view (manual scrollLeft to avoid ancestor overflow:hidden scroll)
     const activeEl = this.tabContainer.querySelector('.is-active') as HTMLElement;
     if (activeEl) {
-      activeEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const container = this.tabContainer;
+      const tabLeft = activeEl.offsetLeft;
+      const tabRight = tabLeft + activeEl.offsetWidth;
+      if (tabLeft < container.scrollLeft) {
+        container.scrollLeft = tabLeft;
+      } else if (tabRight > container.scrollLeft + container.clientWidth) {
+        container.scrollLeft = tabRight - container.clientWidth;
+      }
     }
   }
 
@@ -256,6 +263,10 @@ export class MonacoEditorPlugin {
     }
 
     this.renderTabs();
+  }
+
+  closeActiveTab(): void {
+    if (this.activeTab) this.closeTab(this.activeTab);
   }
 
   private closeTab(filePath: string): void {

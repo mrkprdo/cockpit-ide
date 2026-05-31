@@ -90,6 +90,10 @@ export class ExplorerPlugin {
     this.editor.openFile(filePath);
   }
 
+  closeActiveTab(): void {
+    this.editor.closeActiveTab();
+  }
+
   openFileSearch(): void {
     if (this.isHidden()) return;
     if (!this.palette) {
