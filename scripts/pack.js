@@ -32,7 +32,7 @@ function ensureMakensis() {
 }
 
 async function main() {
-  execSync('npm run build', { cwd: root, stdio: 'inherit', shell: true });
+  execSync('npm run build:prod', { cwd: root, stdio: 'inherit', shell: true, env: { ...process.env, NODE_ENV: 'production' } });
 
   const { packager } = require('@electron/packager');
   const appPaths = await packager({

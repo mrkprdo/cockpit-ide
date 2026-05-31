@@ -8,9 +8,16 @@ const vsSrc = path.join(__dirname, '..', 'node_modules', 'monaco-editor', 'min',
 if (fs.existsSync(vsDir)) fs.rmSync(vsDir, { recursive: true, force: true });
 fs.cpSync(vsSrc, vsDir, { recursive: true });
 
+const isProd = process.env.NODE_ENV === 'production';
+
 esbuild.buildSync({
   entryPoints: ['src/renderer/index.ts'],
   bundle: true,
   outfile: 'dist/renderer/index.js',
   format: 'iife',
+  minify: isProd,
+  sourcemap: !isProd,
+  define: {
+    'process.env.NODE_ENV': isProd ? '"production"' : '"development"',
+  },
 });
