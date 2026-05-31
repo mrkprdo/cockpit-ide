@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AboutModal } from './AboutModal';
 
 describe('AboutModal', () => {
@@ -96,5 +96,32 @@ describe('AboutModal', () => {
     (document.querySelector('#about-close') as HTMLElement).click();
 
     expect(count).toBe(1);
+  });
+
+  it('onClose callback is null after close (not called twice)', () => {
+    const modal = new AboutModal();
+    const spy = vi.fn();
+    modal.open(spy);
+
+    const closeBtn = document.querySelector('#about-close') as HTMLElement;
+    closeBtn.click();
+    closeBtn.click();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('design link fires shell:openExternal with https URL', () => {
+    new AboutModal();
+    const link = document.querySelector('#about-design-link') as HTMLElement;
+    link.click();
+    expect((window as any).electronAPI.shell.openExternal).toHaveBeenCalledWith(
+      expect.stringMatching(/^https:\/\//)
+    );
+  });
+
+  it('version info shown from electronAPI.versions', () => {
+    new AboutModal();
+    const el = document.querySelector('.about-modal') as HTMLElement;
+    expect(el.textContent).toContain('dev');
   });
 });

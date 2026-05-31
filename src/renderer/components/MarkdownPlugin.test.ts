@@ -149,4 +149,63 @@ describe('MarkdownPlugin', () => {
     expect(html).not.toContain('href=');        // no clickable link created
     expect(container.textContent).toContain('click');
   });
+
+  describe('multi-tab', () => {
+    it('loadFile for different path adds second tab', async () => {
+      const ctx = new MarkdownPlugin(container);
+      await ctx.loadFile('/test/a.md');
+      await ctx.loadFile('/test/b.md');
+
+      const state = ctx.getState();
+      expect(state).not.toBeNull();
+      expect(state!.openFiles.length).toBe(2);
+    });
+  });
+
+  describe('external file change', () => {
+    it('external file change reloads content', async () => {
+      vi.clearAllMocks();
+      (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+      (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Hello World\n\nThis is a test.');
+
+      const ctx = new MarkdownPlugin(container);
+      await ctx.loadFile('/test/readme.md');
+
+      (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Updated Content\n\nChanged externally.');
+
+      const onChangeCallback = (mockElectronAPI.fs.onChanged as any).mock.calls[0]?.[0];
+      expect(onChangeCallback).toBeTruthy();
+      await onChangeCallback('/test/readme.md');
+
+      expect(container.textContent).toContain('Updated Content');
+    });
+  });
+
+  describe('external link', () => {
+  it('external link renders correctly', async () => {
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('[link](https://example.com)');
+    const ctx = new MarkdownPlugin(container);
+    await ctx.loadFile('/test/link.md');
+
+    const html = container.innerHTML || '';
+    expect(html).toContain('href="https://example.com"');
+    expect(html).toContain('link');
+  });
+  });
+
+  describe('round-trip', () => {
+    it('getState() / restoreState() round-trip preserves files', async () => {
+      const ctx = new MarkdownPlugin(container);
+      await ctx.loadFile('/test/a.md');
+      await ctx.loadFile('/test/b.md');
+
+      const state = ctx.getState();
+      const ctx2 = new MarkdownPlugin(makeContainer());
+      await ctx2.restoreState(state);
+
+      const state2 = ctx2.getState();
+      expect(state2).not.toBeNull();
+      expect(state2!.openFiles).toEqual(state!.openFiles);
+    });
+  });
 });

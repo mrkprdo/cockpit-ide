@@ -14,13 +14,12 @@ describe('TopBar', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     callbacks = {
-      onOpenPreferences: vi.fn(),
+      onGridChange: vi.fn(),
       onThemeToggle: vi.fn(),
       onOpenWorkspace: vi.fn(),
       onNewTerminal: vi.fn(),
       onNewExplorer: vi.fn(),
-      onNewEditor: vi.fn(),
-      onNewExplorer: vi.fn(),
+      onNewGit: vi.fn(),
       onNewMarkdown: vi.fn(),
       onFocusTerminal: vi.fn(),
       onReopenTerminal: vi.fn(),
@@ -33,6 +32,7 @@ describe('TopBar', () => {
       onZoomIn: vi.fn(),
       onZoomOut: vi.fn(),
       onResetView: vi.fn(),
+      onZoomLock: vi.fn(),
     };
   });
 
@@ -170,5 +170,110 @@ describe('TopBar', () => {
     const btn = document.querySelector('#menu-new-markdown') as HTMLElement;
     btn.click();
     expect(callbacks.onNewMarkdown).toHaveBeenCalledOnce();
+  });
+
+  it('clicking "Git" under View menu calls onNewGit', () => {
+    new TopBar(makeTopBarEl(), callbacks);
+    const btn = document.querySelector('#menu-new-git') as HTMLElement;
+    btn.click();
+    expect(callbacks.onNewGit).toHaveBeenCalledOnce();
+  });
+
+  it('clicking "Lock" in Zoom submenu calls onZoomLock(true) when not locked', () => {
+    new TopBar(makeTopBarEl(), callbacks);
+    const btn = document.querySelector('#menu-zoom-lock') as HTMLElement;
+    btn.click();
+    expect(callbacks.onZoomLock).toHaveBeenCalledWith(true);
+  });
+
+  it('setZoomLocked(true) shows check mark next to Lock item', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setZoomLocked(true);
+    const btn = document.querySelector('#menu-zoom-lock') as HTMLElement;
+    expect(btn.textContent).toContain('✓');
+  });
+
+  it('setZoomLocked(false) removes check mark from Lock item', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setZoomLocked(true);
+    bar.setZoomLocked(false);
+    const btn = document.querySelector('#menu-zoom-lock') as HTMLElement;
+    expect(btn.textContent).not.toContain('✓');
+  });
+
+  it('clicking Dot grid option calls onGridChange("dots")', () => {
+    new TopBar(makeTopBarEl(), callbacks);
+    const el = document.querySelector('[data-grid="dots"]') as HTMLElement;
+    el.click();
+    expect(callbacks.onGridChange).toHaveBeenCalledWith('dots');
+  });
+
+  it('clicking Grid option calls onGridChange("grid")', () => {
+    new TopBar(makeTopBarEl(), callbacks);
+    const el = document.querySelector('[data-grid="grid"]') as HTMLElement;
+    el.click();
+    expect(callbacks.onGridChange).toHaveBeenCalledWith('grid');
+  });
+
+  it('clicking None option calls onGridChange("none")', () => {
+    new TopBar(makeTopBarEl(), callbacks);
+    const el = document.querySelector('[data-grid="none"]') as HTMLElement;
+    el.click();
+    expect(callbacks.onGridChange).toHaveBeenCalledWith('none');
+  });
+
+  it('setGridStyle("grid") shows check mark on Grid item', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setGridStyle('grid');
+    const el = document.querySelector('[data-grid="grid"]') as HTMLElement;
+    expect(el.textContent).toContain('✓');
+  });
+
+  it('clicking open markdown instance calls onFocusMarkdown with uuid', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setMarkdownItems([{ uuid: 'md1', title: 'Markdown 1', isOpen: true }]);
+    const inst = document.querySelector('.md-instance') as HTMLElement;
+    inst.click();
+    expect(callbacks.onFocusMarkdown).toHaveBeenCalledWith('md1');
+  });
+
+  it('clicking closed markdown instance calls onReopenMarkdown with uuid', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setMarkdownItems([{ uuid: 'md1', title: 'Markdown 1', isOpen: false }]);
+    const inst = document.querySelector('.md-instance') as HTMLElement;
+    inst.click();
+    expect(callbacks.onReopenMarkdown).toHaveBeenCalledWith('md1');
+  });
+
+  it('clicking open terminal instance calls onFocusTerminal with uuid', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setTerminalItems([{ uuid: 'tid', title: 'Terminal 1', isOpen: true }]);
+    const inst = document.querySelector('.term-instance') as HTMLElement;
+    inst.click();
+    expect(callbacks.onFocusTerminal).toHaveBeenCalledWith('tid');
+  });
+
+  it('clicking closed terminal instance calls onReopenTerminal with uuid', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setTerminalItems([{ uuid: 'tid', title: 'Terminal 1', isOpen: false }]);
+    const inst = document.querySelector('.term-instance') as HTMLElement;
+    inst.click();
+    expect(callbacks.onReopenTerminal).toHaveBeenCalledWith('tid');
+  });
+
+  it('clicking open explorer instance calls onFocusExplorer with uuid', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setExplorerItems([{ uuid: 'eid', title: 'Explorer 1', isOpen: true }]);
+    const inst = document.querySelector('.explorer-instance') as HTMLElement;
+    inst.click();
+    expect(callbacks.onFocusExplorer).toHaveBeenCalledWith('eid');
+  });
+
+  it('clicking closed explorer instance calls onReopenExplorer with uuid', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setExplorerItems([{ uuid: 'eid', title: 'Explorer 1', isOpen: false }]);
+    const inst = document.querySelector('.explorer-instance') as HTMLElement;
+    inst.click();
+    expect(callbacks.onReopenExplorer).toHaveBeenCalledWith('eid');
   });
 });

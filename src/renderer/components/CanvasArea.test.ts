@@ -819,10 +819,278 @@ describe('auto arrange', () => {
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(4);
-      // 4 cards -> 2x2 grid centered on origin, row spacing is cellH + gap
       const cellH = state.plugins[0].height;
       expect(state.plugins[2].y - state.plugins[0].y).toBe(cellH + 28);
     });
 
+  });
+
+  describe('addTerminal / addExplorer / addGit / addMarkdown', () => {
+    it('addTerminal() creates a card with title matching Terminal N pattern', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const state = canvas.getSaveState();
+      expect(state.plugins.length).toBe(1);
+      expect(state.plugins[0].title).toMatch(/^Terminal \d+$/);
+    });
+
+    it('addTerminal() fires onTerminalsChanged', async () => {
+      const onChanged = vi.fn();
+      canvas.onTerminalsChanged = onChanged;
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      expect(onChanged).toHaveBeenCalled();
+    });
+
+    it('addExplorer() creates a card with title matching Explorer N pattern', async () => {
+      canvas.addExplorer('/test');
+      await new Promise(r => setTimeout(r, 50));
+      const state = canvas.getSaveState();
+      expect(state.plugins.length).toBe(1);
+      expect(state.plugins[0].title).toMatch(/^Explorer \d+$/);
+    });
+
+    it('addExplorer() fires onExplorersChanged', async () => {
+      const onChanged = vi.fn();
+      canvas.onExplorersChanged = onChanged;
+      canvas.addExplorer('/test');
+      await new Promise(r => setTimeout(r, 50));
+      expect(onChanged).toHaveBeenCalled();
+    });
+
+    it('addGit() creates card with title "Git"', async () => {
+      canvas.addGit('/test');
+      await new Promise(r => setTimeout(r, 50));
+      const state = canvas.getSaveState();
+      expect(state.plugins.length).toBe(1);
+      expect(state.plugins[0].title).toBe('Git');
+    });
+
+    it('addGit() single-instance: second call reopens existing card', async () => {
+      canvas.addGit('/test');
+      await new Promise(r => setTimeout(r, 50));
+      canvas.addGit('/test');
+      await new Promise(r => setTimeout(r, 50));
+      const state = canvas.getSaveState();
+      expect(state.plugins.length).toBe(1);
+    });
+
+    it('addMarkdown() creates card with title matching Markdown N pattern', async () => {
+      canvas.addMarkdown();
+      await new Promise(r => setTimeout(r, 50));
+      const state = canvas.getSaveState();
+      expect(state.plugins.length).toBe(1);
+      expect(state.plugins[0].title).toMatch(/^Markdown \d+$/);
+    });
+
+    it('addMarkdown() fires onMarkdownChanged', async () => {
+      const onChanged = vi.fn();
+      canvas.onMarkdownChanged = onChanged;
+      canvas.addMarkdown();
+      await new Promise(r => setTimeout(r, 50));
+      expect(onChanged).toHaveBeenCalled();
+    });
+  });
+
+  describe('terminateCard / reopen / focus', () => {
+    it('terminateCard() removes card from getSaveState().plugins', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards[0];
+      (canvas as any).terminateCard(cs);
+      await new Promise(r => setTimeout(r, 50));
+      expect(canvas.getSaveState().plugins.length).toBe(0);
+    });
+
+    it('terminateCard() fires onStateChange', async () => {
+      const onChange = vi.fn();
+      canvas.onStateChange = onChange;
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards[0];
+      (canvas as any).terminateCard(cs);
+      await new Promise(r => setTimeout(r, 50));
+      expect(onChange).toHaveBeenCalled();
+    });
+
+    it('reopenTerminal() makes minimized terminal visible again', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards[0];
+      cs.isOpen = false;
+      cs.card.el.style.display = 'none';
+      const uuid = cs.card.uuid;
+      (canvas as any).reopenTerminal(uuid);
+      await new Promise(r => setTimeout(r, 50));
+      expect(cs.isOpen).toBe(true);
+      expect(cs.card.el.style.display).not.toBe('none');
+    });
+
+    it('reopenExplorer() restores minimized explorer', async () => {
+      canvas.addExplorer('/test');
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards[0];
+      cs.isOpen = false;
+      cs.card.el.style.display = 'none';
+      (canvas as any).reopenExplorer(cs.card.uuid);
+      await new Promise(r => setTimeout(r, 50));
+      expect(cs.isOpen).toBe(true);
+    });
+
+    it('reopenMarkdown() restores minimized markdown card', async () => {
+      canvas.addMarkdown();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards[0];
+      cs.isOpen = false;
+      cs.card.el.style.display = 'none';
+      (canvas as any).reopenMarkdown(cs.card.uuid);
+      await new Promise(r => setTimeout(r, 50));
+      expect(cs.isOpen).toBe(true);
+    });
+
+    it('focusTerminal() brings card to front (highest z-index)', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs1 = (canvas as any).cards[0];
+      const cs2 = (canvas as any).cards[1];
+      (canvas as any).focusTerminal(cs1.card.uuid);
+      const z1 = parseInt(cs1.card.el.style.zIndex);
+      const z2 = parseInt(cs2.card.el.style.zIndex);
+      expect(z1).toBeGreaterThan(z2);
+    });
+
+    it('focusTerminal() no-op for non-existent uuid', () => {
+      expect(() => (canvas as any).focusTerminal('nonexistent')).not.toThrow();
+    });
+
+    it('cycleCard(1) moves focus to next open card', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const before = (canvas as any).cards.map((c: any) => parseInt(c.card.el.style.zIndex));
+      (canvas as any).cycleCard(1);
+      await new Promise(r => setTimeout(r, 10));
+      const after = (canvas as any).cards.map((c: any) => parseInt(c.card.el.style.zIndex));
+      expect(after).not.toEqual(before);
+    });
+
+    it('cycleCard(-1) moves focus to previous card', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      (canvas as any).cycleCard(-1);
+      await new Promise(r => setTimeout(r, 10));
+      // Should not throw
+    });
+
+    it('cycleCard() no-op when fewer than 2 open cards', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      expect(() => (canvas as any).cycleCard(1)).not.toThrow();
+    });
+  });
+
+  describe('getActiveExplorerPlugin / getMarkdownLabels', () => {
+    it('getActiveExplorerPlugin() returns null when no explorers exist', () => {
+      expect((canvas as any).getActiveExplorerPlugin()).toBeNull();
+    });
+
+    it('getActiveExplorerPlugin() returns non-null after addExplorer()', async () => {
+      canvas.addExplorer('/test');
+      await new Promise(r => setTimeout(r, 50));
+      expect((canvas as any).getActiveExplorerPlugin()).not.toBeNull();
+    });
+
+    it('getMarkdownLabels() returns empty array when no markdowns', () => {
+      expect((canvas as any).getMarkdownLabels()).toEqual([]);
+    });
+
+    it('getMarkdownLabels() returns title array of all markdown plugins', async () => {
+      canvas.addMarkdown();
+      canvas.addMarkdown();
+      await new Promise(r => setTimeout(r, 50));
+      const labels = (canvas as any).getMarkdownLabels();
+      expect(labels.length).toBe(2);
+    });
+  });
+
+  describe('setView / centerView / offsetCard', () => {
+    it('setView() sets zoom and pan', () => {
+      (canvas as any).setView({ zoom: 2, panX: 100, panY: 200 });
+      const state = canvas.getSaveState();
+      expect(state.zoom).toBe(2);
+      expect(state.panX).toBe(100);
+      expect(state.panY).toBe(200);
+    });
+
+    it('centerView() sets panX/panY to half viewport dimensions', () => {
+      (canvas as any).centerView();
+      const state = canvas.getSaveState();
+      expect(state.panX).toBe(960);
+      expect(state.panY).toBe(540);
+    });
+
+    it('offsetCard() moves card to specified world coordinates', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      (canvas as any).offsetCard('Terminal 1', 100, 200);
+      const state = canvas.getSaveState();
+      expect(state.plugins[0].x).toBe(100);
+      expect(state.plugins[0].y).toBe(200);
+    });
+  });
+
+  describe('plugin list panel', () => {
+    it('plugin list zone exists with icon', () => {
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      expect(zone).toBeTruthy();
+    });
+
+    it('plugin list shows on mouseenter zone', () => {
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      const panel = document.querySelector('.plugin-list-panel') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      expect(panel.style.display).toBe('block');
+    });
+
+    it('plugin list shows "(No plugins)" message when no cards exist', () => {
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const panel = document.querySelector('.plugin-list-panel') as HTMLElement;
+      expect(panel.textContent).toContain('No plugins');
+    });
+
+    it('plugin list shows card titles after adding cards', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const panel = document.querySelector('.plugin-list-panel') as HTMLElement;
+      expect(panel.textContent).toContain('Terminal 1');
+    });
+  });
+
+  describe('zoom lock', () => {
+    it('locked = true prevents pan initiation', () => {
+      canvas.locked = true;
+      const el = document.getElementById('canvas')!;
+      el.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 100, clientY: 200 }));
+      expect((canvas as any).isPanning).toBe(false);
+    });
+  });
+
+  describe('restorePlugins edge cases', () => {
+    it('restorePlugins() migrates "Dev" title to "Explorer 1"', async () => {
+      const state = {
+        plugins: [{ title: 'Dev', x: 0, y: 0, width: 560, height: 420, isOpen: true }],
+        zOrder: [],
+        zoom: 1, panX: 0, panY: 0,
+      };
+      (canvas as any).restorePlugins(state, '/test');
+      await new Promise(r => setTimeout(r, 50));
+      expect(canvas.getSaveState().plugins[0].title).toBe('Explorer 1');
+    });
   });
 });

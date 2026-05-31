@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TerminalPlugin } from './TerminalPlugin';
+import { mockElectronAPI } from '../../test/setup';
 
 function makeContainer(): HTMLElement {
   const el = document.createElement('div');
@@ -53,5 +54,42 @@ describe('TerminalPlugin', () => {
     term.onExit = onExit;
     term.onExit?.();
     expect(onExit).toHaveBeenCalledOnce();
+  });
+
+  it('constructor calls terminal:create IPC with uuid on construction', () => {
+    (mockElectronAPI.terminal.create as any).mockClear();
+    new TerminalPlugin(container, 'test-uuid', '/cwd');
+    expect(mockElectronAPI.terminal.create).toHaveBeenCalledWith('test-uuid', '/cwd');
+  });
+
+  it('constructor calls terminal:create without cwd when not provided', () => {
+    (mockElectronAPI.terminal.create as any).mockClear();
+    new TerminalPlugin(container, 'test-uuid');
+    expect(mockElectronAPI.terminal.create).toHaveBeenCalledWith('test-uuid', undefined);
+  });
+
+  it('destroy() calls terminal:kill IPC', () => {
+    (mockElectronAPI.terminal.kill as any).mockClear();
+    const term = new TerminalPlugin(container, 'test-uuid');
+    term.destroy();
+    expect(mockElectronAPI.terminal.kill).toHaveBeenCalledWith('test-uuid');
+  });
+
+  it('onExit fires when terminal:exit IPC fires for matching uuid', () => {
+    const onExit = vi.fn();
+    const term = new TerminalPlugin(container, 'test-uuid');
+    term.onExit = onExit;
+    const exitCallback = (mockElectronAPI.terminal.onExit as any).mock.calls[0][0];
+    exitCallback('test-uuid');
+    expect(onExit).toHaveBeenCalled();
+  });
+
+  it('onExit does NOT fire when terminal:exit fires for different uuid', () => {
+    const onExit = vi.fn();
+    const term = new TerminalPlugin(container, 'test-uuid');
+    term.onExit = onExit;
+    const exitCallback = (mockElectronAPI.terminal.onExit as any).mock.calls[0][0];
+    exitCallback('different-uuid');
+    expect(onExit).not.toHaveBeenCalled();
   });
 });

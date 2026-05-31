@@ -848,4 +848,34 @@ describe('main.ts IPC handlers', () => {
       expect(onMap.has('terminal:kill')).toBe(true);
     });
   });
+
+  describe('git handler registration', () => {
+    const gitChannels = [
+      'git:remotes', 'git:branches', 'git:checkout', 'git:log',
+      'git:showTree', 'git:diff', 'git:currentBranch', 'git:stagedFiles',
+      'git:unstagedFiles', 'git:stagedDiff', 'git:unstagedDiff',
+      'git:commitBody', 'git:stage', 'git:unstage', 'git:commit',
+      'git:push', 'git:checkAhead',
+    ];
+
+    it('all 17 git handlers are registered', () => {
+      for (const ch of gitChannels) {
+        expect(handleMap.has(ch)).toBe(true);
+      }
+      expect(gitChannels.length).toBe(17);
+    });
+  });
+
+  describe('clipboard:writeText handler', () => {
+    it('clipboard:writeText handler is registered', () => {
+      expect(handleMap.has('clipboard:writeText')).toBe(true);
+    });
+
+    it('clipboard:writeText calls electron clipboard.writeText', async () => {
+      const { clipboard } = await import('electron');
+      const handler = handleMap.get('clipboard:writeText')!;
+      await handler({}, 'hello');
+      expect(clipboard.writeText).toHaveBeenCalledWith('hello');
+    });
+  });
 });

@@ -194,4 +194,53 @@ describe('App', () => {
     expect(mockElectronAPI.workspace.getPath).toHaveBeenCalled();
     expect(mockElectronAPI.workspace.load).toHaveBeenCalledWith('/cli/path');
   });
+
+  it('Ctrl+P does not throw even with no active explorer plugin', () => {
+    new App();
+    const event = new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true });
+    expect(() => document.dispatchEvent(event)).not.toThrow();
+  });
+
+  it('Cmd+P does not throw even with no active explorer plugin', () => {
+    new App();
+    const event = new KeyboardEvent('keydown', { key: 'p', metaKey: true, bubbles: true });
+    expect(() => document.dispatchEvent(event)).not.toThrow();
+  });
+
+  it('trySave does not call workspace:save if state is identical', async () => {
+    const app = new App();
+    await new Promise(r => setTimeout(r, 500));
+    (mockElectronAPI.workspace.save as any).mockClear();
+    (app as any).lastSaved = '';
+    (app as any).canvas.onStateChange?.();
+    (app as any).canvas.onStateChange?.();
+    await new Promise(r => setTimeout(r, 50));
+    expect(mockElectronAPI.workspace.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('trySave calls workspace:save when state changes', async () => {
+    const app = new App();
+    await new Promise(r => setTimeout(r, 500));
+    (mockElectronAPI.workspace.save as any).mockClear();
+    (app as any).lastSaved = '';
+    (app as any).canvas.onStateChange?.();
+    await new Promise(r => setTimeout(r, 50));
+    expect(mockElectronAPI.workspace.save).toHaveBeenCalled();
+  });
+
+  it('tutorial starts when showTutorial pref is not false', async () => {
+    (mockElectronAPI.prefs.load as any).mockResolvedValue({ gridStyle: 'dots', isDark: true, showTutorial: true });
+    new App();
+    await new Promise(r => setTimeout(r, 50));
+    const overlay = document.querySelector('.tutorial-overlay') as HTMLElement;
+    expect(overlay.style.display).not.toBe('none');
+  });
+
+  it('tutorial skipped when showTutorial pref is false', async () => {
+    (mockElectronAPI.prefs.load as any).mockResolvedValue({ gridStyle: 'dots', isDark: true, showTutorial: false });
+    new App();
+    await new Promise(r => setTimeout(r, 50));
+    const overlay = document.querySelector('.tutorial-overlay') as HTMLElement;
+    expect(overlay.style.display).toBe('none');
+  });
 });

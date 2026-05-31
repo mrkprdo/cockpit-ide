@@ -134,6 +134,27 @@ describe('preload.ts — exposed API shape', () => {
     expect(typeof api.fs.unwatch).toBe('function');
     expect(typeof api.fs.onChanged).toBe('function');
   });
+
+  it('exposes git namespace with all 17 methods', () => {
+    expect(api.git).toBeDefined();
+    expect(typeof api.git.remotes).toBe('function');
+    expect(typeof api.git.branches).toBe('function');
+    expect(typeof api.git.checkout).toBe('function');
+    expect(typeof api.git.log).toBe('function');
+    expect(typeof api.git.showTree).toBe('function');
+    expect(typeof api.git.diff).toBe('function');
+    expect(typeof api.git.currentBranch).toBe('function');
+    expect(typeof api.git.stagedFiles).toBe('function');
+    expect(typeof api.git.unstagedFiles).toBe('function');
+    expect(typeof api.git.stagedDiff).toBe('function');
+    expect(typeof api.git.unstagedDiff).toBe('function');
+    expect(typeof api.git.commitBody).toBe('function');
+    expect(typeof api.git.stage).toBe('function');
+    expect(typeof api.git.unstage).toBe('function');
+    expect(typeof api.git.commit).toBe('function');
+    expect(typeof api.git.push).toBe('function');
+    expect(typeof api.git.checkAhead).toBe('function');
+  });
 });
 
 describe('preload.ts — IPC wiring (invoke-based)', () => {
@@ -320,6 +341,60 @@ describe('preload.ts — IPC wiring (invoke-based)', () => {
     invokeCalls.length = 0;
     api.fs.unwatch();
     expect(invokeCalls.some(c => c[0] === 'file:unwatch')).toBe(true);
+  });
+
+  it('git.remotes invokes git:remotes with repoPath', () => {
+    invokeCalls.length = 0;
+    api.git.remotes('/repo');
+    expect(invokeCalls.some(c => c[0] === 'git:remotes' && c[1] === '/repo')).toBe(true);
+  });
+
+  it('git.branches invokes git:branches', () => {
+    invokeCalls.length = 0;
+    api.git.branches('/repo');
+    expect(invokeCalls.some(c => c[0] === 'git:branches' && c[1] === '/repo')).toBe(true);
+  });
+
+  it('git.checkout invokes git:checkout with repoPath and branch', () => {
+    invokeCalls.length = 0;
+    api.git.checkout('/repo', 'main');
+    expect(invokeCalls.some(c => c[0] === 'git:checkout' && c[1] === '/repo' && c[2] === 'main')).toBe(true);
+  });
+
+  it('git.log invokes git:log with repoPath and optional maxCount', () => {
+    invokeCalls.length = 0;
+    api.git.log('/repo', 30);
+    expect(invokeCalls.some(c => c[0] === 'git:log' && c[1] === '/repo' && c[2] === 30)).toBe(true);
+  });
+
+  it('git.stage invokes git:stage', () => {
+    invokeCalls.length = 0;
+    api.git.stage('/repo', 'file.ts');
+    expect(invokeCalls.some(c => c[0] === 'git:stage' && c[1] === '/repo' && c[2] === 'file.ts')).toBe(true);
+  });
+
+  it('git.unstage invokes git:unstage', () => {
+    invokeCalls.length = 0;
+    api.git.unstage('/repo', 'file.ts');
+    expect(invokeCalls.some(c => c[0] === 'git:unstage' && c[1] === '/repo' && c[2] === 'file.ts')).toBe(true);
+  });
+
+  it('git.commit invokes git:commit', () => {
+    invokeCalls.length = 0;
+    api.git.commit('/repo', 'msg');
+    expect(invokeCalls.some(c => c[0] === 'git:commit' && c[1] === '/repo' && c[2] === 'msg')).toBe(true);
+  });
+
+  it('git.push invokes git:push', () => {
+    invokeCalls.length = 0;
+    api.git.push('/repo');
+    expect(invokeCalls.some(c => c[0] === 'git:push' && c[1] === '/repo')).toBe(true);
+  });
+
+  it('git.checkAhead invokes git:checkAhead', () => {
+    invokeCalls.length = 0;
+    api.git.checkAhead('/repo');
+    expect(invokeCalls.some(c => c[0] === 'git:checkAhead' && c[1] === '/repo')).toBe(true);
   });
 });
 

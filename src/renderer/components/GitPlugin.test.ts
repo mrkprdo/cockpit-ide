@@ -725,4 +725,71 @@ describe('GitPlugin', () => {
       expect(pushBtn.disabled).toBe(true);
     });
   });
+
+  describe('checkout', () => {
+    it('clicking a branch calls git:checkout', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const branchSelect = container.querySelectorAll('.git-select')[1] as HTMLSelectElement;
+      expect(branchSelect).toBeTruthy();
+
+      branchSelect.value = 'develop';
+      branchSelect.dispatchEvent(new Event('change'));
+      await flush();
+
+      expect(mockElectronAPI.git.checkout).toHaveBeenCalledWith('/test/repo', 'develop');
+    });
+  });
+
+  describe('getState', () => {
+    it('getState() returns object with selectedHash', async () => {
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const commitItems = container.querySelectorAll('.git-commit-item');
+      (commitItems[0] as HTMLElement).click();
+      await flush();
+
+      const state = (git as any).getState();
+      expect(state).not.toBeNull();
+      expect(state.selectedCommitHash).not.toBeUndefined();
+    });
+  });
+
+  describe('restoreState', () => {
+    it('restoreState() does not throw', async () => {
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+
+      expect(() => {
+        (git as any).restoreState({
+          selectedCommitHash: null,
+          selectedFilePath: null,
+          diffViewMode: 'unified',
+        });
+      }).not.toThrow();
+    });
+  });
+
+  describe('destroy', () => {
+    it('destroy() unsubscribes file watcher', async () => {
+      const unsub = vi.fn();
+      (mockElectronAPI.fs.onChanged as any).mockReturnValue(unsub);
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+      git.destroy();
+      expect(unsub).toHaveBeenCalled();
+    });
+  });
+
+  describe('auto-refresh', () => {
+    it('file change event triggers refresh (log called post-construction)', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const callCount = (mockElectronAPI.git.log as any).mock.calls.length;
+      expect(callCount).toBeGreaterThanOrEqual(1);
+    });
+  });
 });

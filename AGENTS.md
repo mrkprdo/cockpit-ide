@@ -10,18 +10,48 @@ Cockpit IDE v0.0.1 — spatial/floating-panel IDE built in Electron. Monaco edit
 
 ---
 
+## Change Protocol (MANDATORY — applies to every add / fix / update)
+
+Before writing any code, an agent **MUST** complete all three steps below. Skipping any step is not allowed.
+
+> **Spec format reference:** `SPECGEN.md` defines the full JSON schema for every spec tier (root index, feature spec, UI sub-spec), the type/layer taxonomy, and the generation methodology. Read it when writing or updating any `src/specs/*.spec.json` file.
+
+### Step 1 — Read the spec
+
+Find the relevant `src/specs/<feature>.spec.json` (and its `*-ui.spec.json` if it exists). Read it fully. This is the authoritative contract for the feature: public interface, IPC channels, DOM structure, interactions, and states. The spec schema is defined in `SPECGEN.md`.
+
+### Step 2 — Traverse neighboring implementations and shared UI
+
+Identify every neighboring feature and UI element that participates in the same workflow:
+
+- **Caller / callee chain**: who calls into the changed component, and what does it call out to? Check `dependencies` and `referenced_by` in the spec, then read those source files.
+- **Shared UI patterns**: if the change touches a modal, card, context menu, or panel — read at least one peer component that uses the same pattern (e.g., if editing `ConfirmModal`, also read `AboutModal` and `WelcomeModal`). Consistency matters: layout, lifecycle, public interface shape, and interaction behavior must stay coherent across peers.
+- **IPC path**: if the change touches an IPC channel, trace both ends — preload (`preload.ts`) and main (`main.ts`) handler — and verify the spec for each.
+- **Type declarations**: re-read `src/global.d.ts` for any type that crosses the IPC boundary.
+
+### Step 3 — Apply changes with full context
+
+Use the gathered information to make the change. Specifically:
+
+- **Spec first**: if the spec is wrong or incomplete, fix the spec file **before** (or alongside) the source change — not after.
+- **Consistency**: mirror the structure of peer implementations. If similar features have `open()` / `close()` as public/private methods, follow that pattern exactly. Match CSS class naming, DOM nesting depth, event delegation style.
+- **Ripple check**: after the change, re-read the neighboring feature source to confirm no callsite broke silently. Optional chaining (`?.`) hides many failures at runtime — verify the method actually exists where it's called.
+- **Spec update**: update the affected `src/specs/*.spec.json` to reflect any changed interface, IPC channels, DOM structure, or interaction behavior before considering the task done.
+
+> **Why this matters:** Bugs in this codebase have repeatedly come from changes applied without reading peers — wrong method names called via `?.` (silent failure), sync/async mismatches across the IPC boundary, private methods listed in public interfaces, duplicate initialization blocks. The spec+traverse protocol catches these before they ship.
+
+---
+
 ## Project Tree
 
 ```
 D:\cockpit_ide\
 ├── .gitignore                     # Git ignore rules
 ├── AGENTS.md                      # This file — project map
-├── ARCHITECT.md                   # ~360 lines, comprehensive architecture docs
 ├── DESIGN.md                      # Design system: colors, typography, spacing, components
 ├── SPECGEN.md                     # Specs graph format & generation methodology
 ├── LICENSE                        # MIT License
 ├── Makefile                       # Build automation (build/dev/package/test/clean)
-├── PRODUCT.md                     # Product philosophy, target users, design principles
 ├── README.md                      # Project intro, run instructions, stack
 ├── dev.js                         # Custom dev runner (watcher + Electron respawn)
 ├── package.json                   # NPM manifest, dependencies, build/test scripts
@@ -119,9 +149,7 @@ D:\cockpit_ide\
 | File | Description |
 |------|-------------|
 | `README.md` | Project intro: spatial/floating-panel IDE concept, running instructions, stack, design. |
-| `ARCHITECT.md` | Comprehensive architecture doc (~360 lines): startup flow, process model, IPC channels (30+), canvas/card system, plugins, terminal sessions, Monaco loading, file explorer, persistence, theme, build pipeline, design tokens, state management, and notable gaps. |
 | `DESIGN.md` | Design system: Noir palette, Space Mono typography, 8px/4px spacing scale, 8px border radius, component styles (buttons, cards). Art Nouveau x Floating mashup. |
-| `PRODUCT.md` | Product philosophy: target users (vibe coders on small screens), purpose (spatial schematics-viewer), brand personality (precise/quiet/dense), anti-references, 5 design principles. |
 | `SPECGEN.md` | Specs graph format & generation methodology. Defines 3-tier JSON schema (main.spec.json → feature.spec.json → feature-ui.spec.json), feature taxonomy (type + layer), dependency edge format, and 8-phase generation pipeline from source audit. |
 
 ### Scripts & Assets
