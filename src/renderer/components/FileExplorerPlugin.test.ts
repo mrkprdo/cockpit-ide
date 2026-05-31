@@ -423,6 +423,50 @@ describe('FileExplorerPlugin inline input positioning', () => {
     expect(inputRow.style.paddingLeft).toBe('28px');
   });
 
+  it('empty-area context menu includes Paste (disabled when nothing copied)', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    // Right-click on empty area
+    const treeEl = container.querySelector('div') as HTMLElement;
+    treeEl.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    const pasteItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'Paste') as HTMLElement | undefined;
+    expect(pasteItem).toBeTruthy();
+    expect(pasteItem!.classList.contains('ctx-disabled')).toBe(true);
+  });
+
+  it('empty-area context menu Paste is enabled after a file is copied', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    // Copy a file via its context menu
+    const allDivs = Array.from(container.querySelectorAll('div'));
+    const fileEl = allDivs.find(d =>
+      d.textContent?.includes('README.md') && d.style.cursor === 'pointer',
+    );
+    (fileEl as HTMLElement)?.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true }),
+    );
+    await new Promise(r => setTimeout(r, 10));
+    const copyItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'Copy');
+    (copyItem as HTMLElement)?.click();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Now right-click empty area - Paste should be enabled
+    const treeEl = container.querySelector('div') as HTMLElement;
+    treeEl.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    const pasteItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'Paste') as HTMLElement | undefined;
+    expect(pasteItem).toBeTruthy();
+    expect(pasteItem!.classList.contains('ctx-disabled')).toBe(false);
+  });
+
   it('input row at root level still appends at tree end', async () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([
       { name: 'src', isDirectory: true },
@@ -451,5 +495,199 @@ describe('FileExplorerPlugin inline input positioning', () => {
     expect(inputRow.nextElementSibling).toBeNull();
     // Root-level padding stays 12px (depth 0)
     expect(inputRow.style.paddingLeft).toBe('12px');
+  });
+});
+
+describe('FileExplorerPlugin rename', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.fs.rename as any).mockResolvedValue(true);
+    setupReadDir({
+      '/test': [
+        { name: 'src', isDirectory: true },
+        { name: 'README.md', isDirectory: false },
+      ],
+      '/test/src': [
+        { name: 'index.ts', isDirectory: false },
+      ],
+    });
+  });
+
+  async function findFileRow(label: string): Promise<HTMLElement | null> {
+    await new Promise(r => setTimeout(r, 50));
+    const divs = container.querySelectorAll('div');
+    for (const div of divs) {
+      if (div.textContent?.includes(label) && div.style.cursor === 'pointer') {
+        return div as HTMLElement;
+      }
+    }
+    return null;
+  }
+
+  function clickRenameInMenu(): void {
+    const renameItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'Rename');
+    (renameItem as HTMLElement)?.click();
+  }
+
+  it('shows rename input on file when Rename is clicked', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const fileRow = await findFileRow('README.md');
+    expect(fileRow).toBeTruthy();
+
+    fileRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+    clickRenameInMenu();
+    await new Promise(r => setTimeout(r, 10));
+
+    const input = container.querySelector('input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.value).toBe('README.md');
+  });
+
+  it('shows rename input on directory when Rename is clicked', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    // Find src directory
+    const divs = container.querySelectorAll('div');
+    const dirRow = Array.from(divs).find(d =>
+      d.textContent?.includes('src') && d.style.cursor === 'pointer',
+    );
+    expect(dirRow).toBeTruthy();
+
+    dirRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+    clickRenameInMenu();
+    await new Promise(r => setTimeout(r, 10));
+
+    const input = container.querySelector('input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.value).toBe('src');
+  });
+
+  it('hides the original item while rename input is shown', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const fileRow = await findFileRow('README.md');
+    expect(fileRow).toBeTruthy();
+    const originalDisplay = fileRow!.style.display;
+
+    fileRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+    clickRenameInMenu();
+    await new Promise(r => setTimeout(r, 10));
+
+    expect(fileRow!.style.display).toBe('none');
+
+    // Cancel with Escape
+    const input = container.querySelector('input') as HTMLInputElement;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await new Promise(r => setTimeout(r, 10));
+
+    expect(fileRow!.style.display).toBe(originalDisplay);
+    expect(container.querySelector('input')).toBeNull();
+  });
+
+  it('calls fs:rename on Enter with new name', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const fileRow = await findFileRow('README.md');
+    fileRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+    clickRenameInMenu();
+    await new Promise(r => setTimeout(r, 10));
+
+    const input = container.querySelector('input') as HTMLInputElement;
+    input.value = 'NEW_NAME.md';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await new Promise(r => setTimeout(r, 100));
+
+    expect(mockElectronAPI.fs.rename).toHaveBeenCalledWith('/test/README.md', '/test/NEW_NAME.md');
+  });
+
+  it('does not call fs:rename when name is unchanged', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const initialCalls = (mockElectronAPI.fs.rename as any).mock.calls.length;
+
+    const fileRow = await findFileRow('README.md');
+    fileRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+    clickRenameInMenu();
+    await new Promise(r => setTimeout(r, 10));
+
+    // Press Enter without changing the value
+    const input = container.querySelector('input') as HTMLInputElement;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await new Promise(r => setTimeout(r, 100));
+
+    expect((mockElectronAPI.fs.rename as any).mock.calls.length).toBe(initialCalls);
+    // Original item should be visible again
+    const fileRow2 = await findFileRow('README.md');
+    expect(fileRow2).toBeTruthy();
+  });
+
+  it('reloads tree after successful rename', async () => {
+    (mockElectronAPI.fs.readDir as any).mockClear();
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    // readDir was called during construction (initial load)
+    const beforeRename = (mockElectronAPI.fs.readDir as any).mock.calls.length;
+    expect(beforeRename).toBeGreaterThan(0);
+
+    const fileRow = await findFileRow('README.md');
+    fileRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+    clickRenameInMenu();
+    await new Promise(r => setTimeout(r, 10));
+
+    const input = container.querySelector('input') as HTMLInputElement;
+    input.value = 'README2.md';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await new Promise(r => setTimeout(r, 100));
+
+    // readDir should have been called at least once more (tree reloaded)
+    expect((mockElectronAPI.fs.readDir as any).mock.calls.length).toBeGreaterThan(beforeRename);
+    expect(mockElectronAPI.fs.rename).toHaveBeenCalledWith('/test/README.md', '/test/README2.md');
+  });
+
+  it('shows Rename in directory context menu', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const divs = container.querySelectorAll('div');
+    const dirRow = Array.from(divs).find(d =>
+      d.textContent?.includes('src') && d.style.cursor === 'pointer',
+    );
+    dirRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    const renameItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'Rename');
+    expect(renameItem).toBeTruthy();
+  });
+
+  it('shows Rename in file context menu', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const fileRow = await findFileRow('README.md');
+    fileRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    const renameItem = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'Rename');
+    expect(renameItem).toBeTruthy();
   });
 });

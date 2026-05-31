@@ -24,7 +24,7 @@
   },
   "features": {
     "recursive_tree": "Lazy-loaded expand/collapse with directory-first sorting",
-    "context_menus": "File: Copy/Paste/Delete/Open to Markdown. Directory: New File/New Folder/Copy/Paste/Delete",
+    "context_menus": "File: Copy/Paste/Rename/Delete/Open to Markdown. Directory: New File/New Folder/Copy/Paste/Rename/Delete",
     "inline_creation": "Type name in inline input, Enter to commit, Escape to cancel",
     "copy_paste": "Copy stores path, paste with _copy_N numbering for duplicates",
     "delete_confirmation": "ConfirmModal before fs:delete",

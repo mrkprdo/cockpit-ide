@@ -30,13 +30,15 @@ export class FileExplorerPlugin {
     // Stop wheel propagation so canvas doesn't zoom when scrolling the tree
     this.treeEl.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
 
-    // Context menu on empty area: New File
+    // Context menu on empty area: New File + Paste
     this.el.addEventListener('contextmenu', (e) => {
       if (e.target === this.el || e.target === this.treeEl) {
         e.preventDefault();
         new ContextMenu([
           { label: 'New File', action: () => this.createFile(this.rootPath) },
           { label: 'New Folder', action: () => this.createFolder(this.rootPath) },
+          { separator: true },
+          { label: 'Paste', action: () => this.pasteHere(this.rootPath), disabled: !this.copiedPath },
         ], e.clientX, e.clientY);
       }
     });
@@ -153,6 +155,63 @@ export class FileExplorerPlugin {
     await this.refresh();
   }
 
+  private renameItem(item: HTMLElement, fullPath: string): void {
+    const originalName = fullPath.split(/[\\/]/).pop() || '';
+    const sep = fullPath.lastIndexOf('/');
+    const parentDir = fullPath.substring(0, sep);
+    const originalDisplay = item.style.display;
+    item.style.display = 'none';
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 4px';
+    row.style.paddingLeft = item.style.paddingLeft;
+
+    const input = document.createElement('input');
+    input.value = originalName;
+    input.style.cssText =
+      'flex:1;border:1px solid var(--border);outline:none;background:var(--panel);font-size:12px;font-family:"Space Mono","Courier New",monospace;color:var(--primary);padding:1px 4px;border-radius:3px';
+    input.autofocus = true;
+
+    row.appendChild(input);
+    item.parentNode?.insertBefore(row, item.nextSibling);
+
+    input.focus();
+    input.select();
+
+    const commit = async () => {
+      const newName = input.value.trim();
+      if (!newName || newName === originalName) {
+        row.remove();
+        item.style.display = originalDisplay;
+        return;
+      }
+      const newPath = parentDir + '/' + newName;
+      try {
+        const ok = await window.electronAPI?.fs.rename(fullPath, newPath);
+        if (!ok) {
+          window.alert(`Failed to rename ${originalName}.`);
+          row.remove();
+          item.style.display = originalDisplay;
+          return;
+        }
+      } catch (e) {
+        console.error('renameItem error:', e);
+        window.alert(`Failed to rename ${originalName}. An unexpected error occurred.`);
+        row.remove();
+        item.style.display = originalDisplay;
+        return;
+      }
+      row.remove();
+      this.reload();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { e.preventDefault(); row.remove(); item.style.display = originalDisplay; }
+    });
+    input.addEventListener('blur', () => commit());
+  }
+
   private async pasteHere(targetDir: string): Promise<void> {
     if (!this.copiedPath) return;
     const baseName = this.copiedPath.split(/[\\/]/).pop() || 'file';
@@ -235,6 +294,8 @@ export class FileExplorerPlugin {
             { label: 'Copy', action: () => { this.copiedPath = fullPath; } },
             { label: 'Paste', action: () => this.pasteHere(fullPath), disabled: !this.copiedPath },
             { separator: true },
+            { label: 'Rename', action: () => this.renameItem(item, fullPath) },
+            { separator: true },
             { label: 'Delete', action: () => this.deletePath(fullPath) },
           ];
           new ContextMenu(items, e.clientX, e.clientY);
@@ -290,6 +351,8 @@ export class FileExplorerPlugin {
               });
             }
           }
+          items.push({ separator: true });
+          items.push({ label: 'Rename', action: () => this.renameItem(item, fullPath) });
           items.push({ separator: true });
           items.push({ label: 'Delete', action: () => this.deletePath(fullPath) });
           new ContextMenu(items, e.clientX, e.clientY);
