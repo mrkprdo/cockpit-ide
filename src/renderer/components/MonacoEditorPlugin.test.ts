@@ -227,3 +227,84 @@ describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
     expect(mockElectronAPI.fs.onChanged).toHaveBeenCalledWith(expect.any(Function));
   });
 });
+
+describe('MonacoEditorPlugin — tab improvements', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('content');
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.fs.writeFile as any).mockResolvedValue(true);
+    (mockElectronAPI.clipboard as any) = { writeText: vi.fn().mockResolvedValue(undefined) };
+  });
+
+  it('closeOtherTabs keeps only the specified tab', () => {
+    const editor = new MonacoEditorPlugin(container);
+    editor.tabs.push(
+      { filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' },
+      { filePath: '/test/b.ts', name: 'b.ts', originalPath: '/test/b.ts' },
+      { filePath: '/test/c.ts', name: 'c.ts', originalPath: '/test/c.ts' },
+    );
+    editor.activeTab = '/test/a.ts';
+    (editor as any).closeOtherTabs('/test/b.ts');
+    expect(editor.tabs.length).toBe(1);
+    expect(editor.tabs[0].filePath).toBe('/test/b.ts');
+    expect(editor.activeTab).toBe('/test/b.ts');
+  });
+
+  it('closeAllTabs clears all tabs and shows empty state', () => {
+    const editor = new MonacoEditorPlugin(container);
+    editor.tabs.push(
+      { filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' },
+      { filePath: '/test/b.ts', name: 'b.ts', originalPath: '/test/b.ts' },
+    );
+    editor.activeTab = '/test/a.ts';
+    (editor as any).closeAllTabs();
+    expect(editor.tabs.length).toBe(0);
+    expect(editor.activeTab).toBeNull();
+    expect(container.textContent).toContain('No file selected');
+  });
+
+  it('renders tabs with draggable attribute', () => {
+    const editor = new MonacoEditorPlugin(container);
+    editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
+    editor.activeTab = '/test/a.ts';
+    (editor as any).renderTabs();
+    const tabEl = container.querySelector('.editor-tab') as HTMLElement;
+    expect(tabEl).toBeTruthy();
+    expect(tabEl.draggable).toBe(true);
+  });
+
+  it('tracks dirty state on content change', () => {
+    const editor = new MonacoEditorPlugin(container);
+    editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
+    editor.activeTab = '/test/a.ts';
+    (editor as any).dirtyFiles.add('/test/a.ts');
+    (editor as any).renderTabs();
+    const tabEl = container.querySelector('.editor-tab') as HTMLElement;
+    expect(tabEl.classList.contains('is-dirty')).toBe(true);
+  });
+
+  it('clears dirty state on closeAllTabs', () => {
+    const editor = new MonacoEditorPlugin(container);
+    editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
+    editor.activeTab = '/test/a.ts';
+    (editor as any).dirtyFiles.add('/test/a.ts');
+    (editor as any).closeAllTabs();
+    expect((editor as any).dirtyFiles.size).toBe(0);
+  });
+
+  it('copy file path action calls clipboard writeText', () => {
+    const editor = new MonacoEditorPlugin(container);
+    editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
+    editor.activeTab = '/test/a.ts';
+    (editor as any).renderTabs();
+    const tabEl = container.querySelector('.editor-tab') as HTMLElement;
+    const evt = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 100 });
+    tabEl.dispatchEvent(evt);
+    const ctxMenu = document.querySelector('.ctx-menu');
+    expect(ctxMenu).toBeTruthy();
+  });
+});

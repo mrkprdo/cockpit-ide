@@ -715,6 +715,10 @@ html, body {
   background: transparent;
   user-select: none;
   transition: color 0.1s, background 0.1s;
+  min-width: 60px;
+  max-width: 140px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 .editor-tab:hover { background: var(--panel); color: var(--secondary); }
 .editor-tab.is-active {
@@ -734,6 +738,22 @@ html, body {
 .editor-tab:hover .editor-tab-close,
 .editor-tab.is-active .editor-tab-close { opacity: 1; }
 .editor-tab-close:hover { background: var(--border); color: var(--primary); }
+.editor-tab.is-dragging { opacity: 0.35; }
+.editor-tab.is-dragover {
+  border-left: 2px solid var(--accent);
+  border-top-color: transparent;
+}
+.editor-tab.is-dirty .editor-tab-name::before {
+  content: '● ';
+  color: var(--amber);
+  font-size: var(--text-2xs);
+}
+.editor-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  min-width: 0;
+}
 .editor-empty {
   padding: 0 12px;
   color: var(--tertiary);

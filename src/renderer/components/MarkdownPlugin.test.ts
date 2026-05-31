@@ -209,3 +209,57 @@ describe('MarkdownPlugin', () => {
     });
   });
 });
+
+describe('MarkdownPlugin — tab improvements', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Hello');
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.clipboard as any) = { writeText: vi.fn().mockResolvedValue(undefined) };
+  });
+
+  it('closeOtherTabs keeps only the specified tab', async () => {
+    const ctx = new MarkdownPlugin(container);
+    await ctx.loadFile('/test/a.md');
+    await ctx.loadFile('/test/b.md');
+    await ctx.loadFile('/test/c.md');
+
+    (ctx as any).closeOtherTabs('/test/b.md');
+    expect((ctx as any).tabs.length).toBe(1);
+    expect((ctx as any).tabs[0].filePath).toBe('/test/b.md');
+    expect((ctx as any).activeTab).toBe('/test/b.md');
+  });
+
+  it('closeAllTabs clears all tabs and shows empty state', async () => {
+    const ctx = new MarkdownPlugin(container);
+    await ctx.loadFile('/test/a.md');
+    await ctx.loadFile('/test/b.md');
+
+    (ctx as any).closeAllTabs();
+    expect((ctx as any).tabs.length).toBe(0);
+    expect((ctx as any).activeTab).toBeNull();
+    expect(container.textContent).toContain('No file loaded');
+  });
+
+  it('renders tabs with draggable attribute', async () => {
+    const ctx = new MarkdownPlugin(container);
+    await ctx.loadFile('/test/a.md');
+
+    const tabEl = container.querySelector('.editor-tab') as HTMLElement;
+    expect(tabEl).toBeTruthy();
+    expect(tabEl.draggable).toBe(true);
+  });
+
+  it('context menu on tab creates context menu overlay', async () => {
+    const ctx = new MarkdownPlugin(container);
+    await ctx.loadFile('/test/a.md');
+
+    const tabEl = container.querySelector('.editor-tab') as HTMLElement;
+    const evt = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 100 });
+    tabEl.dispatchEvent(evt);
+    expect(document.querySelector('.ctx-menu')).toBeTruthy();
+  });
+});

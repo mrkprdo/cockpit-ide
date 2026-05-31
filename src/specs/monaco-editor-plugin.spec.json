@@ -6,7 +6,9 @@
   "layer": "plugin",
   "singleton": false,
   "exports": ["MonacoEditorPlugin"],
-  "dependencies": [],
+  "dependencies": [
+    { "feature": "context-menu", "file": "ContextMenu.ts", "usage": "Right-click tab context menu (Close, Close Others, Close All, Copy File Path)" }
+  ],
   "referenced_by": [
     { "feature": "canvas-engine", "file": "CanvasArea.ts" },
     { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" }
@@ -16,6 +18,8 @@
     "constructor": "new MonacoEditorPlugin(container: HTMLElement)",
     "methods": [
       { "name": "openFile", "signature": "(filePath: string) => Promise<void>", "description": "Read file via IPC, create or switch to tab, load into editor" },
+      { "name": "closeOtherTabs", "signature": "(filePath: string) => void", "description": "Close all tabs except the one specified" },
+      { "name": "closeAllTabs", "signature": "() => void", "description": "Close all open tabs" },
       { "name": "getState", "signature": "() => { openFiles, activeFile, cursors } | null", "description": "Serialize current tab state for persistence" },
       { "name": "restoreState", "signature": "(state: { openFiles, activeFile, cursors }) => Promise<void>", "description": "Restore tabs and cursor positions from saved state" },
       { "name": "updateTheme", "signature": "() => void", "description": "Update Monaco theme to match current dark/light mode" },
@@ -33,7 +37,12 @@
     "auto_save": "1.5s debounced auto-save to disk via IPC on content change",
     "external_change_detection": "fs:onChanged listener — reloads file in editor if it matches an open tab",
     "custom_themes": "cockpit-dark and cockpit-light Monaco themes matching CSS palette",
-    "state_persistence": "Full serialization: openFiles[], activeFile, cursors{filePath: {lineNumber, column, scrollTop}}"
+    "state_persistence": "Full serialization: openFiles[], activeFile, cursors{filePath: {lineNumber, column, scrollTop}}",
+    "tab_drag_reorder": "Drag-and-drop tabs to reorder them via native HTML5 DnD. Visual feedback during drag (opacity on source, border-left indicator on hover target). Triggers onStateChange after reorder.",
+    "tab_middle_click_close": "Middle-click (mouse button 1) on any tab closes it without switching.",
+    "tab_context_menu": "Right-click on tab opens ContextMenu with: Close, Close Others (keep only this tab), Close All (clear all tabs), Copy File Path (copies full path to clipboard via clipboard:writeText).",
+    "tab_auto_scroll": "Active tab auto-scrolls into view in the tab bar when switching (inline: nearest).",
+    "tab_dirty_indicator": "Amber dot (●) on tab when file has unsaved changes. Set on content change via onDidChangeModelContent. Cleared on save via saveCurrentFile. Shown via .is-dirty CSS class."
   },
   "external_deps": ["monaco-editor (AMD-loaded via require())"],
   "test": "src/renderer/components/MonacoEditorPlugin.test.ts"

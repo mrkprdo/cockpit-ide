@@ -6,7 +6,9 @@
   "layer": "plugin",
   "singleton": false,
   "exports": ["MarkdownPlugin", "MarkdownState"],
-  "dependencies": [],
+  "dependencies": [
+    { "feature": "context-menu", "file": "ContextMenu.ts", "usage": "Right-click tab context menu (Close, Close Others, Close All, Copy File Path)" }
+  ],
   "referenced_by": [
     { "feature": "canvas-engine", "file": "CanvasArea.ts" }
   ],
@@ -14,6 +16,8 @@
   "interface": {
     "constructor": "new MarkdownPlugin(container: HTMLElement)",
     "methods": [
+      { "name": "closeOtherTabs", "signature": "(filePath: string) => void", "description": "Close all tabs except the one specified" },
+      { "name": "closeAllTabs", "signature": "() => void", "description": "Close all open tabs" },
       { "name": "loadFile", "signature": "(filePath: string, label?: string) => Promise<void>", "description": "Read .md file, create or switch to tab, render preview" },
       { "name": "getState", "signature": "() => MarkdownState", "description": "Serialize tab state for persistence" },
       { "name": "restoreState", "signature": "(state: MarkdownState) => Promise<void>", "description": "Restore tabs and scroll positions from saved state" },
@@ -30,7 +34,11 @@
     "scroll_tracking": "scrollTops Record stored per filePath, restored on tab switch",
     "external_reload": "fs:onChanged listener — reloads file, preserves scroll if content unchanged",
     "state_migration": "Supports legacy format (single file with filePath/scrollTop fields) and new format (openFiles[], activeFile, scrollTops{})",
-    "error_handling": "Empty files: '<Empty file>', deleted files: error header message, parse errors: catches and shows inline"
+    "error_handling": "Empty files: '<Empty file>', deleted files: error header message, parse errors: catches and shows inline",
+    "tab_drag_reorder": "Drag-and-drop tabs to reorder them via native HTML5 DnD. Visual feedback during drag (opacity on source, border-left indicator on hover target). Triggers onStateChange after reorder.",
+    "tab_middle_click_close": "Middle-click (mouse button 1) on any tab closes it without switching.",
+    "tab_context_menu": "Right-click on tab opens ContextMenu with: Close, Close Others (keep only this tab), Close All (clear all tabs), Copy File Path (copies full path to clipboard via clipboard:writeText).",
+    "tab_auto_scroll": "Active tab auto-scrolls into view in the tab bar when switching (inline: nearest)."
   },
   "external_deps": ["marked (marked, Renderer)"],
   "test": "src/renderer/components/MarkdownPlugin.test.ts"

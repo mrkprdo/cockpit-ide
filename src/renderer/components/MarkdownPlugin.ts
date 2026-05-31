@@ -1,4 +1,5 @@
 import { marked, Renderer } from 'marked';
+import { ContextMenu } from './ContextMenu';
 
 interface Tab { filePath: string; name: string; }
 
@@ -29,6 +30,13 @@ export class MarkdownPlugin {
 
     this.tabContainer = document.createElement('div');
     this.tabContainer.className = 'editor-tab-scroll';
+
+    // Clean up drag visual state when drag ends anywhere
+    document.addEventListener('dragend', () => {
+      this.tabContainer.querySelectorAll('.is-dragging, .is-dragover').forEach(el => {
+        el.classList.remove('is-dragging', 'is-dragover');
+      });
+    });
 
     this.bar.appendChild(this.tabContainer);
     this.el.appendChild(this.bar);
@@ -176,8 +184,10 @@ export class MarkdownPlugin {
       const tabEl = document.createElement('div');
       tabEl.className = 'editor-tab' + (isActive ? ' is-active' : '');
       tabEl.title = tab.filePath;
+      tabEl.draggable = true;
 
       const nameSpan = document.createElement('span');
+      nameSpan.className = 'editor-tab-name';
       nameSpan.textContent = tab.name;
       tabEl.appendChild(nameSpan);
 
@@ -192,9 +202,83 @@ export class MarkdownPlugin {
       });
 
       tabEl.addEventListener('click', () => this.switchTab(tab.filePath));
+
+      // Middle-click to close
+      tabEl.addEventListener('mousedown', (e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          this.closeTab(tab.filePath);
+        }
+      });
+
+      // Drag-and-drop reorder
+      tabEl.addEventListener('dragstart', (e) => {
+        e.dataTransfer?.setData('text/plain', tab.filePath);
+        tabEl.classList.add('is-dragging');
+      });
+      tabEl.addEventListener('dragover', (e) => { e.preventDefault(); });
+      tabEl.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        tabEl.classList.add('is-dragover');
+      });
+      tabEl.addEventListener('dragleave', () => {
+        tabEl.classList.remove('is-dragover');
+      });
+      tabEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        tabEl.classList.remove('is-dragover');
+        const draggedPath = e.dataTransfer?.getData('text/plain');
+        if (!draggedPath || draggedPath === tab.filePath) return;
+        const fromIdx = this.tabs.findIndex(t => t.filePath === draggedPath);
+        const toIdx = this.tabs.findIndex(t => t.filePath === tab.filePath);
+        if (fromIdx === -1 || toIdx === -1) return;
+        const [moved] = this.tabs.splice(fromIdx, 1);
+        this.tabs.splice(toIdx, 0, moved);
+        this.renderTabs();
+      });
+
+      // Right-click context menu
+      tabEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        new ContextMenu([
+          { label: 'Close', action: () => this.closeTab(tab.filePath) },
+          { label: 'Close Others', action: () => this.closeOtherTabs(tab.filePath) },
+          { label: 'Close All', action: () => this.closeAllTabs() },
+          { separator: true },
+          { label: 'Copy File Path', action: () => { window.electronAPI?.clipboard.writeText(tab.filePath); } },
+        ], e.clientX, e.clientY);
+      });
+
       tabEl.appendChild(closeBtn);
       this.tabContainer.appendChild(tabEl);
     }
+
+    // Auto-scroll active tab into view
+    const activeEl = this.tabContainer.querySelector('.is-active') as HTMLElement;
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }
+
+  private closeOtherTabs(filePath: string): void {
+    const lcPath = filePath.replace(/\\/g, '/').toLowerCase();
+    const keep = this.tabs.find(t => t.filePath === lcPath);
+    if (!keep) return;
+    this.tabs = [keep];
+    const keptScroll = this.scrollTops[lcPath] || 0;
+    this.scrollTops = { [lcPath]: keptScroll };
+    this.activeTab = lcPath;
+    this.renderTabs();
+    this.preview.scrollTop = keptScroll;
+  }
+
+  private closeAllTabs(): void {
+    this.tabs = [];
+    this.scrollTops = {};
+    this.activeTab = null;
+    this.preview.innerHTML = '<div class="md-status">No file loaded</div>';
+    this.renderTabs();
   }
 
   private async reloadFile(filePath: string): Promise<void> {

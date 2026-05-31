@@ -1,3 +1,5 @@
+import { ContextMenu } from './ContextMenu';
+
 interface Tab { filePath: string; name: string; originalPath: string; }
 
 // Shared across all instances — bootstraps Monaco globals (CSS, loader.js, themes) exactly once.
@@ -11,6 +13,7 @@ export class MonacoEditorPlugin {
   tabs: Tab[] = [];
   activeTab: string | null = null;
   private fileContents = new Map<string, string>();
+  private dirtyFiles = new Set<string>();
   private editor: any = null;
   private bar: HTMLDivElement;
   private tabContainer: HTMLDivElement;
@@ -33,6 +36,13 @@ export class MonacoEditorPlugin {
     this.tabContainer = document.createElement('div');
     this.tabContainer.className = 'editor-tab-scroll';
     this.tabContainer.id = 'tab-container';
+
+    // Clean up drag visual state when drag ends anywhere
+    document.addEventListener('dragend', () => {
+      this.tabContainer.querySelectorAll('.is-dragging, .is-dragover').forEach(el => {
+        el.classList.remove('is-dragging', 'is-dragover');
+      });
+    });
 
     this.bar.appendChild(this.tabContainer);
     this.el.appendChild(this.bar);
@@ -71,9 +81,11 @@ export class MonacoEditorPlugin {
 
     for (const tab of this.tabs) {
       const isActive = tab.filePath === this.activeTab;
+      const isDirty = this.dirtyFiles.has(tab.filePath);
       const tabEl = document.createElement('div');
-      tabEl.className = isActive ? 'editor-tab is-active' : 'editor-tab';
+      tabEl.className = 'editor-tab' + (isActive ? ' is-active' : '') + (isDirty ? ' is-dirty' : '');
       tabEl.title = tab.filePath;
+      tabEl.draggable = true;
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'editor-tab-name';
@@ -90,8 +102,63 @@ export class MonacoEditorPlugin {
       });
 
       tabEl.addEventListener('click', () => this.switchTab(tab.filePath));
+
+      // Middle-click to close
+      tabEl.addEventListener('mousedown', (e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          this.closeTab(tab.filePath);
+        }
+      });
+
+      // Drag-and-drop reorder
+      tabEl.addEventListener('dragstart', (e) => {
+        e.dataTransfer?.setData('text/plain', tab.filePath);
+        tabEl.classList.add('is-dragging');
+      });
+      tabEl.addEventListener('dragover', (e) => { e.preventDefault(); });
+      tabEl.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        tabEl.classList.add('is-dragover');
+      });
+      tabEl.addEventListener('dragleave', () => {
+        tabEl.classList.remove('is-dragover');
+      });
+      tabEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        tabEl.classList.remove('is-dragover');
+        const draggedPath = e.dataTransfer?.getData('text/plain');
+        if (!draggedPath || draggedPath === tab.filePath) return;
+        const fromIdx = this.tabs.findIndex(t => t.filePath === draggedPath);
+        const toIdx = this.tabs.findIndex(t => t.filePath === tab.filePath);
+        if (fromIdx === -1 || toIdx === -1) return;
+        const [moved] = this.tabs.splice(fromIdx, 1);
+        this.tabs.splice(toIdx, 0, moved);
+        this.renderTabs();
+        this.onStateChange?.();
+      });
+
+      // Right-click context menu
+      tabEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        new ContextMenu([
+          { label: 'Close', action: () => this.closeTab(tab.filePath) },
+          { label: 'Close Others', action: () => this.closeOtherTabs(tab.filePath) },
+          { label: 'Close All', action: () => this.closeAllTabs() },
+          { separator: true },
+          { label: 'Copy File Path', action: () => { window.electronAPI?.clipboard.writeText(tab.originalPath); } },
+        ], e.clientX, e.clientY);
+      });
+
       tabEl.appendChild(closeBtn);
       this.tabContainer.appendChild(tabEl);
+    }
+
+    // Auto-scroll active tab into view
+    const activeEl = this.tabContainer.querySelector('.is-active') as HTMLElement;
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
   }
 
@@ -192,6 +259,7 @@ export class MonacoEditorPlugin {
     if (idx === -1) return;
     this.tabs.splice(idx, 1);
     this.fileContents.delete(lcPath);
+    this.dirtyFiles.delete(lcPath);
 
     if (this.activeTab === lcPath) {
       if (this.tabs.length > 0) {
@@ -206,6 +274,40 @@ export class MonacoEditorPlugin {
       this.renderTabs();
     }
     this.onStateChange?.();
+  }
+
+  private closeOtherTabs(filePath: string): void {
+    const lcPath = filePath.replace(/\\/g, '/').toLowerCase();
+    const keep = this.tabs.find(t => t.filePath === lcPath);
+    if (!keep) return;
+    this.tabs = [keep];
+    const keptContent = this.fileContents.get(lcPath) || '';
+    this.fileContents.clear();
+    this.fileContents.set(lcPath, keptContent);
+    this.dirtyFiles.clear();
+    this.savedCursors = {};
+    this.activeTab = lcPath;
+    if (this.editor) this.editor.setValue(keptContent);
+    this.renderTabs();
+    this.onStateChange?.();
+  }
+
+  private closeAllTabs(): void {
+    this.tabs = [];
+    this.fileContents.clear();
+    this.dirtyFiles.clear();
+    this.savedCursors = {};
+    this.activeTab = null;
+    if (this.editor) this.editor.setValue('');
+    this.renderTabs();
+    this.onStateChange?.();
+  }
+
+  private updateDirtyState(): void {
+    const activeEl = this.tabContainer.querySelector('.editor-tab.is-active');
+    if (activeEl && this.activeTab) {
+      activeEl.classList.toggle('is-dirty', this.dirtyFiles.has(this.activeTab));
+    }
   }
 
   getCurrentFile(): string { return this.activeTab || ''; }
@@ -253,6 +355,10 @@ export class MonacoEditorPlugin {
 
     let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
     this.editor.onDidChangeModelContent(() => {
+      if (this.activeTab) {
+        this.dirtyFiles.add(this.activeTab);
+        this.updateDirtyState();
+      }
       if (autoSaveTimer) clearTimeout(autoSaveTimer);
       autoSaveTimer = setTimeout(() => this.saveCurrentFile(), 1500);
     });
@@ -362,6 +468,8 @@ export class MonacoEditorPlugin {
     const content = this.editor.getValue();
     if (content === undefined) return;
     window.electronAPI?.fs.writeFile(tab.originalPath, content);
+    this.dirtyFiles.delete(this.activeTab);
+    this.updateDirtyState();
   }
 
   getState(): { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
