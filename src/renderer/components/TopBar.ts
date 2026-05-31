@@ -72,22 +72,22 @@ export class TopBar {
   }
 
   private render(): void {
-    const hideStyle = (isOpen: boolean) => isOpen ? '' : 'opacity:0.45';
+    const closedCls = (isOpen: boolean) => isOpen ? '' : ' is-closed';
 
     const mdSubHtml = '<div class="menu-dropdown-item" id="menu-new-markdown">New</div>'
       + '<div class="menu-dropdown-separator"></div>'
       + (this.mdItems.length === 0
-        ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">(none)</div>'
+        ? '<div class="menu-dropdown-item is-disabled">(none)</div>'
         : this.mdItems.map(t =>
-            `<div class="menu-dropdown-item md-instance" data-md-uuid="${t.uuid}" data-md-open="${t.isOpen}" style="${hideStyle(t.isOpen)}">${t.title}</div>`
+            `<div class="menu-dropdown-item md-instance${closedCls(t.isOpen)}" data-md-uuid="${t.uuid}" data-md-open="${t.isOpen}">${t.title}</div>`
           ).join(''));
 
     const termSubHtml = '<div class="menu-dropdown-item" id="menu-new-terminal">New</div>'
       + '<div class="menu-dropdown-separator"></div>'
       + (this.termItems.length === 0
-        ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">(none)</div>'
+        ? '<div class="menu-dropdown-item is-disabled">(none)</div>'
         : this.termItems.map(t =>
-            `<div class="menu-dropdown-item term-instance" data-term-uuid="${t.uuid}" data-term-open="${t.isOpen}" style="${hideStyle(t.isOpen)}">${t.title}</div>`
+            `<div class="menu-dropdown-item term-instance${closedCls(t.isOpen)}" data-term-uuid="${t.uuid}" data-term-open="${t.isOpen}">${t.title}</div>`
           ).join(''));
 
     this.el.innerHTML = `
@@ -96,7 +96,7 @@ export class TopBar {
         <div class="menu-dropdown">
           <div class="menu-dropdown-item" id="menu-open-workspace">Open Workspace</div>
           <div class="menu-dropdown-separator"></div>
-          <div class="menu-dropdown-item">Exit</div>
+          <div class="menu-dropdown-item" id="menu-exit">Exit</div>
         </div>
       </div>
       <div class="menu-item">
@@ -114,8 +114,8 @@ export class TopBar {
               <div class="menu-dropdown-item" id="menu-new-explorer">New</div>
               <div class="menu-dropdown-separator"></div>
               ${this.explorerItems.length === 0
-                ? '<div class="menu-dropdown-item" style="opacity:0.4;cursor:default">(none)</div>'
-                : this.explorerItems.map(d => `<div class="menu-dropdown-item explorer-instance" data-explorer-uuid="${d.uuid}" data-explorer-open="${d.isOpen}" style="${d.isOpen ? '' : 'opacity:0.45'}">${d.title}</div>`).join('')
+                ? '<div class="menu-dropdown-item is-disabled">(none)</div>'
+                : this.explorerItems.map(d => `<div class="menu-dropdown-item explorer-instance${closedCls(d.isOpen)}" data-explorer-uuid="${d.uuid}" data-explorer-open="${d.isOpen}">${d.title}</div>`).join('')
               }
             </div>
           </div>
@@ -156,8 +156,8 @@ export class TopBar {
           <div class="menu-dropdown-item" id="menu-about">About Cockpit IDE</div>
         </div>
       </div>
-      <div style="flex:1"></div>
-      <button class="tb-btn" id="theme-toggle" style="width:36px;font-size:14px" title="Toggle theme">◐</button>
+      <div class="menu-spacer"></div>
+      <button class="tb-btn tb-btn--wide" id="theme-toggle" title="Toggle theme">◐</button>
     `;
 
     // Hover-based menus with close timer

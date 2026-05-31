@@ -27,6 +27,9 @@ export class CommandPalette {
 
     this.overlay = document.createElement('div');
     this.overlay.className = 'palette-overlay';
+    this.overlay.setAttribute('role', 'dialog');
+    this.overlay.setAttribute('aria-modal', 'true');
+    this.overlay.setAttribute('aria-label', 'File search');
 
     this.paletteEl = document.createElement('div');
     this.paletteEl.className = 'palette';
@@ -34,6 +37,9 @@ export class CommandPalette {
     this.input = document.createElement('input');
     this.input.className = 'palette-input';
     this.input.placeholder = 'Search files by name...';
+    this.input.setAttribute('aria-label', 'Search files by name');
+    this.input.setAttribute('autocomplete', 'off');
+    this.input.setAttribute('spellcheck', 'false');
 
     this.progressEl = document.createElement('div');
     this.progressEl.className = 'palette-progress';

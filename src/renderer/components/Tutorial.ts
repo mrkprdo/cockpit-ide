@@ -31,7 +31,7 @@ const STEPS: TutorialStep[] = [
   },
   {
     title: 'Dev Tool',
-    description: 'Monaco editor + file explorer in one split card. View > Dev > New. 30+ languages, auto-save, multi-tab.',
+    description: 'Monaco editor + file explorer in one split card. View > Explorer > New. 30+ languages, multi-tab.',
     target: '.menu-bar',
   },
   {
@@ -89,19 +89,17 @@ const STEPS: TutorialStep[] = [
     description: 'Bug? Feature? Check the repo:',
     renderExtra: (container) => {
       const links = document.createElement('div');
-      links.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:10px';
+      links.className = 'tutorial-links';
       const items: [string, string][] = [
-        ['Report Issue', 'https://github.com/mrkprdo/cockpit-ide/issues'],
-        ['Check Updates', 'https://github.com/mrkprdo/cockpit-ide/releases'],
+        ['Report issue', 'https://github.com/mrkprdo/cockpit-ide/issues'],
+        ['Check updates', 'https://github.com/mrkprdo/cockpit-ide/releases'],
         ['View on GitHub', 'https://github.com/mrkprdo/cockpit-ide'],
       ];
       for (const [label, url] of items) {
         const a = document.createElement('a');
         a.href = '#';
         a.textContent = label;
-        a.style.cssText = 'color:var(--accent);font-size:12px;text-decoration:none;cursor:pointer';
-        a.addEventListener('mouseenter', () => { a.style.textDecoration = 'underline'; });
-        a.addEventListener('mouseleave', () => { a.style.textDecoration = 'none'; });
+        a.className = 'tutorial-link';
         a.addEventListener('click', (e) => {
           e.preventDefault();
           window.electronAPI?.shell.openExternal(url);
@@ -116,11 +114,10 @@ const STEPS: TutorialStep[] = [
     description: 'You are ready. Drag tools, arrange, code spatially.',
     renderExtra: (container) => {
       const label = document.createElement('label');
-      label.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:16px;font-size:11px;color:var(--secondary);cursor:pointer';
+      label.className = 'tutorial-cb-label';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = true;
-      cb.style.cssText = 'accent-color:var(--accent);margin:0';
       label.appendChild(cb);
       label.appendChild(document.createTextNode('Do not show this again'));
       container.appendChild(label);

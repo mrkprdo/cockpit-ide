@@ -10,6 +10,9 @@ export class AboutModal {
 
     this.el = document.createElement('div');
     this.el.className = 'about-modal';
+    this.el.setAttribute('role', 'dialog');
+    this.el.setAttribute('aria-modal', 'true');
+    this.el.setAttribute('aria-labelledby', 'about-title');
 
     const v = (window as any).electronAPI?.versions || {};
     const specs: { key: string; val: string }[] = [
@@ -21,7 +24,7 @@ export class AboutModal {
     
     this.el.innerHTML = `
       <div class="about-head">
-        <div class="about-name">COCKPIT IDE</div>
+        <div class="about-name" id="about-title">COCKPIT IDE</div>
         <div class="about-tagline">The IDE for developers who think spatially</div>
       </div>
       <div class="about-sep"></div>

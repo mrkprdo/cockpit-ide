@@ -178,7 +178,7 @@ export class GitPlugin {
 
     // Changes section header
     const changesLabel = this.labelEl('Changes');
-    changesLabel.style.cssText = 'padding:6px 8px 2px;font-size:var(--text-2xs);font-weight:700;letter-spacing:0.15em;color:var(--tertiary)';
+    changesLabel.className = 'git-label';
     this.leftCol.appendChild(changesLabel);
 
     // Commit bar: input + commit button + push button
@@ -299,7 +299,7 @@ export class GitPlugin {
     this.rightCol.appendChild(this.topPanel);
 
     const filesHeader = this.labelEl('Changed Files');
-    filesHeader.style.cssText = 'padding:4px 8px;font-size:var(--text-2xs);font-weight:700;letter-spacing:0.15em;color:var(--tertiary);border-bottom:1px solid var(--border);flex-shrink:0';
+    filesHeader.className = 'git-label';
     this.topPanel.appendChild(filesHeader);
 
     this.commitInfoEl = document.createElement('div');

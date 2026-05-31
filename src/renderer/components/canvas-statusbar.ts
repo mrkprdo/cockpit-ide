@@ -32,7 +32,7 @@ export class StatusBar {
     sb.appendChild(this.sbWorkspace);
 
     const fillL = document.createElement('span');
-    fillL.style.cssText = 'flex:1';
+    fillL.className = 'status-spacer';
     sb.appendChild(fillL);
 
     const center = document.createElement('span');
@@ -40,7 +40,7 @@ export class StatusBar {
     sb.appendChild(center);
 
     const fillR = document.createElement('span');
-    fillR.style.cssText = 'flex:1';
+    fillR.className = 'status-spacer';
     sb.appendChild(fillR);
 
     sep();

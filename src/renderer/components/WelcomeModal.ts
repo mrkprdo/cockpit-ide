@@ -10,9 +10,12 @@ export class WelcomeModal {
 
     this.el = document.createElement('div');
     this.el.className = 'welcome-modal';
+    this.el.setAttribute('role', 'dialog');
+    this.el.setAttribute('aria-modal', 'true');
+    this.el.setAttribute('aria-labelledby', 'welcome-title');
     this.el.innerHTML = `
       <div class="welcome-head">
-        <div class="welcome-name">COCKPIT IDE</div>
+        <div class="welcome-name" id="welcome-title">COCKPIT IDE</div>
         <div class="welcome-sub">Select a workspace</div>
       </div>
       <div class="welcome-sep"></div>

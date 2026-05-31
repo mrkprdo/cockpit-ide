@@ -22,20 +22,20 @@ export class MarkdownPlugin {
 
   constructor(container: HTMLElement) {
     this.el = document.createElement('div');
-    this.el.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;background:transparent;font-family:"Space Mono","Courier New",monospace';
+    this.el.className = 'editor-wrap';
 
     this.bar = document.createElement('div');
-    this.bar.style.cssText = 'display:flex;align-items:center;font-size:11px;border-bottom:1px solid var(--border);flex-shrink:0;height:30px;overflow:hidden';
+    this.bar.className = 'editor-tab-bar';
 
     this.tabContainer = document.createElement('div');
-    this.tabContainer.style.cssText = 'display:flex;align-items:stretch;height:100%;flex:1;overflow-x:auto;overflow-y:hidden';
+    this.tabContainer.className = 'editor-tab-scroll';
 
     this.bar.appendChild(this.tabContainer);
     this.el.appendChild(this.bar);
 
     this.preview = document.createElement('div');
-    this.preview.style.cssText = 'flex:1;overflow-y:auto;padding:12px;font-size:13px;line-height:1.6;color:var(--primary)';
-    this.preview.innerHTML = '<div style="color:var(--tertiary);font-size:12px">No file loaded</div>';
+    this.preview.className = 'md-preview';
+    this.preview.innerHTML = '<div class="md-status">No file loaded</div>';
 
     this.preview.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
 
@@ -152,7 +152,7 @@ export class MarkdownPlugin {
         this.switchTab(this.tabs[newIdx].filePath);
       } else {
         this.activeTab = null;
-        this.preview.innerHTML = '<div style="color:var(--tertiary);font-size:12px">No file loaded</div>';
+        this.preview.innerHTML = '<div class="md-status">No file loaded</div>';
         this.renderTabs();
       }
     } else {
@@ -165,7 +165,7 @@ export class MarkdownPlugin {
 
     if (this.tabs.length === 0) {
       const empty = document.createElement('span');
-      empty.style.cssText = 'padding:0 12px;color:var(--tertiary);font-size:10px;white-space:nowrap;line-height:30px';
+      empty.className = 'editor-empty';
       empty.textContent = 'No file loaded';
       this.tabContainer.appendChild(empty);
       return;
@@ -174,7 +174,7 @@ export class MarkdownPlugin {
     for (const tab of this.tabs) {
       const isActive = tab.filePath === this.activeTab;
       const tabEl = document.createElement('div');
-      tabEl.style.cssText = `display:flex;align-items:center;gap:6px;padding:0 10px;cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;font-size:11px;font-family:"Space Mono","Courier New",monospace;color:${isActive ? 'var(--primary)' : 'var(--tertiary)'};background:${isActive ? 'var(--panel)' : 'transparent'}`;
+      tabEl.className = 'editor-tab' + (isActive ? ' is-active' : '');
       tabEl.title = tab.filePath;
 
       const nameSpan = document.createElement('span');
@@ -182,12 +182,8 @@ export class MarkdownPlugin {
       tabEl.appendChild(nameSpan);
 
       const closeBtn = document.createElement('span');
+      closeBtn.className = 'editor-tab-close';
       closeBtn.textContent = '✕';
-      closeBtn.style.cssText = 'font-size:9px;cursor:pointer;opacity:0;transition:opacity 0.1s;padding:2px;border-radius:3px;color:var(--tertiary)';
-      closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
-      closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = isActive ? '1' : '0');
-      tabEl.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
-      tabEl.addEventListener('mouseleave', () => { if (!isActive) closeBtn.style.opacity = '0'; });
       if (isActive) closeBtn.style.opacity = '1';
 
       closeBtn.addEventListener('click', (e) => {
@@ -205,7 +201,7 @@ export class MarkdownPlugin {
     const lcPath = filePath.replace(/\\/g, '/').toLowerCase();
     const content = await window.electronAPI?.fs.readFile(lcPath);
     if (content === null || content === undefined) {
-      this.preview.innerHTML = '<div style="color:var(--tertiary);font-size:12px">File deleted</div>';
+      this.preview.innerHTML = '<div class="md-status">File deleted</div>';
       return;
     }
     this.renderPreview(content);
@@ -213,7 +209,7 @@ export class MarkdownPlugin {
 
   private renderPreview(text: string): void {
     if (!text.trim()) {
-      this.preview.innerHTML = '<div style="color:var(--tertiary);font-size:12px">Empty file</div>';
+      this.preview.innerHTML = '<div class="md-status">Empty file</div>';
       return;
     }
     try {
@@ -230,7 +226,7 @@ export class MarkdownPlugin {
       const html = marked.parse(text, { breaks: true, renderer }) as string;
       this.preview.innerHTML = this.styleMarkdown(html);
     } catch {
-      this.preview.innerHTML = '<div style="color:var(--red)">Render error</div>';
+      this.preview.innerHTML = '<div class="md-status is-error">Render error</div>';
     }
   }
 
