@@ -22,6 +22,7 @@
       { "name": "setMarkdownOpeners", "signature": "(labels: string[], callback: (filePath: string, label: string) => void) => void", "description": "Set available markdown viewer labels and callback for 'Open to Markdown'" }
     ]
   },
+  "filtered_dirs": [".git", ".gitkeep"],
   "features": {
     "recursive_tree": "Lazy-loaded expand/collapse with directory-first sorting",
     "context_menus": "File: Copy/Paste/Rename/Delete/Open to Markdown. Directory: New File/New Folder/Copy/Paste/Rename/Delete",

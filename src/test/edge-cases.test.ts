@@ -454,18 +454,18 @@ describe('TopBar edge cases', () => {
     expect(document.body.textContent).toContain('(none)');
   });
 
-  it('setExplorerItems with empty array renders (none)', () => {
-    const bar = new TopBar(makeBarEl(), {} as any);
-    bar.setExplorerItems([]);
-    expect(document.body.textContent).toContain('(none)');
+  it('Explorer menu item is present (singleton, like Git)', () => {
+    new TopBar(makeBarEl(), {} as any);
+    const item = document.querySelector('#menu-new-explorer');
+    expect(item).toBeTruthy();
+    expect(item!.textContent).toContain('Explorer');
   });
 
-  it('setMarkdownItems with empty array renders (none)', () => {
-    const bar = new TopBar(makeBarEl(), {} as any);
-    bar.setMarkdownItems([]);
-    // Context submenu has (none) item
-    const mdItems = document.querySelectorAll('.md-instance');
-    expect(mdItems.length).toBe(0);
+  it('Markdown menu item is present (singleton, like Git)', () => {
+    new TopBar(makeBarEl(), {} as any);
+    const item = document.querySelector('#menu-new-markdown');
+    expect(item).toBeTruthy();
+    expect(item!.textContent).toContain('Markdown');
   });
 
   it('multiple rapid setItem calls do not cause errors', () => {
@@ -476,8 +476,6 @@ describe('TopBar edge cases', () => {
     ];
     for (let i = 0; i < 20; i++) {
       bar.setTerminalItems(items);
-      bar.setExplorerItems(items);
-      bar.setMarkdownItems(items);
     }
     // Should not throw
     expect(document.querySelectorAll('.term-instance').length).toBe(2);

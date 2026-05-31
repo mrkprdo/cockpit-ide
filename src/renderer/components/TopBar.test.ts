@@ -151,28 +151,6 @@ describe('TopBar', () => {
     expect(document.querySelector('#menu-exit')).toBeTruthy();
   });
 
-  it('shows explorer items in the Explorer submenu', () => {
-    const bar = new TopBar(makeTopBarEl(), callbacks);
-    bar.setExplorerItems([
-      { uuid: 'd1', title: 'Explorer 1', isOpen: true },
-    ]);
-
-    const items = document.querySelectorAll('.explorer-instance');
-    expect(items.length).toBe(1);
-    expect(items[0].textContent).toBe('Explorer 1');
-  });
-
-  it('shows markdown items in the Markdown submenu', () => {
-    const bar = new TopBar(makeTopBarEl(), callbacks);
-    bar.setMarkdownItems([
-      { uuid: 'c1', title: 'Markdown 1', isOpen: true },
-    ]);
-
-    const items = document.querySelectorAll('.md-instance');
-    expect(items.length).toBe(1);
-    expect(items[0].textContent).toBe('Markdown 1');
-  });
-
   it('directs terminal item click properly for open vs closed', () => {
     const bar = new TopBar(makeTopBarEl(), callbacks);
     bar.setTerminalItems([
@@ -253,21 +231,7 @@ describe('TopBar', () => {
     expect(el.textContent).toContain('✓');
   });
 
-  it('clicking open markdown instance calls onFocusMarkdown with uuid', () => {
-    const bar = new TopBar(makeTopBarEl(), callbacks);
-    bar.setMarkdownItems([{ uuid: 'md1', title: 'Markdown 1', isOpen: true }]);
-    const inst = document.querySelector('.md-instance') as HTMLElement;
-    inst.click();
-    expect(callbacks.onFocusMarkdown).toHaveBeenCalledWith('md1');
-  });
 
-  it('clicking closed markdown instance calls onReopenMarkdown with uuid', () => {
-    const bar = new TopBar(makeTopBarEl(), callbacks);
-    bar.setMarkdownItems([{ uuid: 'md1', title: 'Markdown 1', isOpen: false }]);
-    const inst = document.querySelector('.md-instance') as HTMLElement;
-    inst.click();
-    expect(callbacks.onReopenMarkdown).toHaveBeenCalledWith('md1');
-  });
 
   it('clicking open terminal instance calls onFocusTerminal with uuid', () => {
     const bar = new TopBar(makeTopBarEl(), callbacks);
@@ -285,19 +249,4 @@ describe('TopBar', () => {
     expect(callbacks.onReopenTerminal).toHaveBeenCalledWith('tid');
   });
 
-  it('clicking open explorer instance calls onFocusExplorer with uuid', () => {
-    const bar = new TopBar(makeTopBarEl(), callbacks);
-    bar.setExplorerItems([{ uuid: 'eid', title: 'Explorer 1', isOpen: true }]);
-    const inst = document.querySelector('.explorer-instance') as HTMLElement;
-    inst.click();
-    expect(callbacks.onFocusExplorer).toHaveBeenCalledWith('eid');
-  });
-
-  it('clicking closed explorer instance calls onReopenExplorer with uuid', () => {
-    const bar = new TopBar(makeTopBarEl(), callbacks);
-    bar.setExplorerItems([{ uuid: 'eid', title: 'Explorer 1', isOpen: false }]);
-    const inst = document.querySelector('.explorer-instance') as HTMLElement;
-    inst.click();
-    expect(callbacks.onReopenExplorer).toHaveBeenCalledWith('eid');
-  });
 });

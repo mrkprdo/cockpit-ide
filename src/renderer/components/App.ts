@@ -50,9 +50,9 @@ export class App {
 
     this.canvas.onStateChange = () => this.trySave();
     this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
-    this.canvas.onExplorersChanged = (items) => this.topBar.setExplorerItems(items);
+
     this.canvas.onGitChanged = (items) => this.topBar.setGitItems(items);
-    this.canvas.onMarkdownChanged = (items) => this.topBar.setMarkdownItems(items);
+
     this.canvas.onLockToggle = async () => {
       this.canvas.locked = !this.canvas.locked;
       this.topBar.setZoomLocked(this.canvas.locked);

@@ -55,6 +55,23 @@ describe('FileExplorerPlugin', () => {
     expect(text).not.toContain('.gitkeep');
   });
 
+  it('filters out .git directory', async () => {
+    setupReadDir({
+      '/test': [
+        { name: '.git', isDirectory: true },
+        { name: 'src', isDirectory: true },
+        { name: 'README.md', isDirectory: false },
+      ],
+    });
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const text = container.textContent || '';
+    expect(text).not.toContain('.git');
+    expect(text).toContain('src');
+    expect(text).toContain('README.md');
+  });
+
   it('sorts directories before files', async () => {
     new FileExplorerPlugin(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));

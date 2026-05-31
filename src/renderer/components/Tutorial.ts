@@ -31,7 +31,7 @@ const STEPS: TutorialStep[] = [
   },
   {
     title: 'Dev Tool',
-    description: 'Monaco editor + file explorer in one split card. View > Explorer > New. 30+ languages, multi-tab.',
+    description: 'Monaco editor + file explorer in one split card. View > Explorer. 30+ languages, multi-tab. Singleton instance.',
     target: '.menu-bar',
   },
   {

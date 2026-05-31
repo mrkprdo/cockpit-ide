@@ -4,7 +4,7 @@
   "description": "Combined split-pane Explorer plugin compositing FileExplorerPlugin (left, default 260px, resizable 120-600px via drag handle) and MonacoEditorPlugin (right, fills remaining space). Bridges markdown openers from canvas to file explorer. Opens files in editor by clicking tree entries. Wraps Ctrl+P file search via CommandPalette. Synchronizes editor state (open files, active file, cursor positions, explorer width) for serialization and theme updates. Auto-hides editor panel when no tabs are open.",
   "type": "ui",
   "layer": "plugin",
-  "singleton": false,
+  "singleton": true,
   "exports": ["ExplorerPlugin"],
   "dependencies": [
     { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts", "usage": "Left panel file tree browser" },

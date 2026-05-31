@@ -651,7 +651,7 @@ describe('restore path callbacks', () => {
     const termSpy = vi.fn();
     (canvas as any).fitViewport = fitSpy;
     (canvas as any).terminateCard = termSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Explorer 1'), '/test');
+    (canvas as any).restorePlugins(makeMinimalState('Explorer'), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 
@@ -847,7 +847,7 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 50));
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(1);
-      expect(state.plugins[0].title).toMatch(/^Explorer \d+$/);
+      expect(state.plugins[0].title).toBe('Explorer');
     });
 
     it('addExplorer() fires onExplorersChanged', async () => {
@@ -875,12 +875,12 @@ describe('auto arrange', () => {
       expect(state.plugins.length).toBe(1);
     });
 
-    it('addMarkdown() creates card with title matching Markdown N pattern', async () => {
+    it('addMarkdown() creates card with title "Markdown"', async () => {
       canvas.addMarkdown();
       await new Promise(r => setTimeout(r, 50));
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(1);
-      expect(state.plugins[0].title).toMatch(/^Markdown \d+$/);
+      expect(state.plugins[0].title).toBe('Markdown');
     });
 
     it('addMarkdown() fires onMarkdownChanged', async () => {
@@ -1007,12 +1007,11 @@ describe('auto arrange', () => {
       expect((canvas as any).getMarkdownLabels()).toEqual([]);
     });
 
-    it('getMarkdownLabels() returns title array of all markdown plugins', async () => {
-      canvas.addMarkdown();
+    it('getMarkdownLabels() returns title array with singleton Markdown', async () => {
       canvas.addMarkdown();
       await new Promise(r => setTimeout(r, 50));
       const labels = (canvas as any).getMarkdownLabels();
-      expect(labels.length).toBe(2);
+      expect(labels).toEqual(['Markdown']);
     });
   });
 
@@ -1082,7 +1081,7 @@ describe('auto arrange', () => {
   });
 
   describe('restorePlugins edge cases', () => {
-    it('restorePlugins() migrates "Dev" title to "Explorer 1"', async () => {
+    it('restorePlugins() migrates "Dev" title to "Explorer"', async () => {
       const state = {
         plugins: [{ title: 'Dev', x: 0, y: 0, width: 560, height: 420, isOpen: true }],
         zOrder: [],
@@ -1090,7 +1089,7 @@ describe('auto arrange', () => {
       };
       (canvas as any).restorePlugins(state, '/test');
       await new Promise(r => setTimeout(r, 50));
-      expect(canvas.getSaveState().plugins[0].title).toBe('Explorer 1');
+      expect(canvas.getSaveState().plugins[0].title).toBe('Explorer');
     });
   });
 });

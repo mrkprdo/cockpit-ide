@@ -105,8 +105,8 @@
   },
   "plugins": {
     "terminal": { "default_size": { "w": 700, "h": 400 }, "singleton": false },
-    "explorer": { "default_size": { "w": 900, "h": 550 }, "singleton": false },
+    "explorer": { "default_size": { "w": 900, "h": 550 }, "singleton": true },
     "git": { "default_size": { "w": 950, "h": 600 }, "singleton": true },
-    "markdown": { "default_size": { "w": 600, "h": 450 }, "singleton": false }
+    "markdown": { "default_size": { "w": 600, "h": 450 }, "singleton": true }
   }
 }

@@ -272,7 +272,7 @@ describe('Tutorial', () => {
     t.destroy();
   });
 
-  it('"Dev Tool" step says "View > Explorer > New" not "View > Dev"', () => {
+  it('"Dev Tool" step says "View > Explorer" not "View > Dev"', () => {
     const t = new Tutorial();
     t.start();
     const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
@@ -280,8 +280,8 @@ describe('Tutorial', () => {
       tooltip.querySelector('.tutorial-btn-next')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     }
     expect(tooltip.textContent).toContain('Dev Tool');
-    expect(tooltip.textContent).toContain('View > Explorer > New');
-    expect(tooltip.textContent).not.toContain('View > Dev > New');
+    expect(tooltip.textContent).toContain('View > Explorer');
+    expect(tooltip.textContent).not.toContain('View > Dev');
     t.destroy();
   });
 

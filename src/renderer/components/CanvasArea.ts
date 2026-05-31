@@ -458,8 +458,8 @@ export class CanvasArea {
         c.savedHeight = h;
         const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: w, height: h, isOpen: c.isOpen };
         const editorState = c.explorerPlugin ? c.explorerPlugin.getEditorState() : null;
-        if (c.savedTitle.startsWith('Explorer') && editorState) base.editorState = editorState;
-        if (c.savedTitle.startsWith('Markdown')) {
+        if (c.savedTitle === 'Explorer' && editorState) base.editorState = editorState;
+        if (c.savedTitle === 'Markdown') {
           const ctx = this.markdownPlugins.find(p => p.title === c.savedTitle);
           if (ctx) base.markdownState = ctx.getState();
         }
@@ -569,27 +569,35 @@ export class CanvasArea {
 
     // Find highest numbers for counters
     let highestTerm = 0;
-    let highestDev = 0;
-    let highestMd = 0;
     for (const p of state.plugins) {
       const tm = p.title.match(/^Terminal (\d+)$/);
       if (tm) highestTerm = Math.max(highestTerm, parseInt(tm[1]));
-      const dm = p.title.match(/^Explorer (\d+)$/);
-      if (dm) highestDev = Math.max(highestDev, parseInt(dm[1]));
-      const cm = p.title.match(/^Markdown (\d+)$/);
-      if (cm) highestMd = Math.max(highestMd, parseInt(cm[1]));
     }
     this.terminalCounter = highestTerm;
-    this.explorerCounter = Math.max(highestDev, 1);
-    this.markdownCounter = highestMd;
 
-    // Normalize old "Dev" titles to "Explorer 1"
+    // Normalize old "Dev" / "Explorer N" titles to "Explorer"
+    let seenExplorer = false;
+    let seenMarkdown = false;
     for (const p of state.plugins) {
-      if (p.title === 'Dev') {
-        p.title = 'Explorer 1';
-        this.explorerCounter = Math.max(this.explorerCounter, 1);
+      if (p.title === 'Dev' || /^Explorer \d+$/.test(p.title)) {
+        p.title = 'Explorer';
+      }
+      if (/^Markdown \d+$/.test(p.title)) {
+        p.title = 'Markdown';
       }
     }
+    // Deduplicate Explorer and Markdown (keep only first entry each)
+    state.plugins = state.plugins.filter(p => {
+      if (p.title === 'Explorer') {
+        if (seenExplorer) return false;
+        seenExplorer = true;
+      }
+      if (p.title === 'Markdown') {
+        if (seenMarkdown) return false;
+        seenMarkdown = true;
+      }
+      return true;
+    });
 
     for (const p of state.plugins) {
       if (p.title.startsWith('Terminal')) {
@@ -620,7 +628,7 @@ export class CanvasArea {
             this.notifyTerminalsChanged();
           });
         }
-      } else if (p.title.startsWith('Explorer')) {
+      } else if (p.title === 'Explorer') {
         const cs = this.createCardFromDef(p, {
           onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; },
           onFitViewport: () => this.fitViewport(cs),
@@ -667,7 +675,7 @@ export class CanvasArea {
             }
           }
         }
-      } else if (p.title.startsWith('Markdown')) {
+      } else if (p.title === 'Markdown') {
         const cs = this.createCardFromDef(p, {
           onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyMarkdownChanged(); },
           onFitViewport: () => this.fitViewport(cs),
@@ -720,8 +728,29 @@ export class CanvasArea {
 
   addExplorer(wsPath: string): void {
     this.wsPath = wsPath;
-    this.explorerCounter++;
-    const cs = this.addCard(`Explorer ${this.explorerCounter}`, '', -400, -250, 800, 500);
+    const existing = this.cards.find(c => c.savedTitle === 'Explorer');
+    if (existing) {
+      existing.isOpen = true;
+      existing.card.el.style.display = '';
+      existing.worldX = existing.savedWX;
+      existing.worldY = existing.savedWY;
+      this.positionCard(existing);
+      const body = existing.card.el.querySelector('.card-body') as HTMLElement;
+      if (body && !body.hasChildNodes()) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const dev = new ExplorerPlugin(body, wsPath);
+        dev.onStateChange = () => this.onStateChange?.();
+        existing.explorerPlugin = dev;
+        dev.setMarkdownOpeners(this.getMarkdownLabels(), (filePath, label) => this.openInMarkdown(filePath, label));
+      }
+      this.bringToFront(existing.card);
+      this.panToCard(existing);
+      this.notifyExplorersChanged();
+      return;
+    }
+    const cs = this.addCard('Explorer', '', -400, -250, 800, 500);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {
@@ -774,9 +803,33 @@ export class CanvasArea {
   }
 
   addMarkdown(): Promise<MarkdownPlugin | null> {
-    this.markdownCounter++;
-    const name = `Markdown ${this.markdownCounter}`;
-    const cs = this.addCard(name, '', -350, -250, 700, 500);
+    const existing = this.cards.find(c => c.savedTitle === 'Markdown');
+    if (existing) {
+      existing.isOpen = true;
+      existing.card.el.style.display = '';
+      existing.worldX = existing.savedWX;
+      existing.worldY = existing.savedWY;
+      this.positionCard(existing);
+      const body = existing.card.el.querySelector('.card-body') as HTMLElement;
+      if (body && !body.hasChildNodes()) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const ctx = new MarkdownPlugin(body);
+        ctx.title = 'Markdown';
+        this.markdownPlugins.push(ctx);
+        existing.card.onDestroy = () => {
+          ctx.destroy();
+          const i = this.markdownPlugins.indexOf(ctx);
+          if (i !== -1) this.markdownPlugins.splice(i, 1);
+        };
+      }
+      this.bringToFront(existing.card);
+      this.panToCard(existing);
+      this.notifyMarkdownChanged();
+      return Promise.resolve(this.markdownPlugins[0] || null);
+    }
+    const cs = this.addCard('Markdown', '', -350, -250, 700, 500);
     return new Promise(resolve => {
       requestAnimationFrame(() => {
         const body = cs.card.el.querySelector('.card-body') as HTMLElement;
@@ -785,7 +838,7 @@ export class CanvasArea {
           body.style.alignItems = 'stretch';
           body.style.justifyContent = 'stretch';
           const ctx = new MarkdownPlugin(body);
-          ctx.title = name;
+          ctx.title = 'Markdown';
           this.markdownPlugins.push(ctx);
           cs.card.onDestroy = () => {
             ctx.destroy();
@@ -804,13 +857,11 @@ export class CanvasArea {
   }
 
   getMarkdownLabels(): string[] {
-    return this.markdownPlugins.map(c => c.title).filter(Boolean);
+    return this.markdownPlugins.length > 0 ? ['Markdown'] : [];
   }
 
   async openInMarkdown(filePath: string, label?: string): Promise<void> {
-    let target: MarkdownPlugin | null | undefined = label
-      ? this.markdownPlugins.find(c => c.title === label)
-      : this.markdownPlugins[0];
+    let target: MarkdownPlugin | null | undefined = this.markdownPlugins[0];
     if (!target) {
       target = await this.addMarkdown();
     }
@@ -900,7 +951,7 @@ export class CanvasArea {
 
   reopenExplorer(uuid: string): void {
     const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
-    if (cs) this.reopenCard(cs);
+    if (cs) { this.reopenCard(cs); this.notifyExplorersChanged(); }
   }
 
   reopenGit(uuid: string): void {
@@ -917,7 +968,7 @@ export class CanvasArea {
     if (cs.isOpen) return;
     if (cs.savedTitle.startsWith('Terminal')) {
       this.reopenTerminal(cs.card.uuid);
-    } else if (cs.savedTitle.startsWith('Explorer')) {
+    } else if (cs.savedTitle === 'Explorer') {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body && !body.hasChildNodes()) {
         body.style.padding = '0';
@@ -954,7 +1005,7 @@ export class CanvasArea {
       this.positionCard(cs);
       this.notifyGitChanged();
       this.onStateChange?.();
-    } else if (cs.savedTitle.startsWith('Markdown')) {
+    } else if (cs.savedTitle === 'Markdown') {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body && !body.hasChildNodes()) {
         body.style.padding = '0';
@@ -1003,7 +1054,7 @@ export class CanvasArea {
   }
 
   private notifyExplorersChanged(): void {
-    const list = this.cards.filter(c => c.savedTitle.startsWith('Explorer '))
+    const list = this.cards.filter(c => c.savedTitle === 'Explorer')
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.onExplorersChanged?.(list);
   }
@@ -1015,7 +1066,7 @@ export class CanvasArea {
   }
 
   private notifyMarkdownChanged(): void {
-    const list = this.cards.filter(c => c.savedTitle.startsWith('Markdown '))
+    const list = this.cards.filter(c => c.savedTitle === 'Markdown')
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.onMarkdownChanged?.(list);
   }

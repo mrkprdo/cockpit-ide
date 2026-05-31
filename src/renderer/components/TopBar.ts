@@ -31,9 +31,9 @@ export class TopBar {
   private gridStyle: GridStyle = 'dots';
   private zoomLocked = false;
   private termItems: TermItem[] = [];
-  private explorerItems: TermItem[] = [];
+
   private gitItems: TermItem[] = [];
-  private mdItems: TermItem[] = [];
+
   private docClickHandler: (() => void) | null = null;
 
   constructor(private el: HTMLElement, callbacks: TopBarCallbacks) {
@@ -46,18 +46,8 @@ export class TopBar {
     this.render();
   }
 
-  setExplorerItems(items: TermItem[]): void {
-    this.explorerItems = items;
-    this.render();
-  }
-
   setGitItems(items: TermItem[]): void {
     this.gitItems = items;
-    this.render();
-  }
-
-  setMarkdownItems(items: TermItem[]): void {
-    this.mdItems = items;
     this.render();
   }
 
@@ -73,14 +63,6 @@ export class TopBar {
 
   private render(): void {
     const closedCls = (isOpen: boolean) => isOpen ? '' : ' is-closed';
-
-    const mdSubHtml = '<div class="menu-dropdown-item" id="menu-new-markdown">New</div>'
-      + '<div class="menu-dropdown-separator"></div>'
-      + (this.mdItems.length === 0
-        ? '<div class="menu-dropdown-item is-disabled">(none)</div>'
-        : this.mdItems.map(t =>
-            `<div class="menu-dropdown-item md-instance${closedCls(t.isOpen)}" data-md-uuid="${t.uuid}" data-md-open="${t.isOpen}">${t.title}</div>`
-          ).join(''));
 
     const termSubHtml = '<div class="menu-dropdown-item" id="menu-new-terminal">New</div>'
       + '<div class="menu-dropdown-separator"></div>'
@@ -108,24 +90,9 @@ export class TopBar {
               ${termSubHtml}
             </div>
           </div>
-          <div class="menu-item-nested">
-            <span>Explorer</span><span class="arrow">▸</span>
-            <div class="menu-dropdown-nested">
-              <div class="menu-dropdown-item" id="menu-new-explorer">New</div>
-              <div class="menu-dropdown-separator"></div>
-              ${this.explorerItems.length === 0
-                ? '<div class="menu-dropdown-item is-disabled">(none)</div>'
-                : this.explorerItems.map(d => `<div class="menu-dropdown-item explorer-instance${closedCls(d.isOpen)}" data-explorer-uuid="${d.uuid}" data-explorer-open="${d.isOpen}">${d.title}</div>`).join('')
-              }
-            </div>
-          </div>
+          <div class="menu-dropdown-item" id="menu-new-explorer">Explorer</div>
           <div class="menu-dropdown-item" id="menu-new-git">Git</div>
-          <div class="menu-item-nested">
-            <span>Markdown</span><span class="arrow">▸</span>
-            <div class="menu-dropdown-nested">
-              ${mdSubHtml}
-            </div>
-          </div>
+          <div class="menu-dropdown-item" id="menu-new-markdown">Markdown</div>
           <div class="menu-dropdown-separator"></div>
           <div class="menu-item-nested">
             <span>Canvas</span><span class="arrow">▸</span>
@@ -254,34 +221,6 @@ export class TopBar {
       });
     });
 
-    // Explorer instances — click to focus (open) or reopen (closed)
-    this.el.querySelectorAll('.explorer-instance').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const target = e.currentTarget as HTMLElement;
-        const uuid = target.dataset.explorerUuid || '';
-        const isOpen = target.dataset.explorerOpen === 'true';
-        if (isOpen) {
-          this.callbacks.onFocusExplorer?.(uuid);
-        } else {
-          this.callbacks.onReopenExplorer?.(uuid);
-        }
-      });
-    });
-
-    // Markdown instances
-    this.el.querySelectorAll('.md-instance').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const target = e.currentTarget as HTMLElement;
-        const uuid = target.dataset.mdUuid || '';
-        const isOpen = target.dataset.mdOpen === 'true';
-        if (isOpen) this.callbacks.onFocusMarkdown?.(uuid);
-        else this.callbacks.onReopenMarkdown?.(uuid);
-      });
-    });
-
-    // "New" in markdown submenu
     document.getElementById('menu-new-git')?.addEventListener('click', () => {
       this.callbacks.onNewGit?.();
     });

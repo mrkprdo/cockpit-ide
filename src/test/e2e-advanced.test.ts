@@ -87,13 +87,13 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
     await flushRaf();
 
     canvas.offsetCard('Terminal 1', 100, 200);
-    canvas.offsetCard('Explorer 1', 500, 100);
+    canvas.offsetCard('Explorer', 500, 100);
     await flushRaf();
 
     const ctx = await canvas.addMarkdown();
     ctx?.loadFile('/test/README.md');
     await flushRaf();
-    canvas.offsetCard('Markdown 1', 900, 300);
+    canvas.offsetCard('Markdown', 900, 300);
     await flushRaf();
 
     const saved = canvas.getSaveState();
@@ -108,11 +108,11 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
     expect(termEntry.height).toBeGreaterThan(0);
     expect(termEntry.isOpen).toBe(true);
 
-    const devEntry = saved.plugins.find(p => p.title === 'Explorer 1')!;
+    const devEntry = saved.plugins.find(p => p.title === 'Explorer')!;
     expect(devEntry).toBeTruthy();
     expect(devEntry.isOpen).toBe(true);
 
-    const ctxEntry = saved.plugins.find(p => p.title === 'Markdown 1')!;
+    const ctxEntry = saved.plugins.find(p => p.title === 'Markdown')!;
     expect(ctxEntry).toBeTruthy();
     expect(ctxEntry.markdownState).toBeTruthy();
     expect(ctxEntry.markdownState!.openFiles.length).toBe(1);
@@ -135,10 +135,10 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
 
     // Verify card types are restored
     expect(restored.plugins.some(p => p.title === 'Terminal 1')).toBe(true);
-    expect(restored.plugins.some(p => p.title === 'Explorer 1')).toBe(true);
-    expect(restored.plugins.some(p => p.title === 'Markdown 1')).toBe(true);
+    expect(restored.plugins.some(p => p.title === 'Explorer')).toBe(true);
+    expect(restored.plugins.some(p => p.title === 'Markdown')).toBe(true);
 
-    const rCtx = restored.plugins.find(p => p.title === 'Markdown 1')!;
+    const rCtx = restored.plugins.find(p => p.title === 'Markdown')!;
     expect(rCtx.markdownState).toBeTruthy();
     expect(rCtx.markdownState!.openFiles.length).toBe(1);
   });
@@ -256,12 +256,12 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
       expect(closedCall[0].some((i: any) => !i.isOpen)).toBe(true);
     }
 
-    const devUuid = canvas.getSaveState().plugins.find(p => p.title === 'Explorer 1')!.uuid;
+    const devUuid = canvas.getSaveState().plugins.find(p => p.title === 'Explorer')!.uuid;
     canvas.reopenExplorer(devUuid);
     await flushRaf();
 
     const after = canvas.getSaveState();
-    expect(after.plugins.find(p => p.title === 'Explorer 1')!.isOpen).toBe(true);
+    expect(after.plugins.find(p => p.title === 'Explorer')!.isOpen).toBe(true);
   });
 
   it('minimizes and reopens context plugin', async () => {
@@ -269,19 +269,19 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
     ctx?.loadFile('/test/README.md');
     await flushRaf();
 
-    const ctxEntry = canvas.getSaveState().plugins.find(p => p.title === 'Markdown 1')!;
+    const ctxEntry = canvas.getSaveState().plugins.find(p => p.title === 'Markdown')!;
 
     const minBtn = el.querySelector('.card-btn-minimize') as HTMLElement;
     minBtn?.click();
     await flushRaf();
 
-    const minimized = canvas.getSaveState().plugins.find(p => p.title === 'Markdown 1')!;
+    const minimized = canvas.getSaveState().plugins.find(p => p.title === 'Markdown')!;
     expect(minimized.isOpen).toBe(false);
 
     canvas.reopenMarkdown(ctxEntry.uuid);
     await flushRaf();
 
-    const reopened = canvas.getSaveState().plugins.find(p => p.title === 'Markdown 1')!;
+    const reopened = canvas.getSaveState().plugins.find(p => p.title === 'Markdown')!;
     expect(reopened.isOpen).toBe(true);
   });
 
@@ -319,50 +319,42 @@ describe('E2E Advanced: Multi-Markdown + ExplorerPlugin Bridging', () => {
     canvas = new CanvasArea(el);
   });
 
-  it('collects labels from multiple MarkdownPlugins', async () => {
-    await canvas.addMarkdown();
-    await canvas.addMarkdown();
+  it('getMarkdownLabels returns single label for singleton Markdown', async () => {
     await canvas.addMarkdown();
     canvas.addExplorer('/test');
     await flushRaf();
 
     const labels = canvas.getMarkdownLabels();
-    expect(labels).toContain('Markdown 1');
-    expect(labels).toContain('Markdown 2');
-    expect(labels).toContain('Markdown 3');
-    expect(labels.length).toBe(3);
+    expect(labels).toEqual(['Markdown']);
 
     const state = canvas.getSaveState();
-    const ctxPlugins = state.plugins.filter(p => p.title.startsWith('Markdown'));
-    expect(ctxPlugins.length).toBe(3);
+    const ctxPlugins = state.plugins.filter(p => p.title === 'Markdown');
+    expect(ctxPlugins.length).toBe(1);
   });
 
-  it('openInMarkdown targets a specific MarkdownPlugin by label', async () => {
-    await canvas.addMarkdown();
+  it('openInMarkdown opens file in the single MarkdownPlugin', async () => {
     await canvas.addMarkdown();
 
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Hello Context 2');
-    await canvas.openInMarkdown('/test/target.md', 'Markdown 2');
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Hello');
+    await canvas.openInMarkdown('/test/target.md');
     await flushRaf();
 
     const state = canvas.getSaveState();
-    const ctx2 = state.plugins.find(p => p.title === 'Markdown 2')!;
-    expect(ctx2.markdownState).toBeTruthy();
-    expect(ctx2.markdownState!.openFiles).toContain('/test/target.md');
-
-    const ctx1 = state.plugins.find(p => p.title === 'Markdown 1')!;
-    expect(ctx1.markdownState?.openFiles?.length || 0).toBe(0);
+    const ctx = state.plugins.find(p => p.title === 'Markdown')!;
+    expect(ctx.markdownState).toBeTruthy();
+    expect(ctx.markdownState!.openFiles).toContain('/test/target.md');
   });
 
-  it('openInMarkdown without label uses first MarkdownPlugin', async () => {
+  it('openInMarkdown with label ignored in singleton mode', async () => {
     await canvas.addMarkdown();
 
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Auto');
-    await canvas.openInMarkdown('/test/auto.md');
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Label ignored');
+    await canvas.openInMarkdown('/test/ignored.md', 'any-label');
     await flushRaf();
 
-    const ctx = canvas.getSaveState().plugins.find(p => p.title === 'Markdown 1')!;
-    expect(ctx.markdownState!.openFiles).toContain('/test/auto.md');
+    const state = canvas.getSaveState();
+    const ctx = state.plugins.find(p => p.title === 'Markdown')!;
+    expect(ctx.markdownState!.openFiles).toContain('/test/ignored.md');
   });
 
   it('openInMarkdown auto-creates MarkdownPlugin when none exist', async () => {
@@ -371,10 +363,24 @@ describe('E2E Advanced: Multi-Markdown + ExplorerPlugin Bridging', () => {
     await flushRaf();
 
     const state = canvas.getSaveState();
-    const ctxPlugins = state.plugins.filter(p => p.title.startsWith('Markdown'));
+    const ctxPlugins = state.plugins.filter(p => p.title === 'Markdown');
     expect(ctxPlugins.length).toBe(1);
     expect(ctxPlugins[0].markdownState!.openFiles).toContain('/test/fresh.md');
   });
+
+  it('openInMarkdown opens file in singleton Markdown', async () => {
+    await canvas.addMarkdown();
+
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Hello');
+    await canvas.openInMarkdown('/test/target.md');
+    await flushRaf();
+
+    const state = canvas.getSaveState();
+    const ctx = state.plugins.find(p => p.title === 'Markdown')!;
+    expect(ctx.markdownState).toBeTruthy();
+    expect(ctx.markdownState!.openFiles).toContain('/test/target.md');
+  });
+
 });
 
 // ═══════════════════════════════════════════════
@@ -413,7 +419,7 @@ describe('E2E Advanced: Card Cycling Through Mixed Types', () => {
     await canvas.addMarkdown();
     await flushRaf();
 
-    canvas.focusCard('Markdown 1');
+    canvas.focusCard('Markdown');
     await flushRaf();
 
     expect(() => {
@@ -956,34 +962,38 @@ describe('E2E Advanced: Notification Chain Integrity', () => {
     expect(finalList.length).toBe(1);
   });
 
-  it('onExplorersChanged receives correct titles', async () => {
+  it('onExplorersChanged receives correct title (singleton)', async () => {
     const onDev = vi.fn();
     canvas.onExplorersChanged = onDev;
 
     canvas.addExplorer('/test');
+    await flushRaf();
+
+    // Second call reopens the same instance (singleton)
     canvas.addExplorer('/test');
     await flushRaf();
 
     const lastCall = onDev.mock.calls[onDev.mock.calls.length - 1][0];
-    expect(lastCall.length).toBe(2);
-    const titles = lastCall.map((i: any) => i.title);
-    expect(titles).toContain('Explorer 1');
-    expect(titles).toContain('Explorer 2');
+    expect(lastCall.length).toBe(1);
+    expect(lastCall[0].title).toBe('Explorer');
+    expect(lastCall[0].isOpen).toBe(true);
   });
 
-  it('onMarkdownChanged receives correct titles', async () => {
+  it('onMarkdownChanged receives correct title (singleton)', async () => {
     const onMd = vi.fn();
     canvas.onMarkdownChanged = onMd;
 
     await canvas.addMarkdown();
+    await flushRaf();
+
+    // Second call reopens the same instance (singleton)
     await canvas.addMarkdown();
     await flushRaf();
 
     const lastCall = onMd.mock.calls[onMd.mock.calls.length - 1][0];
-    expect(lastCall.length).toBe(2);
-    const titles = lastCall.map((i: any) => i.title);
-    expect(titles).toContain('Markdown 1');
-    expect(titles).toContain('Markdown 2');
+    expect(lastCall.length).toBe(1);
+    expect(lastCall[0].title).toBe('Markdown');
+    expect(lastCall[0].isOpen).toBe(true);
   });
 
   it('onStateChange fires after position change via offsetCard', async () => {
@@ -1153,7 +1163,7 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
     expect(state.plugins.every(p => p.isOpen === false)).toBe(true);
   });
 
-  it('restorePlugins normalizes legacy "Dev" title to "Explorer 1"', async () => {
+  it('restorePlugins normalizes legacy "Dev" title to "Explorer"', async () => {
     canvas.restorePlugins({
       plugins: [
         { uuid: 'u1', title: 'Dev', x: 0, y: 0, width: 800, height: 500, isOpen: false },
@@ -1164,7 +1174,7 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
     await flushRaf();
 
     const saved = canvas.getSaveState();
-    expect(saved.plugins.some(p => p.title === 'Explorer 1')).toBe(true);
+    expect(saved.plugins.some(p => p.title === 'Explorer')).toBe(true);
   });
 
   it('restorePlugins handles empty plugins array', async () => {
@@ -1289,7 +1299,7 @@ describe('E2E Advanced: Callback Data Shape Integrity', () => {
 
     const call = onDev.mock.calls[onDev.mock.calls.length - 1][0];
     expect(call[0]).toHaveProperty('uuid');
-    expect(call[0].title).toBe('Explorer 1');
+    expect(call[0].title).toBe('Explorer');
     expect(call[0].isOpen).toBe(true);
   });
 
@@ -1302,7 +1312,7 @@ describe('E2E Advanced: Callback Data Shape Integrity', () => {
 
     const call = onMd.mock.calls[onMd.mock.calls.length - 1][0];
     expect(call[0]).toHaveProperty('uuid');
-    expect(call[0].title).toBe('Markdown 1');
+    expect(call[0].title).toBe('Markdown');
     expect(call[0].isOpen).toBe(true);
   });
 });

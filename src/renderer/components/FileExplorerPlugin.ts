@@ -246,7 +246,7 @@ export class FileExplorerPlugin {
       return a.name.localeCompare(b.name);
     });
     for (const entry of entries) {
-      if (entry.name === '.gitkeep') continue;
+      if (entry.name === '.gitkeep' || entry.name === '.git') continue;
       const item = document.createElement('div');
       item.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 4px;cursor:pointer;border-radius:3px;color:var(--primary);overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
       item.style.paddingLeft = `${12 + depth * 16}px`;
