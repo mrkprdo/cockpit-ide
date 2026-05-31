@@ -29,5 +29,5 @@
   "ui": {
     "spec": "command-palette-ui.spec.json"
   },
-  "test": "CommandPalette.test.ts (34 tests: DOM structure, open/close, keyboard navigation, file search + indexing, recent files persistence, edge cases)"
+  "test": "src/renderer/components/CommandPalette.test.ts"
 }

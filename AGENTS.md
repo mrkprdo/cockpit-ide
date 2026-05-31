@@ -124,7 +124,7 @@ D:\cockpit_ide\
 │   │   ├── *.spec.json            # 23 feature specs (one per non-test source file)
 │   │   └── *-ui.spec.json         # 10 UI sub-specs (DOM, interactions, states)
 │   └── test/
-│       ├── README.md              # Test infrastructure docs (20 files, 500+ tests)
+│       ├── README.md              # Test infrastructure docs (22 files, 755 tests)
 │       └── setup.ts               # Global mocks: IPC, Canvas, xterm, DOM, ResizeObserver
 ```
 
@@ -238,7 +238,7 @@ D:\cockpit_ide\
 | File | Description |
 |------|-------------|
 | `src/test/setup.ts` | Global test mocks (~232 lines). Mocks: @chenglou/pretext, @xterm/xterm (lightweight Terminal), crypto.randomUUID() (deterministic), Canvas2D context (all vi.fn()), ResizeObserver, requestAnimationFrame (setTimeout 0), devicePixelRatio (1). Creates mock `window.electronAPI` with all 24 IPC channels. Sets CSS custom properties. Bootstraps DOM scaffolding. Exports `mockElectronAPI`. |
-| `src/test/README.md` | Test infrastructure docs (~117 lines). Vitest + jsdom setup, 20 test files with 500+ tests (~3s run time). Test patterns, mock access, known limitations (Monaco AMD loader, node-pty, canvas rendering). |
+| `src/test/README.md` | Test infrastructure docs (~117 lines). Vitest + jsdom setup, 22 test files with 755 tests (~10s run time). Test patterns, mock access, known limitations (Monaco AMD loader, node-pty, canvas rendering). |
 
 ### Source: Specs Graph
 

@@ -27,5 +27,6 @@
     { "feature": "git-plugin", "file": "GitPlugin.ts" },
     { "feature": "command-palette", "file": "CommandPalette.ts" },
     { "feature": "welcome-modal", "file": "WelcomeModal.ts" }
-  ]
+  ],
+  "test": "No dedicated test file"
 }
