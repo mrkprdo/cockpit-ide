@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { theme, darkTheme, lightTheme } from '../theme';
-import { ConfirmModal } from './ConfirmModal';
-import { ContextMenu } from './ContextMenu';
-import { WelcomeModal } from './WelcomeModal';
-import { AboutModal } from './AboutModal';
-import { PluginCard } from './PluginCard';
-import { CanvasArea } from './CanvasArea';
-import { TopBar } from './TopBar';
-import { FileExplorerPlugin } from './FileExplorerPlugin';
-import { MarkdownPlugin } from './MarkdownPlugin';
-import { MonacoEditorPlugin } from './MonacoEditorPlugin';
-import { ExplorerPlugin } from './ExplorerPlugin';
-import { TerminalPlugin } from './TerminalPlugin';
-import { mockElectronAPI } from '../../test/setup';
+import { theme, darkTheme, lightTheme } from '../renderer/theme';
+import { ConfirmModal } from '../renderer/components/ConfirmModal';
+import { ContextMenu } from '../renderer/components/ContextMenu';
+import { WelcomeModal } from '../renderer/components/WelcomeModal';
+import { AboutModal } from '../renderer/components/AboutModal';
+import { PluginCard } from '../renderer/components/PluginCard';
+import { CanvasArea } from '../renderer/components/CanvasArea';
+import { TopBar } from '../renderer/components/TopBar';
+import { FileExplorerPlugin } from '../renderer/components/FileExplorerPlugin';
+import { MarkdownPlugin } from '../renderer/components/MarkdownPlugin';
+import { MonacoEditorPlugin } from '../renderer/components/MonacoEditorPlugin';
+import { ExplorerPlugin } from '../renderer/components/ExplorerPlugin';
+import { TerminalPlugin } from '../renderer/components/TerminalPlugin';
+import { mockElectronAPI } from './setup';
 
 function makeContainer(w = 800, h = 500): HTMLElement {
   const el = document.createElement('div');

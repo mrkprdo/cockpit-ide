@@ -115,17 +115,17 @@ D:\cockpit_ide\
 │   │       ├── TopBar.ts          # Custom menu bar with dropdowns
 │   │       ├── TopBar.test.ts     # TopBar tests: menus, buttons, callbacks (~166 lines)
 │   │       ├── Tutorial.ts        # Interactive guided tutorial overlay (~324 lines)
-│   │       ├── Tutorial.test.ts   # Tutorial step navigation tests (~179 lines)
-│   │       ├── e2e-advanced.test.ts # Advanced E2E integration tests (~1136 lines)
-│   │       ├── edge-cases.test.ts # 63 edge case tests across all components (~902 lines)
-│   │       └── workflows.test.ts  # 36 integration workflow tests (~1157 lines)
+│   │       └── Tutorial.test.ts   # Tutorial step navigation tests (~179 lines)
 │   ├── specs/
 │   │   ├── main.spec.json         # Root specs index: features, IPC, shortcuts, dep graph
 │   │   ├── *.spec.json            # 23 feature specs (one per non-test source file)
 │   │   └── *-ui.spec.json         # 10 UI sub-specs (DOM, interactions, states)
 │   └── test/
 │       ├── README.md              # Test infrastructure docs (22 files, 755 tests)
-│       └── setup.ts               # Global mocks: IPC, Canvas, xterm, DOM, ResizeObserver
+│       ├── setup.ts               # Global mocks: IPC, Canvas, xterm, DOM, ResizeObserver
+│       ├── edge-cases.test.ts     # 63 edge case tests across all components (~902 lines)
+│       ├── workflows.test.ts      # 36 integration workflow tests (~1157 lines)
+│       └── e2e-advanced.test.ts   # Advanced E2E integration tests (~1136 lines)
 ```
 
 ---
@@ -229,9 +229,6 @@ D:\cockpit_ide\
 | `src/renderer/components/TopBar.test.ts` | Tests: menu rendering, theme toggle, button callbacks, focus/reopen behavior, empty item lists. |
 | `src/renderer/components/Tutorial.ts` | Interactive guided tutorial overlay (~324 lines). Step-based walkthrough with title, description, optional target element highlighting, extra content renderer, and lifecycle hooks. Dark overlay with tooltip-style step cards. |
 | `src/renderer/components/Tutorial.test.ts` | Tests: step rendering, navigation, lifecycle hooks, skip/finish behavior. |
-| `src/renderer/components/workflows.test.ts` | 36 integration workflow tests (~1157 lines): File CRUD (create/read/delete/copy+paste), Editor tab CRUD, Markdown tab CRUD (load/render/switch/close/serialize/restore/empty), Dev Plugin workflows (split layout, state delegation, markdown bridge, theme, restore), Theme persistence, ConfirmModal workflows, E2E file-to-editor/markdown flows, deep nested directory operations, error recovery. |
-| `src/renderer/components/e2e-advanced.test.ts` | Advanced E2E integration tests (~1136 lines): PluginCard lifecycle (creation/close/remove/double-remove, mousedown focus, setContent, resize handles), CanvasArea instantiation, SaveState structure & plugin tracking, terminal/dev/markdown create callback chains, canvas viewport management. |
-| `src/renderer/components/edge-cases.test.ts` | 63 edge case tests (~902 lines): Theme (rapid toggles, same-value set), ConfirmModal (empty/long/HTML messages, double-click), ContextMenu (empty/only-separators/error action/extreme coords), WelcomeModal (no electronAPI, long paths), AboutModal (no electronAPI), PluginCard (zero dimensions, long titles, double-remove/click), CanvasArea (zoom bounds, grid cycle, empty save, extreme pan), TopBar (undefined callbacks, empty lists), FileExplorer (empty dir, special chars, paste without copy), Markdown+Monaco+Dev+Terminal edge cases, cross-component chains. |
 
 ### Source: Test Infrastructure
 
@@ -239,6 +236,9 @@ D:\cockpit_ide\
 |------|-------------|
 | `src/test/setup.ts` | Global test mocks (~232 lines). Mocks: @chenglou/pretext, @xterm/xterm (lightweight Terminal), crypto.randomUUID() (deterministic), Canvas2D context (all vi.fn()), ResizeObserver, requestAnimationFrame (setTimeout 0), devicePixelRatio (1). Creates mock `window.electronAPI` with all 24 IPC channels. Sets CSS custom properties. Bootstraps DOM scaffolding. Exports `mockElectronAPI`. |
 | `src/test/README.md` | Test infrastructure docs (~117 lines). Vitest + jsdom setup, 22 test files with 755 tests (~10s run time). Test patterns, mock access, known limitations (Monaco AMD loader, node-pty, canvas rendering). |
+| `src/test/edge-cases.test.ts` | 63 edge case tests (~902 lines): Theme (rapid toggles, same-value set), ConfirmModal (empty/long/HTML messages, double-click), ContextMenu (empty/only-separators/error action/extreme coords), WelcomeModal (no electronAPI, long paths), AboutModal (no electronAPI), PluginCard (zero dimensions, long titles, double-remove/click), CanvasArea (zoom bounds, grid cycle, empty save, extreme pan), TopBar (undefined callbacks, empty lists), FileExplorer (empty dir, special chars, paste without copy), Markdown+Monaco+Dev+Terminal edge cases, cross-component chains. |
+| `src/test/workflows.test.ts` | 36 integration workflow tests (~1157 lines): File CRUD (create/read/delete/copy+paste), Editor tab CRUD, Markdown tab CRUD (load/render/switch/close/serialize/restore/empty), Dev Plugin workflows (split layout, state delegation, markdown bridge, theme, restore), Theme persistence, ConfirmModal workflows, E2E file-to-editor/markdown flows, deep nested directory operations, error recovery. |
+| `src/test/e2e-advanced.test.ts` | Advanced E2E integration tests (~1136 lines): PluginCard lifecycle (creation/close/remove/double-remove, mousedown focus, setContent, resize handles), CanvasArea instantiation, SaveState structure & plugin tracking, terminal/dev/markdown create callback chains, canvas viewport management. |
 
 ### Source: Specs Graph
 

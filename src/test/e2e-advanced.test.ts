@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CanvasArea } from './CanvasArea';
-import { ExplorerPlugin } from './ExplorerPlugin';
-import { MarkdownPlugin } from './MarkdownPlugin';
-import { PluginCard } from './PluginCard';
-import { ConfirmModal } from './ConfirmModal';
-import { FileExplorerPlugin } from './FileExplorerPlugin';
-import { mockElectronAPI } from '../../test/setup';
+import { CanvasArea } from '../renderer/components/CanvasArea';
+import { ExplorerPlugin } from '../renderer/components/ExplorerPlugin';
+import { MarkdownPlugin } from '../renderer/components/MarkdownPlugin';
+import { PluginCard } from '../renderer/components/PluginCard';
+import { ConfirmModal } from '../renderer/components/ConfirmModal';
+import { FileExplorerPlugin } from '../renderer/components/FileExplorerPlugin';
+import { mockElectronAPI } from './setup';
 
 function makeCanvasEl(): HTMLElement {
   const el = document.createElement('div');

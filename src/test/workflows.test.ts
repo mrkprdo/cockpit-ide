@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FileExplorerPlugin } from './FileExplorerPlugin';
-import { MarkdownPlugin } from './MarkdownPlugin';
-import { MonacoEditorPlugin } from './MonacoEditorPlugin';
-import { ExplorerPlugin } from './ExplorerPlugin';
-import { ConfirmModal } from './ConfirmModal';
-import { theme, darkTheme, lightTheme } from '../theme';
-import { mockElectronAPI } from '../../test/setup';
+import { FileExplorerPlugin } from '../renderer/components/FileExplorerPlugin';
+import { MarkdownPlugin } from '../renderer/components/MarkdownPlugin';
+import { MonacoEditorPlugin } from '../renderer/components/MonacoEditorPlugin';
+import { ExplorerPlugin } from '../renderer/components/ExplorerPlugin';
+import { ConfirmModal } from '../renderer/components/ConfirmModal';
+import { theme, darkTheme, lightTheme } from '../renderer/theme';
+import { mockElectronAPI } from './setup';
 
 function makeContainer(w = 800, h = 500): HTMLElement {
   const el = document.createElement('div');
