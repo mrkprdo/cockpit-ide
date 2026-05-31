@@ -3,6 +3,11 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'jsdom',
+    environmentOptions: {
+      jsdom: {
+        url: 'http://localhost',
+      },
+    },
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.ts'],
     // Color green for <20ms, yellow for <100ms, red for >=100ms

@@ -144,6 +144,9 @@ if (isDOM) {
   }
   vi.stubGlobal('ResizeObserver', MockResizeObserver);
 
+  // scrollIntoView polyfill (not implemented in jsdom)
+  Element.prototype.scrollIntoView = vi.fn();
+
   // DOM environment stubs
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
     const id = Math.random();
