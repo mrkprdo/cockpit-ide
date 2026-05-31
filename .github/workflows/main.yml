@@ -18,6 +18,7 @@ jobs:
               with:
                   ref: dev
                   clean: true
+                  fetch-depth: 0
 
             - name: Setup Node 22
               uses: actions/setup-node@v4
