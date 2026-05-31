@@ -14,6 +14,15 @@ describe('AboutModal', () => {
     expect(document.body.textContent).toContain('dev');
   });
 
+  it('dialog has required ARIA attributes', () => {
+    new AboutModal();
+    const modal = document.querySelector('.about-modal') as HTMLElement;
+    expect(modal.getAttribute('role')).toBe('dialog');
+    expect(modal.getAttribute('aria-modal')).toBe('true');
+    expect(modal.getAttribute('aria-labelledby')).toBe('about-title');
+    expect(document.querySelector('#about-title')).toBeTruthy();
+  });
+
   it('starts hidden', () => {
     new AboutModal();
     const overlay = document.querySelector('.modal-overlay') as HTMLElement;

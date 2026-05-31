@@ -271,4 +271,47 @@ describe('Tutorial', () => {
     expect(dots.length).toBe(13);
     t.destroy();
   });
+
+  it('"Dev Tool" step says "View > Explorer > New" not "View > Dev"', () => {
+    const t = new Tutorial();
+    t.start();
+    const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
+    for (let i = 0; i < 4; i++) {
+      tooltip.querySelector('.tutorial-btn-next')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+    expect(tooltip.textContent).toContain('Dev Tool');
+    expect(tooltip.textContent).toContain('View > Explorer > New');
+    expect(tooltip.textContent).not.toContain('View > Dev > New');
+    t.destroy();
+  });
+
+  it('"Stay Connected" step renders .tutorial-links and .tutorial-link elements', () => {
+    const t = new Tutorial();
+    t.start();
+    const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
+    for (let i = 0; i < 11; i++) {
+      const btn = tooltip.querySelector('.tutorial-btn-next');
+      if (!btn) break;
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+    expect(tooltip.textContent).toContain('Stay Connected');
+    expect(tooltip.querySelector('.tutorial-links')).toBeTruthy();
+    expect(tooltip.querySelectorAll('.tutorial-link').length).toBeGreaterThan(0);
+    t.destroy();
+  });
+
+  it('"Thank You" step renders .tutorial-cb-label with checkbox', () => {
+    const t = new Tutorial();
+    t.start();
+    const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
+    for (let i = 0; i < 20; i++) {
+      const btn = tooltip.querySelector('.tutorial-btn-next');
+      if (!btn) break;
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+    expect(tooltip.textContent).toContain('Thank You');
+    expect(tooltip.querySelector('.tutorial-cb-label')).toBeTruthy();
+    expect(tooltip.querySelector('.tutorial-cb-label input[type="checkbox"]')).toBeTruthy();
+    t.destroy();
+  });
 });

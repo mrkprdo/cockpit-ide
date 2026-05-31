@@ -48,6 +48,22 @@ describe('CommandPalette', () => {
     expect(document.querySelector('.palette-progress')).toBeTruthy();
   });
 
+  it('overlay has dialog ARIA role and label', () => {
+    createPalette();
+    const overlay = document.querySelector('.palette-overlay') as HTMLElement;
+    expect(overlay.getAttribute('role')).toBe('dialog');
+    expect(overlay.getAttribute('aria-modal')).toBe('true');
+    expect(overlay.getAttribute('aria-label')).toBe('File search');
+  });
+
+  it('input has aria-label, autocomplete=off, spellcheck=false', () => {
+    createPalette();
+    const input = document.querySelector('.palette-input') as HTMLInputElement;
+    expect(input.getAttribute('aria-label')).toBeTruthy();
+    expect(input.getAttribute('autocomplete')).toBe('off');
+    expect(input.getAttribute('spellcheck')).toBe('false');
+  });
+
   it('open() adds open class and focuses input', async () => {
     const palette = createPalette();
     palette.open();

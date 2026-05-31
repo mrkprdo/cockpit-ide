@@ -127,6 +127,30 @@ describe('TopBar', () => {
     expect(items[1].textContent).toBe('Terminal 2');
   });
 
+  it('closed instance has is-closed class; open instance does not', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    bar.setTerminalItems([
+      { uuid: 't1', title: 'Terminal 1', isOpen: true },
+      { uuid: 't2', title: 'Terminal 2', isOpen: false },
+    ]);
+    const open = document.querySelector('[data-term-open="true"]') as HTMLElement;
+    const closed = document.querySelector('[data-term-open="false"]') as HTMLElement;
+    expect(open.classList.contains('is-closed')).toBe(false);
+    expect(closed.classList.contains('is-closed')).toBe(true);
+  });
+
+  it('empty terminal list renders is-disabled placeholder', () => {
+    new TopBar(makeTopBarEl(), callbacks);
+    const disabled = document.querySelector('.menu-dropdown-item.is-disabled');
+    expect(disabled).toBeTruthy();
+    expect(disabled!.textContent).toContain('none');
+  });
+
+  it('Exit menu item has id menu-exit', () => {
+    new TopBar(makeTopBarEl(), callbacks);
+    expect(document.querySelector('#menu-exit')).toBeTruthy();
+  });
+
   it('shows explorer items in the Explorer submenu', () => {
     const bar = new TopBar(makeTopBarEl(), callbacks);
     bar.setExplorerItems([

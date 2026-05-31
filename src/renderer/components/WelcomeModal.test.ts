@@ -35,6 +35,15 @@ describe('WelcomeModal', () => {
     expect(document.body.textContent).toContain('Select a workspace');
   });
 
+  it('dialog has required ARIA attributes', () => {
+    new WelcomeModal();
+    const modal = document.querySelector('.welcome-modal') as HTMLElement;
+    expect(modal.getAttribute('role')).toBe('dialog');
+    expect(modal.getAttribute('aria-modal')).toBe('true');
+    expect(modal.getAttribute('aria-labelledby')).toBe('welcome-title');
+    expect(document.querySelector('#welcome-title')).toBeTruthy();
+  });
+
   it('starts hidden', () => {
     new WelcomeModal();
     const overlay = document.querySelector('.modal-overlay') as HTMLElement;
