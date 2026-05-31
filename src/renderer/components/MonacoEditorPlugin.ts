@@ -14,6 +14,7 @@ export class MonacoEditorPlugin {
   activeTab: string | null = null;
   private fileContents = new Map<string, string>();
   private dirtyFiles = new Set<string>();
+  private suppressDirty = false;
   private editor: any = null;
   private bar: HTMLDivElement;
   private tabContainer: HTMLDivElement;
@@ -186,7 +187,9 @@ export class MonacoEditorPlugin {
       this.fileContents.set(lcPath, content);
       if (this.activeTab === lcPath && this.editor) {
         if (this.editor.getValue() !== content) {
+          this.suppressDirty = true;
           this.editor.setValue(content);
+          this.suppressDirty = false;
         }
       }
     }
@@ -234,7 +237,9 @@ export class MonacoEditorPlugin {
       this.activeTab = lcPath;
 
       const content = this.fileContents.get(lcPath) || '';
+      this.suppressDirty = true;
       this.editor.setValue(content);
+      this.suppressDirty = false;
 
       const saved = this.savedCursors[lcPath];
       if (saved) {
@@ -267,7 +272,7 @@ export class MonacoEditorPlugin {
         this.switchTab(this.tabs[newIdx].filePath);
       } else {
         this.activeTab = null;
-        if (this.editor) this.editor.setValue('');
+        if (this.editor) { this.suppressDirty = true; this.editor.setValue(''); this.suppressDirty = false; }
         this.renderTabs();
       }
     } else {
@@ -287,7 +292,7 @@ export class MonacoEditorPlugin {
     this.dirtyFiles.clear();
     this.savedCursors = {};
     this.activeTab = lcPath;
-    if (this.editor) this.editor.setValue(keptContent);
+    if (this.editor) { this.suppressDirty = true; this.editor.setValue(keptContent); this.suppressDirty = false; }
     this.renderTabs();
     this.onStateChange?.();
   }
@@ -298,7 +303,7 @@ export class MonacoEditorPlugin {
     this.dirtyFiles.clear();
     this.savedCursors = {};
     this.activeTab = null;
-    if (this.editor) this.editor.setValue('');
+    if (this.editor) { this.suppressDirty = true; this.editor.setValue(''); this.suppressDirty = false; }
     this.renderTabs();
     this.onStateChange?.();
   }
@@ -355,7 +360,7 @@ export class MonacoEditorPlugin {
 
     let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
     this.editor.onDidChangeModelContent(() => {
-      if (this.activeTab) {
+      if (this.activeTab && !this.suppressDirty) {
         this.dirtyFiles.add(this.activeTab);
         this.updateDirtyState();
       }
