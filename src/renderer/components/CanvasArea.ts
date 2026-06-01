@@ -312,35 +312,33 @@ export class CanvasArea {
         const cardsInGroup = Math.min(3, n - groupIdx * 3);
         const idxInGroup = i - groupIdx * 3;
         const bandY = groupIdx * (bandH + bandGap);
-        let cx: number, cw: number;
+        const bandH2 = bandH >> 1;
+        let cx: number, cy: number, cw: number, ch: number;
 
         if (cardsInGroup === 1) {
-          cw = vw;
-          cx = 0;
+          cw = vw; ch = bandH; cx = 0; cy = bandY;
         } else if (cardsInGroup === 2) {
-          cw = vw >> 1;
+          cw = vw >> 1; ch = bandH;
           cx = idxInGroup === 0 ? 0 : cw;
+          cy = bandY;
         } else if (idxInGroup === 0) {
-          cw = vw >> 1;
-          cx = 0;
+          cw = vw >> 1; ch = bandH; cx = 0; cy = bandY;
         } else if (idxInGroup === 1) {
-          cw = vw >> 2;
-          cx = vw >> 1;
+          cw = vw >> 1; ch = bandH2; cx = vw >> 1; cy = bandY;
         } else {
-          cw = vw - (vw >> 1) - (vw >> 2);
-          cx = (vw >> 1) + (vw >> 2);
+          cw = vw >> 1; ch = bandH2; cx = vw >> 1; cy = bandY + bandH2;
         }
 
         cs.savedWidth = cw;
-        cs.savedHeight = bandH;
+        cs.savedHeight = ch;
         cs.worldX = cx - (vw >> 1);
-        cs.worldY = bandY - (vh >> 1);
+        cs.worldY = cy - (vh >> 1);
         cs.savedWX = cs.worldX;
         cs.savedWY = cs.worldY;
         cs.card.opts.width = cw;
-        cs.card.opts.height = bandH;
+        cs.card.opts.height = ch;
         cs.card.el.style.width = `${cw}px`;
-        cs.card.el.style.height = `${bandH}px`;
+        cs.card.el.style.height = `${ch}px`;
         this.positionCard(cs);
         cs.onCardResize?.();
         cs.terminalPlugin?.fit();

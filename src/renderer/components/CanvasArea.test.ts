@@ -779,7 +779,7 @@ describe('auto arrange', () => {
       expect(canvas.locked).toBe(true);
     });
 
-    it('arranges 3 cards in a horizontal row with Fibonacci widths', async () => {
+    it('arranges 3 cards: left half, right column stacked equal height', async () => {
       canvas.addTerminal();
       canvas.addTerminal();
       canvas.addTerminal();
@@ -790,16 +790,15 @@ describe('auto arrange', () => {
       expect(state.plugins.length).toBe(3);
       const xs = state.plugins.map((p: any) => p.x);
       const ys = state.plugins.map((p: any) => p.y);
-      // All same row (same y)
-      expect(ys[0]).toBe(ys[1]);
-      expect(ys[1]).toBe(ys[2]);
-      // Card 0 leftmost (most negative x), card 1 center, card 2 rightmost
+      // Card 0 leftmost
       expect(xs[0]).toBeLessThan(xs[1]);
-      expect(xs[1]).toBeLessThan(xs[2]);
-      // Card 0 gets 1/2 width, card 1 gets 1/4, card 2 gets 1/4
-      expect(state.plugins[0].width).toBe(960);
-      expect(state.plugins[1].width).toBe(480);
-      expect(state.plugins[2].width).toBe(480);
+      expect(xs[0]).toBeLessThan(xs[2]);
+      // Cards 1-2 are in right column (same x)
+      expect(xs[1]).toBe(xs[2]);
+      // Card 1 above card 2
+      expect(ys[1]).toBeLessThan(ys[2]);
+      // Cards 1 and 2 have equal height
+      expect(state.plugins[1].height).toBe(state.plugins[2].height);
     });
 
     it('sorts by usageCount descending', async () => {
@@ -880,7 +879,7 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 100));
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(4);
-      // Band 0 (3 cards): card 0 left half, card 1 center quarter, card 2 right quarter
+      // Band 0 (3 cards): card 0 left half, cards 1-2 stacked equal in right half
       const xs = state.plugins.map((p: any) => p.x);
       const ys = state.plugins.map((p: any) => p.y);
       // Card 3 (solo, band 1) is below band 0 cards
@@ -898,13 +897,20 @@ describe('auto arrange', () => {
       expect(state.plugins.length).toBe(6);
       const ys = state.plugins.map((p: any) => p.y);
       const xs = state.plugins.map((p: any) => p.x);
-      // Band 0 bottom edge < Band 1 top edge
-      expect(ys[2] + state.plugins[2].height).toBeLessThanOrEqual(ys[3]);
-      // Within each band: card 0 leftmost, cards 1-2 on right
+      // Band 0 cards: card 0 left, cards 1-2 stacked right
       expect(xs[0]).toBeLessThan(xs[1]);
       expect(xs[0]).toBeLessThan(xs[2]);
+      expect(xs[1]).toBe(xs[2]);
+      expect(ys[1]).toBeLessThan(ys[2]);
+      expect(state.plugins[1].height).toBe(state.plugins[2].height);
+      // Band 0 bottom edge < Band 1 top edge
+      expect(ys[2] + state.plugins[2].height).toBeLessThanOrEqual(ys[3]);
+      // Band 1 cards: card 3 left, cards 4-5 stacked right
       expect(xs[3]).toBeLessThan(xs[4]);
       expect(xs[3]).toBeLessThan(xs[5]);
+      expect(xs[4]).toBe(xs[5]);
+      expect(ys[4]).toBeLessThan(ys[5]);
+      expect(state.plugins[4].height).toBe(state.plugins[5].height);
     });
   });
 
