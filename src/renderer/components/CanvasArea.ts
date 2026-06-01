@@ -302,7 +302,6 @@ export class CanvasArea {
       const vw = this.el.clientWidth;
       const vh = this.el.clientHeight;
       const n = sorted.length;
-      const innerGap = 4;
       const bandGap = 28;
       const bands = Math.ceil(n / 3);
       const bandH = Math.floor((vh - bandGap * (bands - 1)) / bands);
@@ -321,37 +320,37 @@ export class CanvasArea {
           cx = 0;
           cy = bandY;
         } else if (cardsInGroup === 2) {
-          cw = ((vw - innerGap) >> 1);
+          cw = vw >> 1;
           ch = bandH;
-          cx = idxInGroup === 0 ? 0 : (cw + innerGap);
+          cx = idxInGroup === 0 ? 0 : cw;
           cy = bandY;
         } else if (idxInGroup === 0) {
-          cw = ((vw - innerGap) >> 1);
+          cw = vw >> 1;
           ch = bandH;
           cx = 0;
           cy = bandY;
         } else if (idxInGroup === 1) {
-          cw = ((vw - innerGap) >> 1);
-          ch = (bandH - innerGap) >> 1;
-          cx = cw + innerGap;
+          cw = vw >> 1;
+          ch = bandH >> 1;
+          cx = vw >> 1;
           cy = bandY;
         } else {
-          cw = ((vw - innerGap) >> 1);
-          ch = bandH - ((bandH - innerGap) >> 1) - innerGap + 1;
-          cx = cw + innerGap;
-          cy = bandY + ((bandH - innerGap) >> 1) + innerGap;
+          cw = vw >> 1;
+          ch = bandH - (bandH >> 1) + 1;
+          cx = vw >> 1;
+          cy = bandY + (bandH >> 1);
         }
 
-        cs.savedWidth = Math.max(28 * 3, cw);
-        cs.savedHeight = Math.max(28 * 3, ch);
+        cs.savedWidth = cw;
+        cs.savedHeight = ch;
         cs.worldX = cx - (vw >> 1);
         cs.worldY = cy - (vh >> 1);
         cs.savedWX = cs.worldX;
         cs.savedWY = cs.worldY;
-        cs.card.opts.width = cs.savedWidth;
-        cs.card.opts.height = cs.savedHeight;
-        cs.card.el.style.width = `${cs.savedWidth}px`;
-        cs.card.el.style.height = `${cs.savedHeight}px`;
+        cs.card.opts.width = cw;
+        cs.card.opts.height = ch;
+        cs.card.el.style.width = `${cw}px`;
+        cs.card.el.style.height = `${ch}px`;
         this.positionCard(cs);
         cs.onCardResize?.();
         cs.terminalPlugin?.fit();
