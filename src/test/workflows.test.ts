@@ -336,9 +336,9 @@ describe('Markdown Tab CRUD workflows', () => {
 
     expect(container.textContent).toContain('doc.md');
 
-    // The close button is a span with text '✕' inside the tab element
-    const closeBtn = Array.from(container.querySelectorAll('span'))
-      .find(s => s.textContent === '✕' && (s as HTMLElement).style.opacity === '1');
+    // The close button is a span with text '✕' inside the active tab element
+    const activeTab = container.querySelector('.editor-tab.is-active');
+    const closeBtn = activeTab?.querySelector('span.editor-tab-close');
     expect(closeBtn).toBeTruthy();
 
     (closeBtn as HTMLElement).click();
@@ -632,11 +632,8 @@ describe('End-to-end: File → Editor → Markdown', () => {
     expect(state!.activeFile).toContain('c.md');
 
     // DELETE: close the active tab by clicking its close button
-    const closeBtns = Array.from(container.querySelectorAll('span'))
-      .filter(s => s.textContent === '✕');
-
-    // The active tab's close button has higher opacity
-    const activeCloseBtn = closeBtns.find(b => (b as HTMLElement).style.opacity === '1');
+    const activeTab = container.querySelector('.editor-tab.is-active');
+    const activeCloseBtn = activeTab?.querySelector('span.editor-tab-close');
     if (activeCloseBtn) {
       (activeCloseBtn as HTMLElement).click();
       await new Promise(r => setTimeout(r, 50));

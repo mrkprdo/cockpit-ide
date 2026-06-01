@@ -722,9 +722,8 @@ describe('MarkdownPlugin edge cases', () => {
 
     // Active is 3.md. Switch to 2.md and close it.
     await ctx.loadFile('/test/2.md');
-    const closeBtns = Array.from(container.querySelectorAll('span'))
-      .filter(s => s.textContent === '✕');
-    const activeClose = closeBtns.find(b => (b as HTMLElement).style.opacity === '1');
+    const activeTab = container.querySelector('.editor-tab.is-active');
+    const activeClose = activeTab?.querySelector('span.editor-tab-close');
     (activeClose as HTMLElement)?.click();
     await new Promise(r => setTimeout(r, 50));
 
