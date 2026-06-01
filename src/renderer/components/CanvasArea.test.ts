@@ -779,7 +779,7 @@ describe('auto arrange', () => {
       expect(canvas.locked).toBe(true);
     });
 
-    it('arranges 3 cards in left-half / top-right / bottom-right pattern', async () => {
+    it('arranges 3 cards in a horizontal row with Fibonacci widths', async () => {
       canvas.addTerminal();
       canvas.addTerminal();
       canvas.addTerminal();
@@ -788,14 +788,18 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 100));
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(3);
-      // First card (Tile 1) is left half — leftmost
       const xs = state.plugins.map((p: any) => p.x);
       const ys = state.plugins.map((p: any) => p.y);
-      // Card 0 is leftmost (most negative x)
+      // All same row (same y)
+      expect(ys[0]).toBe(ys[1]);
+      expect(ys[1]).toBe(ys[2]);
+      // Card 0 leftmost (most negative x), card 1 center, card 2 rightmost
       expect(xs[0]).toBeLessThan(xs[1]);
-      expect(xs[0]).toBeLessThan(xs[2]);
-      // Card 1 is above card 2
-      expect(ys[1]).toBeLessThan(ys[2]);
+      expect(xs[1]).toBeLessThan(xs[2]);
+      // Card 0 gets 1/2 width, card 1 gets 1/4, card 2 gets 1/4
+      expect(state.plugins[0].width).toBe(960);
+      expect(state.plugins[1].width).toBe(480);
+      expect(state.plugins[2].width).toBe(480);
     });
 
     it('sorts by usageCount descending', async () => {
@@ -876,7 +880,7 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 100));
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(4);
-      // Band 0 (3 cards): card 0 left half, cards 1-2 right stacked
+      // Band 0 (3 cards): card 0 left half, card 1 center quarter, card 2 right quarter
       const xs = state.plugins.map((p: any) => p.x);
       const ys = state.plugins.map((p: any) => p.y);
       // Card 3 (solo, band 1) is below band 0 cards
