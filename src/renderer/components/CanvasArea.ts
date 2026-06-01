@@ -302,16 +302,17 @@ export class CanvasArea {
       const vw = this.el.clientWidth;
       const vh = this.el.clientHeight;
       const n = sorted.length;
-      const gap = 28;
+      const innerGap = 4;
+      const bandGap = 28;
       const bands = Math.ceil(n / 3);
-      const bandH = Math.floor((vh - gap * (bands - 1)) / bands);
+      const bandH = Math.floor((vh - bandGap * (bands - 1)) / bands);
 
       for (let i = 0; i < n; i++) {
         const cs = sorted[i];
         const groupIdx = Math.floor(i / 3);
         const cardsInGroup = Math.min(3, n - groupIdx * 3);
         const idxInGroup = i - groupIdx * 3;
-        const bandY = groupIdx * (bandH + gap);
+        const bandY = groupIdx * (bandH + bandGap);
         let cx: number, cy: number, cw: number, ch: number;
 
         if (cardsInGroup === 1) {
@@ -320,25 +321,25 @@ export class CanvasArea {
           cx = 0;
           cy = bandY;
         } else if (cardsInGroup === 2) {
-          cw = ((vw - gap) >> 1);
+          cw = ((vw - innerGap) >> 1);
           ch = bandH;
-          cx = idxInGroup === 0 ? 0 : (cw + gap);
+          cx = idxInGroup === 0 ? 0 : (cw + innerGap);
           cy = bandY;
         } else if (idxInGroup === 0) {
-          cw = ((vw - gap) >> 1);
+          cw = ((vw - innerGap) >> 1);
           ch = bandH;
           cx = 0;
           cy = bandY;
         } else if (idxInGroup === 1) {
-          cw = ((vw - gap) >> 1);
-          ch = (bandH - gap) >> 1;
-          cx = cw + gap;
+          cw = ((vw - innerGap) >> 1);
+          ch = (bandH - innerGap) >> 1;
+          cx = cw + innerGap;
           cy = bandY;
         } else {
-          cw = ((vw - gap) >> 1);
-          ch = bandH - ((bandH - gap) >> 1) - gap + 1;
-          cx = cw + gap;
-          cy = bandY + ((bandH - gap) >> 1) + gap;
+          cw = ((vw - innerGap) >> 1);
+          ch = bandH - ((bandH - innerGap) >> 1) - innerGap + 1;
+          cx = cw + innerGap;
+          cy = bandY + ((bandH - innerGap) >> 1) + innerGap;
         }
 
         cs.savedWidth = Math.max(28 * 3, cw);
