@@ -302,15 +302,16 @@ export class CanvasArea {
       const vw = this.el.clientWidth;
       const vh = this.el.clientHeight;
       const n = sorted.length;
+      const gap = 28;
       const bands = Math.ceil(n / 3);
-      const bandH = Math.floor(vh / bands);
+      const bandH = Math.floor((vh - gap * (bands - 1)) / bands);
 
       for (let i = 0; i < n; i++) {
         const cs = sorted[i];
         const groupIdx = Math.floor(i / 3);
         const cardsInGroup = Math.min(3, n - groupIdx * 3);
         const idxInGroup = i - groupIdx * 3;
-        const bandY = groupIdx * bandH;
+        const bandY = groupIdx * (bandH + gap);
         let cx: number, cy: number, cw: number, ch: number;
 
         if (cardsInGroup === 1) {
@@ -319,31 +320,31 @@ export class CanvasArea {
           cx = 0;
           cy = bandY;
         } else if (cardsInGroup === 2) {
-          cw = vw >> 1;
+          cw = ((vw - gap) >> 1);
           ch = bandH;
-          cx = idxInGroup === 0 ? 0 : (vw >> 1);
+          cx = idxInGroup === 0 ? 0 : (cw + gap);
           cy = bandY;
         } else if (idxInGroup === 0) {
-          cw = vw >> 1;
+          cw = ((vw - gap) >> 1);
           ch = bandH;
           cx = 0;
           cy = bandY;
         } else if (idxInGroup === 1) {
-          cw = vw >> 1;
-          ch = bandH >> 1;
-          cx = vw >> 1;
+          cw = ((vw - gap) >> 1);
+          ch = (bandH - gap) >> 1;
+          cx = cw + gap;
           cy = bandY;
         } else {
-          cw = vw >> 1;
-          ch = bandH - (bandH >> 1) + 1;
-          cx = vw >> 1;
-          cy = bandY + (bandH >> 1);
+          cw = ((vw - gap) >> 1);
+          ch = bandH - ((bandH - gap) >> 1) - gap;
+          cx = cw + gap;
+          cy = bandY + ((bandH - gap) >> 1) + gap;
         }
 
-        cs.savedWidth = this.snapSize(Math.max(28 * 10, cw));
-        cs.savedHeight = this.snapSize(Math.max(28 * 10, ch));
-        cs.worldX = this.snap(cx - (vw >> 1));
-        cs.worldY = this.snap(cy - (vh >> 1));
+        cs.savedWidth = Math.max(28 * 3, cw);
+        cs.savedHeight = Math.max(28 * 3, ch);
+        cs.worldX = cx - (vw >> 1);
+        cs.worldY = cy - (vh >> 1);
         cs.savedWX = cs.worldX;
         cs.savedWY = cs.worldY;
         cs.card.opts.width = cs.savedWidth;
