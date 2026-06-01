@@ -1,6 +1,6 @@
 export type EditorState = { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> };
 export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; markdownState?: MarkdownState; gitState?: GitState };
-export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number };
+export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number; locked?: boolean };
 
 import { GridStyle, generateGridPattern, applyGridToElement } from './canvas-grid';
 import { StatusBar } from './canvas-statusbar';
@@ -40,6 +40,7 @@ export class CanvasArea {
   set locked(v: boolean) {
     this._locked = v;
     this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll());
+    this.onStateChange?.();
   }
   private patternSize = 28;
   private patternDataURL = '';
@@ -470,6 +471,7 @@ export class CanvasArea {
       }),
       zOrder: byZ.map(c => c.card.uuid),
       zoom: this.scale, panX: this.panX, panY: this.panY,
+      locked: this._locked,
     };
   }
 
