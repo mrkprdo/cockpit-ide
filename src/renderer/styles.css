@@ -685,7 +685,7 @@ html, body {
 .editor-tab-bar {
   display: flex;
   align-items: center;
-  height: 36px;
+  height: 30px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   overflow: hidden;
@@ -730,7 +730,7 @@ html, body {
   color: var(--primary);
   background: var(--panel);
   border-top-color: var(--accent);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
 }
 .editor-tab-close {
   font-size: var(--text-2xs);
