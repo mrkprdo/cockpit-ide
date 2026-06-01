@@ -81,6 +81,11 @@
       "behavior": "Apply custom width/height to all open cards, re-arrange in grid. Shrinks to fit if needed (min 2 cols)."
     },
     {
+      "name": "auto_fit_all",
+      "trigger": "Click 'Auto Fit All' in arrangement panel",
+      "behavior": "Sort open cards by usageCount descending. Divide viewport into ceil(N/3) equal-height horizontal bands. Each band holds up to 3 cards: first gets left 50% of band, second gets top-right 25%, third gets bottom-right 25%. Bands with 2 cards split equally (50/50 width). Bands with 1 card fill entire band. Sets zoom=1 and locks canvas."
+    },
+    {
       "name": "right_click_empty",
       "trigger": "Right-click on empty canvas area",
       "behavior": "ContextMenu with: New Terminal, New Explorer, New Git, New Markdown"

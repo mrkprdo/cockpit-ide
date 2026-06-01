@@ -24,7 +24,7 @@
     "ipc_pattern": "request/response (ipcRenderer.invoke <-> ipcMain.handle) + fire-and-forget (ipcRenderer.send <-> ipcMain.on) + push events (ipcMain → renderer via webContents.send + on listener)",
     "canvas_model": "World-to-screen coordinate transform: screenX = worldX * scale + panX; screenY = worldY * scale + panY",
     "card_model": "PluginCard wraps plugin content with drag/resize/minimize, snap-to-28px-grid",
-    "state_persistence": ".cockpit/window.json (SaveState: plugins[], zOrder[], zoom, panX, panY)"
+    "state_persistence": ".cockpit/window.json (SaveState: plugins[], zOrder[], zoom, panX, panY, locked)"
   },
   "features": {
     "foundation": [

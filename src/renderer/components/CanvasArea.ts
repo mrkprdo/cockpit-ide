@@ -1,6 +1,6 @@
 export type EditorState = { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> };
 export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; markdownState?: MarkdownState; gitState?: GitState };
-export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number };
+export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number; locked?: boolean };
 
 import { GridStyle, generateGridPattern, applyGridToElement } from './canvas-grid';
 import { StatusBar } from './canvas-statusbar';
@@ -22,6 +22,7 @@ interface CardState {
   savedHeight: number;
   savedWX: number;
   savedWY: number;
+  usageCount: number;
   terminalPlugin: TerminalPlugin | null;
   explorerPlugin: ExplorerPlugin | null;
   gitPlugin: GitPlugin | null;
@@ -40,6 +41,7 @@ export class CanvasArea {
   set locked(v: boolean) {
     this._locked = v;
     this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll());
+    this.onStateChange?.();
   }
   private patternSize = 28;
   private patternDataURL = '';
@@ -199,6 +201,7 @@ export class CanvasArea {
 
     const items: { label: string; action: () => void }[] = [
       { label: 'Auto Arrange', action: () => this.autoArrange() },
+      { label: 'Auto Fit All', action: () => this.autoFitAll() },
       { label: 'Tile Plugins', action: () => this.tilePlugins() },
     ];
 
@@ -287,6 +290,88 @@ export class CanvasArea {
       this.onStateChange?.();
     });
     this.fitAll();
+  }
+
+  autoFitAll(): void {
+    const open = this.cards.filter(c => c.isOpen);
+    if (open.length === 0) return;
+
+    const sorted = [...open].sort((a, b) => b.usageCount - a.usageCount);
+
+    this.animateArrange(sorted, () => {
+      const vw = this.el.clientWidth;
+      const vh = this.el.clientHeight;
+      const n = sorted.length;
+      const bands = Math.ceil(n / 3);
+      const bandH = Math.floor(vh / bands);
+
+      for (let i = 0; i < n; i++) {
+        const cs = sorted[i];
+        const groupIdx = Math.floor(i / 3);
+        const cardsInGroup = Math.min(3, n - groupIdx * 3);
+        const idxInGroup = i - groupIdx * 3;
+        const bandY = groupIdx * bandH;
+        let cx: number, cy: number, cw: number, ch: number;
+
+        if (cardsInGroup === 1) {
+          cw = vw;
+          ch = bandH;
+          cx = 0;
+          cy = bandY;
+        } else if (cardsInGroup === 2) {
+          cw = vw >> 1;
+          ch = bandH;
+          cx = idxInGroup === 0 ? 0 : (vw >> 1);
+          cy = bandY;
+        } else if (idxInGroup === 0) {
+          cw = vw >> 1;
+          ch = bandH;
+          cx = 0;
+          cy = bandY;
+        } else if (idxInGroup === 1) {
+          cw = vw >> 1;
+          ch = bandH >> 1;
+          cx = vw >> 1;
+          cy = bandY;
+        } else {
+          cw = vw >> 1;
+          ch = bandH - (bandH >> 1) + 1;
+          cx = vw >> 1;
+          cy = bandY + (bandH >> 1);
+        }
+
+        cs.savedWidth = this.snapSize(Math.max(28 * 10, cw));
+        cs.savedHeight = this.snapSize(Math.max(28 * 10, ch));
+        cs.worldX = this.snap(cx - (vw >> 1));
+        cs.worldY = this.snap(cy - (vh >> 1));
+        cs.savedWX = cs.worldX;
+        cs.savedWY = cs.worldY;
+        cs.card.opts.width = cs.savedWidth;
+        cs.card.opts.height = cs.savedHeight;
+        cs.card.el.style.width = `${cs.savedWidth}px`;
+        cs.card.el.style.height = `${cs.savedHeight}px`;
+        this.positionCard(cs);
+        cs.onCardResize?.();
+        cs.terminalPlugin?.fit();
+      }
+
+      this.onStateChange?.();
+    });
+
+    this.scale = 1;
+    this.locked = true;
+    const cw = this.el.clientWidth;
+    const ch = this.el.clientHeight;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const cs of sorted) {
+      minX = Math.min(minX, cs.worldX);
+      minY = Math.min(minY, cs.worldY);
+      maxX = Math.max(maxX, cs.worldX + cs.savedWidth);
+      maxY = Math.max(maxY, cs.worldY + cs.savedHeight);
+    }
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    this.animatePan(cw / 2 - cx, ch / 2 - cy);
   }
 
   private tilePlugins(): void {
@@ -424,7 +509,7 @@ export class CanvasArea {
         menu.onClose = () => { this.contextMenuOpen = false; };
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
-    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null };
+    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, usageCount: 1, terminalPlugin: null, explorerPlugin: null, gitPlugin: null };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -470,6 +555,7 @@ export class CanvasArea {
       }),
       zOrder: byZ.map(c => c.card.uuid),
       zoom: this.scale, panX: this.panX, panY: this.panY,
+      locked: this._locked,
     };
   }
 
@@ -479,6 +565,8 @@ export class CanvasArea {
     if (this.nextZ >= 9998) this.rebalanceZ();
     this.nextZ++;
     card.el.style.zIndex = String(this.nextZ);
+    const cs = this.cards.find(c => c.card === card);
+    if (cs) cs.usageCount++;
   }
 
   private rebalanceZ(): void {
@@ -552,7 +640,7 @@ export class CanvasArea {
 
     const cx = this.clampWorld(p.x);
     const cy = this.clampWorld(p.y);
-    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null };
+    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, usageCount: 0, terminalPlugin: null, explorerPlugin: null, gitPlugin: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
@@ -1234,6 +1322,7 @@ export class CanvasArea {
       new ContextMenu([
         { label: 'View All', action: () => this.fitAll() },
         { label: 'Auto Arrange', action: () => this.autoArrange() },
+        { label: 'Auto Fit All', action: () => this.autoFitAll() },
       ], e.clientX, e.clientY);
     });
   }

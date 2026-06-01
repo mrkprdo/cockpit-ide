@@ -1,7 +1,7 @@
 {
   "name": "App Shell",
   "file": "src/renderer/components/App.ts",
-  "description": "Root application orchestrator. Creates CanvasArea and TopBar, manages workspace lifecycle (CLI path resolution, WelcomeModal fallback, workspace load/save), keyboard shortcuts (Ctrl+Shift+N new window, Ctrl+W prevention, Ctrl+Tab card cycling, Ctrl+P file search, Ctrl+J new terminal), auto-save with debounced JSON diff comparison, reloads user preferences (theme, grid style, zoom lock, tutorial), initializes window control buttons (minimize/maximize/close).",
+  "description": "Root application orchestrator. Creates CanvasArea and TopBar, manages workspace lifecycle (CLI path resolution, WelcomeModal fallback, workspace load/save), keyboard shortcuts (Ctrl+Shift+N new window, Ctrl+W prevention, Ctrl+Tab card cycling, Ctrl+P file search, Ctrl+J new terminal), auto-save with debounced JSON diff comparison, reloads user preferences (theme, grid style, zoom lock (with workspace state fallback), tutorial), initializes window control buttons (minimize/maximize/close).",
   "type": "ui",
   "layer": "core",
   "singleton": true,

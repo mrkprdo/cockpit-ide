@@ -189,17 +189,21 @@ export class App {
 
     if (state) {
       this.canvas.setView({ zoom: state.zoom, panX: state.panX, panY: state.panY });
+      if (state.locked) {
+        this.canvas.locked = true;
+        this.topBar.setZoomLocked(true);
+      }
     } else {
       this.canvas.centerView();
     }
 
-    // Restore user preferences
+    // Restore user preferences (fallback for zoomLocked prefs before window.json stored it)
     const prefs = await window.electronAPI?.prefs.load();
     if (prefs?.gridStyle) {
       this.canvas.setGridStyle(prefs.gridStyle);
       this.topBar.setGridStyle(prefs.gridStyle);
     }
-    if (prefs?.zoomLocked) {
+    if (prefs?.zoomLocked && !this.canvas.locked) {
       this.canvas.locked = true;
       this.topBar.setZoomLocked(true);
     }
