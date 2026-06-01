@@ -29,8 +29,7 @@
       { "name": "zOrder", "type": "string[]", "description": "UUID stack — last element is topmost card" },
       { "name": "zoom", "type": "number", "description": "Canvas zoom factor (0.1–5.0)" },
       { "name": "panX", "type": "number", "description": "Horizontal pan offset in screen pixels" },
-      { "name": "panY", "type": "number", "description": "Vertical pan offset in screen pixels" },
-      { "name": "locked", "type": "boolean", "description": "Whether zoom/pan is locked (optional, backward compat)" }
+      { "name": "panY", "type": "number", "description": "Vertical pan offset in screen pixels" }
     ]
   },
   "transforms": {
@@ -47,7 +46,6 @@
     { "name": "add_markdown", "trigger": "addMarkdown()", "behavior": "Creates PluginCard with MarkdownPlugin, no path needed" },
     { "name": "fit_all", "trigger": "fitAll() / View All button", "behavior": "Calculates bounding box of all cards, sets zoom/pan to fit viewport with padding" },
     { "name": "auto_arrange", "trigger": "Arrangement panel button", "behavior": "Tiles all open cards in a grid layout with configurable columns" },
-    { "name": "auto_fit_all", "trigger": "Arrangement panel button", "behavior": "Sorts open cards by usageCount descending, divides viewport into ceil(N/3) equal-height horizontal bands, places up to 3 cards per band in Fibonacci pattern (first left 50%, second top-right 25%, third bottom-right 25%). Bands with 2 cards split equally (50/50), 1 card fills band. Sets zoom=1 and locks canvas." },
     { "name": "animate_pan", "trigger": "animatePanTo()", "behavior": "Ease-out cubic interpolation over 300ms to target pan position" }
   ],
   "callbacks": {

@@ -66,8 +66,6 @@ describe('CanvasArea', () => {
     expect(state).toHaveProperty('zoom');
     expect(state).toHaveProperty('panX');
     expect(state).toHaveProperty('panY');
-    expect(state).toHaveProperty('locked');
-    expect(typeof state.locked).toBe('boolean');
     expect(Array.isArray(state.plugins)).toBe(true);
   });
 
@@ -151,14 +149,13 @@ describe('CanvasArea', () => {
       expect(getPanel().style.display).toBe('none');
     });
 
-    it('panel contains Auto Arrange, Auto Fit All, and Tile Plugins items', () => {
+    it('panel contains Auto Arrange and Tile Plugins items', () => {
       const zone = getZone();
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = queryArrItems();
-      expect(items.length).toBe(3);
+      expect(items.length).toBe(2);
       expect(items[0].textContent).toBe('Auto Arrange');
-      expect(items[1].textContent).toBe('Auto Fit All');
-      expect(items[2].textContent).toBe('Tile Plugins');
+      expect(items[1].textContent).toBe('Tile Plugins');
     });
 
     it('panel contains two input fields for W and H', () => {
@@ -339,7 +336,7 @@ describe('CanvasArea', () => {
         h.dispatchEvent(new Event('change', { bubbles: true }));
 
         const items = document.querySelectorAll('.arr-item');
-        (items[2] as HTMLElement).click();
+        (items[1] as HTMLElement).click();
 
         const state = canvas.getSaveState();
         expect(state.plugins.length).toBe(2);
@@ -757,163 +754,6 @@ describe('auto arrange', () => {
     });
   });
 
-  describe('auto fit all', () => {
-    function callAutoFitAll(): void {
-      (canvas as any).autoFitAll();
-    }
-
-    it('is a no-op with no open cards', () => {
-      expect(() => callAutoFitAll()).not.toThrow();
-    });
-
-    it('arranges a single card filling full viewport in world space', async () => {
-      canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      callAutoFitAll();
-      await new Promise(r => setTimeout(r, 100));
-      const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(1);
-      // Card fills full band (centered at origin), worldX is negative (left edge)
-      expect(state.plugins[0].x).toBeLessThan(0);
-      expect(state.zoom).toBe(1);
-      expect(canvas.locked).toBe(true);
-    });
-
-    it('arranges 3 cards: left half, right column stacked equal height', async () => {
-      canvas.addTerminal();
-      canvas.addTerminal();
-      canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      callAutoFitAll();
-      await new Promise(r => setTimeout(r, 100));
-      const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(3);
-      const xs = state.plugins.map((p: any) => p.x);
-      const ys = state.plugins.map((p: any) => p.y);
-      // Card 0 leftmost
-      expect(xs[0]).toBeLessThan(xs[1]);
-      expect(xs[0]).toBeLessThan(xs[2]);
-      // Cards 1-2 are in right column (same x)
-      expect(xs[1]).toBe(xs[2]);
-      // Card 1 above card 2
-      expect(ys[1]).toBeLessThan(ys[2]);
-      // Cards 1 and 2 have equal height
-      expect(state.plugins[1].height).toBe(state.plugins[2].height);
-    });
-
-    it('sorts by usageCount descending', async () => {
-      canvas.addTerminal();
-      canvas.addTerminal();
-      canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      const cs = (canvas as any).cards;
-      // Increment usage on middle card the most, then last card
-      cs[1].usageCount = 5;
-      cs[2].usageCount = 3;
-      cs[0].usageCount = 1;
-      callAutoFitAll();
-      await new Promise(r => setTimeout(r, 100));
-      const state = canvas.getSaveState();
-      // The most-used card (idx 1) should be in the largest slot (first — left half)
-      // Its x position should be leftmost
-      const xByUuid = Object.fromEntries(state.plugins.map((p: any) => [p.uuid, p.x]));
-      const x0 = xByUuid[cs[0].card.uuid];
-      const x1 = xByUuid[cs[1].card.uuid];
-      const x2 = xByUuid[cs[2].card.uuid];
-      // The card with usageCount=5 gets left half (should be smallest x)
-      expect(x1).toBeLessThan(x0);
-      expect(x1).toBeLessThan(x2);
-    });
-
-    it('appears as third item in arrange panel after Auto Arrange and Tile Plugins', () => {
-      const zone = document.querySelector('.prr-zone') as HTMLElement;
-      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-      const items = document.querySelectorAll('.arr-item');
-      expect(items.length).toBe(3);
-      expect(items[0].textContent).toBe('Auto Arrange');
-      expect(items[1].textContent).toBe('Auto Fit All');
-      expect(items[2].textContent).toBe('Tile Plugins');
-      zone.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
-    });
-
-    it('arranges 2 cards covering viewport without overlap', async () => {
-      canvas.addTerminal();
-      canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      callAutoFitAll();
-      await new Promise(r => setTimeout(r, 100));
-      const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(2);
-      // Card 0 left, card 1 right
-      expect(state.plugins[0].x + state.plugins[0].width / 2).toBeLessThan(
-        state.plugins[1].x + state.plugins[1].width / 2
-      );
-    });
-
-    it('sets zoom to 1 and locks canvas after arranging', async () => {
-      canvas.addTerminal();
-      canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      callAutoFitAll();
-      await new Promise(r => setTimeout(r, 100));
-      const state = canvas.getSaveState();
-      expect(state.zoom).toBe(1);
-      expect(canvas.locked).toBe(true);
-    });
-
-    it('pans to center cards when locked at zoom 1', async () => {
-      canvas.addTerminal();
-      canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      callAutoFitAll();
-      await new Promise(r => setTimeout(r, 100));
-      const state = canvas.getSaveState();
-      expect(state.panX).not.toBe(0);
-      expect(state.panY).not.toBe(0);
-    });
-
-    it('arranges 4 cards as group-of-3 band + solo band', async () => {
-      for (let i = 0; i < 4; i++) canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      callAutoFitAll();
-      await new Promise(r => setTimeout(r, 100));
-      const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(4);
-      // Band 0 (3 cards): card 0 left half, cards 1-2 stacked equal in right half
-      const xs = state.plugins.map((p: any) => p.x);
-      const ys = state.plugins.map((p: any) => p.y);
-      // Card 3 (solo, band 1) is below band 0 cards
-      expect(ys[3]).toBeGreaterThan(ys[0]);
-      expect(ys[3]).toBeGreaterThan(ys[1]);
-      expect(ys[3]).toBeGreaterThan(ys[2]);
-    });
-
-    it('arranges 6 cards as two groups of 3', async () => {
-      for (let i = 0; i < 6; i++) canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      callAutoFitAll();
-      await new Promise(r => setTimeout(r, 100));
-      const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(6);
-      const ys = state.plugins.map((p: any) => p.y);
-      const xs = state.plugins.map((p: any) => p.x);
-      // Band 0 cards: card 0 left, cards 1-2 stacked right
-      expect(xs[0]).toBeLessThan(xs[1]);
-      expect(xs[0]).toBeLessThan(xs[2]);
-      expect(xs[1]).toBe(xs[2]);
-      expect(ys[1]).toBeLessThan(ys[2]);
-      expect(state.plugins[1].height).toBe(state.plugins[2].height);
-      // Band 0 bottom edge < Band 1 top edge
-      expect(ys[2] + state.plugins[2].height).toBeLessThanOrEqual(ys[3]);
-      // Band 1 cards: card 3 left, cards 4-5 stacked right
-      expect(xs[3]).toBeLessThan(xs[4]);
-      expect(xs[3]).toBeLessThan(xs[5]);
-      expect(xs[4]).toBe(xs[5]);
-      expect(ys[4]).toBeLessThan(ys[5]);
-      expect(state.plugins[4].height).toBe(state.plugins[5].height);
-    });
-  });
-
   describe('tile plugins', () => {
     it('arranges cards in a grid layout with unique positions', async () => {
       canvas.addTerminal();
@@ -924,14 +764,14 @@ describe('auto arrange', () => {
 
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-        const items = document.querySelectorAll('.arr-item');
-        (items[2] as HTMLElement).click();
+      const items = document.querySelectorAll('.arr-item');
+      (items[1] as HTMLElement).click();
 
-        const state = canvas.getSaveState();
-        expect(state.plugins.length).toBe(4);
-        const positions = state.plugins.map((p: any) => `${p.x},${p.y}`);
-        expect(new Set(positions).size).toBe(4);
-      });
+      const state = canvas.getSaveState();
+      expect(state.plugins.length).toBe(4);
+      const positions = state.plugins.map((p: any) => `${p.x},${p.y}`);
+      expect(new Set(positions).size).toBe(4);
+    });
 
     it('uses custom W×H tile size from two inputs (in grid units)', async () => {
       canvas.addTerminal();
@@ -946,7 +786,7 @@ describe('auto arrange', () => {
       inputs[1].value = '7';
       inputs[1].dispatchEvent(new Event('input', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[2] as HTMLElement).click();
+      (items[1] as HTMLElement).click();
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(2);
@@ -975,7 +815,7 @@ describe('auto arrange', () => {
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = document.querySelectorAll('.arr-item');
-      (items[2] as HTMLElement).click();
+      (items[1] as HTMLElement).click();
 
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(4);
@@ -1106,28 +946,6 @@ describe('auto arrange', () => {
       (canvas as any).reopenMarkdown(cs.card.uuid);
       await new Promise(r => setTimeout(r, 50));
       expect(cs.isOpen).toBe(true);
-    });
-
-    it('bringToFront increments usageCount', async () => {
-      canvas.addTerminal();
-      canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      const cs1 = (canvas as any).cards[0];
-      const cs2 = (canvas as any).cards[1];
-      const start1 = cs1.usageCount;
-      const start2 = cs2.usageCount;
-      (canvas as any).bringToFront(cs1.card);
-      expect(cs1.usageCount).toBe(start1 + 1);
-      expect(cs2.usageCount).toBe(start2);
-    });
-
-    it('card mousedown (onFocus) triggers bringToFront and increments usage', async () => {
-      canvas.addTerminal();
-      await new Promise(r => setTimeout(r, 50));
-      const cs = (canvas as any).cards[0];
-      const before = cs.usageCount;
-      cs.card.el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-      expect(cs.usageCount).toBe(before + 1);
     });
 
     it('focusTerminal() brings card to front (highest z-index)', async () => {
