@@ -336,7 +336,7 @@ export class CanvasArea {
           cy = bandY;
         } else {
           cw = ((vw - gap) >> 1);
-          ch = bandH - ((bandH - gap) >> 1) - gap;
+          ch = bandH - ((bandH - gap) >> 1) - gap + 1;
           cx = cw + gap;
           cy = bandY + ((bandH - gap) >> 1) + gap;
         }
