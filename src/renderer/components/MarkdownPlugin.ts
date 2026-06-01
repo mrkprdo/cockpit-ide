@@ -194,7 +194,6 @@ export class MarkdownPlugin {
       const closeBtn = document.createElement('span');
       closeBtn.className = 'editor-tab-close';
       closeBtn.textContent = '✕';
-      if (isActive) closeBtn.style.opacity = '1';
 
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
