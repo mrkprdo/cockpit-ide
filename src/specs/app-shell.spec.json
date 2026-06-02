@@ -16,7 +16,7 @@
   ],
   "ipc": ["prefs:load", "prefs:save", "window:new", "window:minimize", "window:maximize", "window:close", "workspace:getPath", "workspace:setPath", "workspace:load", "workspace:save", "workspace:select", "fs:watch"],
   "shortcuts": [
-    { "key": "Ctrl+Shift+N / Cmd+Shift+N", "action": "New window via IPC window:new" },
+    { "key": "Ctrl+Shift+N / Cmd+Shift+N", "action": "New blank window via IPC window:new (no workspace inherited)" },
     { "key": "Ctrl+W / Cmd+W", "action": "Prevent browser close-tab behavior" },
     { "key": "Ctrl+Tab", "action": "Cycle canvas cards forward/backward (reverse with Shift)" },
     { "key": "Ctrl+P / Cmd+P", "action": "Open file search palette on active explorer" },

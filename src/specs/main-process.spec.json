@@ -31,7 +31,8 @@
     "url_shell": "shell:openExternal restricted to https/http/mailto protocols"
   },
   "state": {
-    "workspace_path": "string | null — current workspace root",
+    "window_workspaces": "Map<number, string | null> — per-window workspace root, keyed by BrowserWindow.id; new windows start with no entry (blank slate)",
+    "default_workspace_path": "string | null — root workspace from CLI args; used as security fallback for isPathSafe() when no per-window entry exists",
     "pty_processes": "Map<string, node-pty> — active terminal sessions",
     "terminal_senders": "Map<string, WebContents> — session-to-window mapping",
     "watcher": "chokidar FSWatcher | null",
@@ -41,9 +42,9 @@
     "ide_server": "IdeServer singleton — WebSocket server broadcasting editor state"
   },
   "lifecycle": {
-    "startup": "app.whenReady() → resolve CLI workspace → createWindow()",
+    "startup": "app.whenReady() → resolve CLI workspace → createWindow() → associate CLI path with main window via windowWorkspaces Map",
     "shutdown": "window-all-closed → stopWatching() → kill all PTYs → quit (non-macOS)",
-    "multi_window": "window:new creates independent BrowserWindow, window:close cleans up per-window terminals"
+    "multi_window": "window:new creates independent BrowserWindow with no workspace; window inherits workspace from other windows — each window has its own workspacePath via windowWorkspaces Map; new window shows WelcomeModal to pick workspace"
   },
   "test": "src/main/main.test.ts"
 }

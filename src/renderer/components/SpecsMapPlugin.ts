@@ -101,7 +101,9 @@ export class SpecsMapPlugin {
   private fitBtn!: HTMLButtonElement;
   private lastSpecFileCount = 0;
   private wsPath: string;
+  private specBaseDir = '';
   private snapshotPath = '';
+  private specDirLabel: HTMLSpanElement;
   private nodes: SpecNode[] = [];
   private nodeEls = new Map<string, HTMLDivElement>();
   private specRawMap = new Map<string, SpecData>();
@@ -153,6 +155,7 @@ export class SpecsMapPlugin {
     const headerPath = document.createElement('span');
     headerPath.style.cssText = 'font-size:9px;color:var(--tertiary);opacity:0.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
     headerPath.textContent = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '') + '/src/specs/';
+    this.specDirLabel = headerPath;
 
     this.validationBadge = document.createElement('span');
     this.validationBadge.style.cssText =
@@ -462,9 +465,21 @@ export class SpecsMapPlugin {
   }
 
   private async buildFromFiles(): Promise<void> {
-    const base = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '') + '/src/specs/';
+    const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
+    let base = this.specBaseDir;
+    if (!base) {
+      base = await this.findBaseDir();
+      if (base) {
+        this.specBaseDir = base;
+        this.specDirLabel.textContent = base + '/';
+      }
+    }
+    if (!base) {
+      await this.showEmptyState();
+      return;
+    }
 
-    const mainRaw = await window.electronAPI?.fs.readFile(base + 'main.spec.json') ?? '{}';
+    const mainRaw = await window.electronAPI?.fs.readFile(base + '/main.spec.json') ?? '{}';
     let mainData: any = {};
     try { mainData = JSON.parse(mainRaw); } catch { /* empty */ }
 
@@ -499,7 +514,7 @@ export class SpecsMapPlugin {
 
     this.specRawMap.clear();
     for (const filename of specFiles) {
-      const raw = await window.electronAPI?.fs.readFile(base + filename);
+      const raw = await window.electronAPI?.fs.readFile(base + '/' + filename);
       if (raw) {
         try { this.specRawMap.set(filename, JSON.parse(raw)); } catch { /* skip */ }
       }
@@ -546,11 +561,51 @@ export class SpecsMapPlugin {
     this.renderGraph();
   }
 
+  private async findBaseDir(): Promise<string | null> {
+    const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
+
+    // Fast path: check common locations
+    const quickPaths = [
+      wsRoot + '/src/specs/main.spec.json',
+      wsRoot + '/specs/main.spec.json',
+      wsRoot + '/.specs/main.spec.json',
+    ];
+    for (const p of quickPaths) {
+      const raw = await window.electronAPI?.fs.readFile(p);
+      if (raw) return p.replace(/\/main\.spec\.json$/, '');
+    }
+
+    // Recursive walk
+    const found = await this.walkFind(wsRoot, 0, 4);
+    if (found) return found.replace(/\/main\.spec\.json$/, '');
+    return null;
+  }
+
+  private async walkFind(dir: string, depth: number, maxDepth: number): Promise<string | null> {
+    if (depth > maxDepth) return null;
+    const entries = await window.electronAPI?.fs.readDir(dir);
+    if (!entries) return null;
+
+    // Check current dir
+    const mainRaw = await window.electronAPI?.fs.readFile(dir + '/main.spec.json');
+    if (mainRaw) return dir + '/main.spec.json';
+
+    // Recurse into subdirectories (skip junk dirs)
+    for (const e of entries) {
+      if (!e.isDirectory) continue;
+      if (e.name === '.git' || e.name === 'node_modules' || e.name === '.cockpit') continue;
+      const found = await this.walkFind(dir + '/' + e.name, depth + 1, maxDepth);
+      if (found) return found;
+    }
+    return null;
+  }
+
   private async refresh(): Promise<void> {
     this.refreshBtn.disabled = true;
     this.refreshBtn.querySelector('svg')?.classList.add('sm-spinning');
 
     // Clear current state
+    this.specBaseDir = '';
     this.nodes = [];
     this.specRawMap.clear();
     this.refCounts.clear();

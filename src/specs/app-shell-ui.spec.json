@@ -13,7 +13,7 @@
     { "name": "About Modal", "trigger": "Help > About menu item", "flow": "about.open(onClose) → locks canvas → onClose unlocks canvas" }
   ],
   "interactions": [
-    { "trigger": "Ctrl+Shift+N", "action": "IPC window:new → createNewWindow()" },
+    { "trigger": "Ctrl+Shift+N", "action": "IPC window:new → createNewWindow() with no workspace → new window shows WelcomeModal" },
     { "trigger": "Ctrl+W", "action": "preventDefault (blocks browser close-tab)" },
     { "trigger": "Ctrl+Tab", "action": "canvas.cycleCard(direction)" },
     { "trigger": "Ctrl+Shift+Tab", "action": "canvas.cycleCard(-1) — reverse" },

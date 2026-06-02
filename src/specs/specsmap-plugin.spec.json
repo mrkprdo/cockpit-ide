@@ -25,7 +25,7 @@
   },
   "features": {
     "snapshot_cache": "On load, tries .cockpit/specsmap.json first (v:1 schema with SnapNode[]). If valid, skips IPC file reads and renders instantly. buildFromFiles() re-reads all spec files, saves a fresh snapshot, then renders. Refresh button always bypasses cache.",
-    "spec_loading": "buildFromFiles() reads main.spec.json for layer+UI mapping, then reads all *.spec.json files via fs:readDir/readFile. Maps source basenames to spec IDs for edge building. Counts total files for validation.",
+    "spec_loading": "buildFromFiles() finds main.spec.json by recursive workspace search (checks src/specs/, specs/, .specs/ first, then walks directories up to depth 4, skipping .git/node_modules/.cockpit). Uses the parent directory as base for reading features, layer mapping, and all other *.spec.json files. Saves a fresh snapshot after build. Refresh button always clears cached base dir and re-discovers.",
     "layer_grouping": "Fixed vertical layout: foundation→core→widget→modal→overlay→plugins rows. UI sub-specs (44px tall) position below their parent node offset by UI_OFFSET_Y. Layer header labels sit left of each row.",
     "dependency_display": "224×66px main nodes, 184×44px UI nodes. SVG cubic bezier edges colored by source layer; same-layer edges curve horizontally, cross-layer vertically. Glow path (stroke-width:6, opacity:0.06) under each dep edge.",
     "node_selection_panel": "Click opens a 284px overlay panel (translateX slide, z-index:20) with fixed header (name, layer, close) and scrollable body (spec file, source file, description, deps with usage, refs, IPC). Nav links in panel navigate to other nodes. Click same node again or canvas background closes panel.",

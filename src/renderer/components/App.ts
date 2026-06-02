@@ -177,7 +177,7 @@ export class App {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
 
-    // Register workspace with main process (sets workspacePath, starts watcher + ide-server)
+    // Register workspace with main process (sets per-window workspacePath, starts watcher + ide-server)
     await ws.setPath(path);
 
     const state = await ws.load(path);

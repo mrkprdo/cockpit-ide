@@ -21,7 +21,8 @@ function resolveCliWorkspace(): string | null {
 let mainWindow: BrowserWindow | null = null;
 const ptyProcesses = new Map<string, any>();
 const terminalSenders = new Map<string, any>();
-let workspacePath: string | null = null;
+const windowWorkspaces = new Map<number, string | null>();
+let defaultWorkspacePath: string | null = null;
 
 // ─── Path security ───
 const ALLOWED_ENV_KEYS = new Set([
@@ -35,10 +36,12 @@ const ALLOWED_ENV_KEYS = new Set([
   'OPENCODE_EDITOR_SSE_PORT', 'OPENCODE_MCP_PORT',
 ]);
 
-function isPathSafe(targetPath: string): boolean {
-  if (!workspacePath) return true;
+function isPathSafe(targetPath: string, event?: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent): boolean {
+  const win = event?.sender ? BrowserWindow.fromWebContents(event.sender) : null;
+  const wsPath = (win && windowWorkspaces.has(win.id)) ? windowWorkspaces.get(win.id)! : defaultWorkspacePath;
+  if (!wsPath) return true;
   const resolved = path.resolve(targetPath);
-  const ws = path.resolve(workspacePath);
+  const ws = path.resolve(wsPath);
   const sep = path.sep;
   const isWin = process.platform === 'win32';
   const a = isWin ? resolved.toLowerCase() : resolved;
@@ -65,7 +68,7 @@ ipcMain.on('clipboard:readText', (e) => { e.returnValue = clipboard.readText(); 
 
 // File system IPC
 ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
-  if (!isPathSafe(dirPath)) return null;
+  if (!isPathSafe(dirPath, _event)) return null;
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     return entries.map(e => ({ name: e.name, isDirectory: e.isDirectory() }));
@@ -73,22 +76,22 @@ ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
 });
 
 ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
-  if (!isPathSafe(filePath)) return null;
+  if (!isPathSafe(filePath, _event)) return null;
   try { return fs.readFileSync(filePath, 'utf-8'); } catch { return null; }
 });
 
 ipcMain.handle('fs:writeFile', async (_event, filePath: string, content: string) => {
-  if (!isPathSafe(filePath)) return false;
+  if (!isPathSafe(filePath, _event)) return false;
   try { fs.writeFileSync(filePath, content, 'utf-8'); return true; } catch { return false; }
 });
 
 ipcMain.handle('fs:mkdir', async (_event, dirPath: string) => {
-  if (!isPathSafe(dirPath)) return false;
+  if (!isPathSafe(dirPath, _event)) return false;
   try { fs.mkdirSync(dirPath, { recursive: true }); return true; } catch { return false; }
 });
 
 ipcMain.handle('fs:delete', async (_event, targetPath: string) => {
-  if (!isPathSafe(targetPath)) return false;
+  if (!isPathSafe(targetPath, _event)) return false;
   let watcherStopped = false;
   try { fs.rmSync(targetPath, { recursive: true, force: true }); return true; } catch {}
   try {
@@ -99,18 +102,18 @@ ipcMain.handle('fs:delete', async (_event, targetPath: string) => {
       return true;
     }
   } finally {
-    if (watcherStopped && workspacePath) await startWatching(workspacePath);
+    if (watcherStopped && defaultWorkspacePath) await startWatching(defaultWorkspacePath);
   }
   return false;
 });
 
 ipcMain.handle('fs:copy', async (_event, src: string, dest: string) => {
-  if (!isPathSafe(src) || !isPathSafe(dest)) return false;
+  if (!isPathSafe(src, _event) || !isPathSafe(dest, _event)) return false;
   try { fs.cpSync(src, dest, { recursive: true }); return true; } catch { return false; }
 });
 
 ipcMain.handle('fs:rename', async (_event, oldPath: string, newPath: string) => {
-  if (!isPathSafe(oldPath) || !isPathSafe(newPath)) return false;
+  if (!isPathSafe(oldPath, _event) || !isPathSafe(newPath, _event)) return false;
   try { fs.renameSync(oldPath, newPath); return true; } catch { return false; }
 });
 
@@ -303,14 +306,14 @@ app.whenReady().then(async () => {
   const cliPath = resolveCliWorkspace();
   if (cliPath) {
     cockpitDir(path.join(cliPath, '.cockpit'));
-    workspacePath = cliPath;
+    defaultWorkspacePath = cliPath;
     saveLastWorkspace(cliPath);
     addRecentWorkspace(cliPath);
     await startWatching(cliPath);
   }
   // Start IDE server if a workspace is already known
-  if (workspacePath) {
-    try { await ideServer.start(workspacePath); } catch (e) { console.error('ide: start failed', e); }
+  if (cliPath) {
+    try { await ideServer.start(cliPath); } catch (e) { console.error('ide: start failed', e); }
   }
   ipcMain.handle('window:new', () => { createNewWindow(); return true; });
   ipcMain.on('window:minimize', (event) => {
@@ -643,7 +646,7 @@ app.whenReady().then(async () => {
     if (result.canceled || !result.filePaths.length) return null;
     const wsPath = result.filePaths[0];
     cockpitDir(path.join(wsPath, '.cockpit'));
-    workspacePath = wsPath;
+    if (win) windowWorkspaces.set(win.id, wsPath);
     saveLastWorkspace(wsPath);
     addRecentWorkspace(wsPath);
     await startWatching(wsPath);
@@ -652,11 +655,16 @@ app.whenReady().then(async () => {
     return wsPath;
   });
 
-  ipcMain.handle('workspace:getPath', () => workspacePath);
+  ipcMain.handle('workspace:getPath', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && windowWorkspaces.has(win.id)) return windowWorkspaces.get(win.id)!;
+    return null;
+  });
 
-  ipcMain.handle('workspace:setPath', async (_event, wsPath: string) => {
+  ipcMain.handle('workspace:setPath', async (event, wsPath: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) windowWorkspaces.set(win.id, wsPath);
     cockpitDir(path.join(wsPath, '.cockpit'));
-    workspacePath = wsPath;
     saveLastWorkspace(wsPath);
     addRecentWorkspace(wsPath);
     await startWatching(wsPath);
@@ -666,17 +674,17 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle('workspace:load', (_event, wsPath?: string) => {
-    const targetPath = wsPath || workspacePath;
+    const targetPath = wsPath || defaultWorkspacePath;
     if (!targetPath) return null;
-    if (wsPath && !isPathSafe(wsPath)) return null;
+    if (wsPath && !isPathSafe(wsPath, _event)) return null;
     const f = path.join(targetPath, '.cockpit', 'window.json');
     try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch { return null; }
   });
 
   ipcMain.handle('workspace:save', (_event, state: any, wsPath?: string) => {
-    const targetPath = wsPath || workspacePath;
+    const targetPath = wsPath || defaultWorkspacePath;
     if (!targetPath) { console.error('workspace:save — no workspacePath'); return false; }
-    if (wsPath && !isPathSafe(wsPath)) return false;
+    if (wsPath && !isPathSafe(wsPath, _event)) return false;
     const dir = path.join(targetPath, '.cockpit');
     try {
       cockpitDir(dir);
@@ -707,7 +715,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('ide:status', () => ({
     running: ideServer.getPort() > 0,
     port: ideServer.getPort(),
-    workspace: workspacePath,
+    workspace: defaultWorkspacePath,
     lockPaths: ideServer.getLockPaths(),
   }));
 
@@ -719,6 +727,11 @@ app.whenReady().then(async () => {
   });
 
   createWindow();
+
+  // Associate CLI path with the main window's per-window workspace
+  if (cliPath && mainWindow) {
+    windowWorkspaces.set(mainWindow.id, cliPath);
+  }
 
   app.on('window-all-closed', () => {
     ideServer.stop();
@@ -735,5 +748,5 @@ app.whenReady().then(async () => {
 });
 
 // ─── Test helpers ───
-export function _testSetWorkspacePath(p: string | null): void { workspacePath = p; }
+export function _testSetWorkspacePath(p: string | null): void { defaultWorkspacePath = p; }
 export function _testIsPathSafe(p: string): boolean { return isPathSafe(p); }
