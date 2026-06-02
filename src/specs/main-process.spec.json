@@ -18,7 +18,7 @@
     "filesystem": ["fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete", "fs:copy", "fs:rename"],
     "file_watcher": ["file:watch", "file:unwatch"],
     "git": ["git:remotes", "git:branches", "git:checkout", "git:log", "git:showTree", "git:diff", "git:currentBranch", "git:stagedFiles", "git:unstagedFiles", "git:stagedDiff", "git:unstagedDiff", "git:commitBody", "git:stage", "git:unstage", "git:commit", "git:push", "git:checkAhead"],
-    "workspace": ["workspace:select", "workspace:getPath", "workspace:load", "workspace:save", "workspace:getRecent", "workspace:addRecent", "workspace:removeRecent"],
+    "workspace": ["workspace:select", "workspace:setPath", "workspace:getPath", "workspace:load", "workspace:save", "workspace:getRecent", "workspace:addRecent", "workspace:removeRecent"],
     "shell": ["shell:openExternal"],
     "prefs": ["prefs:load", "prefs:save"],
     "ide": ["ide:editorState (send, fire-and-forget)"],
