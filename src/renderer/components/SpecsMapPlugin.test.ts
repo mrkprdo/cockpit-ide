@@ -90,9 +90,9 @@ describe('SpecsMapPlugin', () => {
     expect(container.children[0]).toBeInstanceOf(HTMLDivElement);
   });
 
-  it('creates the SPECS MAP header', () => {
+  it('creates the header with subtitle', () => {
     new SpecsMapPlugin(container, '/test/ws');
-    expect(container.textContent).toContain('SPECS MAP');
+    expect(container.textContent).toContain('hover to trace');
   });
 
   it('calls fs.readDir and fs.readFile for specs', async () => {

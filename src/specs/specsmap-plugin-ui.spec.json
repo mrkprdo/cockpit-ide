@@ -8,7 +8,7 @@
     "container": "Appended to the .card-body of a PluginCard with padding:0",
 
     "elements": {
-      "header": "#sm-plugin-header > div (first child of .el) — padding:6px 14px 6px 16px, font-size:13px, font-weight:700, letter-spacing:1.5px, color:var(--accent), border-bottom:1px solid var(--border), user-select:none, flex-shrink:0, z-index:10, display:flex, align-items:center, gap:12px. Inner HTML: '<span>SPECS MAP</span>' + subtitle '.sm-header-sub (font-size:11px, color:var(--tertiary))', then validation badge, then .sm-header-btn (refresh icon), then .sm-header-btn (reset-view eye icon).",
+      "header": "#sm-plugin-header > div (first child of .el) — padding:3px 10px 3px 12px, font-size:11px, font-weight:700, letter-spacing:1.5px, color:var(--accent), border-bottom:1px solid var(--border), user-select:none, flex-shrink:0, z-index:10, display:flex, align-items:center, gap:10px. Inner HTML: subtitle '.sm-header-sub (font-size:10px, color:var(--tertiary), font-weight:400)', path (font-size:9px, opacity:0.5), validation badge, then .sm-header-btn (refresh icon), then .sm-header-btn (reset-view eye icon).",
 
       "content": "#sm-plugin-content (second child of .el) — flex:1, position:relative, overflow:hidden. Contains the viewport and panel.",
 
@@ -20,21 +20,21 @@
 
       "sm_node_inner": ".sm-node-inner — padding:12px 16px, display:flex, flex-direction:column, gap:5px, height:100%, box-sizing:border-box. Contains .sm-node-head (flex row with .sm-dot + .sm-name + .sm-layer-badge), .sm-file, .sm-meta.",
 
-      "sm_dot": ".sm-dot — 10px width/height, border-radius:50%, flex-shrink:0. Color matches LAYER_COLORS_HEX for the node's layer. UI sub-nodes: 8px width/height, opacity:0.6.",
+      "sm_dot": ".sm-dot — 8px width/height, border-radius:50%, flex-shrink:0. Color matches LAYER_COLORS_HEX for the node's layer. UI sub-nodes: 6px width/height, opacity:0.6.",
 
-      "sm_name": ".sm-name — font-size:14px, font-weight:700, color:var(--primary), line-height:1.3, flex:1, overflow:hidden, text-overflow:ellipsis, white-space:nowrap. UI sub-nodes: font-size:13px, opacity:0.7.",
+      "sm_name": ".sm-name — font-size:13px, font-weight:700, color:var(--primary), line-height:1.3, flex:1, overflow:hidden, text-overflow:ellipsis, white-space:nowrap. UI sub-nodes: font-size:11px, opacity:0.7.",
 
-      "sm_file": ".sm-file — font-size:12px, color:var(--tertiary), overflow:hidden, text-overflow:ellipsis, white-space:nowrap. UI sub-nodes: font-size:11px.",
+      "sm_file": ".sm-file — font-size:11px, color:var(--tertiary), overflow:hidden, text-overflow:ellipsis, white-space:nowrap. UI sub-nodes: font-size:10px.",
 
-      "sm_meta": ".sm-meta — font-size:11px, color:var(--secondary), margin-top:auto, display:flex, gap:8px. Shows dep count (→N), ref count (←N), or 'no links' for isolated nodes.",
+      "sm_meta": ".sm-meta — font-size:10px, color:var(--secondary), margin-top:auto, display:flex, gap:6px. Shows dep count (→N), ref count (←N), or 'no links' for isolated nodes.",
 
-      "sm_layer_header": ".sm-layer-header — position:absolute, font-size:15px, font-weight:700, letter-spacing:1.5px, user-select:none, pointer-events:none, opacity:0.55. Placed 100px left of first node in layer, width:94px, text-align:right.",
+      "sm_layer_header": ".sm-layer-header — position:absolute, font-size:13px, font-weight:700, letter-spacing:1.5px, user-select:none, pointer-events:none, opacity:0.45. Placed 100px left of first node in layer, width:94px, text-align:right.",
 
-      "sm_header_btn": ".sm-header-btn — border:none, outline:none, background:none, border-radius:6px, padding:5px 7px, color:var(--tertiary), cursor:pointer, line-height:0. Hover: color:var(--accent), background:var(--surface). Focus-visible: outline:none. Contains SVG icon (16x16, stroke currentColor).",
+      "sm_header_btn": ".sm-header-btn — border:none, outline:none, background:none, border-radius:6px, padding:5px 7px, color:var(--tertiary), cursor:pointer, display:flex, align-items:center, justify-content:center, line-height:0, transition:color 0.15s,background 0.15s. Hover: color:var(--accent), background:var(--surface). Focus-visible: outline:none. Contains SVG icon (16x16, stroke currentColor).",
 
       "panel": "Div (position:absolute, right:0, top:0, bottom:0, width:320px, background:var(--surface), border-left:1px dashed var(--border), z-index:20, transform:translateX(100%) by default, transition:transform 0.2s cubic-bezier(0.4,0,0.2,1), display:flex, flex-direction:column, overflow:hidden). Contains .sm-panel-inner (flex:1, overflow-y:auto) that holds sections.",
 
-      "panel_section": ".sm-panel-section — padding:14px 18px, border-bottom:1px solid var(--border). Sections: Header (color dot 12px + name 14px bold + layer badge 10px + close × 18px), Identity (spec file, source file, parent/child links), Description (12px, line-height:1.6), Depends On (clickable nav items 12px), Referenced By (clickable nav items), IPC Channels (12px). Panel labels font-size:11px, letter-spacing:1px, margin-bottom:10px."
+      "panel_section": ".sm-panel-section — padding:10px 14px, border-bottom:1px solid var(--border). Sections: Header (color dot 12px + name 13px bold + layer badge 10px + close × 18px), Identity (spec file 10px, source file 10px, parent/child links 12px), Description (12px, line-height:1.6), Depends On (clickable nav items 12px), Referenced By (clickable nav items), IPC Channels (12px). Panel labels font-size:9px, letter-spacing:1px, margin-bottom:8px."
     }
   },
   "interactions": [

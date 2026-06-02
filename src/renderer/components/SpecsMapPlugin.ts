@@ -142,7 +142,7 @@ export class SpecsMapPlugin {
 
     const header = document.createElement('div');
     header.style.cssText =
-      'padding:3px 10px 3px 12px;font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--accent);' +
+      'padding:3px 10px 3px 12px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--accent);' +
       'flex-shrink:0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:10px;z-index:10;position:relative';
 
     const headerSub = document.createElement('span');
@@ -151,12 +151,12 @@ export class SpecsMapPlugin {
     headerSub.textContent = 'hover to trace · click for detail';
 
     const headerPath = document.createElement('span');
-    headerPath.style.cssText = 'font-size:8px;color:var(--tertiary);opacity:0.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
+    headerPath.style.cssText = 'font-size:9px;color:var(--tertiary);opacity:0.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
     headerPath.textContent = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '') + '/src/specs/';
 
     this.validationBadge = document.createElement('span');
     this.validationBadge.style.cssText =
-      'display:none;font-size:8px;font-weight:700;letter-spacing:0.3px;padding:1px 6px;' +
+      'display:none;font-size:9px;font-weight:700;letter-spacing:0.3px;padding:1px 6px;' +
       'border-radius:4px;border:1px solid;line-height:1.6;white-space:nowrap';
 
     const SVG_EYE =
@@ -187,7 +187,7 @@ export class SpecsMapPlugin {
     this.refreshBtn.title = 'Rebuild spec graph from src/specs/';
     this.refreshBtn.addEventListener('click', () => this.refresh());
 
-    // title, subtitle, validation, refresh, then reset-view (eye) on the right
+    // subtitle, path, validation, refresh, then reset-view (eye) on the right
     header.appendChild(headerSub);
     header.appendChild(headerPath);
     header.appendChild(this.validationBadge);
@@ -281,38 +281,38 @@ export class SpecsMapPlugin {
         box-sizing: border-box;
       }
       .sm-node-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
-      .sm-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+      .sm-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
       .sm-name {
-        font-size: 10px; font-weight: 700; color: var(--primary);
-        line-height: 1.2; flex: 1; min-width: 0;
+        font-size: 13px; font-weight: 700; color: var(--primary);
+        line-height: 1.3; flex: 1; min-width: 0;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
-      .sm-layer-badge { font-size: 7px; font-weight: 700; letter-spacing: 0.8px; flex-shrink: 0; color: var(--tertiary); opacity: 0.8; }
-      .sm-file { font-size: 8.5px; color: var(--tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .sm-meta { font-size: 8px; color: var(--secondary); margin-top: auto; display: flex; gap: 6px; }
-      .sm-node-ui .sm-name { font-size: 9px; }
-      .sm-node-ui .sm-file { font-size: 7.5px; }
-      .sm-node-ui .sm-dot { width: 5px; height: 5px; opacity: 0.6; }
+      .sm-layer-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.8px; flex-shrink: 0; color: var(--tertiary); opacity: 0.8; }
+      .sm-file { font-size: 11px; color: var(--tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .sm-meta { font-size: 10px; color: var(--secondary); margin-top: auto; display: flex; gap: 6px; }
+      .sm-node-ui .sm-name { font-size: 11px; }
+      .sm-node-ui .sm-file { font-size: 10px; }
+      .sm-node-ui .sm-dot { width: 6px; height: 6px; opacity: 0.6; }
       .sm-layer-header {
-        position: absolute; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+        position: absolute; font-size: 13px; font-weight: 700; letter-spacing: 1.5px;
         user-select: none; pointer-events: none; opacity: 0.45;
       }
       .sm-panel-section { padding: 10px 14px; border-bottom: 1px solid var(--border); }
       .sm-panel-label {
-        font-size: 8px; font-weight: 700; letter-spacing: 1px;
+        font-size: 9px; font-weight: 700; letter-spacing: 1px;
         color: var(--tertiary); margin-bottom: 8px;
       }
-      .sm-panel-row { font-size: 10px; color: var(--primary); line-height: 1.5; }
-      .sm-panel-mono { font-size: 9px; color: var(--secondary); word-break: break-all; }
+      .sm-panel-row { font-size: 11px; color: var(--primary); line-height: 1.5; }
+      .sm-panel-mono { font-size: 10px; color: var(--secondary); word-break: break-all; }
       .sm-dep-item {
         display: flex; gap: 6px; align-items: baseline;
         padding: 4px 0; border-bottom: 1px solid var(--border);
-        font-size: 9px;
+        font-size: 10px;
       }
       .sm-dep-item:last-child { border-bottom: none; }
       .sm-dep-name { font-weight: 700; color: var(--primary); flex-shrink: 0; }
       .sm-dep-file { color: var(--tertiary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .sm-dep-usage { font-size: 8px; color: var(--secondary); line-height: 1.4; margin-top: 1px; }
+      .sm-dep-usage { font-size: 9px; color: var(--secondary); line-height: 1.4; margin-top: 1px; }
       @keyframes sm-flow { to { stroke-dashoffset: -20; } }
       .sm-edge-active { animation: sm-flow 0.8s linear infinite; }
       @keyframes sm-spin { to { transform: rotate(360deg); } }
