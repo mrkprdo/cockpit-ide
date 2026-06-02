@@ -39,7 +39,7 @@ export class CanvasArea {
   get locked(): boolean { return this._locked; }
   set locked(v: boolean) {
     this._locked = v;
-    this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll());
+    this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll(), () => { this.scale = 1; this.scheduleTransform(); });
     this.onStateChange?.();
   }
   private patternSize = 28;
@@ -153,7 +153,7 @@ export class CanvasArea {
     applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
     this.initZoomPan();
     this.statusBar.init();
-    this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll());
+    this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll(), () => { this.scale = 1; this.scheduleTransform(); });
   }
 
   private showPluginList(): void {
@@ -1161,7 +1161,7 @@ export class CanvasArea {
       this.originDot.style.top = `${this.panY - 3}px`;
       this.originDot.style.transform = `scale(${this.scale})`;
 
-      this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll());
+      this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll(), () => { this.scale = 1; this.scheduleTransform(); });
       this.onStateChange?.();
     });
   }

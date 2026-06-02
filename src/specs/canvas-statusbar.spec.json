@@ -1,7 +1,7 @@
 {
   "name": "Canvas Status Bar",
   "file": "src/renderer/components/canvas-statusbar.ts",
-  "description": "Status bar widget for the canvas area. Populates the #statusbar div with zoom display (percentage + lock/unlock SVG icon, clickable to toggle zoom lock), locked indicator, workspace path display, and a 'view all' button that triggers fitAll(). Initialized once into the existing #statusbar element.",
+  "description": "Status bar widget for the canvas area. Populates the #statusbar div with zoom display (percentage + lock/unlock SVG icon, clickable to toggle zoom lock), refresh zoom icon (visibility-toggled, always reserves 18px layout space, visible when unlocked & zoom !== 100%, resets zoom to 100%), locked indicator, workspace path display (flex-shrink:0), and a 'view all' button that triggers fitAll(). All left-side items have flex-shrink:0 for stable layout. Initialized once into the existing #statusbar element.",
   "type": "ui",
   "layer": "core",
   "singleton": true,
@@ -14,13 +14,14 @@
     "constructor": "new StatusBar()",
     "methods": [
       { "name": "init", "signature": "() => void", "description": "Populate #statusbar with zoom/locked/workspace/view-all elements (idempotent if already populated)" },
-      { "name": "update", "signature": "(locked: boolean, scale: number, workspaceName: string, onLockToggle: (() => void) | null, fitAll: () => void) => void", "description": "Refresh all displayed values and wire click handlers" }
+      { "name": "update", "signature": "(locked: boolean, scale: number, workspaceName: string, onLockToggle: (() => void) | null, fitAll: () => void, resetZoom?: (() => void) | null) => void", "description": "Refresh all displayed values and wire click handlers" }
     ]
   },
   "dom": {
     "container": "#statusbar (existing element in index.html)",
     "elements": [
       ".status-item (zoom % + lock/unlock icon, clickable)",
+      ".status-item (refresh zoom icon, visibility-toggled, always reserves 18px, shown when unlocked & scale !== 1, resets to 100%)",
       ".status-item.status-locked (hidden by default, shown when locked)",
       ".status-item (workspace path)",
       ".status-sep (visual separators)",
