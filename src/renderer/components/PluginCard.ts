@@ -10,6 +10,8 @@ export interface CardOptions {
   width: number;
   height: number;
   content?: string;
+  onDragStart?: (clientX: number, clientY: number) => void;
+  onDragMove?: (clientX: number, clientY: number) => void;
   onDragEnd?: (worldX: number, worldY: number) => void;
   onResizeEnd?: (width: number, height: number) => void;
   onFocus?: () => void;
@@ -179,6 +181,7 @@ export class PluginCard {
       this.startPanX = t.panX;
       this.startPanY = t.panY;
       this.el.style.transition = 'none';
+      this.opts.onDragStart?.(e.clientX, e.clientY);
     });
 
     document.addEventListener('mousemove', (e) => {
@@ -190,6 +193,7 @@ export class PluginCard {
       const snappedWorldY = Math.round(worldRawY / SNAP) * SNAP;
       this.el.style.left = `${snappedWorldX * t.scale + t.panX}px`;
       this.el.style.top = `${snappedWorldY * t.scale + t.panY}px`;
+      this.opts.onDragMove?.(e.clientX, e.clientY);
     });
 
     document.addEventListener('mouseup', () => {

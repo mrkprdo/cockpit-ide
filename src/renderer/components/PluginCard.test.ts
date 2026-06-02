@@ -348,6 +348,19 @@ describe('PluginCard — drag interaction', () => {
     expect(card.el.style.top).not.toBe(startTop);
   });
 
+  it('onDragStart called on mousedown and onDragMove during mouse move', () => {
+    const onDragStart = vi.fn();
+    const onDragMove = vi.fn();
+    const card = createCard({ onDragStart, onDragMove });
+    const header = card.el.querySelector('.card-header')!;
+
+    header.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 150, clientY: 250 }));
+    expect(onDragStart).toHaveBeenCalledWith(150, 250);
+
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 200, clientY: 280, bubbles: true }));
+    expect(onDragMove).toHaveBeenCalledWith(200, 280);
+  });
+
   it('mouseup ends drag and calls onDragEnd', () => {
     const onDragEnd = vi.fn();
     const card = createCard({ onDragEnd });

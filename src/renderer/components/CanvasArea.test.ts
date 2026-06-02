@@ -149,13 +149,22 @@ describe('CanvasArea', () => {
       expect(getPanel().style.display).toBe('none');
     });
 
-    it('panel contains Auto Arrange and Tile Plugins items', () => {
+    it('panel contains Auto Arrange, Tile Plugins, and Snap Origin items', () => {
       const zone = getZone();
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = queryArrItems();
-      expect(items.length).toBe(2);
+      expect(items.length).toBe(3);
       expect(items[0].textContent).toBe('Auto Arrange');
       expect(items[1].textContent).toBe('Tile Plugins');
+      expect(items[2].textContent).toBe('Snap Origin');
+    });
+
+    it('Snap Origin button snaps panX/panY to pattern grid', () => {
+      canvas['panX'] = 137;
+      canvas['panY'] = 73;
+      (canvas as any).snapOrigin();
+      expect(canvas['panX']).toBe(140);
+      expect(canvas['panY']).toBe(84);
     });
 
     it('panel contains two input fields for W and H', () => {
@@ -1072,11 +1081,117 @@ describe('auto arrange', () => {
   });
 
   describe('zoom lock', () => {
-    it('locked = true prevents pan initiation', () => {
+    it('locked = true allows pan initiation (pan works even when locked)', () => {
       canvas.locked = true;
       const el = document.getElementById('canvas')!;
       el.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 100, clientY: 200 }));
-      expect((canvas as any).isPanning).toBe(false);
+      expect((canvas as any).isPanning).toBe(true);
+    });
+  });
+
+  describe('layout overlays', () => {
+    it('creates 8 overlay elements', () => {
+      const overlays = (canvas as any).layoutOverlays as HTMLElement[];
+      expect(overlays.length).toBe(8);
+      for (const el of overlays) {
+        expect(el.classList.contains('layout-overlay')).toBe(true);
+        expect(el.style.display).toBe('none');
+        expect(el.querySelector('svg')).toBeTruthy();
+      }
+    });
+
+    it('showLayoutOverlays does nothing when not locked', () => {
+      (canvas as any).showLayoutOverlays();
+      for (const el of (canvas as any).layoutOverlays) {
+        expect(el.style.display).toBe('none');
+      }
+    });
+
+    it('showLayoutOverlays does nothing when scale !== 1', () => {
+      canvas.locked = true;
+      (canvas as any).scale = 0.5;
+      (canvas as any).showLayoutOverlays();
+      for (const el of (canvas as any).layoutOverlays) {
+        expect(el.style.display).toBe('none');
+      }
+    });
+
+    it('showLayoutOverlays shows all overlays when locked && scale===1', () => {
+      canvas.locked = true;
+      (canvas as any).scale = 1;
+      (canvas as any).showLayoutOverlays();
+      for (const el of (canvas as any).layoutOverlays) {
+        expect(el.style.display).not.toBe('none');
+        expect(parseFloat(el.style.left)).not.toBeNaN();
+        expect(parseFloat(el.style.top)).not.toBeNaN();
+      }
+    });
+
+    it('hideLayoutOverlays hides all overlays', () => {
+      canvas.locked = true;
+      (canvas as any).scale = 1;
+      (canvas as any).showLayoutOverlays();
+      (canvas as any).hideLayoutOverlays();
+      for (const el of (canvas as any).layoutOverlays) {
+        expect(el.style.display).toBe('none');
+      }
+    });
+
+    it('getDropZone returns zone name when cursor within overlay bounds', () => {
+      canvas.locked = true;
+      (canvas as any).scale = 1;
+      (canvas as any).showLayoutOverlays();
+      const el = (canvas as any).layoutOverlays[0] as HTMLElement;
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const zone = (canvas as any).getDropZone(cx, cy);
+      expect(zone).toBe(el.dataset.zone);
+    });
+
+    it('getDropZone returns null when cursor far from any overlay', () => {
+      canvas.locked = true;
+      (canvas as any).scale = 1;
+      (canvas as any).showLayoutOverlays();
+      const zone = (canvas as any).getDropZone(-999, -999);
+      expect(zone).toBeNull();
+    });
+
+    it('getDropZone returns null when overlays are hidden', () => {
+      const zone = (canvas as any).getDropZone(100, 100);
+      expect(zone).toBeNull();
+    });
+
+    it('applyDropZone top-left sets card to viewport top-left quadrant', () => {
+      canvas.locked = true;
+      (canvas as any).scale = 1;
+      (canvas as any).panX = 500;
+      (canvas as any).panY = 300;
+      const el = document.getElementById('canvas')!;
+      const cs = (canvas as any).addCard('Test', '', 0, 0, 400, 300);
+      (canvas as any).applyDropZone('top-left', cs);
+      const cw = el.clientWidth, ch = el.clientHeight;
+      const W2 = Math.round(cw / 56) * 28;
+      const H2 = Math.round(ch / 56) * 28;
+      expect(cs.savedWidth).toBe(W2);
+      expect(cs.savedHeight).toBe(H2);
+      expect(cs.worldX).toBe(Math.round(-500 / 28) * 28);
+      expect(cs.worldY).toBe(Math.round(-300 / 28) * 28);
+    });
+
+    it('applyDropZone top sets card to top half', () => {
+      canvas.locked = true;
+      (canvas as any).scale = 1;
+      (canvas as any).panX = 100;
+      (canvas as any).panY = 50;
+      const cs = (canvas as any).addCard('Test', '', 0, 0, 400, 300);
+      (canvas as any).applyDropZone('top', cs);
+      const el = document.getElementById('canvas')!;
+      const cw = el.clientWidth, ch = el.clientHeight;
+      const W = Math.round(cw / 28) * 28;
+      const H2 = Math.round(ch / 56) * 28;
+      expect(cs.savedWidth).toBe(W);
+      expect(cs.savedHeight).toBe(H2);
     });
   });
 

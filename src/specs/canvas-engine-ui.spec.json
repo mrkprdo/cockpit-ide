@@ -1,12 +1,13 @@
 {
   "name": "Canvas Engine UI",
   "parent": "canvas-engine",
-  "description": "UI interaction spec for the infinite canvas engine. Core spatial interaction model: pan, zoom, card lifecycle, grid rendering, arrangement controls.",
+  "description": "UI interaction spec for the infinite canvas engine. Core spatial interaction model: pan, zoom, card lifecycle, grid rendering, arrangement controls, layout overlay system with 8 snap zones.",
   "dom": {
     "container": "#canvas (fills viewport minus titlebar and statusbar)",
     "plugin_list": ".plugin-list (lower-left overlay, absolute positioned)",
     "arrange_panel": ".arrange-panel (lower-right overlay, absolute positioned)",
-    "grid": "CSS background-image via applyGridToElement()"
+    "grid": "CSS background-image via applyGridToElement()",
+    "layout_overlays": ".layout-overlay × 8 (48×36px thumbnail icons at viewport corners/edges, z-index:9999, hidden by default)"
   },
   "interactions": [
     {
@@ -38,7 +39,7 @@
     {
       "name": "zoom_lock",
       "trigger": "Click lock icon in status bar or View > Zoom > Lock",
-      "behavior": "Set canvas.locked to true, disables all zoom/pan interactions until unlocked"
+      "behavior": "Set canvas.locked to true, disables zoom interactions but allows pan. At scale===1 and locked, card drag reveals 8 layout snap overlays."
     },
     {
       "name": "add_card",
@@ -94,13 +95,33 @@
       "name": "animated_pan",
       "trigger": "animatePanTo(targetX, targetY)",
       "behavior": "Ease-out cubic interpolation over 300ms: t => 1 - Math.pow(1 - t, 3)"
+    },
+    {
+      "name": "layout_overlay_show",
+      "trigger": "Card drag start when locked && scale===1",
+      "behavior": "Shows 8 snap zone overlays (48x36px thumbnail icons) at viewport corners and edges with SVG layout patterns. Hidden otherwise."
+    },
+    {
+      "name": "layout_overlay_hide",
+      "trigger": "Card drag end (any location)",
+      "behavior": "Hides all 8 overlay zones"
+    },
+    {
+      "name": "layout_overlay_drop",
+      "trigger": "Mouse release over visible overlay during card drag",
+      "behavior": "Resizes card to zone dimensions (viewport fraction: corners = W/2×H/2, edges = W×H/2 or W/2×H), positions at viewport edge/corner in world coords. Snaps to 28px grid. Minimum 280px per dimension."
+    },
+    {
+      "name": "snap_origin",
+      "trigger": "Click 'Snap Origin' in arrangement panel",
+      "behavior": "Snaps panX/panY to nearest 28px grid point so viewport origin aligns to world grid. Ensures snap zone drops land on clean grid positions."
     }
   ],
   "states": {
     "default": "Grid visible (dots by default), zoom at 1.0, no cards",
     "cards_open": "One or more PluginCards visible with z-order stacking",
     "minimized": "Card header visible but body hidden, isOpen=false",
-    "locked": "Zoom and pan disabled, lock icon shown in status bar",
+    "locked": "Zoom disabled, pan still works. At scale===1, card drag reveals layout overlays. Lock icon shown in status bar.",
     "arranging": "Cards being repositioned by auto-arrange, temporary transition state"
   },
   "plugins": {

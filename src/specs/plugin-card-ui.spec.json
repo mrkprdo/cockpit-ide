@@ -22,13 +22,13 @@
     {
       "name": "drag_start",
       "trigger": "mousedown on .card-header (button=0, not on .card-controls)",
-      "gesture": "Store dragOffset (clientX/Y), startWorldX/Y (current world position from transform), startPanX/Y. Set transition:none.",
+      "gesture": "Store dragOffset (clientX/Y), startWorldX/Y (current world position from transform), startPanX/Y. Set transition:none. Fire onDragStart(clientX, clientY).",
       "cursor": "grabbing"
     },
     {
       "name": "drag_move",
       "trigger": "document mousemove while isDragging",
-      "gesture": "Compute world-space delta from mouse offset + transform, snap to 28px grid, set left/top in screen space",
+      "gesture": "Compute world-space delta from mouse offset + transform, snap to 28px grid, set left/top in screen space. Fire onDragMove(clientX, clientY).",
       "formula": "screenX = snap(worldRawX) * scale + panX; screenY = snap(worldRawY) * scale + panY",
       "cursor": "grabbing"
     },

@@ -73,6 +73,10 @@ export class CanvasArea {
 
   private contextMenuOpen = false;
 
+  private layoutOverlays: HTMLElement[] = [];
+  private lastDragX = 0;
+  private lastDragY = 0;
+
   private static readonly WORLD_BOUNDS = 50000;
 
   private clampWorld(v: number): number {
@@ -149,6 +153,8 @@ export class CanvasArea {
     this.originDot.className = 'origin-dot';
     this.el.appendChild(this.originDot);
 
+    this.createLayoutOverlays();
+
     this.patternDataURL = generateGridPattern(this.gridStyle, this.patternSize);
     applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
     this.initZoomPan();
@@ -194,6 +200,12 @@ export class CanvasArea {
     panel.style.display = 'block';
   }
 
+  snapOrigin(): void {
+    this.panX = Math.round(this.panX / this.patternSize) * this.patternSize;
+    this.panY = Math.round(this.panY / this.patternSize) * this.patternSize;
+    this.scheduleTransform();
+  }
+
   private showArrPanel(): void {
     const panel = this.arrPanel;
     panel.innerHTML = '';
@@ -201,6 +213,7 @@ export class CanvasArea {
     const items: { label: string; action: () => void }[] = [
       { label: 'Auto Arrange', action: () => this.autoArrange() },
       { label: 'Tile Plugins', action: () => this.tilePlugins() },
+      { label: 'Snap Origin', action: () => this.snapOrigin() },
     ];
 
     for (const item of items) {
@@ -393,9 +406,27 @@ export class CanvasArea {
         const cs = this.cards.find(c => c.card === card);
         if (cs) this.terminateCard(cs);
       },
+      onDragStart: (clientX, clientY) => {
+        this.lastDragX = clientX;
+        this.lastDragY = clientY;
+        this.showLayoutOverlays();
+      },
+      onDragMove: (clientX, clientY) => {
+        this.lastDragX = clientX;
+        this.lastDragY = clientY;
+      },
       onDragEnd: (worldX: number, worldY: number) => {
         const cs = this.cards.find(c => c.card === card);
-        if (cs) { cs.worldX = this.clampWorld(worldX); cs.worldY = this.clampWorld(worldY); }
+        if (cs) {
+          const zone = this.getDropZone(this.lastDragX, this.lastDragY);
+          if (zone) {
+            this.applyDropZone(zone, cs);
+          } else {
+            cs.worldX = this.clampWorld(worldX);
+            cs.worldY = this.clampWorld(worldY);
+          }
+        }
+        this.hideLayoutOverlays();
         this.onStateChange?.();
       },
       onResizeEnd: (w: number, h: number) => {
@@ -445,7 +476,129 @@ export class CanvasArea {
     for (const cs of this.cards) this.positionCard(cs);
   }
 
+  private overlaySVG(zone: string): string {
+    const a = 'fill="var(--accent)" opacity="0.4"';
+    const b = 'stroke="var(--border)" stroke-width="1.2" fill="none"';
+    const hl = (x: number, y: number, w: number, h: number) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" ${a}/>`;
+    switch (zone) {
+      case 'top-left': return `<svg viewBox="0 0 32 24" width="32" height="24"><rect x="0" y="0" width="32" height="24" ${b}/>${hl(0,0,16,12)}<line x1="16" y1="0" x2="16" y2="24" stroke="var(--border)" stroke-width="1"/><line x1="0" y1="12" x2="32" y2="12" stroke="var(--border)" stroke-width="1"/></svg>`;
+      case 'top': return `<svg viewBox="0 0 32 24" width="32" height="24"><rect x="0" y="0" width="32" height="24" ${b}/>${hl(0,0,32,12)}<line x1="0" y1="12" x2="32" y2="12" stroke="var(--border)" stroke-width="1"/></svg>`;
+      case 'top-right': return `<svg viewBox="0 0 32 24" width="32" height="24"><rect x="0" y="0" width="32" height="24" ${b}/>${hl(16,0,16,12)}<line x1="16" y1="0" x2="16" y2="24" stroke="var(--border)" stroke-width="1"/><line x1="0" y1="12" x2="32" y2="12" stroke="var(--border)" stroke-width="1"/></svg>`;
+      case 'left': return `<svg viewBox="0 0 32 24" width="32" height="24"><rect x="0" y="0" width="32" height="24" ${b}/>${hl(0,0,16,24)}<line x1="16" y1="0" x2="16" y2="24" stroke="var(--border)" stroke-width="1"/></svg>`;
+      case 'right': return `<svg viewBox="0 0 32 24" width="32" height="24"><rect x="0" y="0" width="32" height="24" ${b}/>${hl(16,0,16,24)}<line x1="16" y1="0" x2="16" y2="24" stroke="var(--border)" stroke-width="1"/></svg>`;
+      case 'bottom-left': return `<svg viewBox="0 0 32 24" width="32" height="24"><rect x="0" y="0" width="32" height="24" ${b}/>${hl(0,12,16,12)}<line x1="16" y1="0" x2="16" y2="24" stroke="var(--border)" stroke-width="1"/><line x1="0" y1="12" x2="32" y2="12" stroke="var(--border)" stroke-width="1"/></svg>`;
+      case 'bottom': return `<svg viewBox="0 0 32 24" width="32" height="24"><rect x="0" y="0" width="32" height="24" ${b}/>${hl(0,12,32,12)}<line x1="0" y1="12" x2="32" y2="12" stroke="var(--border)" stroke-width="1"/></svg>`;
+      case 'bottom-right': return `<svg viewBox="0 0 32 24" width="32" height="24"><rect x="0" y="0" width="32" height="24" ${b}/>${hl(16,12,16,12)}<line x1="16" y1="0" x2="16" y2="24" stroke="var(--border)" stroke-width="1"/><line x1="0" y1="12" x2="32" y2="12" stroke="var(--border)" stroke-width="1"/></svg>`;
+      default: return '<svg viewBox="0 0 32 24" width="32" height="24"><rect x="0" y="0" width="32" height="24" stroke="var(--border)" stroke-width="1" fill="none"/></svg>';
+    }
+  }
 
+  private createLayoutOverlays(): void {
+    const zones = ['top-left', 'top', 'top-right', 'left', 'right', 'bottom-left', 'bottom', 'bottom-right'];
+    for (const zone of zones) {
+      const el = document.createElement('div');
+      el.className = 'layout-overlay';
+      el.dataset.zone = zone;
+      el.innerHTML = this.overlaySVG(zone);
+      el.style.display = 'none';
+      this.el.appendChild(el);
+      this.layoutOverlays.push(el);
+    }
+  }
+
+  private showLayoutOverlays(): void {
+    if (!this._locked || this.scale !== 1) return;
+    const cw = this.el.clientWidth;
+    const ch = this.el.clientHeight;
+    const M = 8;
+    const OV_W = 48, OV_H = 36;
+    const positions: Record<string, { left: number; top: number }> = {
+      'top-left': { left: M, top: M },
+      'top': { left: Math.round(cw / 2 - OV_W / 2), top: M },
+      'top-right': { left: cw - OV_W - M, top: M },
+      'left': { left: M, top: Math.round(ch / 2 - OV_H / 2) },
+      'right': { left: cw - OV_W - M, top: Math.round(ch / 2 - OV_H / 2) },
+      'bottom-left': { left: M, top: ch - OV_H - M },
+      'bottom': { left: Math.round(cw / 2 - OV_W / 2), top: ch - OV_H - M },
+      'bottom-right': { left: cw - OV_W - M, top: ch - OV_H - M },
+    };
+    for (const el of this.layoutOverlays) {
+      const pos = positions[el.dataset.zone || ''];
+      if (pos) {
+        el.style.left = `${pos.left}px`;
+        el.style.top = `${pos.top}px`;
+        el.style.display = 'flex';
+      }
+    }
+  }
+
+  private hideLayoutOverlays(): void {
+    for (const el of this.layoutOverlays) {
+      el.style.display = 'none';
+    }
+  }
+
+  private getDropZone(clientX: number, clientY: number): string | null {
+    const canvasRect = this.el.getBoundingClientRect();
+    for (const el of this.layoutOverlays) {
+      if (el.style.display === 'none') continue;
+      const rect = el.getBoundingClientRect();
+      const pad = 8;
+      if (
+        clientX >= rect.left - pad &&
+        clientX <= rect.right + pad &&
+        clientY >= rect.top - pad &&
+        clientY <= rect.bottom + pad
+      ) {
+        return el.dataset.zone || null;
+      }
+    }
+    return null;
+  }
+
+  private applyDropZone(zone: string, cs: CardState): void {
+    const cw = this.el.clientWidth;
+    const ch = this.el.clientHeight;
+    const W2 = Math.round(cw / 56) * 28;
+    const H2 = Math.round(ch / 56) * 28;
+    const W = Math.round(cw / 28) * 28;
+    const H = Math.round(ch / 28) * 28;
+    const snap = (v: number) => Math.round(v / 28) * 28;
+    let worldX = 0, worldY = 0, w = 0, h = 0;
+    switch (zone) {
+      case 'top-left':
+        worldX = snap(-this.panX); worldY = snap(-this.panY); w = W2; h = H2; break;
+      case 'top':
+        worldX = snap(-this.panX); worldY = snap(-this.panY); w = W; h = H2; break;
+      case 'top-right':
+        worldX = snap(-this.panX + W2); worldY = snap(-this.panY); w = W2; h = H2; break;
+      case 'left':
+        worldX = snap(-this.panX); worldY = snap(-this.panY); w = W2; h = H; break;
+      case 'right':
+        worldX = snap(-this.panX + W2); worldY = snap(-this.panY); w = W2; h = H; break;
+      case 'bottom-left':
+        worldX = snap(-this.panX); worldY = snap(-this.panY + H2); w = W2; h = H2; break;
+      case 'bottom':
+        worldX = snap(-this.panX); worldY = snap(-this.panY + H2); w = W; h = H2; break;
+      case 'bottom-right':
+        worldX = snap(-this.panX + W2); worldY = snap(-this.panY + H2); w = W2; h = H2; break;
+    }
+    w = Math.max(28 * 10, w);
+    h = Math.max(28 * 10, h);
+    cs.worldX = this.clampWorld(worldX);
+    cs.worldY = this.clampWorld(worldY);
+    cs.savedWidth = w;
+    cs.savedHeight = h;
+    cs.savedWX = cs.worldX;
+    cs.savedWY = cs.worldY;
+    cs.card.opts.width = w;
+    cs.card.opts.height = h;
+    cs.card.el.style.width = `${w}px`;
+    cs.card.el.style.height = `${h}px`;
+    this.positionCard(cs);
+    cs.onCardResize?.();
+    this.onStateChange?.();
+  }
 
   getSaveState(): SaveState {
     // Sort by current z-index to get bottom-to-top order
@@ -519,9 +672,26 @@ export class CanvasArea {
       onMinimize: callbacks.onMinimize,
       onFitViewport: callbacks.onFitViewport,
       onTerminate: callbacks.onTerminate,
+      onDragStart: (clientX, clientY) => {
+        this.lastDragX = clientX;
+        this.lastDragY = clientY;
+        this.showLayoutOverlays();
+      },
+      onDragMove: (clientX, clientY) => {
+        this.lastDragX = clientX;
+        this.lastDragY = clientY;
+      },
       onDragEnd: (worldX, worldY) => {
         const cs = this.cards.find(c => c.card === card);
-        if (cs) { cs.worldX = this.clampWorld(worldX); cs.worldY = this.clampWorld(worldY); }
+        if (cs) {
+          const zone = this.getDropZone(this.lastDragX, this.lastDragY);
+          if (zone) {
+            this.applyDropZone(zone, cs);
+          } else {
+            cs.worldX = this.clampWorld(worldX); cs.worldY = this.clampWorld(worldY);
+          }
+        }
+        this.hideLayoutOverlays();
         this.onStateChange?.();
       },
       onResizeEnd: (w: number, h: number) => {
@@ -1203,7 +1373,6 @@ export class CanvasArea {
     }, { capture: true, passive: false });
 
     this.el.addEventListener('mousedown', (e) => {
-      if (this.locked) return;
       // Ctrl+drag pans even over cards; otherwise only on empty canvas for text selection
       if (e.button === 0 || e.button === 1) {
         if (e.ctrlKey || !(e.target as HTMLElement)?.closest('.card, .prr-zone, .pli-zone')) {
@@ -1218,7 +1387,7 @@ export class CanvasArea {
     });
 
     document.addEventListener('mousemove', (e) => {
-      if (!this.isPanning || this.locked) return;
+      if (!this.isPanning) return;
       this.panX = this.panStartPanX + (e.clientX - this.panStartX);
       this.panY = this.panStartPanY + (e.clientY - this.panStartY);
       this.scheduleTransform();

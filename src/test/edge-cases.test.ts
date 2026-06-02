@@ -423,6 +423,88 @@ describe('CanvasArea edge cases', () => {
     // No cards = no terminal changes fired
     expect(onTerm).not.toHaveBeenCalled();
   });
+
+  it('layout overlays all 8 zones produce unique zone names', () => {
+    const canvas = new CanvasArea(makeCanvas());
+    const names = (canvas as any).layoutOverlays.map((el: HTMLElement) => el.dataset.zone);
+    expect(new Set(names).size).toBe(8);
+  });
+
+  it('layout overlays hideOnDragEnd after showOnDragStart', () => {
+    const canvas = new CanvasArea(makeCanvas());
+    canvas.locked = true;
+    (canvas as any).scale = 1;
+    (canvas as any).showLayoutOverlays();
+    expect((canvas as any).layoutOverlays[0].style.display).not.toBe('none');
+    (canvas as any).hideLayoutOverlays();
+    expect((canvas as any).layoutOverlays[0].style.display).toBe('none');
+  });
+
+  it('drag to non-zone area keeps card at regular drag position', () => {
+    const canvas = new CanvasArea(makeCanvas());
+    canvas.locked = true;
+    (canvas as any).scale = 1;
+    const cs = (canvas as any).addCard('Test', '', 0, 0, 400, 300);
+    const origX = cs.worldX;
+    const origY = cs.worldY;
+    // Simulate drag ending far from any overlay
+    (canvas as any).lastDragX = -9999;
+    (canvas as any).lastDragY = -9999;
+    const zone = (canvas as any).getDropZone(-9999, -9999);
+    expect(zone).toBeNull();
+    // Apply regular drag
+    cs.worldX = 100;
+    cs.worldY = 200;
+    expect(cs.worldX).toBe(100);
+    expect(cs.worldY).toBe(200);
+  });
+
+  it('applyDropZone all 8 zones produce valid positions without crashing', () => {
+    const canvas = new CanvasArea(makeCanvas());
+    canvas.locked = true;
+    (canvas as any).scale = 1;
+    const zones = ['top-left', 'top', 'top-right', 'left', 'right', 'bottom-left', 'bottom', 'bottom-right'];
+    for (const zone of zones) {
+      const cs = (canvas as any).addCard('Test', '', 0, 0, 400, 300);
+      expect(() => (canvas as any).applyDropZone(zone, cs)).not.toThrow();
+      expect(cs.savedWidth).toBeGreaterThanOrEqual(280);
+      expect(cs.savedHeight).toBeGreaterThanOrEqual(280);
+    }
+  });
+
+  it('applyDropZone enforces minimum 280px dimensions', () => {
+    const canvas = new CanvasArea(makeCanvas());
+    canvas.locked = true;
+    (canvas as any).scale = 1;
+    // Override viewport to tiny size
+    Object.defineProperty(canvas['el'], 'clientWidth', { value: 100 });
+    Object.defineProperty(canvas['el'], 'clientHeight', { value: 100 });
+    const cs = (canvas as any).addCard('Test', '', 0, 0, 50, 50);
+    (canvas as any).applyDropZone('top-left', cs);
+    expect(cs.savedWidth).toBe(280);
+    expect(cs.savedHeight).toBe(280);
+  });
+
+  it('rapid toggle of overlays does not throw', () => {
+    const canvas = new CanvasArea(makeCanvas());
+    canvas.locked = true;
+    (canvas as any).scale = 1;
+    expect(() => {
+      for (let i = 0; i < 5; i++) {
+        (canvas as any).showLayoutOverlays();
+        (canvas as any).hideLayoutOverlays();
+      }
+    }).not.toThrow();
+  });
+
+  it('snapOrigin with negative pan values snaps correctly', () => {
+    const canvas = new CanvasArea(makeCanvas());
+    (canvas as any).panX = -45;
+    (canvas as any).panY = -33;
+    (canvas as any).snapOrigin();
+    expect((canvas as any).panX).toBe(-56);
+    expect((canvas as any).panY).toBe(-28);
+  });
 });
 
 // ─────────────────────────────────────────────

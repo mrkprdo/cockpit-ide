@@ -21,6 +21,8 @@
       { "name": "y", "type": "number", "description": "Initial world-space y position" },
       { "name": "width", "type": "number", "description": "Initial width in screen pixels" },
       { "name": "height", "type": "number", "description": "Initial height in screen pixels" },
+      { "name": "onDragStart", "type": "(clientX, clientY) => void", "description": "Called when drag begins with client coords" },
+      { "name": "onDragMove", "type": "(clientX, clientY) => void", "description": "Called during drag with client coords" },
       { "name": "onDragEnd", "type": "(worldX, worldY) => void", "description": "Called when drag completes with snapped world coords" },
       { "name": "onResizeEnd", "type": "(width, height) => void", "description": "Called when resize completes with new dimensions" },
       { "name": "onFocus", "type": "() => void", "description": "Called on any mousedown inside card" },
