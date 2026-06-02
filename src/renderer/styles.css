@@ -734,6 +734,7 @@ html, body {
 }
 .editor-tab-close {
   font-size: var(--text-2xs);
+  flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.1s;
   padding: 2px 3px;
@@ -743,7 +744,7 @@ html, body {
 }
 .editor-tab:hover .editor-tab-close,
 .editor-tab.is-active .editor-tab-close { opacity: 1; }
-.editor-tab-close:hover { background: var(--border); color: var(--primary); }
+.editor-tab-close:hover { color: var(--red); }
 .editor-tab.is-dragging { opacity: 0.35; }
 .editor-tab.is-dragover {
   border-left: 2px solid var(--accent);
@@ -757,7 +758,7 @@ html, body {
 .editor-tab-name {
   overflow: hidden;
   text-overflow: ellipsis;
-  display: block;
+  flex: 1;
   min-width: 0;
 }
 .editor-empty {
