@@ -43,15 +43,15 @@ interface SpecNode {
   h: number;
 }
 
-const NODE_W = 224;
-const NODE_H = 66;
-const NODE_UI_W = 184;
-const NODE_UI_H = 44;
-const NODE_GAP = 26;
-const LAYER_GAP = 100;
-const UI_OFFSET_Y = 54;
-const PANEL_W = 284;
-const GRAPH_MARGIN = 60;
+const NODE_W = 280;
+const NODE_H = 100;
+const NODE_UI_W = 230;
+const NODE_UI_H = 62;
+const NODE_GAP = 28;
+const LAYER_GAP = 60;
+const UI_OFFSET_Y = 64;
+const PANEL_W = 320;
+const GRAPH_MARGIN = 80;
 
 const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugins'];
 const LAYER_LABELS: Record<string, string> = {
@@ -138,73 +138,60 @@ export class SpecsMapPlugin {
     this.el = document.createElement('div');
     this.el.style.cssText =
       'width:100%;height:100%;display:flex;flex-direction:column;' +
-      'background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:12px;position:relative;overflow:hidden';
+      'background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:14px;position:relative;overflow:hidden';
 
     const header = document.createElement('div');
     header.style.cssText =
-      'padding:4px 10px 4px 12px;font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--accent);' +
-      'flex-shrink:0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:10px;z-index:10;position:relative';
+      'padding:6px 14px 6px 16px;font-size:13px;font-weight:700;letter-spacing:1.5px;color:var(--accent);' +
+      'flex-shrink:0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:12px;z-index:10;position:relative';
 
     const headerTitle = document.createElement('span');
     headerTitle.textContent = 'SPECS MAP';
 
     const headerSub = document.createElement('span');
     headerSub.className = 'sm-header-sub';
-    headerSub.style.cssText = 'font-size:8px;color:var(--tertiary);font-weight:400;letter-spacing:0.3px;text-transform:none;flex:1';
+    headerSub.style.cssText = 'font-size:11px;color:var(--tertiary);font-weight:400;letter-spacing:0.3px;text-transform:none;flex:1';
     headerSub.textContent = 'spec-file dependency graph · hover to trace · click for detail';
 
     this.validationBadge = document.createElement('span');
     this.validationBadge.style.cssText =
-      'display:none;font-size:8px;font-weight:700;letter-spacing:0.3px;padding:1px 6px;' +
+      'display:none;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:2px 10px;' +
       'border-radius:4px;border:1px solid;line-height:1.6;white-space:nowrap';
 
-    this.refreshBtn = document.createElement('button');
-    this.refreshBtn.style.cssText =
-      'background:none;border:1px dashed var(--border);border-radius:6px;' +
-      'padding:2px 7px;font-family:"Space Mono","Courier New",monospace;font-size:10px;' +
-      'color:var(--tertiary);cursor:pointer;line-height:1;transition:color 0.15s,border-color 0.15s';
-    this.refreshBtn.textContent = '↻';
-    this.refreshBtn.title = 'Rebuild spec graph from src/specs/';
-    this.refreshBtn.addEventListener('mouseenter', () => {
-      if (!this.refreshBtn.disabled) {
-        this.refreshBtn.style.color = 'var(--accent)';
-        this.refreshBtn.style.borderColor = 'var(--accent)';
-        this.refreshBtn.style.borderStyle = 'solid';
-      }
-    });
-    this.refreshBtn.addEventListener('mouseleave', () => {
-      this.refreshBtn.style.color = '';
-      this.refreshBtn.style.borderColor = '';
-      this.refreshBtn.style.borderStyle = '';
-    });
-    this.refreshBtn.addEventListener('click', () => this.refresh());
+    const SVG_EYE =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" ` +
+      `fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">` +
+      `<path d="M255.66 112c-77.94 0-157.89 45.11-220.83 135.33a16 16 0 0 0-.27 17.77` +
+      `C82.92 340.8 161.8 400 255.66 400c92.84 0 173.34-59.38 221.79-135.25a16.14 16.14 0 0 0 0-17.47` +
+      `C428.89 172.28 347.8 112 255.66 112z"/>` +
+      `<circle cx="256" cy="256" r="80" stroke-miterlimit="10"/>` +
+      `</svg>`;
 
-    const btnStyle =
-      'background:none;border:1px dashed var(--border);border-radius:6px;' +
-      'padding:2px 7px;font-family:"Space Mono","Courier New",monospace;font-size:10px;' +
-      'color:var(--tertiary);cursor:pointer;line-height:1;transition:color 0.15s,border-color 0.15s';
+    const SVG_REFRESH =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" ` +
+      `fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">` +
+      `<path d="M320 146s24.36-12-64-12a160 160 0 1 0 160 160" stroke-miterlimit="10"/>` +
+      `<polyline points="256 58 336 138 256 218"/>` +
+      `</svg>`;
 
     this.fitBtn = document.createElement('button');
-    this.fitBtn.style.cssText = btnStyle;
-    this.fitBtn.textContent = '[ ]';
-    this.fitBtn.title = 'Fit all nodes to viewport';
-    this.fitBtn.addEventListener('mouseenter', () => {
-      this.fitBtn.style.color = 'var(--accent)';
-      this.fitBtn.style.borderColor = 'var(--accent)';
-      this.fitBtn.style.borderStyle = 'solid';
-    });
-    this.fitBtn.addEventListener('mouseleave', () => {
-      this.fitBtn.style.color = '';
-      this.fitBtn.style.borderColor = '';
-      this.fitBtn.style.borderStyle = '';
-    });
+    this.fitBtn.className = 'sm-header-btn';
+    this.fitBtn.innerHTML = SVG_EYE;
+    this.fitBtn.title = 'Reset view';
     this.fitBtn.addEventListener('click', () => this.fitGraph());
 
+    this.refreshBtn = document.createElement('button');
+    this.refreshBtn.className = 'sm-header-btn';
+    this.refreshBtn.innerHTML = SVG_REFRESH;
+    this.refreshBtn.title = 'Rebuild spec graph from src/specs/';
+    this.refreshBtn.addEventListener('click', () => this.refresh());
+
+    // title, subtitle, validation, refresh, then reset-view (eye) on the right
     header.appendChild(headerTitle);
     header.appendChild(headerSub);
     header.appendChild(this.validationBadge);
-    header.appendChild(this.fitBtn);
     header.appendChild(this.refreshBtn);
+    header.appendChild(this.fitBtn);
     this.el.appendChild(header);
 
     // Content area: canvas + panel
@@ -215,6 +202,7 @@ export class SpecsMapPlugin {
     // SVG layer
     const svgNS = 'http://www.w3.org/2000/svg';
     this.svg = document.createElementNS(svgNS, 'svg') as SVGSVGElement;
+    this.svg.setAttribute('class', 'sm-graph');
     this.svg.style.cssText =
       'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible';
 
@@ -284,46 +272,46 @@ export class SpecsMapPlugin {
         border-style: solid;
       }
       .sm-node-inner {
-        padding: 8px 10px;
+        padding: 12px 16px;
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 5px;
         height: 100%;
         box-sizing: border-box;
       }
-      .sm-node-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
-      .sm-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+      .sm-node-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .sm-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
       .sm-name {
-        font-size: 10px; font-weight: 700; color: var(--primary);
-        line-height: 1.2; flex: 1; min-width: 0;
+        font-size: 14px; font-weight: 700; color: var(--primary);
+        line-height: 1.3; flex: 1; min-width: 0;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
-      .sm-layer-badge { font-size: 7px; font-weight: 700; letter-spacing: 0.8px; flex-shrink: 0; color: var(--tertiary); opacity: 0.8; }
-      .sm-file { font-size: 8.5px; color: var(--tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .sm-meta { font-size: 8px; color: var(--secondary); margin-top: auto; display: flex; gap: 6px; }
-      .sm-node-ui .sm-name { font-size: 9px; }
-      .sm-node-ui .sm-file { font-size: 7.5px; }
-      .sm-node-ui .sm-dot { width: 5px; height: 5px; opacity: 0.6; }
+      .sm-layer-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; flex-shrink: 0; color: var(--tertiary); opacity: 0.8; }
+      .sm-file { font-size: 12px; color: var(--tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .sm-meta { font-size: 11px; color: var(--secondary); margin-top: auto; display: flex; gap: 8px; }
+      .sm-node-ui .sm-name { font-size: 13px; }
+      .sm-node-ui .sm-file { font-size: 11px; }
+      .sm-node-ui .sm-dot { width: 8px; height: 8px; opacity: 0.6; }
       .sm-layer-header {
-        position: absolute; font-size: 8px; font-weight: 700; letter-spacing: 1.2px;
-        user-select: none; pointer-events: none; opacity: 0.35;
+        position: absolute; font-size: 15px; font-weight: 700; letter-spacing: 1.5px;
+        user-select: none; pointer-events: none; opacity: 0.55;
       }
-      .sm-panel-section { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+      .sm-panel-section { padding: 14px 18px; border-bottom: 1px solid var(--border); }
       .sm-panel-label {
-        font-size: 7.5px; font-weight: 700; letter-spacing: 1px;
-        color: var(--tertiary); margin-bottom: 6px;
+        font-size: 11px; font-weight: 700; letter-spacing: 1px;
+        color: var(--tertiary); margin-bottom: 10px;
       }
-      .sm-panel-row { font-size: 9.5px; color: var(--primary); line-height: 1.5; }
-      .sm-panel-mono { font-size: 8.5px; color: var(--secondary); word-break: break-all; }
+      .sm-panel-row { font-size: 13px; color: var(--primary); line-height: 1.5; }
+      .sm-panel-mono { font-size: 12px; color: var(--secondary); word-break: break-all; }
       .sm-dep-item {
-        display: flex; gap: 6px; align-items: baseline;
-        padding: 4px 0; border-bottom: 1px solid var(--border);
-        font-size: 9px;
+        display: flex; gap: 10px; align-items: baseline;
+        padding: 6px 0; border-bottom: 1px solid var(--border);
+        font-size: 12px;
       }
       .sm-dep-item:last-child { border-bottom: none; }
       .sm-dep-name { font-weight: 700; color: var(--primary); flex-shrink: 0; }
       .sm-dep-file { color: var(--tertiary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .sm-dep-usage { font-size: 8px; color: var(--secondary); line-height: 1.4; margin-top: 1px; }
+      .sm-dep-usage { font-size: 11px; color: var(--secondary); line-height: 1.4; margin-top: 2px; }
       @keyframes sm-flow { to { stroke-dashoffset: -20; } }
       .sm-edge-active { animation: sm-flow 0.8s linear infinite; }
       @keyframes sm-spin { to { transform: rotate(360deg); } }
@@ -332,14 +320,17 @@ export class SpecsMapPlugin {
         .sm-edge-active { animation: none; }
         .sm-spinning { animation: none; }
       }
+      .sm-header-btn { border:none; outline:none; background:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:5px 7px; color:var(--tertiary); line-height:0; transition:color 0.15s,background 0.15s; }
+      .sm-header-btn:hover { color:var(--accent); background:var(--surface); }
+      .sm-header-btn:focus-visible { outline:none; }
       .sm-empty-btn {
         pointer-events: auto;
         background: transparent;
         border: 1px dashed var(--border);
         border-radius: 8px;
-        padding: 8px 20px;
+        padding: 10px 24px;
         font-family: "Space Mono", "Courier New", monospace;
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 700;
         letter-spacing: 0.8px;
         color: var(--primary);
@@ -418,7 +409,7 @@ export class SpecsMapPlugin {
       await this.buildFromFiles();
     } catch {
       this.nodeLayer.innerHTML =
-        '<div style="padding:16px;color:var(--red);font-size:11px">Error loading specs</div>';
+        '<div style="padding:16px;color:var(--red);font-size:14px">Error loading specs</div>';
     }
   }
 
@@ -556,7 +547,7 @@ export class SpecsMapPlugin {
 
   private async refresh(): Promise<void> {
     this.refreshBtn.disabled = true;
-    this.refreshBtn.innerHTML = '<span class="sm-spinning">↻</span>';
+    this.refreshBtn.querySelector('svg')?.classList.add('sm-spinning');
 
     // Clear current state
     this.nodes = [];
@@ -572,11 +563,11 @@ export class SpecsMapPlugin {
       await this.buildFromFiles();
     } catch {
       this.nodeLayer.innerHTML =
-        '<div style="padding:16px;color:var(--red);font-size:11px">Error refreshing specs</div>';
+        '<div style="padding:16px;color:var(--red);font-size:14px">Error refreshing specs</div>';
     }
 
     this.refreshBtn.disabled = false;
-    this.refreshBtn.textContent = '↻';
+    this.refreshBtn.querySelector('svg')?.classList.remove('sm-spinning');
     this.showValidation();
   }
 
@@ -765,10 +756,10 @@ export class SpecsMapPlugin {
       const label = document.createElement('div');
       label.className = 'sm-layer-header';
       label.textContent = (LAYER_LABELS[layer] ?? layer).toUpperCase();
-      label.style.left = `${minX - 80}px`;
-      label.style.top = `${y + NODE_H / 2 - 6}px`;
+      label.style.left = `${minX - 100}px`;
+      label.style.top = `${y + NODE_H / 2 - 7}px`;
       label.style.color = LAYER_COLORS_VAR[layer] ?? 'var(--secondary)';
-      label.style.width = '74px';
+      label.style.width = '94px';
       label.style.textAlign = 'right';
       this.nodeLayer.appendChild(label);
     }
@@ -973,7 +964,7 @@ export class SpecsMapPlugin {
     } catch {
       this.panelHeaderEl.innerHTML = '';
       this.panelInner.innerHTML =
-        '<div class="sm-panel-section" style="color:var(--red);font-size:9px">Error rendering spec</div>';
+        '<div class="sm-panel-section" style="color:var(--red);font-size:12px">Error rendering spec</div>';
     }
   }
 
@@ -1008,11 +999,11 @@ export class SpecsMapPlugin {
 
     // Fixed header (inside panelHeaderEl, never scrolls)
     this.panelHeaderEl.innerHTML =
-      `<div style="padding:10px 14px 8px;display:flex;align-items:center;gap:8px">` +
-      `<span style="width:8px;height:8px;border-radius:50%;background:${colorHex};flex-shrink:0;display:inline-block"></span>` +
-      `<span style="font-size:10px;font-weight:700;color:var(--primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(node.name)}</span>` +
-      `<span style="font-size:7px;font-weight:700;letter-spacing:0.8px;color:${colorVar};flex-shrink:0">${layerLabel.toUpperCase()}</span>` +
-      `<button id="sm-panel-close" style="background:none;border:none;cursor:pointer;color:var(--tertiary);font-size:14px;line-height:1;padding:0 0 0 4px;font-family:inherit" aria-label="Close">×</button>` +
+      `<div style="padding:14px 18px 12px;display:flex;align-items:center;gap:12px">` +
+      `<span style="width:12px;height:12px;border-radius:50%;background:${colorHex};flex-shrink:0;display:inline-block"></span>` +
+      `<span style="font-size:14px;font-weight:700;color:var(--primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(node.name)}</span>` +
+      `<span style="font-size:10px;font-weight:700;letter-spacing:0.8px;color:${colorVar};flex-shrink:0">${layerLabel.toUpperCase()}</span>` +
+      `<button id="sm-panel-close" style="background:none;border:none;cursor:pointer;color:var(--tertiary);font-size:18px;line-height:1;padding:0 0 0 4px;font-family:inherit" aria-label="Close">×</button>` +
       `</div>`;
 
     // Scrollable body
@@ -1021,12 +1012,12 @@ export class SpecsMapPlugin {
       `<div class="sm-panel-label">SPEC FILE</div>` +
       `<div class="sm-panel-mono">${esc(node.specFile)}</div>` +
       (node.sourceFile ? `<div class="sm-panel-label" style="margin-top:8px">SOURCE FILE</div><div class="sm-panel-mono">${esc(node.sourceFile)}</div>` : '') +
-      (parentNode ? `<div class="sm-panel-label" style="margin-top:8px">UI SPEC FOR</div><div class="sm-panel-row" style="font-size:9px;cursor:pointer;color:${colorVar}" data-goto="${esc(parentNode.id)}">${esc(parentNode.name)}</div>` : '') +
-      (uiChild ? `<div class="sm-panel-label" style="margin-top:8px">UI SPEC</div><div class="sm-panel-row" style="font-size:9px;cursor:pointer;color:${colorVar}" data-goto="${esc(uiChild.id)}">${esc(uiChild.name)}</div>` : '') +
+      (parentNode ? `<div class="sm-panel-label" style="margin-top:8px">UI SPEC FOR</div><div class="sm-panel-row" style="font-size:12px;cursor:pointer;color:${colorVar}" data-goto="${esc(parentNode.id)}">${esc(parentNode.name)}</div>` : '') +
+      (uiChild ? `<div class="sm-panel-label" style="margin-top:8px">UI SPEC</div><div class="sm-panel-row" style="font-size:12px;cursor:pointer;color:${colorVar}" data-goto="${esc(uiChild.id)}">${esc(uiChild.name)}</div>` : '') +
       `</div>`;
 
     const desc = data.description
-      ? `<div class="sm-panel-section"><div class="sm-panel-label">DESCRIPTION</div><div style="font-size:9px;color:var(--secondary);line-height:1.55;word-break:break-word">${esc(data.description)}</div></div>`
+      ? `<div class="sm-panel-section"><div class="sm-panel-label">DESCRIPTION</div><div style="font-size:12px;color:var(--secondary);line-height:1.6;word-break:break-word">${esc(data.description)}</div></div>`
       : '';
 
     const depsSection = deps.length
@@ -1060,7 +1051,7 @@ export class SpecsMapPlugin {
 
     const ipcSection = ipc.length
       ? `<div class="sm-panel-section"><div class="sm-panel-label">IPC CHANNELS (${ipc.length})</div>` +
-        ipc.map(ch => `<div style="font-size:8.5px;color:var(--tertiary);padding:2px 0">${esc(ch)}</div>`).join('') +
+        ipc.map(ch => `<div style="font-size:12px;color:var(--tertiary);padding:3px 0">${esc(ch)}</div>`).join('') +
         `</div>`
       : '';
 
@@ -1144,15 +1135,15 @@ export class SpecsMapPlugin {
 
     // Icon + title
     const icon = document.createElement('div');
-    icon.style.cssText = 'font-size:28px;opacity:0.18;margin-bottom:8px;color:var(--primary)';
+    icon.style.cssText = 'font-size:32px;opacity:0.18;margin-bottom:10px;color:var(--primary)';
     icon.textContent = '⬡';
 
     const title = document.createElement('div');
-    title.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:1px;color:var(--primary);margin-bottom:6px';
+    title.style.cssText = 'font-size:13px;font-weight:700;letter-spacing:1px;color:var(--primary);margin-bottom:8px';
     title.textContent = 'NO SPEC FILES';
 
     const sub = document.createElement('div');
-    sub.style.cssText = 'font-size:8.5px;color:var(--tertiary);margin-bottom:16px;line-height:1.6;max-width:300px';
+    sub.style.cssText = 'font-size:10px;color:var(--tertiary);margin-bottom:18px;line-height:1.6;max-width:340px';
     sub.textContent = hasSrc
       ? (specgenExists ? 'SPECGEN.md found. Copy the generation prompt and paste it into Claude.' : 'Write SPECGEN.md to this workspace and copy a 3-pass generation prompt.')
       : 'src/ not found. Choose the entry point for spec generation.';
@@ -1162,7 +1153,7 @@ export class SpecsMapPlugin {
     entrySection.style.cssText = 'width:100%;max-width:320px;margin-bottom:16px;pointer-events:auto';
 
     const entryLabel = document.createElement('div');
-    entryLabel.style.cssText = 'font-size:8px;font-weight:700;letter-spacing:0.8px;color:var(--tertiary);margin-bottom:6px';
+    entryLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.8px;color:var(--tertiary);margin-bottom:8px';
     entryLabel.textContent = hasSrc ? 'ENTRY POINT' : 'ENTRY POINT — choose or type';
     entrySection.appendChild(entryLabel);
 
@@ -1174,7 +1165,7 @@ export class SpecsMapPlugin {
         const chip = document.createElement('button');
         chip.style.cssText =
           'background:none;border:1px dashed var(--border);border-radius:5px;' +
-          'padding:2px 8px;font-family:"Space Mono","Courier New",monospace;font-size:8px;' +
+          'padding:3px 10px;font-family:"Space Mono","Courier New",monospace;font-size:10px;' +
           'color:var(--tertiary);cursor:pointer;transition:border-color 0.12s,color 0.12s';
         chip.textContent = c;
         chip.addEventListener('mouseenter', () => { chip.style.borderColor = 'var(--accent)'; chip.style.color = 'var(--accent)'; chip.style.borderStyle = 'solid'; });
@@ -1193,8 +1184,8 @@ export class SpecsMapPlugin {
     entryInput.readOnly = hasSrc;
     entryInput.style.cssText =
       'width:100%;box-sizing:border-box;background:var(--bg);border:1px dashed var(--border);' +
-      'border-radius:6px;padding:5px 10px;font-family:"Space Mono","Courier New",monospace;' +
-      'font-size:9px;color:var(--primary);outline:none;' +
+      'border-radius:6px;padding:6px 12px;font-family:"Space Mono","Courier New",monospace;' +
+      'font-size:11px;color:var(--primary);outline:none;' +
       (hasSrc ? 'opacity:0.5;cursor:default;' : 'transition:border-color 0.12s;');
     if (!hasSrc) {
       entryInput.addEventListener('focus', () => { entryInput.style.borderColor = 'var(--accent)'; entryInput.style.borderStyle = 'solid'; });
@@ -1205,8 +1196,8 @@ export class SpecsMapPlugin {
     // Integrity badge
     const integrityBadge = document.createElement('div');
     integrityBadge.style.cssText =
-      'font-size:8px;font-weight:700;letter-spacing:0.3px;margin-bottom:14px;pointer-events:none;' +
-      'display:flex;align-items:center;gap:5px';
+      'font-size:10px;font-weight:700;letter-spacing:0.3px;margin-bottom:16px;pointer-events:none;' +
+      'display:flex;align-items:center;gap:6px';
     const badgeConfig: Record<SpecgenIntegrity, { icon: string; text: string; color: string }> = {
       verified:  { icon: '✓', text: `SPECGEN.md verified · v${SPECGEN_VERSION}`, color: 'var(--green)' },
       modified:  { icon: '⚠', text: 'SPECGEN.md modified — differs from bundled template', color: 'var(--amber)' },
@@ -1230,7 +1221,7 @@ export class SpecsMapPlugin {
 
     // Hint
     const hint = document.createElement('div');
-    hint.style.cssText = 'font-size:8px;color:var(--tertiary);margin-top:10px;opacity:0.7;max-width:300px;line-height:1.5';
+    hint.style.cssText = 'font-size:10px;color:var(--tertiary);margin-top:12px;opacity:0.7;max-width:340px;line-height:1.5';
     hint.textContent = agentsExists
       ? 'Agents.md detected — prompt will include update instructions.'
       : 'Paste prompt into Claude or your AI assistant.';

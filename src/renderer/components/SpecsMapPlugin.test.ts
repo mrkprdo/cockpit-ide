@@ -134,7 +134,7 @@ describe('SpecsMapPlugin', () => {
   it('renders SVG defs with markers', async () => {
     new SpecsMapPlugin(container, '/test/ws');
     await flushSpecs();
-    const svg = container.querySelector('svg');
+    const svg = container.querySelector('svg.sm-graph');
     expect(svg).toBeTruthy();
     const defs = svg!.querySelector('defs');
     expect(defs).toBeTruthy();
@@ -298,7 +298,7 @@ describe('SpecsMapPlugin', () => {
   it('renders SVG with dep edge paths', async () => {
     new SpecsMapPlugin(container, '/test/ws');
     await flushSpecs();
-    const paths = container.querySelectorAll('svg path');
+    const paths = container.querySelectorAll('svg.sm-graph path');
     expect(paths.length).toBeGreaterThan(0);
   });
 
