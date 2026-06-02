@@ -1,6 +1,6 @@
 {
   "name": "cockpit-ide",
-  "version": "0.0.20260602",
+  "version": "0.0.20260531",
   "description": "The IDE for developers who thinks spatially",
   "main": "dist/main/main.js",
   "scripts": {
@@ -22,6 +22,7 @@
   "devDependencies": {
     "@chenglou/pretext": "^0.0.7",
     "@electron/packager": "^20.0.0",
+    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.1.6",
     "@vitest/ui": "^4.1.6",
     "@xterm/xterm": "^6.0.0",
