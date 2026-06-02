@@ -47,6 +47,7 @@ interface Window {
     };
     workspace: {
       select: () => Promise<string | null>;
+      setPath: (p: string) => Promise<boolean>;
       getPath: () => Promise<string | null>;
       load: (wsPath?: string) => Promise<WorkspaceState | null>;
       save: (state: WorkspaceState, wsPath?: string) => Promise<void>;

@@ -654,6 +654,17 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('workspace:getPath', () => workspacePath);
 
+  ipcMain.handle('workspace:setPath', async (_event, wsPath: string) => {
+    cockpitDir(path.join(wsPath, '.cockpit'));
+    workspacePath = wsPath;
+    saveLastWorkspace(wsPath);
+    addRecentWorkspace(wsPath);
+    await startWatching(wsPath);
+    ideServer.stop();
+    try { await ideServer.start(wsPath); } catch (e) { console.error('ide: start failed', e); }
+    return true;
+  });
+
   ipcMain.handle('workspace:load', (_event, wsPath?: string) => {
     const targetPath = wsPath || workspacePath;
     if (!targetPath) return null;

@@ -177,6 +177,7 @@ if (isDOM) {
     },
     workspace: {
       select: vi.fn().mockResolvedValue('/test/workspace'),
+      setPath: vi.fn().mockResolvedValue(true),
       getPath: vi.fn().mockResolvedValue('/test/workspace'),
       load: vi.fn().mockResolvedValue(null),
       save: vi.fn().mockResolvedValue(undefined),

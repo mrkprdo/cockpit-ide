@@ -172,10 +172,11 @@ export class App {
     this.wsPath = path;
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
-    const state = await ws.load(path);
 
-    // Start file watcher
-    window.electronAPI?.fs.watch(path);
+    // Register workspace with main process (sets workspacePath, starts watcher + ide-server)
+    await ws.setPath(path);
+
+    const state = await ws.load(path);
 
     if (state && state.plugins && state.plugins.length > 0) {
       // Restore saved plugins with positions
