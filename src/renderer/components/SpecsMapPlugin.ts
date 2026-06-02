@@ -142,20 +142,21 @@ export class SpecsMapPlugin {
 
     const header = document.createElement('div');
     header.style.cssText =
-      'padding:6px 14px 6px 16px;font-size:13px;font-weight:700;letter-spacing:1.5px;color:var(--accent);' +
-      'flex-shrink:0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:12px;z-index:10;position:relative';
-
-    const headerTitle = document.createElement('span');
-    headerTitle.textContent = 'SPECS MAP';
+      'padding:3px 10px 3px 12px;font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--accent);' +
+      'flex-shrink:0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:10px;z-index:10;position:relative';
 
     const headerSub = document.createElement('span');
     headerSub.className = 'sm-header-sub';
-    headerSub.style.cssText = 'font-size:11px;color:var(--tertiary);font-weight:400;letter-spacing:0.3px;text-transform:none;flex:1';
-    headerSub.textContent = 'spec-file dependency graph · hover to trace · click for detail';
+    headerSub.style.cssText = 'font-size:10px;color:var(--tertiary);font-weight:400;letter-spacing:0.3px;text-transform:none;flex-shrink:0';
+    headerSub.textContent = 'hover to trace · click for detail';
+
+    const headerPath = document.createElement('span');
+    headerPath.style.cssText = 'font-size:8px;color:var(--tertiary);opacity:0.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
+    headerPath.textContent = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '') + '/src/specs/';
 
     this.validationBadge = document.createElement('span');
     this.validationBadge.style.cssText =
-      'display:none;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:2px 10px;' +
+      'display:none;font-size:8px;font-weight:700;letter-spacing:0.3px;padding:1px 6px;' +
       'border-radius:4px;border:1px solid;line-height:1.6;white-space:nowrap';
 
     const SVG_EYE =
@@ -187,8 +188,8 @@ export class SpecsMapPlugin {
     this.refreshBtn.addEventListener('click', () => this.refresh());
 
     // title, subtitle, validation, refresh, then reset-view (eye) on the right
-    header.appendChild(headerTitle);
     header.appendChild(headerSub);
+    header.appendChild(headerPath);
     header.appendChild(this.validationBadge);
     header.appendChild(this.refreshBtn);
     header.appendChild(this.fitBtn);
@@ -272,46 +273,46 @@ export class SpecsMapPlugin {
         border-style: solid;
       }
       .sm-node-inner {
-        padding: 12px 16px;
+        padding: 8px 10px;
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 3px;
         height: 100%;
         box-sizing: border-box;
       }
-      .sm-node-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
-      .sm-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+      .sm-node-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+      .sm-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
       .sm-name {
-        font-size: 14px; font-weight: 700; color: var(--primary);
-        line-height: 1.3; flex: 1; min-width: 0;
+        font-size: 10px; font-weight: 700; color: var(--primary);
+        line-height: 1.2; flex: 1; min-width: 0;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
-      .sm-layer-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; flex-shrink: 0; color: var(--tertiary); opacity: 0.8; }
-      .sm-file { font-size: 12px; color: var(--tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .sm-meta { font-size: 11px; color: var(--secondary); margin-top: auto; display: flex; gap: 8px; }
-      .sm-node-ui .sm-name { font-size: 13px; }
-      .sm-node-ui .sm-file { font-size: 11px; }
-      .sm-node-ui .sm-dot { width: 8px; height: 8px; opacity: 0.6; }
+      .sm-layer-badge { font-size: 7px; font-weight: 700; letter-spacing: 0.8px; flex-shrink: 0; color: var(--tertiary); opacity: 0.8; }
+      .sm-file { font-size: 8.5px; color: var(--tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .sm-meta { font-size: 8px; color: var(--secondary); margin-top: auto; display: flex; gap: 6px; }
+      .sm-node-ui .sm-name { font-size: 9px; }
+      .sm-node-ui .sm-file { font-size: 7.5px; }
+      .sm-node-ui .sm-dot { width: 5px; height: 5px; opacity: 0.6; }
       .sm-layer-header {
-        position: absolute; font-size: 15px; font-weight: 700; letter-spacing: 1.5px;
-        user-select: none; pointer-events: none; opacity: 0.55;
+        position: absolute; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+        user-select: none; pointer-events: none; opacity: 0.45;
       }
-      .sm-panel-section { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+      .sm-panel-section { padding: 10px 14px; border-bottom: 1px solid var(--border); }
       .sm-panel-label {
-        font-size: 11px; font-weight: 700; letter-spacing: 1px;
-        color: var(--tertiary); margin-bottom: 10px;
+        font-size: 8px; font-weight: 700; letter-spacing: 1px;
+        color: var(--tertiary); margin-bottom: 8px;
       }
-      .sm-panel-row { font-size: 13px; color: var(--primary); line-height: 1.5; }
-      .sm-panel-mono { font-size: 12px; color: var(--secondary); word-break: break-all; }
+      .sm-panel-row { font-size: 10px; color: var(--primary); line-height: 1.5; }
+      .sm-panel-mono { font-size: 9px; color: var(--secondary); word-break: break-all; }
       .sm-dep-item {
-        display: flex; gap: 10px; align-items: baseline;
-        padding: 6px 0; border-bottom: 1px solid var(--border);
-        font-size: 12px;
+        display: flex; gap: 6px; align-items: baseline;
+        padding: 4px 0; border-bottom: 1px solid var(--border);
+        font-size: 9px;
       }
       .sm-dep-item:last-child { border-bottom: none; }
       .sm-dep-name { font-weight: 700; color: var(--primary); flex-shrink: 0; }
       .sm-dep-file { color: var(--tertiary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .sm-dep-usage { font-size: 11px; color: var(--secondary); line-height: 1.4; margin-top: 2px; }
+      .sm-dep-usage { font-size: 8px; color: var(--secondary); line-height: 1.4; margin-top: 1px; }
       @keyframes sm-flow { to { stroke-dashoffset: -20; } }
       .sm-edge-active { animation: sm-flow 0.8s linear infinite; }
       @keyframes sm-spin { to { transform: rotate(360deg); } }
@@ -952,7 +953,38 @@ export class SpecsMapPlugin {
     const node = this.nodes.find(n => n.id === id);
     if (!node) return;
 
+    this.zoomToNode(node);
     this.openPanel(node);
+  }
+
+  private zoomToNode(node: SpecNode): void {
+    const rect = this.viewport.getBoundingClientRect();
+    const cw = rect.width || 800;
+    const ch = rect.height || 600;
+
+    const targetScale = Math.min(cw / (node.w * 3), ch / (node.h * 3), 1.5);
+    const scale = Math.max(targetScale, this.fitScale);
+    const targetPanX = (cw - node.w * scale) / 2 - node.x * scale;
+    const targetPanY = (ch - node.h * scale) / 2 - node.y * scale;
+
+    this.animateTo(targetPanX, targetPanY, scale, 300);
+  }
+
+  private animateTo(toPanX: number, toPanY: number, toScale: number, duration = 300): void {
+    const startPanX = this.panX;
+    const startPanY = this.panY;
+    const startScale = this.scale;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      this.panX = startPanX + (toPanX - startPanX) * ease;
+      this.panY = startPanY + (toPanY - startPanY) * ease;
+      this.scale = startScale + (toScale - startScale) * ease;
+      this.applyTransform();
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   private openPanel(node: SpecNode): void {
