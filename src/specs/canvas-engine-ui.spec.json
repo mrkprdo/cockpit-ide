@@ -72,6 +72,11 @@
       "behavior": "Calculate bounding box of all visible cards, compute zoom to fit with 40px padding, animate pan to center"
     },
     {
+      "name": "fit_viewport_locked",
+      "trigger": "Click .card-btn-fitview or double-click card header while zoom is locked",
+      "behavior": "Resize target card to full viewport dimensions, then find a non-overlapping position via outward spiral scan (28px step, up to 10000px offset) from current position. Animates pan to center card at current zoom. Preserves zoom lock — does NOT change zoom level or auto-arrange other cards."
+    },
+    {
       "name": "auto_arrange",
       "trigger": "Click 'Auto Arrange' in arrangement panel",
       "behavior": "Tile all open cards in a grid layout, default 2 columns, 800x550 sizing. Cards sorted by uuid for deterministic layout."

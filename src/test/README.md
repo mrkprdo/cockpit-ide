@@ -1,6 +1,6 @@
 # Test Infrastructure
 
-Vitest + jsdom + lightweight mocks. 16 files, 216 tests, ~3s runtime.
+Vitest + jsdom + lightweight mocks.
 
 ## Quick start
 
@@ -20,7 +20,7 @@ vitest.config.ts    ← jsdom env, setup file, test include pattern, coverage co
 
 Every test file gets:
 - jsdom `window` + `document` (headless DOM)
-- `window.electronAPI` — mock of all 24 IPC channels (terminal, workspace, fs, prefs, shell, window)
+- `window.electronAPI` — mock of all IPC channels (terminal, workspace, fs, prefs, shell, window, git, clipboard)
 - `@xterm/xterm` → lightweight mock class (open, write, resize, dispose, onData, onExit, attachCustomKeyEventHandler)
 - `@chenglou/pretext` → returns text as single-line (renders identically, skips layout)
 - `HTMLCanvasElement.getContext('2d')` → plain JS object with all Canvas2D methods as `vi.fn()`
@@ -31,24 +31,24 @@ Every test file gets:
 
 ## File inventory
 
-| File | Tests | Type | What's tested |
-|------|-------|------|---------------|
-| `theme.test.ts` | 8 | unit | dark/light toggle, color palette, CSS var propagation |
-| `ConfirmModal.test.ts` | 7 | unit | OK/Cancel resolution, overlay dismiss, custom labels, DOM cleanup |
-| `ContextMenu.test.ts` | 8 | unit | item creation, positioning, separators, disabled items, outside-click close, singleton |
-| `WelcomeModal.test.ts` | 8 | unit | open/close, recent workspaces, workspace selection, null close |
-| `AboutModal.test.ts` | 6 | unit | open/close, overlay dismiss, design.md link |
-| `PluginCard.test.ts` | 9 | unit | card structure, positioning, UUID, close/focus/destroy callbacks, canvas title, setContent |
-| `CanvasArea.test.ts` | 8 | unit | grid styles, zoom bounds, reset view, save state structure, state change callbacks |
-| `TopBar.test.ts` | 13 | unit | menu rendering, all button callbacks, Terminal/Dev/Context item lists, focus vs reopen |
-| `FileExplorerPlugin.test.ts` | 8 | unit | tree rendering, .gitkeep filter, directory sort, file click, refresh, error state, wheel stop |
-| `MarkdownPlugin.test.ts` | 9 | unit | tab CRUD, duplicate prevention, markdown render, getState/restoreState, file watcher cleanup |
-| `MonacoEditorPlugin.test.ts` | 8 | unit | editor structure, initial state, getState/getContent/getCurrentFile (empty), reloadIfOpen, file listener |
-| `DevPlugin.test.ts` | 8 | unit | split pane, explorer/editor columns, state delegation, updateTheme, restoreEditorState |
-| `TerminalPlugin.test.ts` | 8 | unit | container, UUID, terminal.create with/without cwd, onData/onExit, destroy, exit callback |
-| `App.test.ts` | 6 | unit | title, CanvasArea/TopBar creation, window controls, Ctrl+W prevention |
-| `workflows.test.ts` | 36 | integration | file CRUD (create/read/delete/copy-paste), editor tab lifecycle, context tab lifecycle, Dev plugin operations, theme persistence, ConfirmModal paths, end-to-end browse→open→render |
-| `edge-cases.test.ts` | 63 | edge | null/undefined/empty inputs, bounds (zoom 0.1–5), rapid calls, double-remove/destroy, special chars in filenames, long strings, missing electronAPI, legacy state formats, UUID filtering, idempotency |
+| File | Type | What's tested |
+|------|------|---------------|
+| `theme.test.ts` | unit | dark/light toggle, color palette, CSS var propagation |
+| `ConfirmModal.test.ts` | unit | OK/Cancel resolution, overlay dismiss, custom labels, DOM cleanup |
+| `ContextMenu.test.ts` | unit | item creation, positioning, separators, disabled items, outside-click close, singleton |
+| `WelcomeModal.test.ts` | unit | open/close, recent workspaces, workspace selection, null close |
+| `AboutModal.test.ts` | unit | open/close, overlay dismiss, design.md link |
+| `PluginCard.test.ts` | unit | card structure, positioning, UUID, close/focus/destroy callbacks, canvas title, setContent |
+| `CanvasArea.test.ts` | unit | grid styles, zoom bounds, reset view, save state structure, state change callbacks |
+| `TopBar.test.ts` | unit | menu rendering, all button callbacks, Terminal/Dev/Context item lists, focus vs reopen |
+| `FileExplorerPlugin.test.ts` | unit | tree rendering, .gitkeep filter, directory sort, file click, refresh, error state, wheel stop |
+| `MarkdownPlugin.test.ts` | unit | tab CRUD, duplicate prevention, markdown render, getState/restoreState, file watcher cleanup |
+| `MonacoEditorPlugin.test.ts` | unit | editor structure, initial state, getState/getContent/getCurrentFile (empty), reloadIfOpen, file listener |
+| `DevPlugin.test.ts` | unit | split pane, explorer/editor columns, state delegation, updateTheme, restoreEditorState |
+| `TerminalPlugin.test.ts` | unit | container, UUID, terminal.create with/without cwd, onData/onExit, destroy, exit callback |
+| `App.test.ts` | unit | title, CanvasArea/TopBar creation, window controls, Ctrl+W prevention |
+| `workflows.test.ts` | integration | file CRUD (create/read/delete/copy-paste), editor tab lifecycle, context tab lifecycle, Dev plugin operations, theme persistence, ConfirmModal paths, end-to-end browse→open→render |
+| `edge-cases.test.ts` | edge | null/undefined/empty inputs, bounds (zoom 0.1–5), rapid calls, double-remove/destroy, special chars in filenames, long strings, missing electronAPI, legacy state formats, UUID filtering, idempotency |
 
 ## Test patterns
 

@@ -1,0 +1,14 @@
+{
+  "name": "Renderer Entry",
+  "file": "src/renderer/index.ts",
+  "description": "Renderer process entry point. Imports and instantiates App. Contains a legacy theme-toggle click listener (deprecated — TopBar handles toggling).",
+  "type": "ui",
+  "layer": "core",
+  "singleton": true,
+  "exports": [],
+  "dependencies": [
+    { "feature": "app-shell", "file": "App.ts", "usage": "Instantiates App class to bootstrap the renderer" }
+  ],
+  "referenced_by": [],
+  "test": "Covered by App.test.ts"
+}

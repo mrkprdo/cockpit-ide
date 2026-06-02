@@ -21,8 +21,9 @@
     "methods": [
       { "name": "getState", "signature": "() => GitState", "description": "Serialize selected commit hash, file path, diff view mode, and splitter sizes" },
       { "name": "applyLayout", "signature": "(state: GitState) => void", "description": "Immediately apply saved splitter sizes without async delay" },
-      { "name": "restoreState", "signature": "(state: GitState) => void", "description": "Restore view state and splitter sizes from saved session" },
+      { "name": "restoreState", "signature": "(state: GitState) => Promise<void>", "description": "Restore view state and splitter sizes from saved session" },
       { "name": "refresh", "signature": "() => Promise<void>", "description": "Reload all git data: remotes, branches, commits, staged/unstaged files" },
+      { "name": "refreshChanges", "signature": "() => Promise<void>", "description": "Re-fetch staged/unstaged file diffs without full refresh" },
       { "name": "destroy", "signature": "() => void", "description": "Unlisten file changes, remove DOM" }
     ],
     "properties": [

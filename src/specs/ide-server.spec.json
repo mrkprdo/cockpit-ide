@@ -12,6 +12,16 @@
   "referenced_by": [
     { "feature": "main-process", "file": "main.ts" }
   ],
+  "interface": {
+    "constructor": "new IdeServer() (accessed via singleton ideServer)",
+    "methods": [
+      { "name": "start", "signature": "(wsPath: string) => Promise<void>", "description": "Create HTTP + WebSocket server on random port, write lock files" },
+      { "name": "stop", "signature": "() => void", "description": "Remove lock files, close all connections, shut down server" },
+      { "name": "updateEditorState", "signature": "(state: EditorSelectionState | null) => void", "description": "Broadcast selection_changed JSON-RPC 2.0 notification to all WebSocket clients" },
+      { "name": "getPort", "signature": "() => number", "description": "Return the listening port (0 if not started)" },
+      { "name": "getLockPaths", "signature": "() => string[]", "description": "Return array of active lock file paths" }
+    ]
+  },
   "lifecycle": {
     "start": "ideServer.start(workspacePath) — creates HTTP server + WebSocketServer on random port, writes lock files with {transport:'ws', workspaceFolders:[path]} format",
     "update": "ideServer.updateEditorState(state) — broadcasts selection_changed as JSON-RPC 2.0 notification to all connected WebSocket clients",

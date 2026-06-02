@@ -118,10 +118,10 @@ D:\cockpit_ide\
 │   │       └── Tutorial.test.ts   # Tutorial step navigation tests (~179 lines)
 │   ├── specs/
 │   │   ├── main.spec.json         # Root specs index: features, IPC, shortcuts, dep graph
-│   │   ├── *.spec.json            # 23 feature specs (one per non-test source file)
-│   │   └── *-ui.spec.json         # 10 UI sub-specs (DOM, interactions, states)
+│   │   ├── *.spec.json            # 24 feature specs (one per non-test source file)
+│   │   └── *-ui.spec.json         # 10 UI sub-specs (DOM details, interactions, states)
 │   └── test/
-│       ├── README.md              # Test infrastructure docs (22 files, 755 tests)
+│       ├── README.md              # Test infrastructure docs (23 files, 755 tests)
 │       ├── setup.ts               # Global mocks: IPC, Canvas, xterm, DOM, ResizeObserver
 │       ├── edge-cases.test.ts     # 63 edge case tests across all components (~902 lines)
 │       ├── workflows.test.ts      # 36 integration workflow tests (~1157 lines)
@@ -245,7 +245,7 @@ D:\cockpit_ide\
 | File | Description |
 |------|-------------|
 | `src/specs/main.spec.json` | Root specs index: project manifest, feature catalog (by layer), IPC channel catalog, dependency graph edges, keyboard shortcuts, test coverage summary. |
-| `src/specs/*.spec.json` | 23 feature specs — one per non-test source file. Each defines: name, description, type/layer taxonomy, dependencies (imports), referenced_by (importers), exports, interface (constructor/methods/properties), state schema (if serialized), IPC channels, lifecycle, test file ref. |
+| `src/specs/*.spec.json` | 24 feature specs — one per non-test source file. Each defines: name, description, type/layer taxonomy, dependencies (imports), referenced_by (importers), exports, interface (constructor/methods/properties), state schema (if serialized), IPC channels, lifecycle, test file ref. |
 | `src/specs/*-ui.spec.json` | 10 UI sub-specs — detailed DOM structure, interaction catalog (triggers, gestures, formulas, results), visual states, and rendering notes. Generated for features with complex UI (modals, overlays, cards, menus). |
 
 ---

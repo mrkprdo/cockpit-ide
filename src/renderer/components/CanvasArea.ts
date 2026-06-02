@@ -1272,6 +1272,44 @@ export class CanvasArea {
     this.scheduleTransform();
   }
 
+  private overlaps(
+    ax: number, ay: number, aw: number, ah: number,
+    bx: number, by: number, bw: number, bh: number
+  ): boolean {
+    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+  }
+
+  private moveToNonOverlapping(cs: CardState): void {
+    const others = this.cards.filter(c => c !== cs && c.isOpen);
+    if (others.length === 0) return;
+
+    const step = 28;
+    if (!others.some(o =>
+      this.overlaps(cs.worldX, cs.worldY, cs.savedWidth, cs.savedHeight, o.worldX, o.worldY, o.savedWidth, o.savedHeight)
+    )) return;
+
+    for (let offset = step; offset < 10000; offset += step) {
+      const candidates = [
+        [offset, 0], [-offset, 0], [0, offset], [0, -offset],
+        [offset, offset], [-offset, offset], [offset, -offset], [-offset, -offset],
+      ];
+      for (const [dx, dy] of candidates) {
+        const nx = this.clampWorld(this.snap(cs.worldX + dx));
+        const ny = this.clampWorld(this.snap(cs.worldY + dy));
+        if (!others.some(o =>
+          this.overlaps(nx, ny, cs.savedWidth, cs.savedHeight, o.worldX, o.worldY, o.savedWidth, o.savedHeight)
+        )) {
+          cs.worldX = nx;
+          cs.worldY = ny;
+          cs.savedWX = nx;
+          cs.savedWY = ny;
+          this.positionCard(cs);
+          return;
+        }
+      }
+    }
+  }
+
   private fitViewport(cs: CardState): void {
     const w = this.el.clientWidth;
     const h = this.el.clientHeight;
@@ -1282,6 +1320,16 @@ export class CanvasArea {
     cs.card.el.style.width = `${w}px`;
     cs.card.el.style.height = `${h}px`;
     cs.onCardResize?.();
+
+    if (this._locked) {
+      this.moveToNonOverlapping(cs);
+      const targetX = w / 2 - (cs.worldX + cs.savedWidth / 2) * this.scale;
+      const targetY = h / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;
+      this.animatePan(targetX, targetY);
+      this.onStateChange?.();
+      return;
+    }
+
     // Arrange open cards in a grid (replicating autoArrange without fitAll)
     const open = this.cards.filter(c => c.isOpen);
     if (open.length > 1) {

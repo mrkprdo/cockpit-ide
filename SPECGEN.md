@@ -577,15 +577,15 @@ states[missing_recent]       → test: deleted workspace path shown with .welcom
 | Tier | Count | Description |
 |------|-------|-------------|
 | `main.spec.json` | 1 | Root project index |
-| `<feature>.spec.json` | 23 | One per non-test source file |
+| `<feature>.spec.json` | 24 | One per non-test source file |
 | `<feature>-ui.spec.json` | 10 | UI sub-specs for qualifying features |
-| **Total** | **34** | |
+| **Total** | **35** | |
 
-### Feature specs (23)
+### Feature specs (24)
 
 | Layer | Count | Features |
 |-------|-------|----------|
-| foundation | 3 | type-model, main-process, preload-bridge |
+| foundation | 4 | type-model, main-process, preload-bridge, ide-server |
 | core | 5 | app-shell, canvas-engine, theme, canvas-grid, canvas-statusbar |
 | widget | 4 | plugin-card, text-renderer, context-menu, topbar |
 | modal | 3 | welcome-modal, about-modal, confirm-modal |

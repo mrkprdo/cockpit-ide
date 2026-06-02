@@ -30,25 +30,29 @@
     "foundation": [
       { "id": "type-model", "name": "Type Model", "file": "global.d.ts", "spec": "type-model.spec.json" },
       { "id": "main-process", "name": "Main Process", "file": "main.ts", "spec": "main-process.spec.json" },
-      { "id": "preload-bridge", "name": "Preload Bridge", "file": "preload.ts", "spec": "preload-bridge.spec.json" }
+      { "id": "preload-bridge", "name": "Preload Bridge", "file": "preload.ts", "spec": "preload-bridge.spec.json" },
+      { "id": "ide-server", "name": "IDE Context Server", "file": "ide-server.ts", "spec": "ide-server.spec.json" }
     ],
     "core": [
+      { "id": "renderer-entry", "name": "Renderer Entry", "file": "index.ts", "spec": "renderer-entry.spec.json" },
       { "id": "app-shell", "name": "App Shell", "file": "App.ts", "spec": "app-shell.spec.json", "ui": "app-shell-ui.spec.json" },
       { "id": "canvas-engine", "name": "Canvas Engine", "file": "CanvasArea.ts", "spec": "canvas-engine.spec.json", "ui": "canvas-engine-ui.spec.json" },
       { "id": "theme", "name": "Theme", "file": "theme.ts", "spec": "theme.spec.json" },
       { "id": "canvas-grid", "name": "Canvas Grid", "file": "canvas-grid.ts", "spec": "canvas-grid.spec.json" },
       { "id": "canvas-statusbar", "name": "Canvas Status Bar", "file": "canvas-statusbar.ts", "spec": "canvas-statusbar.spec.json" }
     ],
-    "widgets": [
+    "widget": [
       { "id": "plugin-card", "name": "Plugin Card", "file": "PluginCard.ts", "spec": "plugin-card.spec.json", "ui": "plugin-card-ui.spec.json" },
       { "id": "text-renderer", "name": "Text Renderer", "file": "TextRenderer.ts", "spec": "text-renderer.spec.json" },
       { "id": "context-menu", "name": "Context Menu", "file": "ContextMenu.ts", "spec": "context-menu.spec.json", "ui": "context-menu-ui.spec.json" },
       { "id": "topbar", "name": "Top Bar", "file": "TopBar.ts", "spec": "topbar.spec.json", "ui": "topbar-ui.spec.json" }
     ],
-    "modals_and_overlays": [
+    "modal": [
       { "id": "welcome-modal", "name": "Welcome Modal", "file": "WelcomeModal.ts", "spec": "welcome-modal.spec.json", "ui": "welcome-modal-ui.spec.json" },
       { "id": "about-modal", "name": "About Modal", "file": "AboutModal.ts", "spec": "about-modal.spec.json", "ui": "about-modal-ui.spec.json" },
-      { "id": "confirm-modal", "name": "Confirm Modal", "file": "ConfirmModal.ts", "spec": "confirm-modal.spec.json", "ui": "confirm-modal-ui.spec.json" },
+      { "id": "confirm-modal", "name": "Confirm Modal", "file": "ConfirmModal.ts", "spec": "confirm-modal.spec.json", "ui": "confirm-modal-ui.spec.json" }
+    ],
+    "overlay": [
       { "id": "tutorial", "name": "Tutorial", "file": "Tutorial.ts", "spec": "tutorial.spec.json", "ui": "tutorial-ui.spec.json" },
       { "id": "command-palette", "name": "Command Palette", "file": "CommandPalette.ts", "spec": "command-palette.spec.json", "ui": "command-palette-ui.spec.json" }
     ],
@@ -66,7 +70,7 @@
     "edges": {
       "index.ts": ["App.ts"],
       "App.ts": ["TopBar.ts", "CanvasArea.ts", "WelcomeModal.ts", "AboutModal.ts", "Tutorial.ts", "theme.ts"],
-      "CanvasArea.ts": ["canvas-grid.ts", "canvas-statusbar.ts", "PluginCard.ts", "TerminalPlugin.ts", "FileExplorerPlugin.ts", "MonacoEditorPlugin.ts", "ExplorerPlugin.ts", "GitPlugin.ts", "ContextMenu.ts", "MarkdownPlugin.ts"],
+      "CanvasArea.ts": ["canvas-grid.ts", "canvas-statusbar.ts", "PluginCard.ts", "TerminalPlugin.ts", "MonacoEditorPlugin.ts", "ExplorerPlugin.ts", "GitPlugin.ts", "ContextMenu.ts", "MarkdownPlugin.ts"],
       "TopBar.ts": ["theme.ts"],
       "PluginCard.ts": ["TextRenderer.ts"],
       "ExplorerPlugin.ts": ["FileExplorerPlugin.ts", "MonacoEditorPlugin.ts", "CommandPalette.ts"],
@@ -101,11 +105,11 @@
     { "key": "Enter", "scope": "palette", "action": "Select highlighted file" }
   ],
   "test_coverage": {
-    "total_test_files": 22,
+    "total_test_files": 23,
     "total_tests": "755",
     "run_time": "~10s",
     "framework": "vitest 4 + jsdom + V8 coverage",
-    "specs_with_direct_tests": 19,
+    "specs_with_direct_tests": 20,
     "specs_with_indirect_tests": 2,
     "specs_without_tests": 2
   }

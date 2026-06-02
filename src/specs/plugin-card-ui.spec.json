@@ -62,7 +62,7 @@
     {
       "name": "fit_viewport",
       "trigger": "Click .card-btn-fitview OR double-click .card-header (not on .card-controls)",
-      "gesture": "Fire onFitViewport() callback — handled by CanvasArea to zoom to card bounds"
+      "gesture": "Fire onFitViewport() callback — handled by CanvasArea. When unlocked: resize card to viewport, auto-arrange all open cards in grid, set zoom=1, animate pan to center card. When locked: resize card to viewport, move card to non-overlapping position (spiral scan), animate pan to center card at current zoom — preserving zoom lock."
     },
     {
       "name": "terminate",
