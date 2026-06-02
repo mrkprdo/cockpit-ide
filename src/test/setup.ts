@@ -226,6 +226,10 @@ if (isDOM) {
       unwatch: vi.fn().mockResolvedValue(true),
       onChanged: vi.fn().mockReturnValue(vi.fn()),
     },
+    ide: {
+      editorState: vi.fn(),
+      status: vi.fn().mockResolvedValue({ running: true, port: 58900, workspace: '/mock/workspace', lockPaths: ['/mock/lock'] }),
+    },
   };
 
   (window as any).electronAPI = mockElectronAPI;

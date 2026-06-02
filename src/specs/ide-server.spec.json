@@ -1,0 +1,53 @@
+{
+  "name": "IDE Context Server",
+  "file": "src/main/ide-server.ts",
+  "description": "WebSocket + lock file server exposing Cockpit IDE's active editor state (file path, selection, selected text) to external tools like opencode CLI. Uses JSON-RPC 2.0 over WebSocket with lock file discovery matching opencode's native protocol (transport: 'ws'). Listens on random port, writes lock files to ~/.claude/ide/{port}.lock (primary) and {xdgData}/opencode/ide/{port}.lock.",
+  "type": "process",
+  "layer": "foundation",
+  "singleton": true,
+  "exports": ["IdeServer", "ideServer"],
+  "dependencies": [
+    { "feature": "ws", "external": true }
+  ],
+  "referenced_by": [
+    { "feature": "main-process", "file": "main.ts" }
+  ],
+  "lifecycle": {
+    "start": "ideServer.start(workspacePath) — creates HTTP server + WebSocketServer on random port, writes lock files with {transport:'ws', workspaceFolders:[path]} format",
+    "update": "ideServer.updateEditorState(state) — broadcasts selection_changed as JSON-RPC 2.0 notification to all connected WebSocket clients",
+    "stop": "ideServer.stop() — removes lock files, closes all WebSocket connections, shuts down HTTP server, resets port to 0"
+  },
+  "lock_file_format": {
+    "description": "JSON file matching opencode's native editor discovery protocol (lock file with transport field for workspace-scoped matching)",
+    "fields": {
+      "transport": "'ws' — signals opencode to connect via WebSocket",
+      "workspaceFolders": "Array with one element: the absolute workspace path (forward-slash normalized)"
+    },
+    "locations": [
+      "{workspace}/.cockpit/ide.lock",
+      "~/.claude/ide/{port}.lock",
+      "{xdgData}/opencode/ide/{port}.lock"
+    ]
+  },
+  "websocket_protocol": {
+    "transport": "JSON-RPC 2.0 over WebSocket",
+    "initialize": "Server responds to opencode's 'initialize' method with protocolVersion '2025-11-25' and serverInfo {name:'Cockpit IDE', version:'0.0.1'}. Sends current selection_changed state (if any) immediately after the initialize response.",
+    "messages": {
+      "server_to_client": {
+        "type": "notification (jsonrpc: '2.0', method: 'selection_changed')",
+        "params": {
+          "text": "Selected text content (string), or null",
+          "filePath": "Absolute path to active file (string), or null if no file open",
+          "relativePath": "Path relative to workspace root (string), or null",
+          "selection": "Object with start/end each having line (1-based) and character (1-based); or null if no selection"
+        }
+      }
+    }
+  },
+  "ipc": {
+    "direction": "renderer → main (fire-and-forget)",
+    "channel": "ide:editorState",
+    "payload": "EditorSelectionState (filePath, text, selection)"
+  },
+  "test": "src/main/ide-server.test.ts"
+}

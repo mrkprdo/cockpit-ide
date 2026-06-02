@@ -21,12 +21,16 @@
     "shell": "openExternal (invoke)",
     "prefs": "load/save (invoke)",
     "git": "17 git operations (remotes, branches, checkout, log, showTree, diff, currentBranch, stagedFiles, unstagedFiles, stagedDiff, unstagedDiff, commitBody, stage, unstage, commit, push, checkAhead)",
-    "fs": "readDir/readFile/writeFile/mkdir/delete/copy/rename/watch/unwatch (invoke), onChanged (listener + unsubscribe)"
+    "fs": "readDir/readFile/writeFile/mkdir/delete/copy/rename/watch/unwatch (invoke), onChanged (listener + unsubscribe)",
+    "ide": "editorState (send — fire-and-forget with EditorSelectionState payload), status (invoke — returns {running, port, workspace, lockPaths})"
   },
   "event_listeners": [
     { "channel": "terminal:data", "direction": "main→renderer", "unsubscribe": "returns () => void" },
     { "channel": "terminal:exit", "direction": "main→renderer", "unsubscribe": "returns () => void" },
     { "channel": "file:changed", "direction": "main→renderer", "unsubscribe": "returns () => void" }
+  ],
+  "send_channels": [
+    { "channel": "ide:editorState", "direction": "renderer→main", "description": "Fire-and-forget: sends EditorSelectionState (filePath, text, selection) on cursor change or tab switch" }
   ],
   "test": "src/preload/preload.test.ts"
 }

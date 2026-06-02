@@ -70,7 +70,8 @@
       "TopBar.ts": ["theme.ts"],
       "PluginCard.ts": ["TextRenderer.ts"],
       "ExplorerPlugin.ts": ["FileExplorerPlugin.ts", "MonacoEditorPlugin.ts", "CommandPalette.ts"],
-      "FileExplorerPlugin.ts": ["ContextMenu.ts", "ConfirmModal.ts"]
+      "FileExplorerPlugin.ts": ["ContextMenu.ts", "ConfirmModal.ts"],
+      "main.ts": ["ide-server.ts"]
     }
   },
   "ipc_channels": {
@@ -82,7 +83,8 @@
     "git": ["git:remotes", "git:branches", "git:checkout", "git:log", "git:showTree", "git:diff", "git:currentBranch", "git:stagedFiles", "git:unstagedFiles", "git:stagedDiff", "git:unstagedDiff", "git:commitBody", "git:stage", "git:unstage", "git:commit", "git:push", "git:checkAhead"],
     "workspace": ["workspace:select", "workspace:getPath", "workspace:load", "workspace:save", "workspace:getRecent", "workspace:addRecent", "workspace:removeRecent"],
     "shell": ["shell:openExternal"],
-    "prefs": ["prefs:load", "prefs:save"]
+    "prefs": ["prefs:load", "prefs:save"],
+    "ide_context": ["ide:editorState", "selection_changed (WebSocket push)"]
   },
   "keyboard_shortcuts": [
     { "key": "Ctrl+Shift+N", "scope": "app", "action": "New window" },

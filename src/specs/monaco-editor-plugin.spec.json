@@ -33,6 +33,7 @@
     ]
   },
   "features": {
+    "ide_context": "Tracks active file path, selected text content, and selection range via onDidChangeCursorSelection. Sends EditorSelectionState via ide:editorState IPC channel with 150ms debounce. Emits null filePath + null text + null selection when no file open. Uses Monaco's getValueInRange() to capture actual selected text. Enables external tools (opencode CLI) to see what file/selection the user is currently working on.",
     "multi_tab": "Multiple files open simultaneously with tab bar and close buttons",
     "language_detection": "24 languages from extension (.ts, .js, .json, .py, .rs, .go, .java, .cpp, .c, .html, .css, .scss, .less, .xml, .yaml, .yml, .toml, .md, .sh, .bat, .ps1, .sql, .graphql, .proto)",
     "auto_save": "1.5s debounced auto-save to disk via IPC on content change",

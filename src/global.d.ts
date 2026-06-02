@@ -15,6 +15,17 @@ interface WorkspaceState {
 
 interface DirEntry { name: string; isDirectory: boolean; }
 
+interface EditorSelectionState {
+  filePath: string | null;
+  text: string | null;
+  selection: {
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+  } | null;
+}
+
 interface Window {
   electronAPI: {
     platform: string;
@@ -84,6 +95,10 @@ interface Window {
       watch: (dir: string) => Promise<boolean>;
       unwatch: () => Promise<boolean>;
       onChanged: (callback: (filePath: string) => void) => () => void;
+    };
+    ide: {
+      editorState: (state: EditorSelectionState) => void;
+      status: () => Promise<{ running: boolean; port: number; workspace: string | null; lockPaths: string[] }>;
     };
   };
 }

@@ -21,6 +21,7 @@
     "workspace": ["workspace:select", "workspace:getPath", "workspace:load", "workspace:save", "workspace:getRecent", "workspace:addRecent", "workspace:removeRecent"],
     "shell": ["shell:openExternal"],
     "prefs": ["prefs:load", "prefs:save"],
+    "ide": ["ide:editorState (send, fire-and-forget)"],
     "events": ["terminal:data (push to renderer)", "terminal:exit (push to renderer)", "file:changed (push to renderer)"]
   },
   "security": {
@@ -36,7 +37,8 @@
     "watcher": "chokidar FSWatcher | null",
     "last_workspace_file": "userData/last-workspace.txt",
     "recent_workspaces_file": "userData/recent-workspaces.json (max 5)",
-    "preferences_file": "userData/preferences.json"
+    "preferences_file": "userData/preferences.json",
+    "ide_server": "IdeServer singleton — WebSocket server broadcasting editor state"
   },
   "lifecycle": {
     "startup": "app.whenReady() → resolve CLI workspace → createWindow()",

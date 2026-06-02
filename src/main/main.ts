@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron'
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
+import { ideServer } from './ide-server';
 
 process.noDeprecation = true;
 
@@ -29,8 +30,9 @@ const ALLOWED_ENV_KEYS = new Set([
   'USERNAME', 'COMPUTERNAME', 'TERM', 'TERMINFO',
   'LC_ALL', 'LANG', 'LC_CTYPE',
   'PATHEXT', 'PROMPT', 'PS1',
-  'APPDATA', 'LOCALAPPDATA', 'ProgramFiles', 'SystemRoot',
+  'APPDATA',   'LOCALAPPDATA', 'ProgramFiles', 'SystemRoot',
   'NODE_PATH', 'npm_config_user_agent',
+  'OPENCODE_EDITOR_SSE_PORT', 'OPENCODE_MCP_PORT',
 ]);
 
 function isPathSafe(targetPath: string): boolean {
@@ -306,6 +308,9 @@ app.whenReady().then(async () => {
     addRecentWorkspace(cliPath);
     await startWatching(cliPath);
   }
+  // Start IDE server with best available workspace for lock file
+  const ideWsPath = workspacePath || process.cwd();
+  try { await ideServer.start(ideWsPath); } catch (e) { console.error('ide: start failed', e); }
   ipcMain.handle('window:new', () => { createNewWindow(); return true; });
   ipcMain.on('window:minimize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -641,6 +646,8 @@ app.whenReady().then(async () => {
     saveLastWorkspace(wsPath);
     addRecentWorkspace(wsPath);
     await startWatching(wsPath);
+    ideServer.stop();
+    try { await ideServer.start(wsPath); } catch (e) { console.error('ide: start failed', e); }
     return wsPath;
   });
 
@@ -681,6 +688,17 @@ app.whenReady().then(async () => {
 
   // User preferences (saved to userData, not workspace-specific)
   const prefsFile = path.join(app.getPath('userData'), 'preferences.json');
+  // IDE context server — receives editor state from renderer, pushes via WebSocket
+  ipcMain.on('ide:editorState', (_event, state: any) => {
+    ideServer.updateEditorState(state);
+  });
+  ipcMain.handle('ide:status', () => ({
+    running: ideServer.getPort() > 0,
+    port: ideServer.getPort(),
+    workspace: workspacePath,
+    lockPaths: ideServer.getLockPaths(),
+  }));
+
   ipcMain.handle('prefs:load', () => {
     try { return JSON.parse(fs.readFileSync(prefsFile, 'utf-8')); } catch { return {}; }
   });
@@ -691,6 +709,7 @@ app.whenReady().then(async () => {
   createWindow();
 
   app.on('window-all-closed', () => {
+    ideServer.stop();
     stopWatching().then(() => {
       for (const pty of ptyProcesses.values()) pty.kill();
       ptyProcesses.clear();

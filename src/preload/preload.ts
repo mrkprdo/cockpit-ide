@@ -88,4 +88,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('file:changed', handler);
     },
   },
+  ide: {
+    editorState: (state: { filePath: string | null; text: string | null; selection: { startLine: number; startColumn: number; endLine: number; endColumn: number } | null }) => {
+      ipcRenderer.send('ide:editorState', state);
+    },
+    status: () => ipcRenderer.invoke('ide:status'),
+  },
 });

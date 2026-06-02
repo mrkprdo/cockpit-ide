@@ -21,6 +21,7 @@ export class MonacoEditorPlugin {
   private ready: Promise<void>;
 
   private unsubFileChanged: (() => void) | null = null;
+  private ideDebounce: ReturnType<typeof setTimeout> | null = null;
 
   constructor(container: HTMLElement) {
     this.el = document.createElement('div');
@@ -263,6 +264,7 @@ export class MonacoEditorPlugin {
     }
 
     this.renderTabs();
+    this.sendEditorState();
   }
 
   closeActiveTab(): void {
@@ -289,6 +291,7 @@ export class MonacoEditorPlugin {
     } else {
       this.renderTabs();
     }
+    this.sendEditorState();
     this.onStateChange?.();
   }
 
@@ -305,6 +308,7 @@ export class MonacoEditorPlugin {
     this.activeTab = lcPath;
     if (this.editor) { this.suppressDirty = true; this.editor.setValue(keptContent); this.suppressDirty = false; }
     this.renderTabs();
+    this.sendEditorState();
     this.onStateChange?.();
   }
 
@@ -316,6 +320,7 @@ export class MonacoEditorPlugin {
     this.activeTab = null;
     if (this.editor) { this.suppressDirty = true; this.editor.setValue(''); this.suppressDirty = false; }
     this.renderTabs();
+    this.sendEditorState();
     this.onStateChange?.();
   }
 
@@ -328,6 +333,53 @@ export class MonacoEditorPlugin {
 
   getCurrentFile(): string { return this.activeTab || ''; }
   getContent(): string { return this.editor?.getValue() || ''; }
+
+  private getActiveOriginalPath(): string | null {
+    if (!this.activeTab) return null;
+    const tab = this.tabs.find(t => t.filePath === this.activeTab);
+    return tab ? tab.originalPath : null;
+  }
+
+  private sendEditorState(): void {
+    if (this.ideDebounce) clearTimeout(this.ideDebounce);
+    this.ideDebounce = setTimeout(() => {
+      const api = window.electronAPI;
+      if (!api?.ide) return;
+      const filePath = this.getActiveOriginalPath();
+      if (!filePath) {
+        api.ide.editorState({ filePath: null, text: null, selection: null });
+        return;
+      }
+      let selection: { startLine: number; startColumn: number; endLine: number; endColumn: number } | null = null;
+      let text: string | null = null;
+      if (this.editor) {
+        const sel = this.editor.getSelection();
+        if (sel) {
+          const isCollapsed =
+            sel.selectionStartLineNumber === sel.positionLineNumber &&
+            sel.selectionStartColumn === sel.positionColumn;
+          if (!isCollapsed) {
+            selection = {
+              startLine: sel.selectionStartLineNumber,
+              startColumn: sel.selectionStartColumn,
+              endLine: sel.positionLineNumber,
+              endColumn: sel.positionColumn,
+            };
+            const model = this.editor.getModel();
+            if (model) {
+              text = model.getValueInRange({
+                startLineNumber: sel.startLineNumber,
+                startColumn: sel.startColumn,
+                endLineNumber: sel.endLineNumber,
+                endColumn: sel.endColumn,
+              });
+            }
+          }
+        }
+      }
+      api.ide.editorState({ filePath, text, selection });
+    }, 150);
+  }
 
   private isLight(): boolean {
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
@@ -377,6 +429,10 @@ export class MonacoEditorPlugin {
       }
       if (autoSaveTimer) clearTimeout(autoSaveTimer);
       autoSaveTimer = setTimeout(() => this.saveCurrentFile(), 1500);
+    });
+
+    this.editor.onDidChangeCursorSelection(() => {
+      this.sendEditorState();
     });
   }
 
