@@ -308,9 +308,10 @@ app.whenReady().then(async () => {
     addRecentWorkspace(cliPath);
     await startWatching(cliPath);
   }
-  // Start IDE server with best available workspace for lock file
-  const ideWsPath = workspacePath || process.cwd();
-  try { await ideServer.start(ideWsPath); } catch (e) { console.error('ide: start failed', e); }
+  // Start IDE server if a workspace is already known
+  if (workspacePath) {
+    try { await ideServer.start(workspacePath); } catch (e) { console.error('ide: start failed', e); }
+  }
   ipcMain.handle('window:new', () => { createNewWindow(); return true; });
   ipcMain.on('window:minimize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
