@@ -3,7 +3,11 @@ setlocal
 
 set "APP=%~dp0..\CockpitIDE.exe"
 if exist "%APP%" (
-  powershell -NoProfile -Command "Start-Process '%APP%' -ArgumentList '%*' -WindowStyle Normal"
+  if "%*"=="" (
+    powershell -NoProfile -Command "Start-Process '%APP%' -WindowStyle Normal"
+  ) else (
+    powershell -NoProfile -Command "Start-Process '%APP%' -ArgumentList '%*' -WindowStyle Normal"
+  )
   goto :end
 )
 
