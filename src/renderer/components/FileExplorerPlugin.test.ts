@@ -118,11 +118,10 @@ describe('FileExplorerPlugin', () => {
     new FileExplorerPlugin(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
-    const html = container.innerHTML || '';
     // Filenames are set via textContent, so HTML is auto-escaped
     // No raw HTML elements from filenames
-    expect(html).not.toContain('<img');        // no raw <img element
-    expect(html).not.toContain('<script');     // no raw <script element
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('script')).toBeNull();
     // The malicious names should appear as text content, not active elements
     expect(container.textContent).toContain('onerror=alert(1)');
     expect(container.textContent).toContain('steal()');

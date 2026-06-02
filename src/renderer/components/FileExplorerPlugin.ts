@@ -8,6 +8,7 @@ export class FileExplorerPlugin {
   private copiedPath: string | null = null;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubFiles: (() => void) | null = null;
+  selectedPath: string | null = null;
   private markdownLabels: string[] = [];
   private onOpenInMarkdown: ((filePath: string, label: string) => void) | null = null;
 
@@ -68,6 +69,36 @@ export class FileExplorerPlugin {
     this.onOpenInMarkdown = callback;
   }
 
+  async selectFile(filePath: string): Promise<void> {
+    filePath = this.normalize(filePath);
+    this.selectedPath = filePath;
+
+    const root = this.normalize(this.rootPath) + '/';
+    if (!filePath.startsWith(root)) return;
+
+    const relative = filePath.slice(root.length);
+    const parts = relative.split('/');
+
+    let needsReload = false;
+    let current = this.normalize(this.rootPath);
+    for (let i = 0; i < parts.length - 1; i++) {
+      current += '/' + parts[i];
+      if (!this.expanded.has(current)) {
+        this.expanded.add(current);
+        needsReload = true;
+      }
+    }
+
+    if (needsReload) await this.reload();
+
+    this.treeEl.querySelectorAll('.is-file-selected').forEach(e => e.classList.remove('is-file-selected'));
+    const el = this.treeEl.querySelector(`[data-path="${filePath.replace(/"/g, '\\"')}"]`) as HTMLElement | null;
+    if (el) {
+      el.classList.add('is-file-selected');
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
   async refresh(): Promise<void> {
     this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Loading...</div>';
     this.expanded.clear();
@@ -82,6 +113,10 @@ export class FileExplorerPlugin {
     await this.loadDir(this.rootPath, temp, 0);
     this.treeEl.innerHTML = '';
     while (temp.firstChild) this.treeEl.appendChild(temp.firstChild);
+    if (this.selectedPath) {
+      const el = this.treeEl.querySelector(`[data-path="${this.selectedPath.replace(/"/g, '\\"')}"]`) as HTMLElement | null;
+      if (el) el.classList.add('is-file-selected');
+    }
   }
 
   private showInlineInput(parentDir: string, isFolder: boolean, afterEl?: HTMLElement, childContainer?: HTMLElement): void {
@@ -254,6 +289,7 @@ export class FileExplorerPlugin {
       item.addEventListener('mouseleave', () => item.style.background = 'transparent');
 
       const fullPath = dirPath + '/' + entry.name;
+      item.dataset.path = fullPath;
       const isExpanded = this.expanded.has(fullPath);
       const iconSpan = document.createElement('span');
       iconSpan.style.cssText = 'width:12px;flex-shrink:0';
@@ -361,6 +397,7 @@ export class FileExplorerPlugin {
         item.addEventListener('click', (e) => {
           e.stopPropagation();
           this.onFileOpen(fullPath);
+          requestAnimationFrame(() => this.selectFile(fullPath));
         });
         parentEl.appendChild(item);
       }

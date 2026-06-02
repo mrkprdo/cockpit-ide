@@ -86,8 +86,13 @@ export class ExplorerPlugin {
     return false;
   }
 
+  revealFile(filePath: string): void {
+    this.explorer.selectFile(filePath);
+  }
+
   openFile(filePath: string): void {
     this.editor.openFile(filePath);
+    this.revealFile(filePath);
   }
 
   closeActiveTab(): void {
@@ -99,6 +104,7 @@ export class ExplorerPlugin {
     if (!this.palette) {
       this.palette = new CommandPalette(this.wsPath, (filePath) => {
         this.editor.openFile(filePath);
+        this.revealFile(filePath);
       });
     }
     this.palette.open();

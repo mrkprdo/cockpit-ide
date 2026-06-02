@@ -761,6 +761,9 @@ html, body {
   flex: 1;
   min-width: 0;
 }
+.is-file-selected {
+  background: color-mix(in oklab, var(--accent) 15%, transparent) !important;
+}
 .editor-empty {
   padding: 0 12px;
   color: var(--tertiary);
