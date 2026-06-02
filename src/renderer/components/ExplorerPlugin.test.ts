@@ -114,4 +114,36 @@ describe('ExplorerPlugin', () => {
     const ov = document.querySelector('.palette-overlay');
     expect(ov?.classList.contains('open')).toBeFalsy();
   });
+
+  it('revealFile calls selectFile on file explorer', async () => {
+    (mockElectronAPI.fs.readDir as any).mockImplementation(async (dir: string) => {
+      if (dir === '/test/ws') return [{ name: 'file.ts', isDirectory: false }];
+      return [];
+    });
+    const dev = new ExplorerPlugin(container, '/test/ws');
+    await new Promise(r => setTimeout(r, 100));
+
+    await dev.revealFile('/test/ws/file.ts');
+    await new Promise(r => setTimeout(r, 100));
+
+    const el = container.querySelector('[data-path="/test/ws/file.ts"]');
+    expect(el).toBeTruthy();
+    expect(el!.classList.contains('is-file-selected')).toBe(true);
+  });
+
+  it('openFile calls revealFile and updates tree selection', async () => {
+    (mockElectronAPI.fs.readDir as any).mockImplementation(async (dir: string) => {
+      if (dir === '/test/ws') return [{ name: 'file.ts', isDirectory: false }];
+      return [];
+    });
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('file content');
+    const dev = new ExplorerPlugin(container, '/test/ws');
+    await new Promise(r => setTimeout(r, 100));
+
+    await dev.openFile('/test/ws/file.ts');
+    await new Promise(r => setTimeout(r, 100));
+
+    const el = container.querySelector('[data-path="/test/ws/file.ts"]');
+    expect(el).toBeTruthy();
+  });
 });

@@ -18,7 +18,8 @@
   "interface": {
     "constructor": "new ExplorerPlugin(container: HTMLElement, wsPath: string)",
     "methods": [
-      { "name": "openFile", "signature": "(filePath: string) => void", "description": "Delegate to editor.openFile()" },
+      { "name": "openFile", "signature": "(filePath: string) => void", "description": "Open in editor and reveal in file tree" },
+      { "name": "revealFile", "signature": "(filePath: string) => void", "description": "Delegate to explorer.selectFile() to highlight file in tree" },
       { "name": "closeActiveTab", "signature": "() => void", "description": "Delegate to editor.closeActiveTab()" },
       { "name": "openFileSearch", "signature": "() => void", "description": "Create CommandPalette if null, then open it" },
       { "name": "setMarkdownOpeners", "signature": "(labels: string[], callback) => void", "description": "Delegate to file explorer" },

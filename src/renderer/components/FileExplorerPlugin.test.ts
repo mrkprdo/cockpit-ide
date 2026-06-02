@@ -706,4 +706,72 @@ describe('FileExplorerPlugin rename', () => {
       .find(m => m.textContent === 'Rename');
     expect(renameItem).toBeTruthy();
   });
+
+  it('selectFile highlights a visible file with .is-file-selected class', async () => {
+    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    await explorer.selectFile('/test/README.md');
+
+    const fileRow = await findFileRow('README.md');
+    expect(fileRow!.classList.contains('is-file-selected')).toBe(true);
+  });
+
+  it('selectFile expands ancestor directories to reveal nested file', async () => {
+    setupReadDir({
+      '/test': [
+        { name: 'src', isDirectory: true },
+        { name: 'README.md', isDirectory: false },
+      ],
+      '/test/src': [
+        { name: 'components', isDirectory: true },
+      ],
+      '/test/src/components': [
+        { name: 'deep-file.ts', isDirectory: false },
+      ],
+    });
+    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    await explorer.selectFile('/test/src/components/deep-file.ts');
+
+    // ancestors should be expanded
+    const deepRow = Array.from(container.querySelectorAll('div'))
+      .find(d => d.textContent?.includes('deep-file.ts') && d.style.cursor === 'pointer');
+    expect(deepRow).toBeTruthy();
+    expect(deepRow!.classList.contains('is-file-selected')).toBe(true);
+
+    // intermediate dirs should be expanded (▾ not ▸)
+    const srcRow = Array.from(container.querySelectorAll('div'))
+      .find(d => d.textContent?.trim().includes('src') && d.style.cursor === 'pointer' && d.children.length >= 2);
+    expect(srcRow).toBeTruthy();
+    const srcIcon = srcRow!.querySelector('span');
+    expect(srcIcon!.textContent).toBe('▾');
+  });
+
+  it('selectFile preserves highlight after tree reload', async () => {
+    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    await explorer.selectFile('/test/README.md');
+    // Trigger external change to cause reload
+    const changeCb = (mockElectronAPI.fs.onChanged as any).mock.calls[0][0];
+    changeCb('/test/new-file.txt');
+    await new Promise(r => setTimeout(r, 600));
+
+    const fileRow = await findFileRow('README.md');
+    expect(fileRow!.classList.contains('is-file-selected')).toBe(true);
+  });
+
+  it('tree click applies .is-file-selected class', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const fileRow = await findFileRow('README.md');
+    fileRow!.click();
+    await new Promise(r => requestAnimationFrame(r));
+    await new Promise(r => setTimeout(r, 10));
+
+    expect(fileRow!.classList.contains('is-file-selected')).toBe(true);
+  });
 });
