@@ -1078,6 +1078,82 @@ describe('auto arrange', () => {
       const panel = document.querySelector('.plugin-list-panel') as HTMLElement;
       expect(panel.textContent).toContain('Terminal 1');
     });
+
+    it('right-click on plugin list item opens context menu with Show and Terminate', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const item = document.querySelector('.pli-item') as HTMLElement;
+      item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 }));
+
+      const menu = document.querySelector('.ctx-menu') as HTMLElement;
+      expect(menu).toBeTruthy();
+      const ctxItems = menu.querySelectorAll('.ctx-item');
+      expect(ctxItems.length).toBe(2);
+      expect(ctxItems[0].textContent).toBe('Show');
+      expect(ctxItems[1].textContent).toBe('Terminate');
+
+      const sep = menu.querySelector('.ctx-sep');
+      expect(sep).toBeTruthy();
+    });
+
+    it('right-click context menu Show focuses open card', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards[0];
+      cs.card.el.style.zIndex = '10';
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const item = document.querySelector('.pli-item') as HTMLElement;
+      item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 }));
+
+      const showItem = document.querySelector('.ctx-item') as HTMLElement;
+      showItem.click();
+      expect(parseInt(cs.card.el.style.zIndex)).toBeGreaterThan(100);
+    });
+
+    it('right-click context menu Terminate removes card', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const item = document.querySelector('.pli-item') as HTMLElement;
+      item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 }));
+
+      const ctxItems = document.querySelectorAll('.ctx-item');
+      ctxItems[1].click();
+      await new Promise(r => setTimeout(r, 50));
+      expect(canvas.getSaveState().plugins.length).toBe(0);
+    });
+
+    it('right-click context menu removes DOM after action', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const item = document.querySelector('.pli-item') as HTMLElement;
+      item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 }));
+
+      expect(document.querySelector('.ctx-menu')).toBeTruthy();
+      const ctxItems = document.querySelectorAll('.ctx-item');
+      ctxItems[1].click();
+      expect(document.querySelector('.ctx-menu')).toBeNull();
+    });
+
+    it('right-click context menu resets contextMenuOpen on close', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const item = document.querySelector('.pli-item') as HTMLElement;
+      item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 }));
+
+      expect((canvas as any).contextMenuOpen).toBe(true);
+      const ctxItems = document.querySelectorAll('.ctx-item');
+      ctxItems[1].click();
+      expect((canvas as any).contextMenuOpen).toBe(false);
+    });
   });
 
   describe('zoom lock', () => {

@@ -1,7 +1,7 @@
 {
   "name": "Canvas Engine",
   "file": "src/renderer/components/CanvasArea.ts",
-  "description": "Core infinite canvas engine (~1400 lines). Manages world-to-screen coordinate transform (screenX = worldX * scale + panX), pan via left/middle-click drag, zoom via mouse wheel (cursor-centered, 0.1x-5x range, lock toggleable), grid rendering (dots/grid/none patterns via offscreen canvas), plugin card lifecycle (add/remove/minimize/terminate/reopen/focus with z-order stacking), snap-to-grid (28px), plugin creation (Terminal, Explorer/Dev, Git, Markdown), fit-all viewport calculation, animated pan (ease-out cubic 300ms), canvas status bar with zoom/lock/workspace name, plugin list panel (lower-left), arrange panel (auto-arrange + tile plugins with custom WxH), save state serialization, layout overlay system (8 snap zones at viewport corners/edges when locked at scale=1), right-click context menu on empty canvas space.",
+  "description": "Core infinite canvas engine (~1624 lines). Manages world-to-screen coordinate transform (screenX = worldX * scale + panX), pan via left/middle-click drag, zoom via mouse wheel (cursor-centered, 0.1x-5x range, lock toggleable), grid rendering (dots/grid/none patterns via offscreen canvas), plugin card lifecycle (add/remove/minimize/terminate/reopen/focus with z-order stacking), snap-to-grid (28px), plugin creation (Terminal, Explorer/Dev, Git, Markdown, SpecsMap), fit-all viewport calculation, animated pan (ease-out cubic 300ms), canvas status bar with zoom/lock/workspace name, plugin list panel (lower-left), arrange panel (auto-arrange + tile plugins with custom WxH), save state serialization, layout overlay system (8 snap zones at viewport corners/edges when locked at scale=1), right-click context menu on empty canvas space.",
   "type": "ui",
   "layer": "core",
   "singleton": true,
@@ -15,7 +15,8 @@
     { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts", "usage": "Combined split-pane explorer (FileExplorer + MonacoEditor) in a single card" },
     { "feature": "git-plugin", "file": "GitPlugin.ts", "usage": "Instantiated inside git plugin cards, uses GitState type" },
     { "feature": "context-menu", "file": "ContextMenu.ts", "usage": "Right-click on empty canvas (View All / Auto Arrange) and plugin-list right-click (Show / Terminate) and card header right-click (Fit Viewport / Minimize / Terminate)" },
-    { "feature": "markdown-plugin", "file": "MarkdownPlugin.ts", "usage": "Instantiated inside markdown plugin cards, uses MarkdownState type" }
+    { "feature": "markdown-plugin", "file": "MarkdownPlugin.ts", "usage": "Instantiated inside markdown plugin cards, uses MarkdownState type" },
+    { "feature": "specsmap-plugin", "file": "SpecsMapPlugin.ts", "usage": "Instantiated inside specsmap plugin cards on new creation and state restore" }
   ],
   "referenced_by": [
     { "feature": "app-shell", "file": "App.ts" },
@@ -45,6 +46,7 @@
     { "name": "add_explorer", "trigger": "addExplorer()", "behavior": "Creates PluginCard with ExplorerPlugin, opens root directory" },
     { "name": "add_git", "trigger": "addGit()", "behavior": "Creates PluginCard with GitPlugin, single-instance enforced" },
     { "name": "add_markdown", "trigger": "addMarkdown()", "behavior": "Creates PluginCard with MarkdownPlugin, no path needed" },
+    { "name": "add_specsmap", "trigger": "addSpecsMap()", "behavior": "Creates PluginCard with SpecsMapPlugin, reads spec files from src/specs/, single-instance enforced" },
     { "name": "fit_all", "trigger": "fitAll() / View All button", "behavior": "Calculates bounding box of all cards, sets zoom/pan to fit viewport with padding" },
     { "name": "auto_arrange", "trigger": "Arrangement panel button", "behavior": "Tiles all open cards in a grid layout with configurable columns" },
     { "name": "animate_pan", "trigger": "animatePanTo()", "behavior": "Ease-out cubic interpolation over 300ms to target pan position" },
@@ -58,6 +60,7 @@
     "onExplorersChanged": "(items[]) => void — explorer plugin list for TopBar menu",
     "onGitChanged": "(items[]) => void — git plugin list for TopBar menu",
     "onMarkdownChanged": "(items[]) => void — markdown plugin list for TopBar menu",
+    "onSpecsmapChanged": "(items[]) => void — specsmap plugin list for TopBar menu",
     "onLockToggle": "() => void — zoom lock toggled from status bar"
   },
   "ui": {

@@ -1,6 +1,17 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, Plugin } from 'vitest/config';
+
+// Mirrors esbuild's `loader: { '.md': 'text' }` for Vitest/Vite
+const mdTextPlugin: Plugin = {
+  name: 'md-text',
+  transform(code, id) {
+    if (id.endsWith('.md')) {
+      return { code: `export default ${JSON.stringify(code)};`, map: null };
+    }
+  },
+};
 
 export default defineConfig({
+  plugins: [mdTextPlugin],
   test: {
     environment: 'jsdom',
     environmentOptions: {

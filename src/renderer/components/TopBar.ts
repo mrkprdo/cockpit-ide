@@ -16,6 +16,9 @@ interface TopBarCallbacks {
   onReopenExplorer?: (uuid: string) => void;
   onFocusMarkdown?: (uuid: string) => void;
   onReopenMarkdown?: (uuid: string) => void;
+  onNewSpecsmap?: () => void;
+  onFocusSpecsmap?: (uuid: string) => void;
+  onReopenSpecsmap?: (uuid: string) => void;
   onAbout?: () => void;
   onTutorial?: () => void;
   onZoomIn?: () => void;
@@ -34,6 +37,8 @@ export class TopBar {
 
   private gitItems: TermItem[] = [];
 
+  private specsmapItems: TermItem[] = [];
+
   private docClickHandler: (() => void) | null = null;
 
   constructor(private el: HTMLElement, callbacks: TopBarCallbacks) {
@@ -48,6 +53,11 @@ export class TopBar {
 
   setGitItems(items: TermItem[]): void {
     this.gitItems = items;
+    this.render();
+  }
+
+  setSpecsmapItems(items: TermItem[]): void {
+    this.specsmapItems = items;
     this.render();
   }
 
@@ -113,6 +123,12 @@ export class TopBar {
               <div class="menu-dropdown-item" id="menu-zoom-lock">${this.zoomLocked ? '<span class="menu-check">✓</span> ' : ''}Lock</div>
             </div>
           </div>
+        </div>
+      </div>
+      <div class="menu-item">
+        Tools
+        <div class="menu-dropdown">
+          <div class="menu-dropdown-item" id="menu-new-specsmap">SpecsMap</div>
         </div>
       </div>
       <div class="menu-item">
@@ -227,6 +243,10 @@ export class TopBar {
 
     document.getElementById('menu-new-markdown')?.addEventListener('click', () => {
       this.callbacks.onNewMarkdown?.();
+    });
+
+    document.getElementById('menu-new-specsmap')?.addEventListener('click', () => {
+      this.callbacks.onNewSpecsmap?.();
     });
 
     document.getElementById('theme-toggle')?.addEventListener('click', () => {

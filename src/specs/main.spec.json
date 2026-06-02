@@ -62,7 +62,8 @@
       { "id": "file-explorer-plugin", "name": "File Explorer Plugin", "file": "FileExplorerPlugin.ts", "spec": "file-explorer-plugin.spec.json" },
       { "id": "explorer-plugin", "name": "Explorer Plugin", "file": "ExplorerPlugin.ts", "spec": "explorer-plugin.spec.json" },
       { "id": "markdown-plugin", "name": "Markdown Plugin", "file": "MarkdownPlugin.ts", "spec": "markdown-plugin.spec.json" },
-      { "id": "git-plugin", "name": "Git Plugin", "file": "GitPlugin.ts", "spec": "git-plugin.spec.json" }
+      { "id": "git-plugin", "name": "Git Plugin", "file": "GitPlugin.ts", "spec": "git-plugin.spec.json" },
+      { "id": "specsmap-plugin", "name": "SpecsMap Plugin", "file": "SpecsMapPlugin.ts", "spec": "specsmap-plugin.spec.json", "ui": "specsmap-plugin-ui.spec.json" }
     ]
   },
   "dependency_graph": {
@@ -70,7 +71,7 @@
     "edges": {
       "index.ts": ["App.ts"],
       "App.ts": ["TopBar.ts", "CanvasArea.ts", "WelcomeModal.ts", "AboutModal.ts", "Tutorial.ts", "theme.ts"],
-      "CanvasArea.ts": ["canvas-grid.ts", "canvas-statusbar.ts", "PluginCard.ts", "TerminalPlugin.ts", "MonacoEditorPlugin.ts", "ExplorerPlugin.ts", "GitPlugin.ts", "ContextMenu.ts", "MarkdownPlugin.ts"],
+      "CanvasArea.ts": ["canvas-grid.ts", "canvas-statusbar.ts", "PluginCard.ts", "TerminalPlugin.ts", "MonacoEditorPlugin.ts", "ExplorerPlugin.ts", "GitPlugin.ts", "ContextMenu.ts", "MarkdownPlugin.ts", "SpecsMapPlugin.ts"],
       "TopBar.ts": ["theme.ts"],
       "PluginCard.ts": ["TextRenderer.ts"],
       "ExplorerPlugin.ts": ["FileExplorerPlugin.ts", "MonacoEditorPlugin.ts", "CommandPalette.ts"],
@@ -105,12 +106,12 @@
     { "key": "Enter", "scope": "palette", "action": "Select highlighted file" }
   ],
   "test_coverage": {
-    "total_test_files": 23,
-    "total_tests": "755",
-    "run_time": "~10s",
+    "total_test_files": 24,
+    "total_tests": "839",
+    "run_time": "~11s",
     "framework": "vitest 4 + jsdom + V8 coverage",
-    "specs_with_direct_tests": 20,
-    "specs_with_indirect_tests": 2,
+    "specs_with_direct_tests": 21,
+    "specs_with_indirect_tests": 3,
     "specs_without_tests": 2
   }
 }

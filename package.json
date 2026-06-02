@@ -1,6 +1,6 @@
 {
   "name": "cockpit-ide",
-  "version": "0.0.20260531",
+  "version": "0.0.20260602",
   "description": "The IDE for developers who thinks spatially",
   "main": "dist/main/main.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "build:prod": "node scripts/build-renderer.js && tsc -p tsconfig.main.prod.json && copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && copy node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ ",
     "start": "node -e \"require('./scripts/version').stamp()\" && npm run build && node scripts/launch.js",
     "dev": "node -e \"require('./scripts/version').stamp()\" && node scripts/launch.js --dev",
-    "dev:watch": "concurrently -k \"tsc -p tsconfig.main.json --watch\" \"esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife --watch\" \"copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && npx wait-on dist/main/main.js && copyfiles -u 1 node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ \"",
+    "dev:watch": "concurrently -k \"tsc -p tsconfig.main.json --watch\" \"esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife --loader:.md=text --watch\" \"copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && npx wait-on dist/main/main.js && copyfiles -u 1 node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ \"",
     "prod": "node -e \"require('./scripts/version').stamp()\" && npm run build && node scripts/launch.js",
     "pack": "node scripts/pack.js",
     "clean": "rm -rf dist release out",

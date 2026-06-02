@@ -11,6 +11,7 @@ import { ExplorerPlugin } from './ExplorerPlugin';
 import { GitPlugin, GitState } from './GitPlugin';
 import { ContextMenu } from './ContextMenu';
 import { MarkdownPlugin, MarkdownState } from './MarkdownPlugin';
+import { SpecsMapPlugin } from './SpecsMapPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -25,6 +26,7 @@ interface CardState {
   terminalPlugin: TerminalPlugin | null;
   explorerPlugin: ExplorerPlugin | null;
   gitPlugin: GitPlugin | null;
+  specsmapPlugin: SpecsMapPlugin | null;
   onCardResize?: () => void;
 }
 
@@ -34,6 +36,7 @@ export class CanvasArea {
   onExplorersChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onGitChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onMarkdownChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
+  onSpecsmapChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onLockToggle: (() => void) | null = null;
   private _locked = false;
   get locked(): boolean { return this._locked; }
@@ -393,9 +396,10 @@ export class CanvasArea {
           cs.card.el.style.display = 'none';
           this.notifyTerminalsChanged();
           this.notifyExplorersChanged();
-          this.notifyGitChanged();
-          this.notifyMarkdownChanged();
-          this.onStateChange?.();
+            this.notifyGitChanged();
+            this.notifySpecsmapChanged();
+            this.notifyMarkdownChanged();
+            this.onStateChange?.();
         }
       },
       onFitViewport: () => {
@@ -456,7 +460,7 @@ export class CanvasArea {
         menu.onClose = () => { this.contextMenuOpen = false; };
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
-    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null };
+    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -620,6 +624,9 @@ export class CanvasArea {
         if (c.savedTitle === 'Git' && c.gitPlugin) {
           base.gitState = c.gitPlugin.getState();
         }
+        if (c.savedTitle === 'SpecsMap') {
+          // SpecsMap has no serializable state
+        }
         return base;
       }),
       zOrder: byZ.map(c => c.card.uuid),
@@ -724,7 +731,7 @@ export class CanvasArea {
 
     const cx = this.clampWorld(p.x);
     const cy = this.clampWorld(p.y);
-    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null };
+    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
@@ -848,6 +855,24 @@ export class CanvasArea {
             }
           }
         }
+      } else if (p.title === 'SpecsMap') {
+        const cs = this.createCardFromDef(p, {
+          onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifySpecsmapChanged(); },
+          onFitViewport: () => this.fitViewport(cs),
+          onTerminate: () => this.terminateCard(cs),
+        });
+
+        if (p.isOpen) {
+          const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+          if (body) {
+            body.style.padding = '0';
+            body.style.alignItems = 'stretch';
+            body.style.justifyContent = 'stretch';
+            const sm = new SpecsMapPlugin(body, wsPath);
+            cs.specsmapPlugin = sm;
+            cs.card.onDestroy = () => sm.destroy();
+          }
+        }
       } else if (p.title === 'Markdown') {
         const cs = this.createCardFromDef(p, {
           onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyMarkdownChanged(); },
@@ -883,6 +908,7 @@ export class CanvasArea {
     this.repositionAllCards();
     this.notifyExplorersChanged();
     this.notifyGitChanged();
+    this.notifySpecsmapChanged();
     this.notifyMarkdownChanged();
   }
 
@@ -1029,6 +1055,36 @@ export class CanvasArea {
     });
   }
 
+  addSpecsmap(wsPath: string): void {
+    const existing = this.cards.find(c => c.savedTitle === 'SpecsMap');
+    if (existing) {
+      existing.isOpen = true;
+      existing.card.el.style.display = '';
+      existing.worldX = existing.savedWX;
+      existing.worldY = existing.savedWY;
+      this.positionCard(existing);
+      this.bringToFront(existing.card);
+      this.panToCard(existing);
+      this.notifySpecsmapChanged();
+      return;
+    }
+    const cs = this.addCard('SpecsMap', '', -400, -250, 800, 500);
+    requestAnimationFrame(() => {
+      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+      if (body) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const sm = new SpecsMapPlugin(body, wsPath);
+        cs.specsmapPlugin = sm;
+        cs.card.onDestroy = () => sm.destroy();
+        this.notifySpecsmapChanged();
+        this.bringToFront(cs.card);
+        this.panToCard(cs);
+      }
+    });
+  }
+
   getMarkdownLabels(): string[] {
     return this.markdownPlugins.length > 0 ? ['Markdown'] : [];
   }
@@ -1084,6 +1140,11 @@ export class CanvasArea {
     if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
   }
 
+  focusSpecsmap(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && c.isOpen);
+    if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
+  }
+
   focusCard(title: string): void {
     let base = 10;
     for (const cs of this.cards) {
@@ -1133,6 +1194,11 @@ export class CanvasArea {
   }
 
   reopenMarkdown(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
+    if (cs) this.reopenCard(cs);
+  }
+
+  reopenSpecsmap(uuid: string): void {
     const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
     if (cs) this.reopenCard(cs);
   }
@@ -1200,6 +1266,23 @@ export class CanvasArea {
       this.positionCard(cs);
       this.notifyMarkdownChanged();
       this.onStateChange?.();
+    } else if (cs.savedTitle === 'SpecsMap') {
+      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+      if (body && !body.hasChildNodes()) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const sm = new SpecsMapPlugin(body, this.wsPath);
+        cs.specsmapPlugin = sm;
+        cs.card.onDestroy = () => sm.destroy();
+      }
+      cs.isOpen = true;
+      cs.card.el.style.display = '';
+      cs.worldX = cs.savedWX;
+      cs.worldY = cs.savedWY;
+      this.positionCard(cs);
+      this.notifySpecsmapChanged();
+      this.onStateChange?.();
     }
     this.panToCard(cs);
   }
@@ -1216,6 +1299,7 @@ export class CanvasArea {
     this.notifyTerminalsChanged();
     this.notifyExplorersChanged();
     this.notifyGitChanged();
+    this.notifySpecsmapChanged();
     this.notifyMarkdownChanged();
     this.onStateChange?.();
   }
@@ -1242,6 +1326,12 @@ export class CanvasArea {
     const list = this.cards.filter(c => c.savedTitle === 'Markdown')
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.onMarkdownChanged?.(list);
+  }
+
+  private notifySpecsmapChanged(): void {
+    const list = this.cards.filter(c => c.savedTitle === 'SpecsMap')
+      .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
+    this.onSpecsmapChanged?.(list);
   }
 
   offsetCard(title: string, worldX: number, worldY: number): void {

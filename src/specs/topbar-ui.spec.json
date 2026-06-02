@@ -54,6 +54,7 @@
         "View > Canvas > Dots/Grid/None": "onGridChange(style) with check mark update",
         "View > Zoom > In/Out/Reset": "onZoomIn()/onZoomOut()/onResetView()",
         "View > Zoom > Lock": "onZoomLock(!locked) with check mark toggle",
+        "Tools > SpecsMap": "onNewSpecsmap()",
         "Help > Tutorial": "onTutorial()",
         "Help > About": "onAbout()"
       }

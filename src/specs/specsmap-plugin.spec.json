@@ -1,0 +1,47 @@
+{
+  "name": "SpecsMap Plugin",
+  "file": "src/renderer/components/SpecsMapPlugin.ts",
+  "description": "Spec dependency graph viewer. Reads the spec index (main.spec.json) and individual spec files from src/specs/ — or from a cached snapshot in .cockpit/specsmap.json — and displays a fixed layer-based graph where each node is a spec file and edges are dependency links. Supports zoom (ctrl+wheel), pan (drag), hover edge tracing, and a slide-in detail panel. On first open of a workspace with no spec files, shows an empty state with entry-point detection and SPECGEN.md integrity verification. Singleton (one instance per workspace).",
+  "type": "ui",
+  "layer": "plugin",
+  "singleton": true,
+  "exports": ["SpecsMapPlugin"],
+  "dependencies": [
+    {
+      "feature": "canvas-engine",
+      "file": "CanvasArea.ts",
+      "usage": "Instantiated by CanvasArea in the 'specsMap' card body on state restore and new card creation"
+    }
+  ],
+  "referenced_by": [
+    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+  ],
+  "ipc": ["fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "clipboard:writeText"],
+  "interface": {
+    "constructor": "new SpecsMapPlugin(container: HTMLElement, wsPath: string)",
+    "methods": [
+      { "name": "destroy", "signature": "() => void", "description": "Remove document mousemove/mouseup listeners, clear internal node and spec maps" }
+    ]
+  },
+  "features": {
+    "snapshot_cache": "On load, tries .cockpit/specsmap.json first (v:1 schema with SnapNode[]). If valid, skips IPC file reads and renders instantly. buildFromFiles() re-reads all spec files, saves a fresh snapshot, then renders. Refresh button always bypasses cache.",
+    "spec_loading": "buildFromFiles() reads main.spec.json for layer+UI mapping, then reads all *.spec.json files via fs:readDir/readFile. Maps source basenames to spec IDs for edge building. Counts total files for validation.",
+    "layer_grouping": "Fixed vertical layout: foundation→core→widget→modal→overlay→plugins rows. UI sub-specs (44px tall) position below their parent node offset by UI_OFFSET_Y. Layer header labels sit left of each row.",
+    "dependency_display": "224×66px main nodes, 184×44px UI nodes. SVG cubic bezier edges colored by source layer; same-layer edges curve horizontally, cross-layer vertically. Glow path (stroke-width:6, opacity:0.06) under each dep edge.",
+    "node_selection_panel": "Click opens a 284px overlay panel (translateX slide, z-index:20) with fixed header (name, layer, close) and scrollable body (spec file, source file, description, deps with usage, refs, IPC). Nav links in panel navigate to other nodes. Click same node again or canvas background closes panel.",
+    "hover_tracing": "Mouseenter highlights connected subgraph (deps + refs + UI pair) at full opacity, dims others to 0.14. Dep edges animate (stroke-dashoffset flow). Mouseleave restores all styles. Selected node border stays solid after hover out.",
+    "zoom_and_pan": "Ctrl+wheel zoom cursor-centered, clamped to [fitScale*0.8, max(fitScale*2, 1.0)]. Plain wheel pans vertically. Drag on canvas (not nodes) pans. fitGraph() centers graph in viewport on initial render.",
+    "refresh_and_validation": "↻ button in header force-rebuilds from files, saves snapshot, shows spinning animation during build. After refresh, validation badge (✓ N/N or ⚠ N/N) compares parsed node count to raw file count. Header subtitle updates with main+UI spec counts.",
+    "empty_state_and_specgen": "When no spec files found: detects src/ existence, scans workspace root for candidate entry points (src/, lib/, docker-compose.yml, Makefile, etc.), shows chip picker + text input. Verifies workspace SPECGEN.md integrity against bundled SHA-256 hash seeded with app version. Button writes SPECGEN.md if missing, reads optional Agents.md, builds 3-pass prompt adapted to dir vs file entry, copies to clipboard."
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea — new SpecsMapPlugin(body, wsPath) when creating a new SpecsMap card or restoring state",
+    "destroyed_by": "CanvasArea via card.onDestroy = () => sm.destroy() when the card is terminated",
+    "singleton": true
+  },
+  "ui": {
+    "spec": "specsmap-plugin-ui.spec.json"
+  },
+  "external_deps": [],
+  "test": "src/renderer/components/SpecsMapPlugin.test.ts"
+}

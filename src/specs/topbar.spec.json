@@ -1,7 +1,7 @@
 {
   "name": "Top Bar",
   "file": "src/renderer/components/TopBar.ts",
-  "description": "Custom menu bar with hover-based dropdown menus. File menu (Open Workspace, Exit), View menu with nested submenus for Terminal (dynamic instances with focus/reopen), Explorer (singleton, like Git), Git (singleton), Markdown (singleton), Canvas grid style (dots/grid/none with check marks), Zoom (in/out/reset/lock). Help menu (Tutorial, About). Theme toggle button (◐). Rendered into the #menu-bar element. Full re-render on any state change (plugin lists, grid style, zoom lock). Hover-based 300ms close timer for menus.",
+  "description": "Custom menu bar with hover-based dropdown menus. File menu (Open Workspace, Exit), View menu with nested submenus for Terminal (dynamic instances with focus/reopen), Explorer (singleton, like Git), Git (singleton), Markdown (singleton), Canvas grid style (dots/grid/none with check marks), Zoom (in/out/reset/lock). Tools menu (SpecsMap). Help menu (Tutorial, About). Theme toggle button (◐). Rendered into the #menu-bar element. Full re-render on any state change (plugin lists, grid style, zoom lock). Hover-based 300ms close timer for menus.",
   "type": "ui",
   "layer": "widget",
   "singleton": true,
@@ -18,6 +18,7 @@
     "methods": [
       { "name": "setTerminalItems", "signature": "(items: TermItem[]) => void", "description": "Update terminal submenu items, triggers re-render" },
       { "name": "setGitItems", "signature": "(items: TermItem[]) => void", "description": "Update git submenu items, triggers re-render" },
+      { "name": "setSpecsmapItems", "signature": "(items: TermItem[]) => void", "description": "Update specsmap submenu items, triggers re-render" },
       { "name": "setGridStyle", "signature": "(style: GridStyle) => void", "description": "Update canvas grid style state, triggers re-render" },
       { "name": "setZoomLocked", "signature": "(locked: boolean) => void", "description": "Update zoom lock state, triggers re-render" }
     ]
@@ -28,6 +29,7 @@
     "onFocusTerminal (uuid)", "onReopenTerminal (uuid)",
     "onFocusExplorer (uuid)", "onReopenExplorer (uuid)",
     "onFocusMarkdown (uuid)", "onReopenMarkdown (uuid)",
+    "onNewSpecsmap ()", "onFocusSpecsmap (uuid)", "onReopenSpecsmap (uuid)",
     "onAbout ()", "onTutorial ()",
     "onZoomIn ()", "onZoomOut ()", "onResetView ()", "onZoomLock (locked: boolean)"
   ],
@@ -36,6 +38,7 @@
     "menus": {
       "File": ["Open Workspace", "Exit"],
       "View": ["Terminal > New + instances", "Explorer", "Git", "Markdown", "Canvas > Dots/Grid/None", "Zoom > In/Out/Reset/Lock"],
+      "Tools": ["SpecsMap"],
       "Help": ["Tutorial", "About Cockpit IDE"]
     },
     "button": "#theme-toggle (◐ icon, toggles dark/light)"

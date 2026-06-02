@@ -53,6 +53,7 @@ export class App {
     this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
 
     this.canvas.onGitChanged = (items) => this.topBar.setGitItems(items);
+    this.canvas.onSpecsmapChanged = (items) => this.topBar.setSpecsmapItems(items);
 
     this.canvas.onLockToggle = async () => {
       this.canvas.locked = !this.canvas.locked;
@@ -90,6 +91,9 @@ export class App {
       onReopenExplorer: (uuid) => this.canvas.reopenExplorer(uuid),
       onFocusMarkdown: (uuid) => this.canvas.focusMarkdown(uuid),
       onReopenMarkdown: (uuid) => this.canvas.reopenMarkdown(uuid),
+      onNewSpecsmap: () => this.canvas.addSpecsmap(this.wsPath),
+      onFocusSpecsmap: (uuid) => this.canvas.focusSpecsmap(uuid),
+      onReopenSpecsmap: (uuid) => this.canvas.reopenSpecsmap(uuid),
       onAbout: () => {
         this.canvas.locked = true;
         this.about.open(() => { this.canvas.locked = false; });

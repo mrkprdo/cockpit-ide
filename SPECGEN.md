@@ -144,12 +144,12 @@ One per non-test TypeScript source file under `src/`. Every file is a feature.
 
 | `layer` | Meaning | Example features |
 |---------|---------|-----------------|
-| `foundation` | No src/ imports, consumes only platform APIs | `type-model`, `main-process`, `preload-bridge` |
-| `core` | Imported by orchestrator, imports widgets | `app-shell`, `canvas-engine`, `theme` |
+| `foundation` | No src/ imports, consumes only platform APIs | `type-model`, `main-process`, `preload-bridge`, `ide-server` |
+| `core` | Imported by orchestrator, imports widgets | `renderer-entry`, `app-shell`, `canvas-engine`, `theme` |
 | `widget` | Reusable UI building blocks | `plugin-card`, `context-menu`, `topbar` |
 | `modal` | Promise-returning overlay dialogs | `welcome-modal`, `confirm-modal` |
 | `overlay` | Floating non-modal UI (palette, tutorial) | `command-palette`, `tutorial` |
-| `plugin` | Card-contained feature plugin | `terminal-plugin`, `monaco-editor-plugin`, etc. |
+| `plugin` | Card-contained feature plugin | `terminal-plugin`, `monaco-editor-plugin`, `specsmap-plugin` |
 
 ### Schema
 
@@ -332,7 +332,7 @@ visual states.
 | Creates multiple DOM elements with structured layout | Single wrapper div for third-party embed (terminal, monaco) |
 | Has user interactions (click, drag, hover, keyboard) | Purely delegates to child components |
 | Has distinct visual states (open/closed, active/inactive, etc.) | State is fully described in parent feature spec |
-| Is a modal, overlay, menu, or card widget | Is a process handler, utility, or plugin glue |
+| Is a modal, overlay, menu, card, or plugin with complex DOM | Is a process handler, utility, or plugin glue |
 
 ### Schema
 
@@ -500,7 +500,7 @@ For each `type: "ui"` feature, evaluate UI sub-spec criteria:
 1. Does it create 2+ DOM elements with meaningful structure?
 2. Does it have 2+ distinct user interactions?
 3. Does it have 2+ visual states?
-4. Is it a modal, overlay, menu, or card?
+4. Is it a modal, overlay, menu, card, or plugin with complex DOM?
 
 If **3+ criteria are met**, generate a UI sub-spec. Otherwise, inline UI details in the feature spec.
 
@@ -577,22 +577,22 @@ states[missing_recent]       → test: deleted workspace path shown with .welcom
 | Tier | Count | Description |
 |------|-------|-------------|
 | `main.spec.json` | 1 | Root project index |
-| `<feature>.spec.json` | 24 | One per non-test source file |
-| `<feature>-ui.spec.json` | 10 | UI sub-specs for qualifying features |
-| **Total** | **35** | |
+| `<feature>.spec.json` | 26 | One per non-test source file |
+| `<feature>-ui.spec.json` | 11 | UI sub-specs for qualifying features |
+| **Total** | **38** | |
 
-### Feature specs (24)
+### Feature specs (26)
 
 | Layer | Count | Features |
 |-------|-------|----------|
 | foundation | 4 | type-model, main-process, preload-bridge, ide-server |
-| core | 5 | app-shell, canvas-engine, theme, canvas-grid, canvas-statusbar |
+| core | 6 | renderer-entry, app-shell, canvas-engine, theme, canvas-grid, canvas-statusbar |
 | widget | 4 | plugin-card, text-renderer, context-menu, topbar |
 | modal | 3 | welcome-modal, about-modal, confirm-modal |
 | overlay | 2 | tutorial, command-palette |
-| plugin | 6 | terminal-plugin, monaco-editor-plugin, file-explorer-plugin, explorer-plugin, markdown-plugin, git-plugin |
+| plugin | 7 | terminal-plugin, monaco-editor-plugin, file-explorer-plugin, explorer-plugin, markdown-plugin, git-plugin, specsmap-plugin |
 
-### UI sub-specs (10)
+### UI sub-specs (11)
 
 | Parent feature | UI spec file |
 |---------------|-------------|
@@ -606,3 +606,4 @@ states[missing_recent]       → test: deleted workspace path shown with .welcom
 | confirm-modal | `confirm-modal-ui.spec.json` |
 | tutorial | `tutorial-ui.spec.json` |
 | command-palette | `command-palette-ui.spec.json` |
+| specsmap-plugin | `specsmap-plugin-ui.spec.json` |
