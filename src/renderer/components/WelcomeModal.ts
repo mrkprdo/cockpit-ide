@@ -20,11 +20,12 @@ export class WelcomeModal {
         <div class="welcome-sub">Select a workspace</div>
       </div>
       <div class="welcome-sep"></div>
-      <div class="welcome-actions">
-        <button class="welcome-btn" id="welcome-open">Open Workspace</button>
-        <button class="welcome-btn-secondary" id="welcome-close">Close</button>
-      </div>
       <div class="welcome-recent" id="welcome-recent"></div>
+      <div class="welcome-sep" id="welcome-recent-sep"></div>
+      <div class="welcome-actions">
+        <button class="welcome-btn-secondary" id="welcome-close">Close</button>
+        <button class="welcome-btn" id="welcome-open">Open Workspace</button>
+      </div>
     `;
 
     this.overlay.appendChild(this.el);
@@ -46,8 +47,10 @@ export class WelcomeModal {
     document.addEventListener('keydown', this.escHandler);
     const recent = await window.electronAPI?.workspace.getRecent() || [];
     const container = this.el.querySelector('#welcome-recent') as HTMLElement;
+    const recentSep = this.el.querySelector('#welcome-recent-sep') as HTMLElement;
     if (recent.length > 0) {
       container.style.display = 'block';
+      if (recentSep) recentSep.style.display = '';
       container.innerHTML = '<div class="welcome-recent-title">Recent</div>';
       for (const p of recent) {
         const item = document.createElement('div');
@@ -67,7 +70,7 @@ export class WelcomeModal {
 
         const removeBtn = document.createElement('button');
         removeBtn.className = 'welcome-recent-item-remove';
-        removeBtn.textContent = '×';
+        removeBtn.textContent = '\u00d7';
         removeBtn.setAttribute('aria-label', `Remove ${p} from recent`);
         removeBtn.addEventListener('click', async (e) => {
           e.stopPropagation();
@@ -75,6 +78,7 @@ export class WelcomeModal {
           item.remove();
           if (!container.querySelector('.welcome-recent-item')) {
             container.style.display = 'none';
+            if (recentSep) recentSep.style.display = 'none';
           }
         });
         item.appendChild(removeBtn);
@@ -83,6 +87,7 @@ export class WelcomeModal {
       }
     } else {
       container.style.display = 'none';
+      if (recentSep) recentSep.style.display = 'none';
     }
     return new Promise((resolve) => { this.resolve = resolve; });
   }

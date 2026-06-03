@@ -804,11 +804,11 @@ html, body {
 }
 .welcome-sep, .about-sep, .modal-sep {
   height: 1px;
-  margin: 0 24px;
+  margin: 0 20px;
   background: var(--border);
 }
 .welcome-actions {
-  padding: 16px 24px;
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -894,7 +894,7 @@ html, body {
 }
 /* .about-sep merged into .welcome-sep, .about-sep, .modal-sep group above */
 .about-specs {
-  padding: 16px 24px;
+  padding: 16px 20px;
 }
 .about-spec {
   display: flex;
@@ -917,7 +917,7 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 .about-foot {
-  padding: 12px 24px 16px;
+  padding: 12px 20px 16px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -927,8 +927,7 @@ html, body {
 
 
 .welcome-recent {
-  border-top: 1px dashed var(--border);
-  padding: 12px 24px 20px;
+  padding: 12px 20px 20px;
 }
 .welcome-recent-title {
   font-size: var(--text-2xs);
