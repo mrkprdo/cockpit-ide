@@ -37,19 +37,17 @@ jobs:
             - name: Generate changelog
               shell: pwsh
               run: |
-                  $releaseTag = git tag --list '*-release' --sort=-creatordate | Select-Object -First 1
-                  if (-not $releaseTag) {
+                  $releaseTag = git tag -l '*-release' --sort=-version:refname | Select-Object -First 1
+                  if ([string]::IsNullOrEmpty($releaseTag)) {
                       $log = git log --oneline --no-decorate
                       $since = 'beginning'
                   } else {
                       $log = git log "$releaseTag..HEAD" --oneline --no-decorate
                       $since = $releaseTag
                   }
-                  if (-not $log) { $log = "No new commits since last release" }
-                  $changelog = "## Changes since $since`n`n$log"
-                  echo "CHANGELOG<<EOF" >> $env:GITHUB_ENV
-                  echo $changelog >> $env:GITHUB_ENV
-                  echo "EOF" >> $env:GITHUB_ENV
+                  if (-not $log -or $log.Count -eq 0) { $log = @('No new commits since last release') }
+                  $body = "## Changes since $since`n`n$($log -join "`n")"
+                  $body | Out-File -FilePath "$env:RUNNER_TEMP\changelog.md" -Encoding utf8
 
             - name: Compute version
               shell: pwsh
@@ -74,7 +72,7 @@ jobs:
               with:
                   tag_name: ${{ env.VERSION }}-release
                   name: ${{ env.VERSION }}-release
-                  body: ${{ env.CHANGELOG }}
+                  body_path: ${{ runner.temp }}\changelog.md
                   prerelease: false
                   files: |
                       ${{ env.ARTIFACT_PATH }}
