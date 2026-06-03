@@ -53,7 +53,7 @@ const LAYER_GAP = 60;
 const UI_OFFSET_Y = 64;
 const PANEL_W = 320;
 const GRAPH_MARGIN = 80;
-const PORT_OFFSET = 24;
+const PORT_OFFSET = 28;
 
 const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugin'];
 const LAYER_LABELS: Record<string, string> = {
@@ -130,6 +130,10 @@ export class SpecsMapPlugin {
   private panStartY = 0;
   private panStartPanX = 0;
   private panStartPanY = 0;
+
+  private esc(s: unknown): string {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
   constructor(container: HTMLElement, wsPath: string) {
     this.wsPath = wsPath;
@@ -292,7 +296,7 @@ export class SpecsMapPlugin {
         cursor: pointer;
         transition: box-shadow 0.15s, border-color 0.15s, opacity 0.15s, border-style 0.1s;
         box-shadow: var(--shadow);
-        overflow: hidden;
+        overflow: visible;
         box-sizing: border-box;
       }
       .sm-node.sm-selected {
@@ -379,6 +383,22 @@ export class SpecsMapPlugin {
       .sm-isolated {
         box-shadow: 0 0 0 1px #fbbf2444, 0 0 14px #fbbf2433 !important;
       }
+      .sm-port {
+        position: absolute;
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        z-index: 1;
+        pointer-events: none;
+        opacity: 0.4;
+        transition: opacity 0.15s, transform 0.15s;
+      }
+      .sm-node:hover .sm-port {
+        opacity: 0.85;
+        transform: scale(1.3);
+      }
+      .sm-node-ui .sm-port {
+        display: none;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -448,9 +468,13 @@ export class SpecsMapPlugin {
         return;
       }
       await this.buildFromFiles();
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error('[SpecsMapPlugin] loadSpecs failed:', e);
       this.nodeLayer.innerHTML =
-        '<div style="padding:16px;color:var(--red);font-size:14px">Error loading specs</div>';
+        '<div style="padding:16px;color:var(--red);font-size:14px;line-height:1.5">' +
+        '<div style="font-weight:700;margin-bottom:6px">Error loading specs</div>' +
+        '<div style="font-size:11px;opacity:0.85;word-break:break-all">' + this.esc(msg) + '</div></div>';
     }
   }
 
@@ -482,7 +506,10 @@ export class SpecsMapPlugin {
 
       this.nodes = this.computeLayout(rawNodes);
       return true;
-    } catch { return false; }
+    } catch (e) {
+      console.warn('[SpecsMapPlugin] Snapshot parse failed, will rebuild from files:', e);
+      return false;
+    }
   }
 
   private async saveSnapshot(): Promise<void> {
@@ -518,20 +545,43 @@ export class SpecsMapPlugin {
 
     const mainRaw = await window.electronAPI?.fs.readFile(base + '/main.spec.json') ?? '{}';
     let mainData: any = {};
-    try { mainData = JSON.parse(mainRaw); } catch { /* empty */ }
+    try { mainData = JSON.parse(mainRaw); } catch (e) {
+      console.error('[SpecsMapPlugin] Failed to parse main.spec.json:', e);
+    }
 
     const specLayerMap = new Map<string, string>();
     const specToUI = new Map<string, string>();
     const uiToParent = new Map<string, string>();
 
-    for (const [layer, features] of Object.entries(mainData.features ?? {})) {
-      for (const feat of features as any[]) {
-        if (feat.spec) {
-          specLayerMap.set(feat.spec, layer);
-          if (feat.ui) {
-            specToUI.set(feat.spec, feat.ui);
-            uiToParent.set(feat.ui, feat.spec);
-            specLayerMap.set(feat.ui, layer);
+    const featuresMap = mainData.features;
+    if (Array.isArray(featuresMap)) {
+      console.warn('[SpecsMapPlugin] main.spec.json "features" is an array — expected an object with layer keys (e.g. {"core":[...]}). Treating features as "unknown" layer.');
+      for (const feat of featuresMap as unknown[]) {
+        if (feat && typeof feat === 'object' && 'spec' in (feat as Record<string, unknown>)) {
+          const f = feat as { spec: string; ui?: string };
+          specLayerMap.set(f.spec, 'unknown');
+          if (f.ui) {
+            specToUI.set(f.spec, f.ui);
+            uiToParent.set(f.ui, f.spec);
+            specLayerMap.set(f.ui, 'unknown');
+          }
+        }
+      }
+    } else {
+      for (const [layer, features] of Object.entries(featuresMap ?? {})) {
+        if (!Array.isArray(features)) {
+          console.warn('[SpecsMapPlugin] Skipping layer "' + layer + '": features should be an array (got ' + typeof features + ')');
+          continue;
+        }
+        for (const feat of features) {
+          if (feat && typeof feat === 'object' && 'spec' in (feat as Record<string, unknown>)) {
+            const f = feat as { spec: string; ui?: string };
+            specLayerMap.set(f.spec, layer);
+            if (f.ui) {
+              specToUI.set(f.spec, f.ui);
+              uiToParent.set(f.ui, f.spec);
+              specLayerMap.set(f.ui, layer);
+            }
           }
         }
       }
@@ -553,7 +603,9 @@ export class SpecsMapPlugin {
     for (const filename of specFiles) {
       const raw = await window.electronAPI?.fs.readFile(base + '/' + filename);
       if (raw) {
-        try { this.specRawMap.set(filename, JSON.parse(raw)); } catch { /* skip */ }
+        try { this.specRawMap.set(filename, JSON.parse(raw)); } catch (e) {
+          console.warn('[SpecsMapPlugin] Skipping invalid spec file ' + filename + ':', e);
+        }
       }
     }
 
@@ -662,9 +714,13 @@ export class SpecsMapPlugin {
 
     try {
       await this.buildFromFiles();
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error('[SpecsMapPlugin] Refresh failed:', e);
       this.nodeLayer.innerHTML =
-        '<div style="padding:16px;color:var(--red);font-size:14px">Error refreshing specs</div>';
+        '<div style="padding:16px;color:var(--red);font-size:14px;line-height:1.5">' +
+        '<div style="font-weight:700;margin-bottom:6px">Error refreshing specs</div>' +
+        '<div style="font-size:11px;opacity:0.85;word-break:break-all">' + this.esc(msg) + '</div></div>';
     }
 
     this.refreshBtn.disabled = false;
@@ -787,6 +843,12 @@ export class SpecsMapPlugin {
       const refCount = this.refCounts.get(node.id) ?? 0;
       const layerLabel = LAYER_LABELS[node.layer] ?? node.layer;
 
+      const portsHtml = node.isUI ? '' :
+        `<span class="sm-port" style="top:-3px;left:calc(50% - ${PORT_OFFSET}px - 3px);background:${colorHex}" title="top-left: incoming"></span>` +
+        `<span class="sm-port" style="top:-3px;left:calc(50% + ${PORT_OFFSET}px - 3px);background:${colorHex}" title="top-right: outgoing"></span>` +
+        `<span class="sm-port" style="bottom:-3px;left:calc(50% - ${PORT_OFFSET}px - 3px);background:${colorHex}" title="bottom-left: outgoing"></span>` +
+        `<span class="sm-port" style="bottom:-3px;left:calc(50% + ${PORT_OFFSET}px - 3px);background:${colorHex}" title="bottom-right: incoming"></span>`;
+
       if (node.isUI) {
         el.innerHTML =
           `<div class="sm-node-inner">` +
@@ -795,7 +857,8 @@ export class SpecsMapPlugin {
           `<span class="sm-name" style="opacity:0.7">${node.name}</span>` +
           `</div>` +
           `<div class="sm-file">${node.specFile}</div>` +
-          `</div>`;
+          `</div>` +
+          portsHtml;
       } else {
         const depsHtml = depCount ? `<span style="color:${colorVar}">→&nbsp;${depCount}</span>` : '';
         const refsHtml = refCount ? `<span style="color:var(--tertiary)">←&nbsp;${refCount}</span>` : '';
@@ -811,7 +874,8 @@ export class SpecsMapPlugin {
           `</div>` +
           `<div class="sm-file">${node.specFile}</div>` +
           `<div class="sm-meta">${depsHtml}${refsHtml}${isolatedHtml}</div>` +
-          `</div>`;
+          `</div>` +
+          portsHtml;
       }
 
       el.addEventListener('mouseenter', () => this.hoverNode(node.id, true));
@@ -893,29 +957,35 @@ export class SpecsMapPlugin {
       return { x1, y1, x2, y2, cx1: x1, cy1: y1 + dy * 0.5, cx2: x2, cy2: y2 - dy * 0.5 };
     }
 
-    const sameRow = Math.abs(src.y - tgt.y) < 4;
-    if (sameRow) {
-      const goRight = tgt.x > src.x;
-      // Route above the row using quarter ports (not side-to-side, which crosses through nodes)
-      const srcPx = goRight ? src.x + src.w * 0.75 : src.x + src.w * 0.25;
-      const tgtPx = goRight ? tgt.x + tgt.w * 0.25 : tgt.x + tgt.w * 0.75;
-      const arcY = src.y - NODE_GAP;
-      const dx = Math.abs(tgtPx - srcPx);
-      const sign = goRight ? 1 : -1;
-      return { x1: srcPx, y1: src.y, x2: tgtPx, y2: tgt.y, cx1: srcPx + dx * 0.45 * sign, cy1: arcY, cx2: tgtPx - dx * 0.45 * sign, cy2: arcY };
-    }
-
-    const srcAbove = src.y < tgt.y;
     const srcCx = src.x + src.w / 2;
     const tgtCx = tgt.x + tgt.w / 2;
-    // Outgoing: bottom-left (src above) or top-right (src below)
-    const p1x = srcAbove ? srcCx - PORT_OFFSET : srcCx + PORT_OFFSET;
-    const p1y = srcAbove ? src.y + src.h : src.y;
-    // Incoming: top-left (tgt below) or bottom-right (tgt above)
-    const p2x = srcAbove ? tgtCx - PORT_OFFSET : tgtCx + PORT_OFFSET;
-    const p2y = srcAbove ? tgt.y : tgt.y + tgt.h;
+    const sameRow = Math.abs(src.y - tgt.y) < 4;
+
+    if (sameRow) {
+      const goRight = tgt.x > src.x;
+      if (goRight) {
+        const p1x = srcCx - PORT_OFFSET, p1y = src.y + src.h;
+        const p2x = tgtCx + PORT_OFFSET, p2y = tgt.y + tgt.h;
+        const midY = Math.max(p1y, p2y) + NODE_GAP;
+        return { x1: p1x, y1: p1y, x2: p2x, y2: p2y, cx1: p1x, cy1: midY, cx2: p2x, cy2: midY };
+      }
+      const p1x = srcCx + PORT_OFFSET, p1y = src.y;
+      const p2x = tgtCx - PORT_OFFSET, p2y = tgt.y;
+      const midY = Math.min(p1y, p2y) - NODE_GAP;
+      return { x1: p1x, y1: p1y, x2: p2x, y2: p2y, cx1: p1x, cy1: midY, cx2: p2x, cy2: midY };
+    }
+
+    if (src.y < tgt.y) {
+      const p1x = srcCx - PORT_OFFSET, p1y = src.y + src.h;
+      const p2x = tgtCx - PORT_OFFSET, p2y = tgt.y;
+      const dy = p2y - p1y, dx = p2x - p1x;
+      return { x1: p1x, y1: p1y, x2: p2x, y2: p2y, cx1: p1x + dx * 0.15, cy1: p1y + dy * 0.5, cx2: p2x - dx * 0.15, cy2: p2y - dy * 0.5 };
+    }
+
+    const p1x = srcCx + PORT_OFFSET, p1y = src.y;
+    const p2x = tgtCx + PORT_OFFSET, p2y = tgt.y + tgt.h;
     const dy = p2y - p1y, dx = p2x - p1x;
-    return { x1: p1x, y1: p1y, x2: p2x, y2: p2y, cx1: p1x + dx * 0.1, cy1: p1y + dy * 0.5, cx2: p2x - dx * 0.1, cy2: p2y - dy * 0.5 };
+    return { x1: p1x, y1: p1y, x2: p2x, y2: p2y, cx1: p1x + dx * 0.15, cy1: p1y + dy * 0.5, cx2: p2x - dx * 0.15, cy2: p2y - dy * 0.5 };
   }
 
   private renderEdges(nodeMap: Map<string, SpecNode>): void {
@@ -1121,10 +1191,14 @@ export class SpecsMapPlugin {
     this.panel.style.pointerEvents = 'auto';
     try {
       this.renderPanelContent(node);
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error('[SpecsMapPlugin] Panel render failed for ' + node.id + ':', e);
       this.panelHeaderEl.innerHTML = '';
       this.panelInner.innerHTML =
-        '<div class="sm-panel-section" style="color:var(--red);font-size:12px">Error rendering spec</div>';
+        '<div class="sm-panel-section" style="color:var(--red);font-size:12px;line-height:1.5">' +
+        '<div style="font-weight:700;margin-bottom:4px">Error rendering spec</div>' +
+        '<div style="font-size:10px;opacity:0.85;word-break:break-all">' + this.esc(msg) + '</div></div>';
     }
   }
 
@@ -1143,10 +1217,14 @@ export class SpecsMapPlugin {
     this.cycleBtn.style.color = 'var(--accent)';
     try {
       this.renderSettingsContent();
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error('[SpecsMapPlugin] Settings panel render failed:', e);
       this.panelHeaderEl.innerHTML = '';
       this.panelInner.innerHTML =
-        '<div class="sm-panel-section" style="color:var(--red);font-size:12px">Error rendering settings</div>';
+        '<div class="sm-panel-section" style="color:var(--red);font-size:12px;line-height:1.5">' +
+        '<div style="font-weight:700;margin-bottom:4px">Error rendering settings</div>' +
+        '<div style="font-size:10px;opacity:0.85;word-break:break-all">' + this.esc(msg) + '</div></div>';
     }
   }
 
