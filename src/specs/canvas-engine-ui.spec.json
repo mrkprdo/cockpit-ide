@@ -120,6 +120,11 @@
       "name": "snap_origin",
       "trigger": "Click 'Snap Origin' in arrangement panel",
       "behavior": "Snaps panX/panY to nearest 28px grid point so viewport origin aligns to world grid. Ensures snap zone drops land on clean grid positions."
+    },
+    {
+      "name": "snap_to_corner",
+      "trigger": "Right-click card header > 'Snap to Corner'",
+      "behavior": "Animate pan (ease-out cubic 300ms) so the card's top-left corner aligns with the viewport's top-left corner. No card movement, no resize, no zoom change. Formula: targetX = -worldX * scale, targetY = -worldY * scale."
     }
   ],
   "states": {

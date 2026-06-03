@@ -14,7 +14,7 @@
     { "feature": "monaco-editor-plugin", "file": "MonacoEditorPlugin.ts", "usage": "Instantiated inside standalone addEditor() cards" },
     { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts", "usage": "Combined split-pane explorer (FileExplorer + MonacoEditor) in a single card" },
     { "feature": "git-plugin", "file": "GitPlugin.ts", "usage": "Instantiated inside git plugin cards, uses GitState type" },
-    { "feature": "context-menu", "file": "ContextMenu.ts", "usage": "Right-click on empty canvas (View All / Auto Arrange) and plugin-list right-click (Show / Terminate) and card header right-click (Fit Viewport / Minimize / Terminate)" },
+    { "feature": "context-menu", "file": "ContextMenu.ts", "usage": "Right-click on empty canvas (View All / Auto Arrange) and plugin-list right-click (Show / Terminate) and card header right-click (Fit Viewport / Snap to Corner / Minimize / Terminate)" },
     { "feature": "markdown-plugin", "file": "MarkdownPlugin.ts", "usage": "Instantiated inside markdown plugin cards, uses MarkdownState type" },
     { "feature": "specsmap-plugin", "file": "SpecsMapPlugin.ts", "usage": "Instantiated inside specsmap plugin cards on new creation and state restore" }
   ],
@@ -51,7 +51,8 @@
     { "name": "animate_pan", "trigger": "animatePanTo()", "behavior": "Ease-out cubic interpolation over 300ms to target pan position" },
     { "name": "layout_overlay_show", "trigger": "Card drag start when locked && scale===1", "behavior": "Shows 8 snap zone overlays at viewport corners and edges (48x36px thumbnail icons)" },
     { "name": "layout_overlay_drop", "trigger": "Card drag end over an overlay zone", "behavior": "Resizes and repositions card to fill that viewport zone (e.g., top-left = W/2 × H/2 at viewport top-left). Snaps to 28px grid. Minimum 280px per dimension." },
-    { "name": "layout_overlay_hide", "trigger": "Card drag end (anywhere)", "behavior": "Hides all 8 overlay zones" }
+    { "name": "layout_overlay_hide", "trigger": "Card drag end (anywhere)", "behavior": "Hides all 8 overlay zones" },
+    { "name": "snap_to_corner", "trigger": "Card header right-click > Snap to Corner", "behavior": "Animate pan so the card's top-left corner aligns with the viewport's top-left corner. No card movement, no resize, no zoom change. panX = -worldX * scale, panY = -worldY * scale." }
   ],
   "callbacks": {
     "onStateChange": "() => void — fired when plugin positions change (drag end, resize end, add/remove)",

@@ -446,6 +446,7 @@ export class CanvasArea {
         this.contextMenuOpen = true;
         const menu = new ContextMenu([
           { label: 'Fit Viewport', action: () => this.fitViewport(cs) },
+          { label: 'Snap to Corner', action: () => this.snapToCorner(cs) },
           ...(cs.isOpen ? [{ label: 'Minimize', action: () => {
             cs.isOpen = false;
             cs.card.el.style.display = 'none';
@@ -714,6 +715,7 @@ export class CanvasArea {
         this.contextMenuOpen = true;
         const menu = new ContextMenu([
           { label: 'Fit Viewport', action: () => this.fitViewport(cs) },
+          { label: 'Snap to Corner', action: () => this.snapToCorner(cs) },
           ...(cs.isOpen ? [{ label: 'Minimize', action: () => {
             cs.isOpen = false;
             cs.card.el.style.display = 'none';
@@ -1616,6 +1618,12 @@ export class CanvasArea {
 
     const targetX = cw / 2 - (cs.worldX + cs.savedWidth / 2) * this.scale;
     const targetY = ch / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;
+    this.animatePan(targetX, targetY);
+  }
+
+  private snapToCorner(cs: CardState): void {
+    const targetX = -cs.worldX * this.scale;
+    const targetY = -cs.worldY * this.scale;
     this.animatePan(targetX, targetY);
   }
 
