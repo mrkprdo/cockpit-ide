@@ -871,6 +871,7 @@ export class CanvasArea {
             body.style.alignItems = 'stretch';
             body.style.justifyContent = 'stretch';
             const sm = new SpecsMapPlugin(body, wsPath);
+            sm.onFileOpen = (filePath) => this.getActiveExplorerPlugin()?.openFile(filePath);
             cs.specsmapPlugin = sm;
             cs.card.onDestroy = () => sm.destroy();
           }
@@ -1078,6 +1079,7 @@ export class CanvasArea {
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
         const sm = new SpecsMapPlugin(body, wsPath);
+        sm.onFileOpen = (filePath) => this.getActiveExplorerPlugin()?.openFile(filePath);
         cs.specsmapPlugin = sm;
         cs.card.onDestroy = () => sm.destroy();
         this.notifySpecsmapChanged();
@@ -1275,6 +1277,7 @@ export class CanvasArea {
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
         const sm = new SpecsMapPlugin(body, this.wsPath);
+        sm.onFileOpen = (filePath) => this.getActiveExplorerPlugin()?.openFile(filePath);
         cs.specsmapPlugin = sm;
         cs.card.onDestroy = () => sm.destroy();
       }

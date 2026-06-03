@@ -131,8 +131,22 @@ export class SpecsMapPlugin {
   private panStartPanX = 0;
   private panStartPanY = 0;
 
+  onFileOpen: ((filePath: string) => void) | null = null;
+
   private esc(s: unknown): string {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  private specFullPath(filename: string): string {
+    const base = this.specBaseDir || (this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '') + '/src/specs');
+    return base + '/' + filename;
+  }
+
+  private tryResolveSourcePath(rawData: Record<string, unknown>): string {
+    const filePath = (rawData as any).file;
+    if (!filePath || typeof filePath !== 'string') return '';
+    const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
+    return wsRoot + '/' + filePath;
   }
 
   constructor(container: HTMLElement, wsPath: string) {
@@ -1391,11 +1405,13 @@ export class SpecsMapPlugin {
       `</div>`;
 
     // Scrollable body
+    const specFullPath = this.specFullPath(node.specFile);
+    const sourceFullPath = node.sourceFile ? this.tryResolveSourcePath(data) : '';
     const identity =
       `<div class="sm-panel-section">` +
       `<div class="sm-panel-label">SPEC FILE</div>` +
-      `<div class="sm-panel-mono">${esc(node.specFile)}</div>` +
-      (node.sourceFile ? `<div class="sm-panel-label" style="margin-top:8px">SOURCE FILE</div><div class="sm-panel-mono">${esc(node.sourceFile)}</div>` : '') +
+      `<div class="sm-panel-row" style="font-size:11px;cursor:pointer;color:var(--accent)" data-open-file="${esc(specFullPath)}">${esc(node.specFile)}</div>` +
+      (sourceFullPath ? `<div class="sm-panel-label" style="margin-top:8px">SOURCE FILE</div><div class="sm-panel-row" style="font-size:11px;cursor:pointer;color:var(--accent)" data-open-file="${esc(sourceFullPath)}">${esc(node.sourceFile)}</div>` : '') +
       (parentNode ? `<div class="sm-panel-label" style="margin-top:8px">UI SPEC FOR</div><div class="sm-panel-row" style="font-size:12px;cursor:pointer;color:${colorVar}" data-goto="${esc(parentNode.id)}">${esc(parentNode.name)}</div>` : '') +
       (uiChild ? `<div class="sm-panel-label" style="margin-top:8px">UI SPEC</div><div class="sm-panel-row" style="font-size:12px;cursor:pointer;color:${colorVar}" data-goto="${esc(uiChild.id)}">${esc(uiChild.name)}</div>` : '') +
       `</div>`;
@@ -1449,6 +1465,9 @@ export class SpecsMapPlugin {
     }
     for (const el of this.panelHeaderEl.querySelectorAll<HTMLElement>('[data-goto]')) {
       el.addEventListener('click', () => this.selectNode(el.dataset.goto!));
+    }
+    for (const el of this.panelInner.querySelectorAll<HTMLElement>('[data-open-file]')) {
+      el.addEventListener('click', () => { const fp = el.dataset.openFile!; this.onFileOpen?.(fp); });
     }
   }
 

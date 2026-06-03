@@ -36,7 +36,7 @@
 
       "panel": "Div (position:absolute, right:0, top:0, bottom:0, width:320px, background:var(--surface), border-left:1px dashed var(--border), z-index:20, transform:translateX(100%) by default, transition:transform 0.2s cubic-bezier(0.4,0,0.2,1), display:flex, flex-direction:column, overflow:hidden). Contains .sm-panel-inner (flex:1, overflow-y:auto) that holds sections.",
 
-      "panel_section": ".sm-panel-section — padding:10px 14px, border-bottom:1px solid var(--border). Sections: Header (color dot 12px + name 13px bold + layer badge 10px + close × 18px), Identity (spec file 10px, source file 10px, parent/child links 12px), Description (12px, line-height:1.6), Depends On (clickable nav items 12px), Referenced By (clickable nav items), IPC Channels (12px). Panel labels font-size:9px, letter-spacing:1px, margin-bottom:8px."
+      "panel_section": ".sm-panel-section — padding:10px 14px, border-bottom:1px solid var(--border). Sections: Header (color dot 12px + name 13px bold + layer badge 10px + close × 18px), Identity (spec file 11px clickable accent color with data-open-file, source file 11px clickable accent color with data-open-file, parent/child links 12px), Description (12px, line-height:1.6), Depends On (clickable nav items 12px), Referenced By (clickable nav items), IPC Channels (12px). Panel labels font-size:9px, letter-spacing:1px, margin-bottom:8px."
     }
   },
   "interactions": [
@@ -115,6 +115,12 @@
       "trigger": "click on #sm-panel-close button",
       "action": "call closePanel().",
       "result": "Panel slides closed and selection cleared"
+    },
+    {
+      "name": "panel_open_file",
+      "trigger": "click on [data-open-file] element inside panel body",
+      "action": "Read el.dataset.openFile for the full file path. Call this.onFileOpen?.(filePath). CanvasArea wires onFileOpen to getActiveExplorerPlugin()?.openFile(filePath), which opens the file in Monaco and reveals it in the file tree.",
+      "result": "Spec file or source file opens in the active Monaco editor tab"
     }
   ],
   "states": {
