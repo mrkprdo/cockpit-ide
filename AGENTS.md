@@ -240,13 +240,22 @@ D:\cockpit_ide\
 | `src/test/workflows.test.ts` | 36 integration workflow tests (~1157 lines): File CRUD (create/read/delete/copy+paste), Editor tab CRUD, Markdown tab CRUD (load/render/switch/close/serialize/restore/empty), Dev Plugin workflows (split layout, state delegation, markdown bridge, theme, restore), Theme persistence, ConfirmModal workflows, E2E file-to-editor/markdown flows, deep nested directory operations, error recovery. |
 | `src/test/e2e-advanced.test.ts` | Advanced E2E integration tests (~1136 lines): PluginCard lifecycle (creation/close/remove/double-remove, mousedown focus, setContent, resize handles), CanvasArea instantiation, SaveState structure & plugin tracking, terminal/dev/markdown create callback chains, canvas viewport management. |
 
+### Spec System
+
+- **Spec files** live in `src/specs/`, one **feature spec** (`<name>.spec.json`) per non-test source module, plus a **UI sub-spec** (`<name>-ui.spec.json`) for any component with 3+ user interactions or complex DOM.
+- `src/specs/main.spec.json` is the **authoritative index**: project manifest, feature catalog (by layer), dependency graph edges, IPC channel catalog, keyboard shortcuts, and test coverage summary.
+- The **SpecsMap plugin** (Tools → SpecsMap) visualizes the dependency graph from these specs.
+- **When adding or changing source files**, update the corresponding spec file(s) — specs are the contract, code is the implementation.
+- The spec schema is defined in `SPECGEN.md`. Every spec must include: `name`, `file`, `description`, `type`, `layer`, `singleton`, `exports`, `dependencies` (with usage), `referenced_by`, `ipc`, `interface`.
+- UI sub-specs are required for: modals, overlays, cards, menus, and plugins with complex DOM — they document DOM structure, interaction catalog (triggers/gestures/results), visual states, and rendering notes.
+
 ### Source: Specs Graph
 
 | File | Description |
 |------|-------------|
 | `src/specs/main.spec.json` | Root specs index: project manifest, feature catalog (by layer), IPC channel catalog, dependency graph edges, keyboard shortcuts, test coverage summary. |
-| `src/specs/*.spec.json` | 24 feature specs — one per non-test source file. Each defines: name, description, type/layer taxonomy, dependencies (imports), referenced_by (importers), exports, interface (constructor/methods/properties), state schema (if serialized), IPC channels, lifecycle, test file ref. |
-| `src/specs/*-ui.spec.json` | 10 UI sub-specs — detailed DOM structure, interaction catalog (triggers, gestures, formulas, results), visual states, and rendering notes. Generated for features with complex UI (modals, overlays, cards, menus). |
+| `src/specs/*.spec.json` | 28 feature specs — one per non-test source file. Each defines: name, description, type/layer taxonomy, dependencies (imports), referenced_by (importers), exports, interface (constructor/methods/properties), state schema (if serialized), IPC channels, lifecycle, test file ref. |
+| `src/specs/*-ui.spec.json` | UI sub-specs — detailed DOM structure, interaction catalog (triggers, gestures, formulas, results), visual states, and rendering notes. Generated for features with complex UI (modals, overlays, cards, menus). |
 
 ---
 

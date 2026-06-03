@@ -1,77 +1,72 @@
 {
   "name": "Tutorial UI",
   "parent": "tutorial",
-  "description": "UI interaction spec for the interactive guided tutorial overlay with 13 steps.",
+  "description": "Tutorial overlay DOM and interactions. Documents the dark transparent backdrop, positioned tooltip-style step card, target element border-ring highlighting, step indicator dots, navigation buttons with Back/Skip/Next/Done variants, arrow key navigation, external link rendering in Stay Connected step, 'Do not show this again' checkbox on final step, and visual states including hidden, active, and final-step.",
   "dom": {
-    "overlay": ".tutorial-overlay (position:fixed; inset:0; z-index:4000; pointer-events:none; background:rgba(0,0,0,0.3))",
-    "tooltip": ".tutorial-tooltip (position:absolute; max-width:360px; padding:16px; border:1px dashed var(--border); border-radius:8px; background:var(--surface); box-shadow:0 4px 24px rgba(0,0,0,0.4); pointer-events:auto; font-size:12px)",
-    "highlight_ring": ".tutorial-ring (position:absolute; border:2px solid var(--accent); border-radius:8px; pointer-events:none; z-index:3999; box-shadow:0 0 0 9999px rgba(0,0,0,0.3))",
-    "structure": [
-      ".tutorial-tooltip-title (font-size:14px; font-weight:700; margin-bottom:8px)",
-      ".tutorial-tooltip-body (color:var(--secondary); line-height:1.5; margin-bottom:12px; white-space:pre-line)",
-      ".tutorial-tooltip-extra (custom content area, optional, defined by step.renderExtra)",
-      ".tutorial-tooltip-actions (display:flex; justify-content:space-between; align-items:center)",
-      ".tutorial-tooltip-nav (display:flex; gap:4px)",
-      "button.tutorial-btn (padding:4px 10px; border:1px dashed var(--border); border-radius:6px; cursor:pointer; font-size:11px)",
-      "button.tutorial-btn-primary (background:var(--accent); color:var(--bg))",
-      ".tutorial-checkbox (display:flex; align-items:center; gap:4px; font-size:10px; color:var(--tertiary))"
-    ]
+    "root": ".tutorial-overlay (fullscreen fixed dark transparent backdrop, display:none/display:flex toggled)",
+    "container": "document.body",
+    "elements": {
+      "overlay": ".tutorial-overlay — fixed inset:0, z-index above canvas, dark semi-transparent background",
+      "tooltip": ".tutorial-tooltip — positioned step card containing step header, body, optional extra content, and navigation",
+      "ring": ".tutorial-ring — absolutely positioned border-highlight div drawn over highlighted target element, display:none/display:block toggled",
+      "step_header": ".tutorial-step-header — step title text element",
+      "step_body": ".tutorial-step-body — step description text element (newlines preserved via pre-wrap or equivalent)",
+      "extra": "div — optional container appended only when renderExtra callback produces children (links in Stay Connected, checkbox in Thank You)",
+      "nav": ".tutorial-nav > .tutorial-dots (step indicator dots, one per step, .active class on current step index) + .tutorial-btn-row",
+      "back_btn": "button.tutorial-btn.tutorial-btn-back — '← Back' text, hidden (not rendered) on first step (stepIdx===0), click calls prev()",
+      "next_btn": "button.tutorial-btn.tutorial-btn-next — 'Next →' text, rendered on all steps except last, click calls next()",
+      "done_btn": "button.tutorial-btn.tutorial-btn-done — 'Done' text, rendered only on last step, click reads checkbox state then calls close()",
+      "dot": "span.tutorial-dot — step indicator dot, .active class on current step, always present for all steps",
+      "spacer": "div (flex:1) — spacer in btn-row when Back button is absent (first step)",
+      "links": "div.tutorial-links > a.tutorial-link — external URL links (Report issue, Check updates, View GitHub) in Stay Connected step, click fires shell:openExternal IPC",
+      "checkbox_label": "label.tutorial-cb-label > input[type=checkbox] — 'Do not show this again' checkbox on final step, default checked=true"
+    }
   },
   "interactions": [
     {
-      "name": "start_tutorial",
-      "trigger": "tutorial.start(onFinish?)",
-      "action": "Reset to step 0, show overlay, render current step"
-    },
-    {
       "name": "next_step",
-      "trigger": "Click Next button (★ primary button)",
-      "action": "Call prev step.onLeave, increment index, call next step.onEnter, re-render"
+      "trigger": "click on .tutorial-btn-next button OR ArrowRight keydown OR Enter keydown",
+      "action": "If stepIdx < STEPS.length - 1: fire prevOnLeave callback (step.onLeave) if set → clear prevOnLeave → clearHighlight (ring display:none) → increment stepIdx → showStep() renders new step header/body/dots/buttons → fire step.onEnter if defined → position tooltip near target or center",
+      "result": "Advances to next tutorial step; target element highlighted if step has target selector; tooltip repositioned"
     },
     {
-      "name": "back_step",
-      "trigger": "Click Back button",
-      "action": "Call prev step.onLeave, decrement index, call next step.onEnter, re-render",
-      "visibility": "Hidden on first step (index === 0)"
+      "name": "previous_step",
+      "trigger": "click on .tutorial-btn-back button OR ArrowLeft keydown",
+      "action": "If stepIdx > 0: fire prevOnLeave if set → clear prevOnLeave → clearHighlight → decrement stepIdx → showStep() renders new step → fire step.onEnter if defined → reposition tooltip",
+      "result": "Returns to previous tutorial step"
     },
     {
-      "name": "done",
-      "trigger": "Click Done button (last step) or arrow-key right past last step",
-      "action": "Call step.onLeave, hide overlay, call onFinish callback"
+      "name": "close_overlay",
+      "trigger": "Escape keydown (when overlay is visible)",
+      "action": "Fire prevOnLeave if set → clearHighlight → set overlay display:none, tooltip display:none → fire stored onCloseCb → null onCloseCb",
+      "result": "Tutorial overlay hidden; onClose callback invoked (App uses this to persist showTutorial pref via IPC prefs:save)"
     },
     {
-      "name": "skip",
-      "trigger": "Click Skip button",
-      "action": "Immediately hide overlay, call onFinish without completing remaining steps"
+      "name": "complete_tutorial",
+      "trigger": "click on .tutorial-btn-done button on final step",
+      "action": "Read checkbox state from extra container (checked !== true means showOnLaunch=false) → update internal showOnLaunch flag → then same close sequence as close_overlay (prevOnLeave, clearHighlight, hide, fire onCloseCb)",
+      "result": "Tutorial completed; showOnLaunch preference set based on checkbox state; onClose callback invoked"
     },
     {
-      "name": "keyboard_nav",
-      "trigger": "ArrowLeft / ArrowRight keys",
-      "action": "ArrowLeft = Back, ArrowRight = Next/Done"
+      "name": "highlight_target",
+      "trigger": "showStep() when step.target selector is defined",
+      "action": "querySelector(step.target) → getBoundingClientRect() → set .tutorial-ring left/top/width/height to target rect values → display:block. If step.overflowHidden: set target element style.overflow='hidden'. Then positionTooltip(step.target): calculate available space in 4 quadrants — prefer below target (rect.bottom+12, clamped left), else above, else right of, else left of, else center-screen fallback. Tooltip width clamped to min(360, vw-40).",
+      "result": "Ring highlight border drawn over target element; tooltip positioned near target within viewport bounds"
     },
     {
-      "name": "target_highlight",
-      "trigger": "Step has target selector",
-      "action": "Query target element, create highlight ring matching its bounding rect. Reposition on resize/scroll.",
-      "overflow": "If step.overflowHidden, set body overflow:hidden until step changes"
-    },
-    {
-      "name": "extra_content",
-      "trigger": "Step defines renderExtra(container)",
-      "action": "Call renderExtra with tooltip extra area, allows custom interactive content per step"
-    },
-    {
-      "name": "show_on_launch",
-      "trigger": "Toggle checkbox 'Do not show again'",
-      "action": "Flips boolean, read via getShowOnLaunch() saved as showTutorial preference"
+      "name": "open_external_link",
+      "trigger": "click on a.tutorial-link inside renderExtra on Stay Connected step",
+      "action": "e.preventDefault() → window.electronAPI.shell.openExternal(url) opens URL in default browser",
+      "result": "External link (GitHub issue/release/repo) opens in browser"
     }
   ],
   "states": {
-    "hidden": "Overlay not in DOM or display:none",
-    "showing": "Overlay visible, current step rendered with optional highlight ring",
-    "first_step": "Back button hidden, only Next visible",
-    "last_step": "Next replaced with Done, checkbox visible",
-    "mid_step": "Both Back and Next visible",
-    "body_locked": "body overflow:hidden when step.overflowHidden is true"
+    "hidden": "Overlay display:none, tooltip display:none, ring display:none. Document keydown listener is registered but checks overlay display and returns early (no-op). stepIdx and showOnLaunch flags preserved.",
+    "active": "Overlay display:flex, tooltip visible, current step rendered: header (.tutorial-step-header), body (.tutorial-step-body), optional extra content, nav with dots (.tutorial-dots > .tutorial-dot with .active on current) and button row (.tutorial-btn-row). Back button absent on first step. Next button absent on last step. Ring visible if target selector defined. Arrow key navigation active (Escape/ArrowRight/ArrowLeft/Enter).",
+    "final_step": "Sub-state of active when stepIdx === STEPS.length - 1: Done button (.tutorial-btn-done) instead of Next button. renderExtra callback renders 'Do not show this again' checkbox inside extra container. Back button present (not first step). Ring positioned for final target (none in current implementation, so tooltip centered)."
+  },
+  "lifecycle": {
+    "created_by": "App constructor — Tutorial instance created once, three DOM elements (.tutorial-overlay, .tutorial-tooltip, .tutorial-ring) appended to document.body and hidden by default",
+    "destroyed_by": "Tutorial.destroy() removes keydown listener and all three DOM elements from body"
   }
 }

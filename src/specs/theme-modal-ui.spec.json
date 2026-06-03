@@ -1,51 +1,46 @@
 {
   "name": "Theme Modal UI",
   "parent": "theme-modal",
-  "description": "UI interaction spec for the theme selection dialog with two-section radios (THEMES, LIGHT/DARK).",
+  "description": "Theme modal DOM and interactions. Documents the modal overlay structure with two radio button groups (THEMES and LIGHT/DARK), Apply and Cancel buttons, Escape key dismissal, overlay click dismissal, re-render on open to sync radio state, and open/closed visual states.",
   "dom": {
-    "overlay": ".modal-overlay (display:flex; align-items:center; justify-content:center; position:fixed; inset:0; background:rgba(8,14,22,0.72); z-index:200)",
-    "modal": ".modal (min-width:380px; border:1px dashed var(--border); border-radius:12px; background:var(--surface); box-shadow:0 16px 48px rgba(0,0,0,0.45))",
-    "structure": [
-      ".modal-header (padding:16px 20px; border-bottom:1px solid var(--border); font-size:11px; font-weight:700; letter-spacing:0.12em)",
-      ".modal-body (padding:20px)",
-      ".modal-section > .modal-label (font-size:11px; font-weight:700; letter-spacing:0.1em; color:var(--secondary); margin-bottom:12px)",
-      ".modal-radio (display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:11px; color:var(--primary); border-radius:6px; transition:background 0.1s)",
-      ".modal-radio:hover (background:var(--panel))",
-      ".modal-radio input (accent-color:var(--primary))",
-      ".modal-actions (display:flex; gap:8px; justify-content:flex-end; margin-top:16px)",
-      "button.btn-ghost#theme-cancel (padding:6px 12px; background:transparent; border:1px solid var(--border); font-size:11px; cursor:pointer; letter-spacing:0.05em)",
-      "button.btn-primary#theme-apply (padding:7px 16px; background:var(--primary); color:var(--bg); border:none; font-size:11px; font-weight:700; cursor:pointer; letter-spacing:0.05em)"
-    ]
+    "root": ".modal-overlay (display:none by default, display:flex when open — full-viewport fixed overlay with semi-transparent dark background)",
+    "container": "document.body",
+    "elements": {
+      "overlay": "div.modal-overlay — full-viewport overlay with click-to-dismiss (clicks on children do not dismiss via e.target === this.overlay check)",
+      "modal": "div.modal (role=dialog, aria-modal=true, aria-label=Theme) — centered modal card",
+      "header": "div.modal-header — 'THEME' title text",
+      "body": "div.modal-body — content container wrapping sections and actions",
+      "themes_section": "div.modal-section — first section: div.modal-label ('THEMES' label) + two label.modal-radio elements containing input[type=radio][name=theme-base] with values 'default' (text: Default) and 'monokai' (text: Monokai), checked attribute set to match theme.base",
+      "mode_section": "div.modal-section — second section: div.modal-label ('LIGHT / DARK' label) + two label.modal-radio elements containing input[type=radio][name=theme-mode] with values 'dark' (text: Dark) and 'light' (text: Light), checked attribute set to match theme.mode",
+      "actions": "div.modal-actions — button row at bottom of modal body",
+      "cancel_btn": "button.btn-ghost#theme-cancel — 'Cancel' button",
+      "apply_btn": "button.btn-primary#theme-apply — 'Apply' button"
+    }
   },
   "interactions": [
     {
-      "name": "open",
-      "trigger": "modal.open(onClose?)",
-      "action": "Re-render modal HTML with checked radios matching theme.base and theme.mode, set overlay display:flex, register Escape key listener, store onClose callback"
-    },
-    {
       "name": "apply",
-      "trigger": "Click #theme-apply",
-      "action": "Read checked values from theme-base and theme-mode radios, call theme.setTheme(base, mode), hide overlay (display:none), remove Escape listener, fire onClose callback, clear onClose reference"
+      "trigger": "click on #theme-apply button",
+      "action": "Read checked input[name='theme-base']:checked value → read checked input[name='theme-mode']:checked value → if both are truthy: theme.setTheme(base, mode) → close() (hide overlay, remove Escape listener, fire onCloseCb)",
+      "result": "Theme applied to document via theme singleton CSS custom properties; modal closed; onClose callback invoked"
     },
     {
       "name": "cancel",
-      "trigger": "Click #theme-cancel button",
-      "action": "Hide overlay without applying, remove Escape listener, fire onClose callback"
-    },
-    {
-      "name": "overlay_dismiss",
-      "trigger": "Click overlay background (e.target === overlay)",
-      "action": "Same as cancel — hide, remove Escape listener, fire callback without applying"
-    },
-    {
-      "name": "escape_dismiss",
-      "trigger": "Escape key while modal is visible",
-      "action": "Same as cancel — close without applying, remove Escape listener"
+      "trigger": "click on #theme-cancel button, OR Escape keydown (when overlay is visible), OR click on .modal-overlay background (e.target === this.overlay)",
+      "action": "close() → overlay display:none → remove Escape keydown listener from document → fire stored onCloseCb → null onCloseCb",
+      "result": "Modal dismissed without applying theme changes; onClose callback invoked; Escape listener removed"
     }
   ],
   "states": {
-    "hidden": "Overlay display:none, onClose callback null, Escape listener removed",
-    "visible": "Overlay display:flex, onClose callback stored and active, Escape key listener registered"
+    "open": "Overlay display:flex, modal visible and centered. Radio buttons checked to match current theme.base and theme.mode values (set during this.render() call at start of open()). Escape keydown listener registered on document. onClose callback stored.",
+    "closed": "Overlay display:none, modal hidden. Escape keydown listener removed from document. onCloseCb nulled after firing."
+  },
+  "lifecycle": {
+    "created_by": "App constructor — ThemeModal instance created once, overlay appended to document.body and hidden",
+    "destroyed_by": "Overlay element remains in DOM across open/close cycles; display toggled only. Instance lives for renderer process duration."
+  },
+  "accessibility": {
+    "keyboard": ["Escape (dismiss modal without applying)"],
+    "aria": ["role=dialog on .modal", "aria-modal=true on .modal", "aria-label=Theme on .modal"]
   }
 }

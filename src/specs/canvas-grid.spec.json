@@ -1,23 +1,45 @@
 {
   "name": "Canvas Grid",
   "file": "src/renderer/components/canvas-grid.ts",
-  "description": "Grid pattern generator and CSS applicator for the infinite canvas. Generates dots (2px circle at origin, 65% alpha) or grid (bottom-right L-shaped lines, 30% alpha) patterns as data URLs using an offscreen HTML Canvas. Applies pattern as CSS background-image with repeat, scaled size, and panned position. Resolves grid color from --tertiary CSS custom property.",
+  "description": "Canvas grid pattern generator and applicator. generateGridPattern() renders a dot or grid pattern to a small canvas and returns a data URL. applyGridToElement() sets CSS background-image with proper scale and pan offsets. GridStyle type: 'none' | 'dots' | 'grid'.",
   "type": "utility",
-  "layer": "core",
+  "layer": "utility",
   "singleton": false,
   "exports": ["GridStyle", "generateGridPattern", "applyGridToElement"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+    {
+      "feature": "canvas-area",
+      "file": "CanvasArea.ts"
+    }
   ],
+  "ipc": [],
   "interface": {
     "functions": [
-      { "name": "generateGridPattern", "signature": "(style: GridStyle, patternSize: number) => string", "description": "Returns data URL for dots or grid pattern, empty string for 'none'" },
-      { "name": "applyGridToElement", "signature": "(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number, scale: number, panX: number, panY: number) => void", "description": "Sets background-image, size, repeat, and position on element" }
+      {
+        "name": "generateGridPattern",
+        "signature": "(style: GridStyle, patternSize: number): string",
+        "description": "Creates a small canvas with dot or grid pattern and returns a data URL."
+      },
+      {
+        "name": "applyGridToElement",
+        "signature": "(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number, scale: number, panX: number, panY: number): void",
+        "description": "Sets CSS background-image, background-size, and background-position on an element for the grid pattern."
+      }
     ],
     "types": [
-      { "name": "GridStyle", "definition": "'none' | 'dots' | 'grid'" }
+      {
+        "name": "GridStyle",
+        "definition": "'none' | 'dots' | 'grid'",
+        "description": "Visual style of the canvas background grid."
+      }
     ]
   },
-  "test": "Covered by CanvasArea.test.ts"
+  "lifecycle": {
+    "created_by": "Imported statically by CanvasArea",
+    "destroyed_by": "N/A (pure functions, no instances)",
+    "singleton": false
+  },
+  "external_deps": [],
+  "test": "none (tested via CanvasArea tests)"
 }

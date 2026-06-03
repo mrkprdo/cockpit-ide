@@ -1,24 +1,42 @@
 {
   "name": "Welcome Modal",
   "file": "src/renderer/components/WelcomeModal.ts",
-  "description": "Startup workspace picker overlay shown when no CLI path is provided. Displays a centered modal with app name, 'Select a workspace' subtitle, 'Open Workspace' button (native directory picker via IPC), 'Close' button (closes app), and recent workspaces list (clickable with remove button, missing paths detected and styled differently). Escape key dismisses with null. Returns Promise<string | null>.",
+  "description": "Startup workspace picker modal overlay shown when no CLI workspace path is set. Displays 'COCKPIT IDE' branding with 'Open Workspace' button (triggers native directory picker via IPC workspace:select) and a 'Close' button (resolves null, closes window). Lists recent workspaces with click-to-select and individual remove buttons. Missing workspace paths are visually indicated with .welcome-recent-item-missing class. Returns Promise<string | null>. Escape key closes with null. Modal resolves only once — the overlay is not reused.",
   "type": "ui",
   "layer": "modal",
   "singleton": false,
   "exports": ["WelcomeModal"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "app-shell", "file": "App.ts" }
+    {
+      "feature": "app",
+      "file": "App.ts"
+    }
   ],
-  "ipc": ["workspace:select", "workspace:getRecent", "workspace:removeRecent", "fs:readDir"],
+  "ipc": [
+    "workspace:select",
+    "workspace:getRecent",
+    "workspace:removeRecent",
+    "fs:readDir"
+  ],
   "interface": {
-    "constructor": "new WelcomeModal()",
+    "constructor": "constructor() — Creates .modal-overlay (display:none) > .welcome-modal (role=dialog, aria-modal=true) with branding header, recent workspaces container, and action buttons. Appends overlay to document.body. Registers click handlers for Open Workspace and Close buttons.",
     "methods": [
-      { "name": "open", "signature": "() => Promise<string | null>", "description": "Show overlay, register Escape key listener, load recent workspaces, return path on selection or null on close/Escape" }
+      {
+        "name": "open",
+        "signature": "() => Promise<string | null>",
+        "description": "Shows the modal overlay (display:flex). Registers Escape key handler. Loads recent workspaces via IPC workspace:getRecent. For each recent path, checks existence via IPC fs:readDir and applies .welcome-recent-item-missing class if path no longer exists. Populates click-to-select items and per-item remove buttons. Returns a Promise that resolves with the selected workspace path or null (Closed/Escape/window close)."
+      }
     ]
+  },
+  "lifecycle": {
+    "created_by": "App.promptWorkspace() — instantiated when no CLI workspace path is provided and no saved workspace exists",
+    "destroyed_by": "close() resolves the Promise (with path or null). Overlay DOM remains in document.body but hidden. Each open() creates a fresh Promise.",
+    "singleton": false
   },
   "ui": {
     "spec": "welcome-modal-ui.spec.json"
   },
+  "external_deps": [],
   "test": "src/renderer/components/WelcomeModal.test.ts"
 }

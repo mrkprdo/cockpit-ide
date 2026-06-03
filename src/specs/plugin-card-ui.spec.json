@@ -1,93 +1,94 @@
 {
   "name": "Plugin Card UI",
   "parent": "plugin-card",
-  "description": "UI interaction spec for the draggable/resizable card widget. Covers drag mechanics, resize behavior, title rendering, and button controls.",
+  "description": "DOM structure, interactions, and visual states for the PluginCard widget.",
   "dom": {
     "root": ".card",
-    "style": "position:absolute; left/top set in px; width/height set in px; border-radius:8px; border:1px dashed var(--border); background:var(--surface); box-shadow:var(--shadow)",
-    "children": {
-      "header": ".card-header (display:flex; align-items:center; height:28px; padding:0 6px; border-bottom:1px solid var(--border); cursor:grab; user-select:none)",
-      "title_area": ".card-title-area > canvas.card-title-canvas (height:28px; flex:1; overflow:hidden)",
-      "controls": ".card-controls (display:flex; gap:2px; flex-shrink:0)",
-      "minimize_btn": "button.card-btn.card-btn-minimize (width:22px; height:22px; border:none; background:transparent; cursor:pointer; opacity:0.5; hover:opacity:1)",
-      "fitview_btn": "button.card-btn.card-btn-fitview (width:22px; height:22px; border:none; background:transparent; cursor:pointer; opacity:0.5; hover:opacity:1)",
-      "terminate_btn": "button.card-btn.card-btn-terminate (width:22px; height:22px; border:none; background:transparent; cursor:pointer; opacity:0.5; hover:opacity:1; color:var(--red))",
-      "body": ".card-body (flex:1; overflow:hidden; position:relative)",
-      "resize_e": ".card-edge.card-edge-e (position:absolute; right:0; top:0; bottom:16px; width:3px; cursor:ew-resize)",
-      "resize_s": ".card-edge.card-edge-s (position:absolute; bottom:0; left:0; right:16px; height:3px; cursor:ns-resize)",
-      "resize_se": ".card-edge.card-edge-se (position:absolute; right:0; bottom:0; width:16px; height:16px; cursor:nwse-resize)"
+    "style": "position: absolute; left/top/width/height set by constructor options",
+    "container": "Canvas element (parent passed to constructor)",
+    "elements": {
+      "card-header": ".card-header — header bar containing title area and control buttons",
+      "card-title-area": ".card-title-area > canvas.card-title-canvas — canvas-rendered title text",
+      "card-controls": ".card-controls — container for minimize, fit-viewport, and terminate buttons",
+      "card-btn-minimize": ".card-btn.card-btn-minimize — minimize button with SVG horizontal line icon",
+      "card-btn-fitview": ".card-btn.card-btn-fitview — fit-viewport button with SVG viewport arrows icon",
+      "card-btn-terminate": ".card-btn.card-btn-terminate — terminate button with SVG X icon",
+      "card-body": ".card-body — plugin content container",
+      "card-edge-e": ".card-edge.card-edge-e — east edge resize handle",
+      "card-edge-s": ".card-edge.card-edge-s — south edge resize handle",
+      "card-edge-se": ".card-edge.card-edge-se — southeast corner resize handle"
     }
   },
   "interactions": [
     {
       "name": "drag_start",
-      "trigger": "mousedown on .card-header (button=0, not on .card-controls)",
-      "gesture": "Store dragOffset (clientX/Y), startWorldX/Y (current world position from transform), startPanX/Y. Set transition:none. Fire onDragStart(clientX, clientY).",
+      "trigger": "mousedown on .card-header (button 0, not on .card-controls)",
+      "gesture": "mousemove on document + mouseup on document",
+      "action": "screenX = snap(worldRawX) * scale + panX; screenY = snap(worldRawY) * scale + panY; fire onDragMove; on mouseup fire onDragEnd(worldX, worldY)",
       "cursor": "grabbing"
     },
     {
-      "name": "drag_move",
-      "trigger": "document mousemove while isDragging",
-      "gesture": "Compute world-space delta from mouse offset + transform, snap to 28px grid, set left/top in screen space. Fire onDragMove(clientX, clientY).",
-      "formula": "screenX = snap(worldRawX) * scale + panX; screenY = snap(worldRawY) * scale + panY",
-      "cursor": "grabbing"
+      "name": "resize_east",
+      "trigger": "mousedown on .card-edge-e",
+      "gesture": "mousemove on document + mouseup on document",
+      "action": "newW = Math.max(280, snap(startW + dw/scale)); fire onResizeEnd on mouseup"
     },
     {
-      "name": "drag_end",
-      "trigger": "document mouseup after drag",
-      "gesture": "Restore transition, fire onDragEnd(worldX, worldY) callback, snap to 28px grid final position",
-      "cursor": "grab (restored)"
+      "name": "resize_south",
+      "trigger": "mousedown on .card-edge-s",
+      "gesture": "mousemove on document + mouseup on document",
+      "action": "newH = Math.max(280, snap(startH + dh/scale)); fire onResizeEnd on mouseup"
     },
     {
-      "name": "resize_start",
-      "trigger": "mousedown on .card-edge-e / .card-edge-s / .card-edge-se",
-      "gesture": "Store startX/Y, startW/H from opts dimensions"
-    },
-    {
-      "name": "resize_move",
-      "trigger": "document mousemove while resizing",
-      "gesture": "Compute delta in world space (dx/scale, dy/scale), apply to width/height, snap to 28px increments, min 280px",
-      "formula": "newW = max(280, snap(startW + dx/scale)); newH = max(280, snap(startH + dy/scale))"
-    },
-    {
-      "name": "resize_end",
-      "trigger": "document mouseup after resize",
-      "gesture": "Update opts.width/height, fire onResizeEnd(width, height) callback"
+      "name": "resize_southeast",
+      "trigger": "mousedown on .card-edge-se",
+      "gesture": "mousemove on document + mouseup on document",
+      "action": "Resize both width and height; newW = Math.max(280, snap(startW + dw/scale)); newH = Math.max(280, snap(startH + dh/scale)); fire onResizeEnd on mouseup"
     },
     {
       "name": "minimize",
-      "trigger": "Click .card-btn-minimize",
-      "gesture": "Fire onMinimize() callback — handled by CanvasArea to toggle card visibility"
+      "trigger": "click on .card-btn-minimize",
+      "action": "Fire onMinimize callback"
     },
     {
       "name": "fit_viewport",
-      "trigger": "Click .card-btn-fitview OR double-click .card-header (not on .card-controls)",
-      "gesture": "Fire onFitViewport() callback — handled by CanvasArea. When unlocked: resize card to viewport, auto-arrange all open cards in grid, set zoom=1, animate pan to center card. When locked: resize card to viewport, move card to non-overlapping position (spiral scan), animate pan to center card at current zoom — preserving zoom lock."
+      "trigger": "click on .card-btn-fitview",
+      "action": "Fire onFitViewport callback"
     },
     {
       "name": "terminate",
-      "trigger": "Click .card-btn-terminate",
-      "gesture": "Fire onTerminate() callback — handled by CanvasArea to remove card and destroy plugin"
+      "trigger": "click on .card-btn-terminate",
+      "action": "Fire onTerminate callback"
     },
     {
       "name": "header_context_menu",
-      "trigger": "Right-click on .card-header",
-      "gesture": "Prevent default, fire onHeaderContextMenu(e) callback"
+      "trigger": "contextmenu on .card-header",
+      "propagation": "stopPropagation",
+      "action": "Fire onHeaderContextMenu with event"
+    },
+    {
+      "name": "header_doubleclick",
+      "trigger": "dblclick on .card-header",
+      "propagation": "Ignored if click target is within .card-controls",
+      "action": "Fire onFitViewport"
     },
     {
       "name": "focus",
-      "trigger": "mousedown on .card anywhere (capture phase: true)",
-      "gesture": "Fire onFocus() callback — CanvasArea moves card to top of z-order"
+      "trigger": "mousedown on .card (capture phase)",
+      "action": "Fire onFocus callback"
     }
   ],
   "states": {
-    "default": "Card visible with header, body, resize handles. z-index set by parent.",
-    "dragging": "transition:none, cursor:grabbing, position updates from world-space calculation",
-    "resizing": "Width/height updates from resize handle drag, min 280x280",
-    "minimized": "Card body hidden (CanvasArea manages), button state tracked externally"
+    "default": "Card visible at configured position with draggable header, resize handles, and control buttons.",
+    "dragging": "Card following cursor with transition: none, cursor: grabbing on document. Position snaps to 28px grid.",
+    "resizing": "Card width/height updating in real-time as edge handles are dragged. Minimum dimensions enforced at 280px.",
+    "closed": "Card removed from DOM via remove() method, onDestroy callback fired."
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea",
+    "destroyed_by": "terminate"
   },
   "rendering": {
-    "title": "Canvas-rendered via @chenglou/pretext: Space Mono bold 13px, --primary color, DPR-scaled, single-line truncation",
-    "body_content": "Canvas-rendered via TextRenderer.createCanvas: Space Mono 400 13px, --primary color, DPR-scaled, multiline with 20px line height"
+    "card-title-canvas": "Rendered using @chenglou/pretext prepareWithSegments() and layoutWithLines() with device pixel ratio scaling. Font: 700 13px 'Space Mono'. Color from --primary CSS custom property."
   }
 }

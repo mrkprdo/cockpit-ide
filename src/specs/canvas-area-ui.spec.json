@@ -1,0 +1,152 @@
+{
+  "name": "Canvas Area UI",
+  "parent": "canvas-area",
+  "description": "Canvas area DOM structure, interactions, and visual states for the infinite canvas engine.",
+  "dom": {
+    "root": "#canvas",
+    "style": "position: relative; overflow: hidden; width: 100%; height: 100%",
+    "container": "document body (injected into by App)",
+    "elements": {
+      "plugin-list-panel": ".pli-zone — Lower-left hover zone (position: fixed, bottom: 8px, left: 8px). Contains .pli-icon (◣ character) and .plugin-list-panel (scrollable list of all card names with focus/terminate right-click options).",
+      "arrange-panel": ".prr-zone — Lower-right hover zone (position: fixed, bottom: 8px, right: 8px). Contains .prr-icon (◢ character) and .arr-panel with Auto Arrange button, Tile Plugins with custom W×H inputs (grid units), and Snap Origin button.",
+      "origin-dot": ".origin-dot — Center indicator dot at world origin (0,0). Visible only when no cards are open or at zoom levels where origin is visible.",
+      "layout-overlays": ".layout-overlay[data-zone] × 8 — Drop zone overlays with SVG previews, shown during locked-mode card drag at 1x scale. Zones: top-left, top, top-right, left, right, bottom-left, bottom, bottom-right.",
+      "status-bar": ".status-bar — Bottom bar with zoom percentage (click to toggle lock), lock/unlock icon, workspace name, reset-zoom icon (visible when scale != 1), and View All button."
+    }
+  },
+  "interactions": [
+    {
+      "name": "pan_blank",
+      "trigger": "mousedown (button 0 or 1) on empty canvas area or Ctrl+drag anywhere",
+      "gesture": "mousemove on document → mouseup on document",
+      "action": "delta panX = mouse delta, delta panY = mouse delta → scheduleTransform (RAF batched CSS transform update on all cards)",
+      "cursor": "grabbing"
+    },
+    {
+      "name": "zoom_wheel",
+      "trigger": "wheel on canvas (not over cards — target is #canvas or non-card element)",
+      "action": "scale *= 1 + deltaY * 0.001 → clamp scale 0.1–5.0 → cursor-centered pan: panX = mouseX - worldX * newScale, panY = mouseY - worldY * newScale",
+      "propagation": "stopPropagation to prevent browser zoom",
+      "result": "Canvas zoom level updated, all card positions recalculated via scheduleTransform"
+    },
+    {
+      "name": "zoom_ctrl_wheel",
+      "trigger": "Ctrl+wheel anywhere (document-level capture phase listener)",
+      "action": "Same zoom formula as zoom_wheel → stopPropagation to block browser zoom",
+      "propagation": "stopPropagation at document level"
+    },
+    {
+      "name": "context_menu_empty",
+      "trigger": "contextmenu on empty canvas area",
+      "action": "Show ContextMenu with items: View All, Auto Arrange",
+      "result": "Context menu appears at click position with canvas-specific actions"
+    },
+    {
+      "name": "add_terminal",
+      "trigger": "TopBar New Terminal button or Ctrl+J shortcut",
+      "action": "addCard (create PluginCard with UUID) → create TerminalPlugin in card body → bringToFront (increment z-index) → panToCard (animated pan to new card position)",
+      "result": "New terminal card appears on canvas, focused and visible"
+    },
+    {
+      "name": "add_explorer",
+      "trigger": "TopBar New Explorer button",
+      "action": "addCard → create ExplorerPlugin (FileExplorerPlugin + MonacoEditorPlugin in split layout) → setMarkdownOpeners (bridge markdown openers to file explorer context menus) → bringToFront",
+      "result": "New explorer card with file tree and editor panes"
+    },
+    {
+      "name": "add_git",
+      "trigger": "TopBar New Git button",
+      "action": "addCard → create GitPlugin in card body → bringToFront",
+      "result": "New git card with commit history, staging, and diff views"
+    },
+    {
+      "name": "add_markdown",
+      "trigger": "TopBar New Markdown button",
+      "action": "addCard → create MarkdownPlugin in card body → bringToFront",
+      "result": "New markdown preview card"
+    },
+    {
+      "name": "drag_card",
+      "trigger": "mousedown on .card-header (PluginCard header area)",
+      "gesture": "mousemove on document → mouseup on document",
+      "action": "PluginCard drag with 28px grid snapping (worldX = snap(rawWorldX, 28), worldY = snap(rawWorldY, 28)) → update card CSS transform → overlay layout zones shown when locked at 1x scale",
+      "cursor": "grabbing"
+    },
+    {
+      "name": "drop_zone",
+      "trigger": "drag over .layout-overlay[data-zone] during locked-mode card drag",
+      "action": "Calculate drop zone based on data-zone attribute → snap card to zone quadrant position with calculated width/height (half of canvas dimensions for corner zones, full width/height for edge zones)",
+      "result": "Card snaps into layout grid zone on mouseup"
+    },
+    {
+      "name": "focus_card",
+      "trigger": "mousedown on card element (capture phase)",
+      "action": "bringToFront → increment z-index counter → set card z-index = counter → rebalance z-indices if counter >= 9998",
+      "result": "Card becomes topmost visible card"
+    },
+    {
+      "name": "minimize_card",
+      "trigger": "card minimize button click",
+      "action": "Set card display: none, isOpen = false → notify onChange callbacks (onTerminalsChanged/onExplorersChanged/onGitChanged/onMarkdownChanged/onSpecsmapChanged) → onStateChange",
+      "result": "Card hidden from view but still in cards array"
+    },
+    {
+      "name": "terminate_card",
+      "trigger": "card terminate (close) button click or plugin list right-click Terminate",
+      "action": "If terminal: IPC terminal:kill (kill PTY session) → remove card DOM element → splice card from cards array → notify onChange callbacks → onStateChange",
+      "result": "Card fully removed, associated process/PTY killed"
+    },
+    {
+      "name": "plugin_list",
+      "trigger": "mouseenter on .pli-zone (lower-left hover zone)",
+      "action": "Show .plugin-list-panel with sorted card names → click card name to focus (bringToFront + panToCard) → right-click for context menu with Show and Terminate options",
+      "result": "Plugin list panel visible with interactive card list"
+    },
+    {
+      "name": "arrange_panel",
+      "trigger": "mouseenter on .prr-zone (lower-right hover zone)",
+      "action": "Show .arr-panel with Auto Arrange button, Tile Plugins section (custom W×H number inputs in grid units), and Snap Origin button"
+    },
+    {
+      "name": "fit_all",
+      "trigger": "View All button click in status bar or context menu item",
+      "action": "Calculate bounding box of all open cards → compute scale to fit with 80px margin → animate pan to center of bounding box using ease-out cubic over 300ms",
+      "result": "All cards visible and fitted within viewport"
+    },
+    {
+      "name": "status_bar_zoom_toggle",
+      "trigger": "click on zoom percentage display in status bar",
+      "action": "Toggle locked true/false → fire onLockToggle callback → update lock icon in status bar",
+      "result": "Canvas lock state toggled; when locked, zoom/pan disabled except Ctrl+wheel blocked"
+    },
+    {
+      "name": "status_bar_reset_zoom",
+      "trigger": "click on reset-zoom icon in status bar",
+      "action": "scale = 1.0 → scheduleTransform → update status bar zoom percentage display",
+      "result": "Zoom reset to 100%"
+    }
+  ],
+  "states": {
+    "default": "Cards positioned at world coordinates with CSS transform, grid background visible, zoom and pan controls active, status bar shown with current zoom percentage and workspace name.",
+    "panning": "User actively dragging canvas. cursor: grabbing on #canvas. All card positions updating in real-time via scheduleTransform as mouse moves.",
+    "locked": "Zoom/pan disabled — mousewheel and mousedown pan on canvas suppressed. Ctrl+wheel still blocked with stopPropagation. Lock icon shown in status bar. Layout drop zones visible when scale is 1x.",
+    "overlays-visible": "Lock mode active at 1x scale. All 8 .layout-overlay[data-zone] drop zone elements visible with SVG preview borders. Shown during card drag in locked mode.",
+    "empty": "No cards open on canvas. Only .origin-dot visible at world origin. Grid pattern still rendered. Empty context menu provides View All and Auto Arrange (both no-op when no cards).",
+    "zoomed": "Scale != 1.0. Reset-zoom icon visible in status bar. Grid pattern scale and position recalculated."
+  },
+  "per_card_states": {
+    "open": "Card display: block, isOpen = true. Visible on canvas with header, body content, and resize handles.",
+    "minimized": "Card display: none, isOpen = false. Hidden from canvas but preserved in cards array for potential reopen."
+  },
+  "rendering": {
+    "canvas_transform": "Each card positioned via CSS transform: translate(px, py) on the card element. Transform-origin: 0 0. World-to-screen formula: screenX = worldX * scale + panX, screenY = worldY * scale + panY.",
+    "grid_pattern": "CSS background-image on #canvas element set to a canvas-generated dataURL. background-size = patternSize * scale px. background-position = panX px, panY px. Regenerated on grid style change (dots/grid/none).",
+    "card_reposition": "scheduleTransform uses requestAnimationFrame batching to update all card CSS transforms. Prevents double-RAF with a pending flag. Called after any pan, zoom, or card position change.",
+    "z_order": "Z-index counter increments from 1 on each bringToFront call. When counter reaches 9998, all card z-indices are rebalanced back to sequential values starting from 1.",
+    "animated_pan": "Ease-out cubic interpolation over 300ms using requestAnimationFrame loop for smooth pan transitions (fitAll, panToCard)."
+  },
+  "lifecycle": {
+    "created_by": "App constructor instantiates CanvasArea, which creates the DOM scaffolding and attaches event listeners",
+    "destroyed_by": "Window close — all event listeners removed, all child cards destroyed"
+  }
+}

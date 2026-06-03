@@ -1,56 +1,44 @@
 {
   "name": "Confirm Modal UI",
   "parent": "confirm-modal",
-  "description": "UI interaction spec for the generic confirmation dialog.",
+  "description": "Confirm modal DOM and interactions.",
   "dom": {
-    "overlay": ".modal-overlay.confirm (display:flex; align-items:center; justify-content:center; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:5000)",
-    "modal": ".modal[role=dialog][aria-modal=true] (min-width:320px; max-width:480px; padding:20px; border:1px dashed var(--border); border-radius:8px; background:var(--surface); box-shadow:var(--shadow))",
-    "structure": [
-      ".modal-body (display:flex; flex-direction:column; gap:16px)",
-      ".confirm-modal-msg (font-size:12px; color:var(--primary); line-height:1.5; sanitized HTML)",
-      ".modal-actions (display:flex; justify-content:flex-end; gap:8px)",
-      "button.btn-ghost#confirm-cancel (Cancel — padding:6px 14px; background:transparent; border:1px dashed var(--border); cursor:pointer)",
-      "button.btn-primary#confirm-ok (dynamic label — padding:6px 14px; destructive has .btn-ok-destructive class)"
-    ]
+    "root": ".modal-overlay.confirm",
+    "style": "display:none (set to flex on open); position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.6); align-items:center; justify-content:center",
+    "elements": {
+      "modal": ".modal — dialog box. CSS: width:420px, max-width:90vw, background:var(--surface), border-radius:8px, border:1px dashed var(--border), box-shadow:var(--shadow), padding:0, overflow:hidden. Attributes: role=dialog, aria-modal=true, aria-label=confirmLabel.",
+      "body": ".modal-body — content container. CSS: padding:24px.",
+      "message": ".confirm-modal-msg — sanitized HTML message. CSS: margin-bottom:20px, font-size:14px, line-height:1.5, color:var(--primary), white-space:pre-wrap, word-break:break-word.",
+      "actions": ".modal-actions — button row. CSS: display:flex, justify-content:flex-end, gap:8px.",
+      "cancel_btn": "#confirm-cancel — Cancel button. CSS: btn-ghost class. Attributes: id=confirm-cancel.",
+      "ok_btn": "#confirm-ok — Confirm button. CSS: btn-primary class, plus btn-ok-destructive if destructive=true. Attributes: id=confirm-ok. Text: confirmLabel (default 'Delete')."
+    }
   },
   "interactions": [
     {
-      "name": "open",
-      "trigger": "modal.open()",
-      "action": "Set overlay display:flex, register Escape keydown listener, focus Cancel button, return Promise<boolean>"
-    },
-    {
       "name": "confirm",
-      "trigger": "Click #confirm-ok OR Enter key",
-      "action": "done(true) → remove overlay from DOM, remove Escape listener, resolve(true)"
+      "trigger": "click on #confirm-ok",
+      "action": "done(true) → remove overlay from DOM → resolve Promise<true>"
     },
     {
-      "name": "cancel_button",
-      "trigger": "Click #confirm-cancel",
-      "action": "done(false) → remove overlay from DOM, remove Escape listener, resolve(false)"
-    },
-    {
-      "name": "cancel_escape",
-      "trigger": "Press Escape key",
-      "action": "done(false) — same as cancel button"
-    },
-    {
-      "name": "cancel_overlay",
-      "trigger": "Click overlay background (e.target === overlay)",
-      "action": "done(false) — same as cancel button"
+      "name": "cancel",
+      "trigger": "click on #confirm-cancel or Escape keydown or click on .modal-overlay.confirm (target === overlay)",
+      "action": "done(false) → remove overlay from DOM → resolve Promise<false>"
     }
   ],
-  "security": {
-    "html_sanitization": "Message HTML is sanitized by removing <script>, <img>, <iframe>, <embed>, <object>, <link>, <style> tags and inline event handlers (on*=...)"
-  },
   "states": {
-    "hidden": "Overlay in DOM but display:none, no keyboard listener active",
-    "visible": "Overlay display:flex, Escape listener active, Cancel button focused",
-    "resolved": "Overlay removed from DOM entirely, promise resolved"
+    "open": "Overlay display:flex. Cancel button (#confirm-cancel) focused. Escape keydown listener registered on document.",
+    "closed": "Overlay removed from DOM entirely via overlay.remove(). Escape listener unregistered. Promise resolved."
   },
-  "props": {
-    "message": "string (supports sanitized HTML)",
-    "confirmLabel": "string (default: 'Delete')",
-    "destructive": "boolean (default: true — applies .btn-ok-destructive style to confirm button)"
+  "lifecycle": {
+    "created_by": "FileExplorerPlugin.deletePath() — new instance per confirmation",
+    "destroyed_by": "Permanently removed from DOM on resolution"
+  },
+  "accessibility": {
+    "keyboard": ["Escape (cancel)", "Enter on #confirm-ok (confirm)"],
+    "aria": ["role=dialog on .modal", "aria-modal=true on .modal", "aria-label on .modal"]
+  },
+  "security": {
+    "html_sanitization": "Strips script/img/iframe/embed/object/link/style tags and on* event attributes from message HTML before rendering via innerHTML"
   }
 }

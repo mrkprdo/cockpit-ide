@@ -1,0 +1,59 @@
+{
+  "name": "Terminal Plugin UI",
+  "parent": "terminal-plugin",
+  "description": "DOM structure and interactions for the terminal plugin. Documents the xterm.js terminal viewport embedding, custom keyboard event handling, clipboard integration via IPC, PTY data flow, process exit handling, and container resize behavior.",
+  "dom": {
+    "root": "div[style='width:100%;height:100%;overflow:hidden'] (this.element)",
+    "container": "PluginCard body element",
+    "elements": {
+      "element": "HTMLDivElement — root container created in constructor, appended to container argument. CSS: width 100%, height 100%, overflow hidden.",
+      "xterm_viewport": "canvas.xterm-text-layer — rendered internally by xterm.js via Terminal.open(this.element), mounts as a child of the root div"
+    }
+  },
+  "interactions": [
+    {
+      "name": "keystroke",
+      "trigger": "keydown event intercepted by Terminal.attachCustomKeyEventHandler",
+      "action": "For Ctrl+Shift+C and Ctrl+Shift+V: custom handler runs, returns false to block. For all other keys: returns true — event passes to xterm normally → Terminal.onData → IPC terminal:write(uuid, data) → PTY stdin"
+    },
+    {
+      "name": "copy_selection",
+      "trigger": "Ctrl+Shift+C keydown in terminal",
+      "action": "term.getSelection() → IPC clipboard.writeText(selection). Returns false to prevent default browser copy.",
+      "result": "Selected text copied to system clipboard"
+    },
+    {
+      "name": "paste",
+      "trigger": "Ctrl+Shift+V keydown in terminal",
+      "action": "IPC clipboard.readText() → if text exists: IPC terminal.write(uuid, text). Returns false to suppress default paste and local echo — PTY echo provides visual feedback.",
+      "result": "Clipboard text written to PTY stdin"
+    },
+    {
+      "name": "terminal_output",
+      "trigger": "IPC terminal:data event from main process (via preload onData listener registered in constructor)",
+      "action": "If id === uuid: term.write(data) to render output in xterm viewport",
+      "timing": "Real-time as PTY produces output"
+    },
+    {
+      "name": "process_exit",
+      "trigger": "IPC terminal:exit event from main process (via preload onExit listener registered in constructor)",
+      "action": "If id === uuid: Fire this.onExit?.() callback"
+    },
+    {
+      "name": "container_resize",
+      "trigger": "ResizeObserver callback on this.element (card body dimensions change)",
+      "action": "If not destroyed: fitAddon.fit() → recalculates cols/rows → Terminal.onResize fires → IPC terminal:resize(uuid, cols, rows) → main process resizes PTY. Canvas zoom via PluginCard CSS transform does NOT trigger this — PTY only resizes on physical dimension changes."
+    }
+  ],
+  "states": {
+    "active": "PTY session created via IPC terminal:create, xterm Terminal open and connected. Receiving output from PTY via terminal:data listener, sending keystrokes via terminal:write. ResizeObserver active. Custom key handler intercepting Ctrl+Shift+C/V.",
+    "destroyed": "PTY killed via IPC terminal:kill. terminal:data and terminal:exit listeners unsubscribed. ResizeObserver disconnected. FitAddon and Terminal instances disposed. Root element removed from DOM. destroyed flag set to true to prevent re-destruction."
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea.addTerminal()",
+    "destroyed_by": "CanvasArea.terminateCard() invokes TerminalPlugin.destroy()"
+  },
+  "accessibility": {
+    "keyboard": ["Ctrl+Shift+C (copy terminal selection)", "Ctrl+Shift+V (paste clipboard to terminal)"]
+  }
+}

@@ -1,26 +1,43 @@
 {
   "name": "Confirm Modal",
   "file": "src/renderer/components/ConfirmModal.ts",
-  "description": "Generic confirmation dialog with customizable message (HTML, sanitized — scripts, images, iframes, embeds, objects, links, styles, inline event handlers stripped) and button label. Returns Promise<boolean>. Escape key and overlay click = cancel (false). Construction appends to DOM, open() makes visible and returns promise, done() cleans up and removes DOM.",
+  "description": "Generic confirmation dialog returning Promise<boolean>. Shows a message (HTML-supported but sanitized — strips script/img/iframe/embed/object/link/style tags and on* event attributes). Has Cancel button and configurable confirm button (default 'Delete'). Overlay click = cancel (false). DOM is removed on resolution, not just hidden. Escape key cancels. Cancel button initially focused.",
   "type": "ui",
   "layer": "modal",
   "singleton": false,
   "exports": ["ConfirmModal"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts" }
+    {
+      "feature": "file-explorer-plugin",
+      "file": "FileExplorerPlugin.ts"
+    }
   ],
+  "ipc": [],
   "interface": {
-    "constructor": "new ConfirmModal(message: string, confirmLabel?: string, destructive?: boolean)",
+    "constructor": "constructor(message: string, confirmLabel?: string, destructive?: boolean) — Creates .modal-overlay.confirm containing .modal (role=dialog, aria-modal) > .modal-body > .confirm-modal-msg + .modal-actions (#confirm-cancel Cancel button + #confirm-ok button). Sanitizes message HTML by stripping script/img/iframe/embed/object/link/style tags and on* event attributes. Confirm button gets .btn-ok-destructive class if destructive=true. Registers cancel button click → done(false), ok button click → done(true), overlay click (target===overlay) → done(false). Appends overlay to document.body.",
     "methods": [
-      { "name": "open", "signature": "() => Promise<boolean>", "description": "Show overlay, register Escape listener, focus Cancel button, return promise resolved true (confirm) or false (cancel/escape/overlay-click)" }
-    ]
-  },
-  "security": {
-    "html_sanitization": "Strips <script>, <img>, <iframe>, <embed>, <object>, <link>, <style> tags and inline on* event handlers"
+      {
+        "name": "open",
+        "signature": "(): Promise<boolean>",
+        "description": "Sets overlay display:flex, registers Escape keydown listener that calls done(false), focuses the Cancel button (#confirm-cancel), returns a Promise that resolves with true (confirmed) or false (cancelled)."
+      },
+      {
+        "name": "done",
+        "signature": "private done(ok: boolean): void",
+        "description": "Removes Escape keydown listener, removes overlay element from DOM via .remove(), resolves the stored promise with ok value."
+      }
+    ],
+    "properties": []
   },
   "ui": {
     "spec": "confirm-modal-ui.spec.json"
   },
+  "lifecycle": {
+    "created_by": "FileExplorerPlugin.deletePath() — new instance created per confirmation invocation",
+    "destroyed_by": "Permanently removed from DOM on resolution (confirm or cancel) — overlay.remove() in done()",
+    "singleton": false
+  },
+  "external_deps": [],
   "test": "src/renderer/components/ConfirmModal.test.ts"
 }

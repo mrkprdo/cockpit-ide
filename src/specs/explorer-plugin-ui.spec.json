@@ -1,0 +1,52 @@
+{
+  "name": "Explorer Plugin UI",
+  "parent": "explorer-plugin",
+  "description": "Split-pane Explorer DOM and interactions.",
+  "dom": {
+    "root": ".explorer",
+    "style": "display: flex; flex-direction: row; width: 100%; height: 100%",
+    "elements": {
+      "explorer-col": ".explorer-col — left column containing FileExplorerPlugin (flex-shrink:0, width: 260px default)",
+      "resize-handle": ".resize-handle — draggable splitter between columns (width: 2px, cursor: col-resize)",
+      "editor-col": ".editor-col — right column containing MonacoEditorPlugin (flex:1, min-width: 200px)"
+    }
+  },
+  "interactions": [
+    {
+      "name": "resize_column",
+      "trigger": "mousedown on .resize-handle",
+      "gesture": "mousemove on document → mouseup on document",
+      "action": "explorerCol width = clamp(120, 600, startW + dx)",
+      "cursor": "col-resize"
+    },
+    {
+      "name": "open_file_from_explorer",
+      "trigger": "file click in FileExplorerPlugin onFileOpen callback",
+      "action": "editor.openFile(filePath) → revealFile in file tree to highlight selected file."
+    },
+    {
+      "name": "open_file_search",
+      "trigger": "Ctrl+P keyboard shortcut intercepted by App",
+      "action": "Create or reveal CommandPalette overlay → user selects file via fuzzy search → editor.openFile(filePath)."
+    },
+    {
+      "name": "close_tab",
+      "trigger": "Ctrl+W shortcut or X button on editor tab",
+      "action": "editor.closeActiveTab() → if no tabs remaining, hide editor column (display: none)."
+    },
+    {
+      "name": "theme_update",
+      "trigger": "theme change event from TopBar or App",
+      "action": "editor.updateTheme() to sync Monaco editor theme (cockpit-dark / cockpit-light)."
+    }
+  ],
+  "states": {
+    "editor-empty": "No tabs open in editor, .editor-col hidden (display: none). Only .explorer-col visible.",
+    "editor-active": "One or more tabs open in editor, both .explorer-col and .editor-col visible in split layout.",
+    "resizing": ".resize-handle highlighted with accent color, .editor-col width updating in real-time as user drags."
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea",
+    "destroyed_by": "Card termination"
+  }
+}

@@ -1,45 +1,54 @@
 {
   "name": "Theme Modal",
   "file": "src/renderer/components/ThemeModal.ts",
-  "description": "Theme selection modal with two radio sections: THEMES (default / monokai) and LIGHT / DARK (dark / light). Opens from Tools > Theme menu item. Reflects current theme.base and theme.mode on open. Apply button calls theme.setTheme(base, mode) and closes. Cancel / overlay click / Escape dismiss without changes.",
+  "description": "Theme picker modal dialog. Shows two radio button groups: THEMES (Default, Monokai) and LIGHT/DARK (Dark, Light). Radio buttons are pre-checked to match current theme singleton state (theme.base, theme.mode). Cancel button dismisses without applying. Apply button reads checked radio values, calls theme.setTheme(base, mode), and closes. Escape key and overlay click dismiss. Accepts optional onClose callback. Re-renders fresh on each open() to sync radio state with current theme. Imported as singleton — only one instance exists in App.",
   "type": "ui",
-  "layer": "widget",
+  "layer": "modal",
   "singleton": true,
   "exports": ["ThemeModal"],
   "dependencies": [
-    { "feature": "theme", "file": "theme.ts", "usage": "read theme.base and theme.mode, call theme.setTheme(base, mode) on apply" }
+    {
+      "feature": "theme",
+      "file": "theme.ts",
+      "usage": "Import { theme } singleton — read theme.base/theme.mode to pre-check radios on render, call theme.setTheme(base, mode) on apply"
+    }
   ],
   "referenced_by": [
-    { "feature": "app-shell", "file": "App.ts" }
+    {
+      "feature": "app",
+      "file": "App.ts"
+    }
   ],
+  "ipc": [],
   "interface": {
-    "constructor": "new ThemeModal()",
+    "constructor": "constructor() — Creates .modal-overlay div (display:none) > .modal div (role=dialog, aria-modal=true, aria-label=Theme). Calls this.render() to build modal innerHTML with two radio groups (name='theme-base': default/monokai; name='theme-mode': dark/light), pre-checked via theme.base/theme.mode. Registers click delegation on .modal: #theme-apply → apply(), #theme-cancel → close(). Registers overlay click: if e.target === overlay → close(). Appends overlay to document.body.",
     "methods": [
-      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Re-render modal HTML to reflect current theme state, show overlay, register Escape key listener, store onClose callback" }
-    ]
-  },
-  "dom": {
-    "overlay": ".modal-overlay",
-    "modal": ".modal",
-    "header": ".modal-header (THEME)",
-    "section_base": ".modal-label (THEMES) + .modal-radio > input[type=radio][name=theme-base] (values: default, monokai)",
-    "section_mode": ".modal-label (LIGHT / DARK) + .modal-radio > input[type=radio][name=theme-mode] (values: dark, light)",
-    "actions": "#theme-apply (Apply) + #theme-cancel (Cancel)"
-  },
-  "interactions": [
-    { "name": "open", "trigger": "modal.open()", "action": "Render modal HTML with current base and mode radio checked, show overlay (display:flex), register Escape key listener" },
-    { "name": "apply", "trigger": "Click #theme-apply", "action": "Read checked values from theme-base and theme-mode radios, call theme.setTheme(base, mode), close modal, fire onClose" },
-    { "name": "cancel", "trigger": "Click #theme-cancel", "action": "Close modal without applying, fire onClose" },
-    { "name": "overlay_dismiss", "trigger": "Click overlay background", "action": "Same as cancel — close without applying, remove Escape listener" },
-    { "name": "escape_dismiss", "trigger": "Escape key while modal is visible", "action": "Same as cancel — close without applying, remove Escape listener" },
-    { "name": "state_refresh", "trigger": "Each open() call", "action": "Re-render DOM to match current theme.base and theme.mode state" }
-  ],
-  "states": {
-    "hidden": "Overlay display:none",
-    "visible": "Overlay display:flex, radios reflect current theme.base and theme.mode, Escape key registered"
+      {
+        "name": "open",
+        "signature": "(onClose?: () => void): void",
+        "description": "Re-renders modal content via this.render() to sync radio checked state with current theme.base/theme.mode. Stores optional onClose callback. Sets overlay display:flex. Registers document keydown handler for Escape key → close()."
+      },
+      {
+        "name": "apply",
+        "signature": "private apply(): void",
+        "description": "Queries checked input[name='theme-base'] and input[name='theme-mode'] values. If both are truthy, calls theme.setTheme(base, mode) with the read values. Then calls close()."
+      },
+      {
+        "name": "close",
+        "signature": "private close(): void",
+        "description": "Sets overlay display:none, removes the Escape keydown handler from document, fires stored onCloseCb if set, nulls onCloseCb."
+      }
+    ],
+    "properties": []
   },
   "ui": {
     "spec": "theme-modal-ui.spec.json"
   },
+  "lifecycle": {
+    "created_by": "App constructor — instantiated once as ThemeModal singleton",
+    "destroyed_by": "Lives for the duration of the renderer process; overlay element stays in DOM (display toggled only)",
+    "singleton": true
+  },
+  "external_deps": [],
   "test": "src/renderer/components/ThemeModal.test.ts"
 }

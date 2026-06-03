@@ -1,24 +1,42 @@
 {
   "name": "About Modal",
   "file": "src/renderer/components/AboutModal.ts",
-  "description": "Version/credits dialog. Displays app name, tagline, version (from electron API), Electron/Node version numbers, and a clickable 'UseDesign.md' link that opens an external URL. Close button, overlay click, and Escape key dismiss. Supports optional onClose callback.",
+  "description": "Version/credits modal dialog. Displays Cockpit IDE branding, app version, Electron major version, Node major version, and a clickable 'UseDesign.md' link that opens in browser. Shows runtime versions from window.electronAPI.versions. Accepts optional onClose callback on open(). Overlay click and Escape key close the modal. Frameless — simple display panel.",
   "type": "ui",
   "layer": "modal",
-  "singleton": false,
+  "singleton": true,
   "exports": ["AboutModal"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "app-shell", "file": "App.ts" }
+    { "feature": "app", "file": "App.ts" }
   ],
-  "ipc": ["shell:openExternal"],
+  "ipc": [
+    "shell:openExternal"
+  ],
   "interface": {
-    "constructor": "new AboutModal()",
+    "constructor": "() — Creates overlay div (modal-overlay class, display:none), builds about-modal DOM with COCKPIT IDE branding, version specs (VERSION/ELECTRON/NODE/STYLE rows), close button, and design.md link. Reads versions from (window as any).electronAPI?.versions. Registers click listeners: close button → close(), design-link → shell.openExternal(), overlay click → close(). Appends overlay to document.body.",
     "methods": [
-      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Show overlay, store onClose callback, register Escape key listener. Close via close button, overlay click, Escape key, or onClose callback." }
-    ]
+      {
+        "name": "open",
+        "signature": "(onClose?: () => void): void",
+        "description": "Stores optional onClose callback, sets overlay display:flex, registers Escape keydown listener to trigger close()"
+      },
+      {
+        "name": "close",
+        "signature": "private close(): void",
+        "description": "Sets overlay display:none, removes Escape keydown listener, fires stored onClose callback, nulls callback"
+      }
+    ],
+    "properties": []
   },
   "ui": {
     "spec": "about-modal-ui.spec.json"
   },
+  "lifecycle": {
+    "created_by": "App constructor — instantiated once",
+    "destroyed_by": "Lives for the duration of the renderer process, overlay element stays in DOM (toggled via display)",
+    "singleton": true
+  },
+  "external_deps": [],
   "test": "src/renderer/components/AboutModal.test.ts"
 }

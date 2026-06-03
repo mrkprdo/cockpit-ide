@@ -566,7 +566,7 @@ export class SpecsMapPlugin {
 
   private async buildFromFiles(): Promise<void> {
     const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
-    let base = this.specBaseDir;
+    let base: string | null = this.specBaseDir;
     if (!base) {
       base = await this.findBaseDir();
       if (base) {
@@ -1332,7 +1332,12 @@ export class SpecsMapPlugin {
       `</div>` +
       `<span style="font-size:10px;color:var(--tertiary);min-width:20px;text-align:right">${isolatedLabel}</span>` +
       `</div></div>` +
-      cyclesSection;
+      cyclesSection +
+      `<div class="sm-panel-section" style="border-top:1px dashed var(--border)">` +
+      `<div class="sm-panel-label">REGENERATE</div>` +
+      `<div style="font-size:10px;color:var(--tertiary);margin-bottom:8px;line-height:1.5">Scans source files and generates spec stubs with detected exports, imports, type and layer classification.</div>` +
+      `<button id="sm-regenerate-btn" style="background:transparent;border:1px dashed var(--border);border-radius:6px;padding:8px 16px;font-family:inherit;font-size:11px;font-weight:700;color:var(--primary);cursor:pointer;width:100%;transition:border-color 0.12s,color 0.12s">⚡ Regenerate Spec Files</button>` +
+      `</div>`;
 
     this.panelHeaderEl.querySelector('#sm-panel-close')
       ?.addEventListener('click', () => this.closePanel(true));
@@ -1379,6 +1384,21 @@ export class SpecsMapPlugin {
       }
       this.renderSettingsContent();
     });
+
+    const regenBtn = this.panelInner.querySelector<HTMLButtonElement>('#sm-regenerate-btn');
+    if (regenBtn) {
+      const accent = 'var(--accent)';
+      regenBtn.addEventListener('mouseenter', () => {
+        regenBtn.style.borderColor = accent; regenBtn.style.borderStyle = 'solid';
+        regenBtn.style.color = accent;
+        regenBtn.style.boxShadow = '0 0 12px color-mix(in oklab, var(--accent) 20%, transparent)';
+      });
+      regenBtn.addEventListener('mouseleave', () => {
+        regenBtn.style.borderColor = ''; regenBtn.style.borderStyle = '';
+        regenBtn.style.color = ''; regenBtn.style.boxShadow = '';
+      });
+      regenBtn.addEventListener('click', () => this.regenerateSpecs(regenBtn));
+    }
   }
 
   private closePanel(resetZoom?: boolean): void {
@@ -1752,6 +1772,360 @@ export class SpecsMapPlugin {
       btn.style.borderStyle = '';
       btn.style.color = '';
     }, 3000);
+  }
+
+  private async regenerateSpecs(btn: HTMLButtonElement): Promise<void> {
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+    const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
+    const specDir = this.specBaseDir || wsRoot + '/src/specs';
+
+    const srcRoot = wsRoot + '/src';
+    const srcExists = await window.electronAPI?.fs.readDir(srcRoot);
+    if (!srcExists) {
+      btn.textContent = 'No src/ directory found';
+      btn.style.borderColor = 'var(--red)';
+      btn.style.color = 'var(--red)';
+      setTimeout(() => this.resetRegenBtn(btn), 3000);
+      return;
+    }
+
+    const allFiles: string[] = [];
+    await this.walkSourceFiles(srcRoot, allFiles, 0, 8);
+    const fileSet = new Set(allFiles);
+
+    const sourceFiles = allFiles.filter(f =>
+      /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(f) &&
+      !/\.(test|spec)\./.test(f) &&
+      !f.includes('/node_modules/') &&
+      !f.includes('/.git/') &&
+      !f.includes('/dist/') &&
+      !f.includes('/coverage/')
+    );
+
+    btn.textContent = `Analyzing ${sourceFiles.length} files…`;
+
+    interface FileInfo {
+      relativePath: string;
+      specName: string;
+      specFileName: string;
+      content: string;
+      exports: string[];
+      localImports: string[];
+      resolvedImportPaths: string[];
+      type: string;
+      layer: string;
+      singleton: boolean;
+      externalDeps: string[];
+      isUI: boolean;
+    }
+
+    const fileInfos: FileInfo[] = [];
+
+    for (const fp of sourceFiles) {
+      const content = await window.electronAPI?.fs.readFile(fp);
+      if (!content) continue;
+
+      const relPath = fp.replace(wsRoot + '/', '');
+      const fileName = fp.split('/').pop()!;
+      const stem = fileName.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '');
+      const specFileName = this.toKebabCase(stem) + '.spec.json';
+
+      const exportNames = new Set<string>();
+      const exportRe = /export\s+(default\s+)?(?:class|function|const|interface|type|enum|let|var)\s+(\w+)/g;
+      let m;
+      while ((m = exportRe.exec(content)) !== null) {
+        if (m[2]) exportNames.add(m[2]);
+      }
+      const defaultRe = /export\s+default\s+(?:class|function)\s+(\w+)/g;
+      while ((m = defaultRe.exec(content)) !== null) {
+        if (m[1]) exportNames.add(m[1]);
+      }
+
+      const importRe = /import\s+(?:\{[^}]*\}|[^;{]+)\s+from\s+['"](\.[^'"]+)['"]/g;
+      const localImports: string[] = [];
+      while ((m = importRe.exec(content)) !== null) {
+        if (m[1]) localImports.push(m[1]);
+      }
+
+      const extRe = /import\s+(?:\{[^}]*\}|[^;{]+)\s+from\s+['"]([^.'"]+)['"]/g;
+      const extDeps = new Set<string>();
+      while ((m = extRe.exec(content)) !== null) {
+        const pkg = m[1].split('/')[0];
+        if (pkg) extDeps.add(pkg);
+      }
+
+      const { type, layer } = this.classifyFile(relPath, content);
+      const isSingleton = content.includes('singleton') ||
+        content.includes('getInstance()') ||
+        (content.includes('class ') && content.includes('static'));
+      const isUI = type === 'ui';
+
+      const dir = fp.substring(0, fp.lastIndexOf('/'));
+      const resolvedPaths: string[] = [];
+      for (const imp of localImports) {
+        const res = this.resolveImportPath(dir, imp, wsRoot, fileSet);
+        if (res) resolvedPaths.push(res.replace(wsRoot + '/', ''));
+      }
+
+      fileInfos.push({
+        relativePath: relPath,
+        specName: stem,
+        specFileName,
+        content,
+        exports: [...exportNames],
+        localImports,
+        resolvedImportPaths: resolvedPaths,
+        type,
+        layer,
+        singleton: isSingleton,
+        externalDeps: [...extDeps],
+        isUI,
+      });
+    }
+
+    btn.textContent = `Writing ${fileInfos.length} spec files…`;
+
+    for (const info of fileInfos) {
+      const specPath = specDir + '/' + info.specFileName;
+
+      const deps: Array<{ feature: string; file: string; usage: string }> = [];
+      for (const imp of info.resolvedImportPaths) {
+        const depInfo = fileInfos.find(f => f.relativePath === imp);
+        const depName = depInfo
+          ? this.toDisplayName(depInfo.specName)
+          : this.toDisplayName(imp.split('/').pop()?.replace(/\.(ts|tsx|js|jsx)$/, '') || imp);
+        deps.push({ feature: depName, file: imp, usage: 'imports' });
+      }
+
+      const testFile = this.findTestFile(fileSet, info.relativePath);
+
+      const spec: Record<string, unknown> = {
+        name: this.toDisplayName(info.specName),
+        file: info.relativePath,
+        description: `Auto-generated spec for ${this.toDisplayName(info.specName)}`,
+        type: info.type,
+        layer: info.layer,
+        singleton: info.singleton,
+      };
+
+      if (info.exports.length > 0) spec.exports = info.exports;
+      if (deps.length > 0) spec.dependencies = deps;
+      spec.referenced_by = [];
+      const ipcChannels = this.detectIpcChannels(info.content);
+      if (ipcChannels.length > 0) spec.ipc = ipcChannels;
+      spec.interface = {};
+      spec.lifecycle = { created_by: '', destroyed_by: '', singleton: info.singleton };
+      if (info.externalDeps.length > 0) spec.external_deps = info.externalDeps;
+      if (testFile) spec.test = testFile;
+
+      await window.electronAPI?.fs.writeFile(specPath, JSON.stringify(spec, null, 2));
+    }
+
+    btn.textContent = 'Updating main.spec.json…';
+    await this.buildMainSpec(specDir, fileInfos, wsRoot);
+
+    btn.textContent = 'Done — refreshing…';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.borderStyle = 'solid';
+    btn.style.color = 'var(--green)';
+    await this.refresh();
+    setTimeout(() => this.resetRegenBtn(btn), 3000);
+  }
+
+  private resetRegenBtn(btn: HTMLButtonElement): void {
+    btn.disabled = false;
+    btn.textContent = 'Regenerate Spec Files';
+    btn.style.borderColor = '';
+    btn.style.borderStyle = '';
+    btn.style.color = '';
+    btn.style.boxShadow = '';
+  }
+
+  private async walkSourceFiles(dir: string, out: string[], depth: number, maxDepth: number): Promise<void> {
+    if (depth > maxDepth) return;
+    const entries = await window.electronAPI?.fs.readDir(dir);
+    if (!entries) return;
+    for (const e of entries) {
+      if (e.name === '.git' || e.name === 'node_modules' || e.name === 'dist' ||
+          e.name === '.cockpit' || e.name === 'coverage' || e.name === '.codegraph') continue;
+      const fullPath = dir + '/' + e.name;
+      if (e.isDirectory) {
+        await this.walkSourceFiles(fullPath, out, depth + 1, maxDepth);
+      } else {
+        out.push(fullPath);
+      }
+    }
+  }
+
+  private toKebabCase(s: string): string {
+    return s.replace(/([a-z])([A-Z])/g, '$1-$2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+      .toLowerCase();
+  }
+
+  private toDisplayName(s: string): string {
+    return s.replace(/[-_]/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  private classifyFile(relPath: string, content: string): { type: string; layer: string } {
+    const path = relPath.toLowerCase();
+    const hasDom = content.includes('document.') || content.includes('createElement') ||
+      content.includes('innerHTML') || content.includes('addEventListener') ||
+      content.includes('querySelector') || content.includes('getElementById') ||
+      content.includes('classList');
+
+    let type = 'logic';
+    if (path.includes('/main/') || path.includes('/preload/')) type = 'process';
+    else if (path.endsWith('.d.ts')) type = 'model';
+    else if (path.endsWith('specgen-hash.ts')) type = 'config';
+    else if (hasDom) type = 'ui';
+    else if (content.includes('ipcMain.handle') || content.includes('ipcRenderer.invoke') ||
+             content.includes('electronAPI') || content.includes('ipcRenderer.send')) type = 'data';
+    else {
+      const lines = content.split('\n').filter(l => l.trim().length > 0 && !l.trim().startsWith('//') && !l.trim().startsWith('import'));
+      if (lines.length === 0) type = 'config';
+      const typeLines = lines.filter(l => l.trim().startsWith('interface ') || l.trim().startsWith('type '));
+      if (typeLines.length > 0 && typeLines.length > lines.length * 0.3) type = 'model';
+      const funcLines = lines.filter(l => l.trim().startsWith('function ') || l.trim().startsWith('const '));
+      if (type === 'logic' && funcLines.length > lines.length * 0.4) type = 'utility';
+    }
+
+    let layer = 'plugin';
+    if (path.includes('/main/') || path.includes('/preload/') || path.endsWith('global.d.ts') ||
+        path.includes('specgen-hash')) layer = 'foundation';
+    else if (path.endsWith('/index.ts') || path.endsWith('/App.ts') || path.endsWith('theme.ts') ||
+             path.endsWith('CanvasArea.ts') || path.includes('canvas-grid') || path.includes('canvas-statusbar')) layer = 'core';
+    else if (path.includes('card') || path.includes('PluginCard') || path.includes('ContextMenu') ||
+             path.includes('TopBar') || path.includes('TextRenderer')) layer = 'widget';
+    else if (path.includes('modal') || path.includes('Modal')) layer = 'modal';
+    else if (path.includes('tutorial') || path.includes('palette') || path.includes('SpecsMap')) layer = 'overlay';
+    else if (path.includes('plugin') || path.includes('Plugin')) layer = 'plugin';
+    else if (type === 'utility') layer = 'utility';
+
+    return { type, layer };
+  }
+
+  private resolveImportPath(dir: string, importPath: string, wsRoot: string, fileSet: Set<string>): string | null {
+    const resolved = this.normalizePath(dir + '/' + importPath);
+    for (const ext of ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '']) {
+      const fp = resolved + ext;
+      if (fileSet.has(fp)) return fp;
+    }
+    for (const ext of ['.ts', '.tsx', '.js', '.jsx']) {
+      const fp = resolved + '/index' + ext;
+      if (fileSet.has(fp)) return fp;
+    }
+    return null;
+  }
+
+  private normalizePath(p: string): string {
+    const parts = p.replace(/\\/g, '/').split('/');
+    const result: string[] = [];
+    for (const part of parts) {
+      if (part === '.' || part === '') continue;
+      if (part === '..') result.pop();
+      else result.push(part);
+    }
+    return result.join('/');
+  }
+
+  private findTestFile(fileSet: Set<string>, sourcePath: string): string | null {
+    const stem = sourcePath.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '');
+    for (const ext of ['.test.ts', '.test.tsx', '.test.js', '.test.jsx',
+                        '.test.ts', '.test.tsx', '.test.js', '.test.jsx']) {
+      const testPath = stem + ext;
+      if (fileSet.has(testPath)) return testPath;
+    }
+    return null;
+  }
+
+  private detectIpcChannels(content: string): string[] {
+    const channels: string[] = [];
+    const knownNamespaces = ['fs:', 'window:', 'clipboard:', 'terminal:', 'workspace:', 'shell:', 'prefs:'];
+    const ipcRe = /['"]([a-z]+:[a-zA-Z]+)['"]/g;
+    while (true) {
+      const m = ipcRe.exec(content);
+      if (!m) break;
+      if (knownNamespaces.some(ns => m[1].startsWith(ns))) {
+        if (!channels.includes(m[1])) channels.push(m[1]);
+      }
+    }
+    return channels;
+  }
+
+  private async buildMainSpec(
+    specDir: string,
+    fileInfos: Array<{
+      relativePath: string;
+      specName: string;
+      specFileName: string;
+      type: string;
+      layer: string;
+      resolvedImportPaths: string[];
+      externalDeps: string[];
+    }>,
+    wsRoot: string,
+  ): Promise<void> {
+    const layerOrder = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugin'];
+    const layerMap = new Map<string, Array<{ id: string; name: string; file: string; spec: string }>>();
+
+    for (const info of fileInfos) {
+      const id = this.toKebabCase(info.specName);
+      const name = this.toDisplayName(info.specName);
+      const fileName = info.relativePath.split('/').pop()!;
+      const entry = { id, name, file: fileName, spec: info.specFileName };
+      const existing = layerMap.get(info.layer) ?? [];
+      existing.push(entry);
+      layerMap.set(info.layer, existing);
+    }
+
+    const features: Record<string, unknown> = {};
+    for (const layer of layerOrder) {
+      if (layerMap.has(layer)) features[layer] = layerMap.get(layer);
+    }
+
+    const otherLayers = [...layerMap.keys()].filter(l => !layerOrder.includes(l)).sort();
+    for (const layer of otherLayers) {
+      features[layer] = layerMap.get(layer);
+    }
+
+    const edges: Record<string, string[]> = {};
+    for (const info of fileInfos) {
+      const fileName = info.relativePath.split('/').pop()!;
+      edges[fileName] = info.resolvedImportPaths
+        .map(imp => imp.split('/').pop()!)
+        .filter(Boolean);
+    }
+
+    const existingRaw = await window.electronAPI?.fs.readFile(specDir + '/main.spec.json');
+    let mainSpec: Record<string, unknown>;
+    if (existingRaw) {
+      try { mainSpec = JSON.parse(existingRaw); } catch { mainSpec = {}; }
+    } else {
+      mainSpec = { name: 'Project', version: '0.1.0', description: 'Auto-generated project spec' };
+    }
+
+    mainSpec.features = features;
+    mainSpec.dependency_graph = { description: 'Auto-generated dependency edges', edges };
+
+    const testCount = fileInfos.filter(f =>
+      this.findTestFile(new Set(fileInfos.map(i => wsRoot + '/' + i.relativePath)), f.relativePath)
+    ).length;
+
+    mainSpec.test_coverage = {
+      total_test_files: testCount,
+      total_tests: 'auto',
+      run_time: 'N/A',
+      framework: ((mainSpec as any).stack as any)?.testing || 'unknown',
+      specs_with_direct_tests: testCount,
+      specs_with_indirect_tests: 0,
+      specs_without_tests: fileInfos.length - testCount,
+    };
+
+    await window.electronAPI?.fs.writeFile(specDir + '/main.spec.json', JSON.stringify(mainSpec, null, 2));
   }
 
   private findCycles(): Set<string>[] {

@@ -1,53 +1,43 @@
 {
   "name": "About Modal UI",
   "parent": "about-modal",
-  "description": "UI interaction spec for the version/credits dialog.",
+  "description": "About modal DOM and interactions. Documents the modal overlay structure with branding header, version/naming spec rows, footer close button, Escape key dismissal, and the design.md external link.",
   "dom": {
-    "overlay": ".modal-overlay (display:flex; align-items:center; justify-content:center; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:5000)",
-    "modal": ".about-modal (width:420px; padding:24px; border:1px dashed var(--border); border-radius:8px; background:var(--surface); box-shadow:var(--shadow))",
-    "structure": [
-      ".about-head > .about-name (font-size:20px; font-weight:700) + .about-tagline (font-size:12px; color:var(--secondary); margin-top:2px)",
-      ".about-sep (height:1px; background:var(--border); margin:14px 0)",
-      ".about-specs (display:flex; flex-direction:column; gap:6px)",
-      ".about-spec (display:flex; justify-content:space-between; font-size:11px)",
-      ".about-spec-key (color:var(--tertiary); min-width:80px)",
-      ".about-spec-val (color:var(--primary))",
-      ".about-link (color:var(--accent); cursor:pointer; text-decoration:underline)",
-      ".about-sep (height:1px; background:var(--border); margin:14px 0) — second separator before footer",
-      ".about-foot (display:flex; justify-content:flex-end)",
-      "button.btn-ghost.about-close-btn (padding:6px 14px; background:transparent; border:1px dashed var(--border); cursor:pointer; font-size:11px)"
-    ]
+    "root": ".modal-overlay (display:none by default, display:flex when open — covers viewport as overlay)",
+    "container": "document.body",
+    "elements": {
+      "overlay": "div.modal-overlay — full-viewport overlay with click-to-dismiss (clicks on children do not dismiss)",
+      "modal": "div.about-modal (role=dialog, aria-modal=true, aria-labelledby=about-title) — centered modal card",
+      "head": "div.about-head > div.about-name#about-title + div.about-tagline — branding area",
+      "specs": "div.about-specs — container for version spec rows, each row: div.about-spec > span.about-spec-key + span.about-spec-val",
+      "spec_rows": "VERSION (app version from electronAPI.versions.app, fallback 'dev'), ELECTRON (major version), NODE (major version), STYLE (span.about-link#about-design-link with 'UseDesign.md' text)",
+      "foot": "div.about-foot > button.btn-ghost.about-close-btn#about-close 'Close'"
+    }
   },
   "interactions": [
     {
-      "name": "open",
-      "trigger": "modal.open(onClose?)",
-      "action": "Set overlay display:flex, store onClose callback"
+      "name": "close",
+      "trigger": "click on #about-close button, OR Escape keydown, OR click on overlay background (.modal-overlay, target === overlay)",
+      "action": "Set overlay display:none → remove Escape keydown listener → fire stored onClose callback → null callback",
+      "result": "Modal hidden, onClose callback invoked"
     },
     {
-      "name": "close_button",
-      "trigger": "Click #about-close button",
-      "action": "Hide overlay (display:none), fire onClose callback, clear onClose reference"
-    },
-    {
-      "name": "overlay_dismiss",
-      "trigger": "Click overlay background (e.target === overlay)",
-      "action": "Same as close button — hide and fire callback"
-    },
-    {
-      "name": "design_link",
-      "trigger": "Click #about-design-link (UseDesign.md)",
-      "action": "IPC shell:openExternal with encoded URL containing Noir palette + Art Nouveau + Floating + Space Mono params"
+      "name": "open_design_link",
+      "trigger": "click on #about-design-link (span.about-link inside STYLE spec row)",
+      "action": "IPC shell:openExternal with UseDesign.md URL (https://www.usedesign.md/?mash=1&p=noir&c=Art+Nouveau&s=Floating&b=dashed+border&r=8px&f='Space+Mono'%2C+'Courier+New'%2C+monospace&sh=rgba(0,0,0,0.06)+0+2px+8px,+rgba(0,0,0,0.04)+0+4px+16px&shs=noir&mode=light)",
+      "result": "Design system page opens in default browser"
     }
   ],
   "states": {
-    "hidden": "Overlay display:none, onClose callback null",
-    "visible": "Overlay display:flex, onClose callback stored and active"
+    "open": "overlay display:flex, Escape keydown listener active, onClose callback stored",
+    "closed": "overlay display:none, Escape keydown listener removed, onClose callback null"
   },
-  "content": {
-    "version": "From electronAPI.versions.app or 'dev'",
-    "electron": "From electronAPI.versions.electron (major version only)",
-    "node": "From electronAPI.versions.node (major version only)",
-    "style_link": "UseDesign.md — external URL with design params (mash=1, p=noir, c=Art+Nouveau, s=Floating, etc.)"
+  "lifecycle": {
+    "created_by": "App constructor",
+    "destroyed_by": "Overlay remains in DOM across open/close cycles, display toggled only"
+  },
+  "accessibility": {
+    "keyboard": ["Escape (close modal)"],
+    "aria": ["role=dialog", "aria-modal=true", "aria-labelledby=about-title"]
   }
 }

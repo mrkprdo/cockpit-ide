@@ -1,122 +1,127 @@
 {
   "name": "Cockpit IDE",
-  "version": "0.0.1",
-  "description": "Spatial/floating-panel IDE built in Electron. Monaco editor, xterm.js terminal, file explorer, and markdown viewer live as draggable/resizable cards on an infinite zoomable/pannable canvas. Dark/light theme system, workspace persistence, multi-window support, and full git integration.",
+  "version": "0.0.20260603",
+  "description": "Spatial/floating-panel IDE built in Electron. Monaco editor, xterm.js terminal, file explorer, and markdown viewer live as draggable/resizable cards on an infinite zoomable/pannable canvas. Sessions persist to .cockpit/window.json.",
   "stack": {
-    "runtime": "Electron 42",
+    "runtime": "Electron 42 (Node 22, Chromium 138)",
     "language": "TypeScript 5.8",
     "build": {
-      "renderer": "esbuild 0.28 (IIFE bundle)",
-      "main_preload": "tsc (CommonJS)",
-      "dev": "Custom runner (watcher + Electron respawn)"
+      "main": "tsc (ES2022, CommonJS)",
+      "preload": "tsc (ES2022, CommonJS)",
+      "renderer": "esbuild 0.28 (IIFE, module:none)"
     },
     "key_deps": {
-      "editor": "Monaco Editor 0.53 (AMD-loaded)",
-      "terminal": "@xterm/xterm 6 + node-pty 1",
-      "text_layout": "@chenglou/pretext (canvas text)",
-      "markdown": "marked 18",
-      "file_watching": "chokidar"
+      "monaco-editor": "0.53 (AMD-loaded)",
+      "@xterm/xterm": "6",
+      "node-pty": "1 (PTY backend)",
+      "@chenglou/pretext": "0.0.7 (canvas text)",
+      "marked": "18 (markdown rendering)",
+      "chokidar": "(file watching)",
+      "ws": "(WebSocket IDE server)"
     },
-    "testing": "vitest 4 + jsdom"
+    "testing": "vitest 4 + jsdom (22 test files, 755+ tests)"
   },
   "architecture": {
-    "process_model": "Electron main + sandboxed renderer + contextBridge preload",
-    "ipc_pattern": "request/response (ipcRenderer.invoke <-> ipcMain.handle) + fire-and-forget (ipcRenderer.send <-> ipcMain.on) + push events (ipcMain → renderer via webContents.send + on listener)",
-    "canvas_model": "World-to-screen coordinate transform: screenX = worldX * scale + panX; screenY = worldY * scale + panY",
-    "card_model": "PluginCard wraps plugin content with drag/resize/minimize, snap-to-28px-grid",
-    "state_persistence": ".cockpit/window.json (SaveState: plugins[], zOrder[], zoom, panX, panY, locked)"
+    "process_model": "Electron multi-process: main process (IPC handlers, PTY, file watcher), preload script (contextBridge), renderer process (infinite canvas with plugin cards). Multi-window support with per-window workspace tracking.",
+    "ipc_or_api_pattern": "Electron IPC: ipcMain.handle (request/response), ipcRenderer.invoke (promise), ipcRenderer.send/sendSync (fire-and-forget/sync), webContents.send (main→renderer events). Plus WebSocket JSON-RPC IDE server on 127.0.0.1:0.",
+    "state_persistence": "Workspace state serialized as JSON to .cockpit/window.json per workspace. User preferences in preferences.json in Electron userData. Recent workspaces in recent-workspaces.json. Terminal sessions ephemeral (PTY). Editor state persisted within workspace state.",
+    "concurrency_model": "Single renderer thread with requestAnimationFrame-batched canvas transforms. Async IPC for all I/O. Debounced auto-save (1.5s editor, file changes 100–500ms)."
   },
   "features": {
     "foundation": [
-      { "id": "type-model", "name": "Type Model", "file": "global.d.ts", "spec": "type-model.spec.json" },
-      { "id": "main-process", "name": "Main Process", "file": "main.ts", "spec": "main-process.spec.json" },
-      { "id": "preload-bridge", "name": "Preload Bridge", "file": "preload.ts", "spec": "preload-bridge.spec.json" },
-      { "id": "ide-server", "name": "IDE Context Server", "file": "ide-server.ts", "spec": "ide-server.spec.json" },
-      { "id": "specgen-hash", "name": "SpecGen Hash", "file": "specgen-hash.ts", "spec": "specgen-hash.spec.json" }
+      { "id": "global-dts", "name": "Global Type Declarations", "file": "src/global.d.ts", "spec": "global-dts.spec.json" },
+      { "id": "index", "name": "Renderer Entry Point", "file": "src/renderer/index.ts", "spec": "index.spec.json" },
+      { "id": "electron-main", "name": "Electron Main Process", "file": "src/main/main.ts", "spec": "electron-main.spec.json" },
+      { "id": "preload", "name": "Preload Bridge", "file": "src/preload/preload.ts", "spec": "preload.spec.json" },
+      { "id": "theme", "name": "Theme Singleton", "file": "src/renderer/theme.ts", "spec": "theme.spec.json" },
+      { "id": "specgen-hash", "name": "SpecGen Build Hash", "file": "src/renderer/specgen-hash.ts", "spec": "specgen-hash.spec.json" }
     ],
     "core": [
-      { "id": "renderer-entry", "name": "Renderer Entry", "file": "index.ts", "spec": "renderer-entry.spec.json" },
-      { "id": "app-shell", "name": "App Shell", "file": "App.ts", "spec": "app-shell.spec.json", "ui": "app-shell-ui.spec.json" },
-      { "id": "canvas-engine", "name": "Canvas Engine", "file": "CanvasArea.ts", "spec": "canvas-engine.spec.json", "ui": "canvas-engine-ui.spec.json" },
-      { "id": "theme", "name": "Theme", "file": "theme.ts", "spec": "theme.spec.json" },
-      { "id": "canvas-grid", "name": "Canvas Grid", "file": "canvas-grid.ts", "spec": "canvas-grid.spec.json" },
-      { "id": "canvas-statusbar", "name": "Canvas Status Bar", "file": "canvas-statusbar.ts", "spec": "canvas-statusbar.spec.json" }
+      { "id": "app", "name": "App Orchestrator", "file": "src/renderer/components/App.ts", "spec": "app.spec.json" },
+      { "id": "canvas-area", "name": "Canvas Area Engine", "file": "src/renderer/components/CanvasArea.ts", "spec": "canvas-area.spec.json", "ui": "canvas-area-ui.spec.json" },
+      { "id": "top-bar", "name": "Top Bar Menu", "file": "src/renderer/components/TopBar.ts", "spec": "top-bar.spec.json", "ui": "top-bar-ui.spec.json" }
     ],
     "widget": [
-      { "id": "plugin-card", "name": "Plugin Card", "file": "PluginCard.ts", "spec": "plugin-card.spec.json", "ui": "plugin-card-ui.spec.json" },
-      { "id": "text-renderer", "name": "Text Renderer", "file": "TextRenderer.ts", "spec": "text-renderer.spec.json" },
-      { "id": "context-menu", "name": "Context Menu", "file": "ContextMenu.ts", "spec": "context-menu.spec.json", "ui": "context-menu-ui.spec.json" },
-      { "id": "topbar", "name": "Top Bar", "file": "TopBar.ts", "spec": "topbar.spec.json", "ui": "topbar-ui.spec.json" }
+      { "id": "plugin-card", "name": "Plugin Card Widget", "file": "src/renderer/components/PluginCard.ts", "spec": "plugin-card.spec.json", "ui": "plugin-card-ui.spec.json" },
+      { "id": "canvas-statusbar", "name": "Canvas Status Bar", "file": "src/renderer/components/canvas-statusbar.ts", "spec": "canvas-statusbar.spec.json" }
     ],
     "modal": [
-      { "id": "welcome-modal", "name": "Welcome Modal", "file": "WelcomeModal.ts", "spec": "welcome-modal.spec.json", "ui": "welcome-modal-ui.spec.json" },
-      { "id": "about-modal", "name": "About Modal", "file": "AboutModal.ts", "spec": "about-modal.spec.json", "ui": "about-modal-ui.spec.json" },
-      { "id": "confirm-modal", "name": "Confirm Modal", "file": "ConfirmModal.ts", "spec": "confirm-modal.spec.json", "ui": "confirm-modal-ui.spec.json" },
-      { "id": "theme-modal", "name": "Theme Modal", "file": "ThemeModal.ts", "spec": "theme-modal.spec.json", "ui": "theme-modal-ui.spec.json" }
+      { "id": "welcome-modal", "name": "Welcome Modal", "file": "src/renderer/components/WelcomeModal.ts", "spec": "welcome-modal.spec.json", "ui": "welcome-modal-ui.spec.json" },
+      { "id": "about-modal", "name": "About Modal", "file": "src/renderer/components/AboutModal.ts", "spec": "about-modal.spec.json", "ui": "about-modal-ui.spec.json" },
+      { "id": "confirm-modal", "name": "Confirm Modal", "file": "src/renderer/components/ConfirmModal.ts", "spec": "confirm-modal.spec.json", "ui": "confirm-modal-ui.spec.json" },
+      { "id": "theme-modal", "name": "Theme Picker Modal", "file": "src/renderer/components/ThemeModal.ts", "spec": "theme-modal.spec.json", "ui": "theme-modal-ui.spec.json" }
     ],
     "overlay": [
-      { "id": "tutorial", "name": "Tutorial", "file": "Tutorial.ts", "spec": "tutorial.spec.json", "ui": "tutorial-ui.spec.json" },
-      { "id": "command-palette", "name": "Command Palette", "file": "CommandPalette.ts", "spec": "command-palette.spec.json", "ui": "command-palette-ui.spec.json" }
+      { "id": "context-menu", "name": "Context Menu", "file": "src/renderer/components/ContextMenu.ts", "spec": "context-menu.spec.json", "ui": "context-menu-ui.spec.json" },
+      { "id": "command-palette", "name": "Command Palette", "file": "src/renderer/components/CommandPalette.ts", "spec": "command-palette.spec.json", "ui": "command-palette-ui.spec.json" },
+      { "id": "tutorial", "name": "Tutorial Overlay", "file": "src/renderer/components/Tutorial.ts", "spec": "tutorial.spec.json", "ui": "tutorial-ui.spec.json" }
     ],
     "plugin": [
-      { "id": "terminal-plugin", "name": "Terminal Plugin", "file": "TerminalPlugin.ts", "spec": "terminal-plugin.spec.json" },
-      { "id": "monaco-editor-plugin", "name": "Monaco Editor Plugin", "file": "MonacoEditorPlugin.ts", "spec": "monaco-editor-plugin.spec.json" },
-      { "id": "file-explorer-plugin", "name": "File Explorer Plugin", "file": "FileExplorerPlugin.ts", "spec": "file-explorer-plugin.spec.json" },
-      { "id": "explorer-plugin", "name": "Explorer Plugin", "file": "ExplorerPlugin.ts", "spec": "explorer-plugin.spec.json" },
-      { "id": "markdown-plugin", "name": "Markdown Plugin", "file": "MarkdownPlugin.ts", "spec": "markdown-plugin.spec.json" },
-      { "id": "git-plugin", "name": "Git Plugin", "file": "GitPlugin.ts", "spec": "git-plugin.spec.json" },
-      { "id": "specsmap-plugin", "name": "SpecsMap Plugin", "file": "SpecsMapPlugin.ts", "spec": "specsmap-plugin.spec.json", "ui": "specsmap-plugin-ui.spec.json" }
+      { "id": "terminal-plugin", "name": "Terminal Plugin", "file": "src/renderer/components/TerminalPlugin.ts", "spec": "terminal-plugin.spec.json", "ui": "terminal-plugin-ui.spec.json" },
+      { "id": "monaco-editor-plugin", "name": "Monaco Editor Plugin", "file": "src/renderer/components/MonacoEditorPlugin.ts", "spec": "monaco-editor-plugin.spec.json", "ui": "monaco-editor-plugin-ui.spec.json" },
+      { "id": "file-explorer-plugin", "name": "File Explorer Plugin", "file": "src/renderer/components/FileExplorerPlugin.ts", "spec": "file-explorer-plugin.spec.json", "ui": "file-explorer-plugin-ui.spec.json" },
+      { "id": "explorer-plugin", "name": "Explorer Plugin", "file": "src/renderer/components/ExplorerPlugin.ts", "spec": "explorer-plugin.spec.json", "ui": "explorer-plugin-ui.spec.json" },
+      { "id": "markdown-plugin", "name": "Markdown Plugin", "file": "src/renderer/components/MarkdownPlugin.ts", "spec": "markdown-plugin.spec.json", "ui": "markdown-plugin-ui.spec.json" },
+      { "id": "git-plugin", "name": "Git Plugin", "file": "src/renderer/components/GitPlugin.ts", "spec": "git-plugin.spec.json", "ui": "git-plugin-ui.spec.json" },
+      { "id": "specsmap-plugin", "name": "SpecsMap Plugin", "file": "src/renderer/components/SpecsMapPlugin.ts", "spec": "specsmap-plugin.spec.json", "ui": "specsmap-plugin-ui.spec.json" }
+    ],
+    "service": [
+      { "id": "ide-server", "name": "IDE Context Server", "file": "src/main/ide-server.ts", "spec": "ide-server.spec.json" }
+    ],
+    "utility": [
+      { "id": "canvas-grid", "name": "Canvas Grid Utility", "file": "src/renderer/components/canvas-grid.ts", "spec": "canvas-grid.spec.json" },
+      { "id": "text-renderer", "name": "Text Renderer Utility", "file": "src/renderer/components/TextRenderer.ts", "spec": "text-renderer.spec.json" }
     ]
   },
   "dependency_graph": {
-    "description": "Edges in the format 'file -> [dependencies]' showing what each feature imports from within src/",
+    "description": "Runtime import edges between source files. Key: source file → array of imported files.",
     "edges": {
-      "index.ts": ["App.ts"],
-      "App.ts": ["TopBar.ts", "CanvasArea.ts", "WelcomeModal.ts", "AboutModal.ts", "ThemeModal.ts", "Tutorial.ts", "theme.ts"],
-      "CanvasArea.ts": ["canvas-grid.ts", "canvas-statusbar.ts", "PluginCard.ts", "TerminalPlugin.ts", "MonacoEditorPlugin.ts", "ExplorerPlugin.ts", "GitPlugin.ts", "ContextMenu.ts", "MarkdownPlugin.ts", "SpecsMapPlugin.ts"],
-      "TopBar.ts": ["theme.ts"],
-      "PluginCard.ts": ["TextRenderer.ts"],
-      "ExplorerPlugin.ts": ["FileExplorerPlugin.ts", "MonacoEditorPlugin.ts", "CommandPalette.ts"],
-      "FileExplorerPlugin.ts": ["ContextMenu.ts", "ConfirmModal.ts"],
-      "MonacoEditorPlugin.ts": ["ContextMenu.ts"],
-      "MarkdownPlugin.ts": ["ContextMenu.ts"],
-      "ThemeModal.ts": ["theme.ts"],
-      "main.ts": ["ide-server.ts"]
+      "src/main/main.ts": ["src/main/ide-server.ts"],
+      "src/renderer/index.ts": ["src/renderer/components/App.ts"],
+      "src/renderer/components/App.ts": ["src/renderer/components/TopBar.ts", "src/renderer/components/CanvasArea.ts", "src/renderer/components/WelcomeModal.ts", "src/renderer/components/AboutModal.ts", "src/renderer/components/ThemeModal.ts", "src/renderer/components/Tutorial.ts", "src/renderer/theme.ts"],
+      "src/renderer/components/CanvasArea.ts": ["src/renderer/components/canvas-grid.ts", "src/renderer/components/canvas-statusbar.ts", "src/renderer/components/PluginCard.ts", "src/renderer/components/TerminalPlugin.ts", "src/renderer/components/MonacoEditorPlugin.ts", "src/renderer/components/ExplorerPlugin.ts", "src/renderer/components/GitPlugin.ts", "src/renderer/components/ContextMenu.ts", "src/renderer/components/MarkdownPlugin.ts", "src/renderer/components/SpecsMapPlugin.ts"],
+      "src/renderer/components/TopBar.ts": ["src/renderer/theme.ts"],
+      "src/renderer/components/ThemeModal.ts": ["src/renderer/theme.ts"],
+      "src/renderer/components/PluginCard.ts": ["src/renderer/components/TextRenderer.ts"],
+      "src/renderer/components/ExplorerPlugin.ts": ["src/renderer/components/FileExplorerPlugin.ts", "src/renderer/components/MonacoEditorPlugin.ts", "src/renderer/components/CommandPalette.ts"],
+      "src/renderer/components/MonacoEditorPlugin.ts": ["src/renderer/components/ContextMenu.ts"],
+      "src/renderer/components/FileExplorerPlugin.ts": ["src/renderer/components/ContextMenu.ts", "src/renderer/components/ConfirmModal.ts"],
+      "src/renderer/components/MarkdownPlugin.ts": ["src/renderer/components/ContextMenu.ts"],
+      "src/renderer/components/SpecsMapPlugin.ts": ["src/renderer/specgen-hash.ts"]
     }
   },
   "ipc_channels": {
     "window": ["window:new", "window:minimize", "window:maximize", "window:close", "window:isMaximized"],
+    "app": ["app:version"],
     "clipboard": ["clipboard:readText", "clipboard:writeText"],
-    "terminal": ["terminal:create", "terminal:write", "terminal:resize", "terminal:kill"],
-    "events": ["terminal:data", "terminal:exit", "file:changed"],
-    "filesystem": ["fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete", "fs:copy", "fs:rename", "file:watch", "file:unwatch"],
-    "git": ["git:remotes", "git:branches", "git:checkout", "git:log", "git:showTree", "git:diff", "git:currentBranch", "git:stagedFiles", "git:unstagedFiles", "git:stagedDiff", "git:unstagedDiff", "git:commitBody", "git:stage", "git:unstage", "git:commit", "git:push", "git:checkAhead"],
+    "terminal": ["terminal:create", "terminal:write", "terminal:resize", "terminal:kill", "terminal:data", "terminal:exit"],
     "workspace": ["workspace:select", "workspace:setPath", "workspace:getPath", "workspace:load", "workspace:save", "workspace:getRecent", "workspace:addRecent", "workspace:removeRecent"],
+    "fs": ["fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete", "fs:copy", "fs:rename"],
+    "file": ["file:watch", "file:unwatch", "file:changed"],
     "shell": ["shell:openExternal"],
     "prefs": ["prefs:load", "prefs:save"],
-    "ide_context": ["ide:editorState", "selection_changed (WebSocket push)"]
+    "git": ["git:remotes", "git:branches", "git:checkout", "git:log", "git:showTree", "git:diff", "git:currentBranch", "git:stagedFiles", "git:unstagedFiles", "git:stagedDiff", "git:unstagedDiff", "git:commitBody", "git:stage", "git:unstage", "git:commit", "git:push", "git:checkAhead"],
+    "ide": ["ide:editorState", "ide:status"]
   },
   "keyboard_shortcuts": [
-    { "key": "Ctrl+Shift+N", "scope": "app", "action": "New window" },
-    { "key": "Ctrl+W", "scope": "app", "action": "Blocked (prevent browser close-tab)" },
-    { "key": "Ctrl+Tab", "scope": "canvas", "action": "Cycle cards forward" },
-    { "key": "Ctrl+Shift+Tab", "scope": "canvas", "action": "Cycle cards backward" },
-    { "key": "Ctrl+P", "scope": "app", "action": "Open file search palette on active explorer" },
-    { "key": "Ctrl+J", "scope": "app", "action": "New terminal" },
-    { "key": "Ctrl+S", "scope": "editor", "action": "Save current file" },
-    { "key": "Ctrl+Shift+V", "scope": "terminal", "action": "Paste from clipboard" },
-    { "key": "Ctrl+Shift+C", "scope": "terminal", "action": "Copy selection" },
-    { "key": "Escape", "scope": "modal", "action": "Cancel/close current modal" },
-    { "key": "ArrowUp/ArrowDown", "scope": "palette", "action": "Navigate file results" },
-    { "key": "Enter", "scope": "palette", "action": "Select highlighted file" }
+    { "key": "Ctrl+Shift+N", "scope": "app", "action": "Create new Cockpit window" },
+    { "key": "Ctrl+W", "scope": "app", "action": "Close active editor tab in active Explorer plugin" },
+    { "key": "Ctrl+Tab", "scope": "canvas", "action": "Cycle to next open card (shift: reverse direction)" },
+    { "key": "Ctrl+P", "scope": "app", "action": "Open file search command palette in active Explorer plugin" },
+    { "key": "Ctrl+J", "scope": "app", "action": "Create new terminal card" },
+    { "key": "Ctrl+Wheel", "scope": "canvas", "action": "Zoom canvas (cursor-centered, 0.1x–5x)" },
+    { "key": "Escape", "scope": "modal", "action": "Dismiss active modal/overlay/palette" },
+    { "key": "Ctrl+S", "scope": "editor", "action": "Save active file in Monaco editor" },
+    { "key": "Ctrl+Shift+C", "scope": "terminal", "action": "Copy terminal selection to clipboard" },
+    { "key": "Ctrl+Shift+V", "scope": "terminal", "action": "Paste clipboard into terminal (via PTY)" }
   ],
   "test_coverage": {
-    "total_test_files": 25,
-    "total_tests": "855",
-    "run_time": "~11s",
-    "framework": "vitest 4 + jsdom + V8 coverage",
-    "specs_with_direct_tests": 21,
-    "specs_with_indirect_tests": 3,
-    "specs_without_tests": 2
+    "total_test_files": 26,
+    "total_tests": "755+",
+    "run_time": "~10s",
+    "framework": "vitest 4 + jsdom",
+    "specs_with_direct_tests": 18,
+    "specs_with_indirect_tests": 6,
+    "specs_without_tests": 4
   }
 }

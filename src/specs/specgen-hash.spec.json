@@ -1,19 +1,38 @@
 {
-  "name": "SpecGen Hash",
+  "name": "Specgen Hash Stamp",
   "file": "src/renderer/specgen-hash.ts",
-  "description": "Auto-generated constants for SPECGEN.md integrity verification. Exports SPECGEN_HASH (SHA-256 of the workspace SPECGEN.md seeded with app version) and SPECGEN_VERSION (current app version stamped at build time). Regenerated on every build via build-renderer.js. Imported by SpecsMapPlugin for integrity badge display.",
-  "type": "data",
+
+  "description": "Auto-generated build stamp containing SHA-256 hash and version string for spec validity checks. Regenerated on every `npm run build` by the build-renderer.js script. Used by SpecsMapPlugin to validate cached spec graph snapshots.",
+
+  "type": "config",
   "layer": "foundation",
-  "singleton": false,
+
+  "singleton": true,
+
   "exports": ["SPECGEN_HASH", "SPECGEN_VERSION"],
+
   "dependencies": [],
+
   "referenced_by": [
     { "feature": "specsmap-plugin", "file": "SpecsMapPlugin.ts" }
   ],
+
+  "ipc": [],
+
   "interface": {
-    "constants": [
-      { "name": "SPECGEN_HASH", "type": "string", "description": "SHA-256 hex digest of workspace SPECGEN.md content seeded with app version" },
-      { "name": "SPECGEN_VERSION", "type": "string", "description": "Version string stamped at build time (e.g. '0.0.20260602')" }
-    ]
-  }
+    "constants": {
+      "SPECGEN_HASH": "string — SHA-256 hex digest of spec files, generated at build time",
+      "SPECGEN_VERSION": "string — version stamp in format 0.0.<YYYYMMDD>, generated at build time"
+    }
+  },
+
+  "lifecycle": {
+    "created_by": "build-renderer.js regenerates this file on every `npm run build`",
+    "destroyed_by": "N/A — module-level constants exist for the lifetime of the renderer process",
+    "singleton": true
+  },
+
+  "external_deps": [],
+
+  "test": "none"
 }

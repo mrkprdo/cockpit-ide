@@ -1,48 +1,95 @@
 {
-  "name": "Theme",
+  "name": "Theme Manager",
   "file": "src/renderer/theme.ts",
-  "description": "Theme singleton managing dark/light color mode. Defines darkTheme (Noir dark: #161C24 bg) and lightTheme (inverse: #f8f8f8 bg) palettes with 7 CSS custom properties (--bg, --surface, --panel, --primary, --secondary, --tertiary, --border). Exports singletons darkTheme/lightTheme constants and a Theme class instance with setDark(), toggle(), and apply() methods that write to document.documentElement.style.",
+
+  "description": "Theme singleton managing CSS custom property application for dark/light modes and palette sets (default, monokai). Maintains _base and _mode state. Sets 7 CSS custom properties (--bg, --surface, --panel, --primary, --secondary, --tertiary, --border) on document.documentElement. Supports legacy theme name parsing (dark, light, monokai). Auto-applies default dark theme on import.",
+
   "type": "logic",
-  "layer": "core",
+  "layer": "foundation",
+
   "singleton": true,
-  "exports": ["theme", "ThemeColors", "darkTheme", "lightTheme"],
+
+  "exports": ["ThemeColors", "defaultDarkTheme", "defaultLightTheme", "monokaiDarkTheme", "monokaiLightTheme", "theme"],
+
   "dependencies": [],
+
   "referenced_by": [
-    { "feature": "app-shell", "file": "App.ts" },
-    { "feature": "topbar", "file": "TopBar.ts" },
+    { "feature": "app", "file": "App.ts" },
+    { "feature": "top-bar", "file": "TopBar.ts" },
     { "feature": "theme-modal", "file": "ThemeModal.ts" }
   ],
-  "palettes": {
-    "dark": {
-      "bg": "#161C24",
-      "surface": "#1C2538",
-      "panel": "#243248",
-      "primary": "#C8D6E5",
-      "secondary": "#78909C",
-      "tertiary": "#546E7A",
-      "border": "#2A3A4A"
-    },
-    "light": {
-      "bg": "#f8f8f8",
-      "surface": "#eeeeee",
-      "panel": "#e0e0e0",
-      "primary": "#1a1a1a",
-      "secondary": "#2a2a2a",
-      "tertiary": "#6a6a6a",
-      "border": "#1a1a1a"
-    }
-  },
+
+  "ipc": [],
+
   "interface": {
-    "constructor": "new Theme() (auto-applies on import)",
+    "constructor": "new Theme() — initializes _base='default', _mode='dark'",
     "methods": [
-      { "name": "setDark", "signature": "(dark: boolean) => void", "description": "Set mode and apply CSS properties" },
-      { "name": "toggle", "signature": "() => void", "description": "Flip isDark and apply CSS properties" },
-      { "name": "apply", "signature": "() => void", "description": "Write 7 CSS custom properties to :root" }
+      {
+        "name": "get base",
+        "signature": "get base(): string",
+        "description": "Returns current palette base name ('default' | 'monokai')"
+      },
+      {
+        "name": "get mode",
+        "signature": "get mode(): string",
+        "description": "Returns current mode ('dark' | 'light')"
+      },
+      {
+        "name": "get themeName",
+        "signature": "get themeName(): string",
+        "description": "Returns combined theme name (e.g. 'default-dark', 'monokai-light')"
+      },
+      {
+        "name": "get isDark",
+        "signature": "get isDark(): boolean",
+        "description": "Returns true if current mode is 'dark'"
+      },
+      {
+        "name": "get colors",
+        "signature": "get colors(): ThemeColors",
+        "description": "Returns current ThemeColors palette object, falls back to defaultDarkTheme"
+      },
+      {
+        "name": "setBase",
+        "signature": "(base: string) => void",
+        "description": "Sets palette base if valid ('default' | 'monokai'), triggers apply()"
+      },
+      {
+        "name": "setMode",
+        "signature": "(mode: string) => void",
+        "description": "Sets mode if 'dark' or 'light', triggers apply()"
+      },
+      {
+        "name": "setTheme",
+        "signature": "(base: string, mode?: string) => void",
+        "description": "Sets base and optionally mode; supports legacy names ('dark'→default-dark, 'light'→default-light, 'monokai'→monokai-dark); triggers apply()"
+      },
+      {
+        "name": "setDark",
+        "signature": "(dark: boolean) => void",
+        "description": "Resets base to 'default' and sets mode to 'dark' or 'light', triggers apply()"
+      },
+      {
+        "name": "toggle",
+        "signature": "() => void",
+        "description": "Toggles mode between 'dark' and 'light', triggers apply()"
+      },
+      {
+        "name": "apply",
+        "signature": "() => void",
+        "description": "Reads current ThemeColors and sets --bg, --surface, --panel, --primary, --secondary, --tertiary, --border CSS custom properties on document.documentElement"
+      }
     ],
-    "properties": [
-      { "name": "isDark", "type": "boolean", "description": "Current mode (default: true)" },
-      { "name": "colors", "type": "ThemeColors", "description": "Current palette object" }
-    ]
+    "properties": []
   },
+
+  "lifecycle": {
+    "created_by": "Module-level instantiation: `export const theme = new Theme()` followed by `theme.apply()` — created once at renderer import",
+    "destroyed_by": "Lives for the duration of the renderer process",
+    "singleton": true
+  },
+
+  "external_deps": [],
+
   "test": "src/renderer/theme.test.ts"
 }

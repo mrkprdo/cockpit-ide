@@ -1,152 +1,115 @@
 {
   "name": "SpecsMap Plugin UI",
   "parent": "specsmap-plugin",
-  "description": "DOM structure, interactions, visual states, and rendering details for the SpecsMap dependency graph viewer. The UI consists of a header bar, a pannable/zoomable viewport containing an SVG edge layer and an HTML node layer, and a slide-in detail panel on the right.",
+  "description": "SpecsMap dependency graph viewer DOM and interactions. Documents the header bar with counts/buttons/validation badge, the graph viewport with SVG edge layer and HTML node layer, the empty state, the sliding detail panel, and the settings panel. Covers hover-highlight, node selection, pan/zoom, refresh, fit-to-view, settings toggling, and file-open interactions.",
   "dom": {
-    "root": "#sm-plugin (implicit — the .el div created by constructor)",
-    "style": "width:100%;height:100%;display:flex;flex-direction:column;background:transparent;font-family:\"Space Mono\",\"Courier New\",monospace;font-size:14px;position:relative;overflow:hidden",
-    "container": "Appended to the .card-body of a PluginCard with padding:0",
-
+    "root": "this.el — flex column div containing header and content area",
     "elements": {
-      "header": "#sm-plugin-header > div (first child of .el) — padding:3px 10px 3px 12px, font-size:11px, font-weight:700, letter-spacing:1.5px, color:var(--accent), border-bottom:1px solid var(--border), user-select:none, flex-shrink:0, z-index:10, display:flex, align-items:center, gap:10px. Inner HTML: subtitle '.sm-header-sub (font-size:10px, color:var(--tertiary), font-weight:400)', path (font-size:9px, opacity:0.5), validation badge, then .sm-header-btn (refresh icon), then .sm-header-btn (reset-view eye icon).",
-
-      "content": "#sm-plugin-content (second child of .el) — flex:1, position:relative, overflow:hidden. Contains the viewport and panel.",
-
-      "svg_layer": "SVG element (position:absolute, inset:0, width:100%, height:100%, pointer-events:none, z-index:1, overflow:visible). Contains <defs> with arrow markers (one per layer color + hover variant) and two <g> groups: one for UI parent-child dashed edges, one for dependency edges (glow path + solid line with marker).",
-
-      "node_layer": "Div (position:absolute, inset:0, z-index:2). Transformed via CSS transform: translate(panX, panY) scale(scale) with transform-origin:0 0. Contains .sm-node divs for each spec node and .sm-layer-header divs for each layer label.",
-
-      "sm_node": ".sm-node (position:absolute, border:1px dashed var(--border), border-radius:8px, background:var(--surface), cursor:pointer, transition:box-shadow 0.15s, border-color 0.15s, opacity 0.15s, border-style 0.1s, box-shadow:var(--shadow), overflow:visible, box-sizing:border-box). Main nodes: 280x100. UI sub-nodes: 230x62 + class .sm-node-ui. Each main node contains 4 .sm-port marker dots (6px circles, layer color) positioned at the 4 port locations: top-left (incoming), top-right (outgoing), bottom-left (outgoing), bottom-right (incoming). Ports protrude 3px outside the node border at half-opacity; hover reveals at full opacity with 1.3x scale.",
-
-      "sm_node_inner": ".sm-node-inner — padding:12px 16px, display:flex, flex-direction:column, gap:5px, height:100%, box-sizing:border-box. Contains .sm-node-head (flex row with .sm-dot + .sm-name + .sm-layer-badge), .sm-file, .sm-meta.",
-
-      "sm_dot": ".sm-dot — 8px width/height, border-radius:50%, flex-shrink:0. Color matches LAYER_COLORS_HEX for the node's layer. UI sub-nodes: 6px width/height, opacity:0.6.",
-
-      "sm_name": ".sm-name — font-size:13px, font-weight:700, color:var(--primary), line-height:1.3, flex:1, overflow:hidden, text-overflow:ellipsis, white-space:nowrap. UI sub-nodes: font-size:11px, opacity:0.7.",
-
-      "sm_file": ".sm-file — font-size:11px, color:var(--tertiary), overflow:hidden, text-overflow:ellipsis, white-space:nowrap. UI sub-nodes: font-size:10px.",
-
-      "sm_meta": ".sm-meta — font-size:10px, color:var(--secondary), margin-top:auto, display:flex, gap:6px. Shows dep count (→N), ref count (←N), or 'no links' for isolated nodes.",
-
-      "sm_layer_header": ".sm-layer-header — position:absolute, font-size:13px, font-weight:700, letter-spacing:1.5px, user-select:none, pointer-events:none, opacity:0.45. Placed 100px left of first node in layer, width:94px, text-align:right.",
-
-      "sm_header_btn": ".sm-header-btn — border:none, outline:none, background:none, border-radius:6px, padding:5px 7px, color:var(--tertiary), cursor:pointer, display:flex, align-items:center, justify-content:center, line-height:0, transition:color 0.15s,background 0.15s. Hover: color:var(--accent), background:var(--surface). Focus-visible: outline:none. Contains SVG icon (16x16, stroke currentColor). Gear icon (⚙) .sm-header-btn when cycle mode active: color:var(--accent).",
-
-      "cycle_badge": ".sm-cycle-badge (implicit — <span> inline after gear button) — display:none by default; font-size:9px;font-weight:700;letter-spacing:0.3px;padding:1px 6px;border-radius:4px;border:1px solid;line-height:1.6;white-space:nowrap;transition:color 0.15s,border-color 0.15s. When cycles found: color:var(--red), border-color:var(--red), background:color-mix(in oklab, var(--red) 10%, transparent). When acyclic: color:var(--green), border-color:var(--green), background:color-mix(in oklab, var(--green) 10%, transparent).",
-
-      "panel": "Div (position:absolute, right:0, top:0, bottom:0, width:320px, background:var(--surface), border-left:1px dashed var(--border), z-index:20, transform:translateX(100%) by default, transition:transform 0.2s cubic-bezier(0.4,0,0.2,1), display:flex, flex-direction:column, overflow:hidden). Contains .sm-panel-inner (flex:1, overflow-y:auto) that holds sections.",
-
-      "panel_section": ".sm-panel-section — padding:10px 14px, border-bottom:1px solid var(--border). Sections: Header (color dot 12px + name 13px bold + layer badge 10px + close × 18px), Identity (spec file 11px clickable accent color with data-open-file, source file 11px clickable accent color with data-open-file, parent/child links 12px), Description (12px, line-height:1.6), Depends On (clickable nav items 12px), Referenced By (clickable nav items), IPC Channels (12px). Panel labels font-size:9px, letter-spacing:1px, margin-bottom:8px."
+      "header": "div (this.el first child) — padding:3px 10px 3px 12px, font-size:11px, font-weight:700, letter-spacing:1.5px, color:var(--accent), border-bottom:1px solid var(--border), user-select:none, display:flex, align-items:center, gap:10px",
+      "header_sub": ".sm-header-sub — font-size:10px, color:var(--tertiary), font-weight:400, letter-spacing:0.3px, text-transform:none, flex-shrink:0. Displays spec file count and parse status",
+      "validation_badge": "span — font-size:11px, font-weight:700, color:var(--green) on success or var(--red) on failure. Shows parsed/total count (e.g. '28/28')",
+      "cycle_btn": "button.sm-header-btn — toggles cycle detection mode. Shows cycle indicator when cycles detected",
+      "refresh_btn": "button.sm-header-btn — triggers refresh(). Disabled during loading, SVG spinner class during reload",
+      "fit_btn": "button.sm-header-btn — triggers fitGraph(). Eye icon SVG",
+      "viewport": "div — position:absolute, inset:0, overflow:hidden, contain:layout style. Contains svg, nodeLayer, and emptyState",
+      "svg_graph": "svg.sm-graph — position:absolute, inset:0, pointer-events:none, z-index:1, overflow:visible. Contains edge path elements and arrow marker defs",
+      "node_layer": "div — position:absolute, inset:0, z-index:2. Contains absolutely positioned .sm-node elements. Will-change:transform during pan, CSS transform for pan/zoom",
+      "empty_state": "div — position:absolute, inset:0, display:none, flex column, center aligned, z-index:10. Shows 'No spec files found' with 'Generate Specs' button when empty",
+      "panel": ".sm-panel-el — position:absolute, right:0, top:0, bottom:0, width:320px, background:var(--surface), border-left:1px dashed var(--border), z-index:20. Transform:translateX(100%) when closed, translateX(0) when open. flex column with overflow:hidden"
     }
+  },
+  "node_structure": {
+    "container": ".sm-node — position:absolute, border:1px dashed var(--border), border-radius:8px, background:var(--surface), cursor:pointer, transition:box-shadow 0.15s border-color 0.15s opacity 0.15s, box-shadow:var(--shadow), overflow:visible. Width/height from computeLayout()",
+    "inner": ".sm-node-inner — padding:8px 10px, display:flex, flex-direction:column, gap:3px, height:100%",
+    "head": ".sm-node-head — display:flex, align-items:center, gap:6px, min-width:0. Contains .sm-dot, .sm-name, .sm-layer-badge",
+    "dot": ".sm-dot — width:8px, height:8px, border-radius:50%, flex-shrink:0. Colored by LAYER_COLORS_HEX (foundation:#4ade80, core:#5a8af4, widget:#a78bfa, modal:#fbbf24, overlay:#f87171, plugin:#94a3b8)",
+    "name": ".sm-name — font-size:13px, font-weight:700, color:var(--primary), overflow:hidden, text-overflow:ellipsis, white-space:nowrap",
+    "layer_badge": ".sm-layer-badge — font-size:9px, font-weight:700, letter-spacing:0.8px, color:var(--tertiary), opacity:0.8",
+    "file": ".sm-file — font-size:11px, color:var(--tertiary), overflow:hidden, text-overflow:ellipsis, white-space:nowrap",
+    "meta": ".sm-meta — font-size:10px, color:var(--secondary), margin-top:auto, display:flex, gap:6px. Shows dep/ref counts",
+    "ui_node": ".sm-node-ui — applied to UI sub-spec nodes. .sm-name font-size:11px, .sm-file font-size:10px, .sm-dot width:6px height:6px opacity:0.6",
+    "port_dots": "Four port dots on main node borders: top-left (incoming), top-right (outgoing), bottom-left (outgoing), bottom-right (incoming). Used as SVG edge routing endpoints",
+    "layer_header": ".sm-layer-header — position:absolute, font-size:13px, font-weight:700, letter-spacing:1.5px, user-select:none, pointer-events:none, opacity:0.45. Absolutely positioned labels for each layer row"
   },
   "interactions": [
     {
-      "name": "wheel_zoom",
-      "trigger": "wheel event on .viewport",
-      "gesture": "Scroll on viewport",
-      "action": "e.preventDefault(). Compute mx, my relative to viewport. oldScale = scale. maxScale = max(fitScale * 3, 1.0). scale = clamp(fitScale, maxScale, scale * (1 + -deltaY * 0.001)). panX = mx - (mx - panX) * (scale / oldScale). panY = my - (my - panY) * (scale / oldScale). applyTransform().",
-      "propagation": "e.preventDefault() + e.stopPropagation() on viewport",
-      "result": "Viewport content zooms in/out centered on cursor position"
-    },
-{
-      "name": "canvas_pan_start",
-      "trigger": "mousedown on .viewport (button 0 or 1, not on .sm-node)",
-      "action": "isPanning = true. Record panStartX/Y = clientX/Y, panStartPanX/Y = current panX/panY. Set cursor:grabbing.",
-      "propagation": "Do not propagate beyond viewport",
-      "cursor": "grabbing on viewport, revert on mouseup"
-    },
-    {
-      "name": "canvas_pan_move",
-      "trigger": "mousemove on document while isPanning true",
-      "action": "panX = panStartPanX + (clientX - panStartX). panY = panStartPanY + (clientY - panStartY). applyTransform().",
-      "result": "Viewport content follows mouse movement"
-    },
-    {
-      "name": "canvas_pan_end",
-      "trigger": "mouseup on document",
-      "action": "isPanning = false. cursor = ''.",
-      "result": "Panning stops"
-    },
-    {
-      "name": "node_click",
-      "trigger": "click on .sm-node",
-      "action": "e.stopPropagation(). Get node id from dataset.id. If same node already selected and panel is open, close panel. Otherwise: deselect previous (remove .sm-selected class), set selectedId, add .sm-selected class to new node, call zoomToNode(node) with availableW = cw - PANEL_W to center in the space left of the panel, then openPanel(node).",
-      "propagation": "e.stopPropagation() prevents canvas background click",
-      "result": "Side panel slides in showing spec details for the clicked node, with the node centered in the remaining viewport width (viewport minus 320px panel width). If already selected, panel slides out and view resets to fit graph."
-    },
-    {
-      "name": "canvas_background_click",
-      "trigger": "click on .viewport not on .sm-node",
-      "action": "If e.target is not inside .sm-node, call closePanel().",
-      "result": "Side panel slides out (translateX: 100%), selectedId cleared, .sm-selected class removed"
-    },
-    {
-      "name": "node_hover_enter",
+      "name": "hover_node",
       "trigger": "mouseenter on .sm-node",
-      "action": "Compute connected set (node + deps + parentId + uiChildId + reverse deps + reverse parent/child). For all SVG paths: if connected, accent style with animated dash-flow; if not, opacity 0.04. For all node elements: if connected, border-color = layer hex, border-style solid, box-shadow glow, opacity 1; if not, opacity 0.14.",
-      "result": "Connected nodes and edges highlighted, rest dimmed"
+      "action": "Highlight connected nodes: set border style to solid with 2px thickness and LAYER_COLORS_VAR glow box-shadow, set opacity to 1. Animate connected edges: increase stroke-width, add dash-array animation (.sm-edge-active class with sm-flow keyframe). Dim unrelated nodes: set opacity to 0.14",
+      "result": "Connected subgraph visually emphasized; unrelated nodes dimmed"
     },
     {
-      "name": "node_hover_leave",
+      "name": "unhover_node",
       "trigger": "mouseleave on .sm-node",
-      "action": "For all SVG paths: remove dasharray, restore layer color, restore stroke-width, restore marker-end, restore opacity per etype (dep:0.3, glow:0.06, ui:0.25). For all node elements: reset opacity, reset border color/style to match selected state (if selected) or default.",
-      "result": "All nodes and edges restore to default or selected-state appearance"
+      "action": "Restore all .sm-node elements to default opacity (1). Restore all edge path elements to default stroke-width and remove .sm-edge-active class",
+      "result": "All nodes and edges return to default visual state"
     },
     {
-      "name": "panel_nav_click",
-      "trigger": "click on [data-goto] element inside panel",
-      "action": "Get target node id from dataset.goto. Call selectNode(targetId).",
-      "result": "Panel updates to show the referenced node's details"
+      "name": "select_node",
+      "trigger": "click on .sm-node",
+      "action": "Deselect previous (remove .sm-selected class from all nodes) → add .sm-selected class (solid border) to clicked node → zoom-to-node: animated pan+scale to center node with 300ms ease-out cubic transition → open detail panel from right (translateX(0) on .sm-panel-el, renderPanel() with dependencies, referencers, IPC channels, 'Open File' link)",
+      "result": "Node highlighted with solid border, viewport smoothly pans/zooms to center the node, detail panel slides in from right with full spec information"
     },
     {
-      "name": "cycle_edge_click",
-      "trigger": "click on SVG <path> with data-etype='dep' and cursor:pointer style in cycle mode",
-      "action": "onSvgCycleClick handler checks if source+target belong to same cycle via cycleSets. If yes: toggle selectedCycleIndex (null→idx or idx→null). Re-apply cycle highlights (selected cycle gets thicker stroke 4, brighter glow, border glow 2px; deselected cycles dim to 0.3 opacity for edges and 0.5 for nodes). Re-render settings panel with selected cycle highlighted (▸ prefix, bold, colored background tint).",
-      "result": "Selected cycle emphasized with thicker stroke and brighter glow. Other cycles dimmed. Panel shows selected cycle with ▸ prefix."
+      "name": "deselect_all",
+      "trigger": "click on viewport background (not on .sm-node or panel)",
+      "action": "Remove .sm-selected class from all nodes → closePanel(): set panel transform to translateX(100%), clear panelInner innerHTML",
+      "result": "Selection cleared, detail panel slides out to right"
     },
     {
-      "name": "gear_click",
-      "trigger": "click on .sm-header-btn containing gear SVG",
-      "action": "Call openSettingsPanel(). If settings panel already open and showing settings: call closePanel() (hide panel, reset gear color). If node detail panel open: close it first, then open settings panel. Set panelShowingSettings=true, panelOpen=true, panel transform translateX(0), gear button color var(--accent). Renders settings content via renderSettingsContent(): Settings header with × close button, GRAPH ANALYSIS section with toggle switch (Off by default), and DEPTH chips section when active.",
-      "result": "Right-side settings panel slides in with analysis controls. Re-clicking gear or × closes the panel."
+      "name": "pan_canvas",
+      "trigger": "mousedown on viewport (not on .sm-node)",
+      "gesture": "mousedown: capture panStartX/Y and panStartPanX/Y, set isPanning=true → mousemove: requestAnimationFrame-throttled update: panX=panStartPanX+(mouseX-panStartX), panY=panStartPanY+(mouseY-panStartY), apply CSS transform → mouseup: isPanning=false, clear cursor/will-change styles",
+      "action": "Translate SVG and nodeLayer via CSS transform: translate(panX px, panY px) scale(scale)",
+      "cursor": "grabbing during drag",
+      "result": "Graph canvas panned to new position"
     },
     {
-      "name": "panel_close_click",
-      "trigger": "click on #sm-panel-close button",
-      "action": "call closePanel().",
-      "result": "Panel slides closed and selection cleared"
+      "name": "zoom",
+      "trigger": "wheel on viewport",
+      "action": "Cursor-centered scale change: newScale = clamp(scale * (deltaY > 0 ? 0.9 : 1.1), fitScale, fitScale * 3). Adjust panX/panY so cursor position stays fixed: panX = cursorX - (cursorX - panX) * (newScale / scale); panY = cursorY - (cursorY - panY) * (newScale / scale). Apply CSS transform",
+      "result": "Graph zooms in/out centered on cursor position, clamped to valid range"
     },
     {
-      "name": "panel_open_file",
-      "trigger": "click on [data-open-file] element inside panel body",
-      "action": "Read el.dataset.openFile for the full file path. Call this.onFileOpen?.(filePath). CanvasArea wires onFileOpen to getActiveExplorerPlugin()?.openFile(filePath), which opens the file in Monaco and reveals it in the file tree.",
-      "result": "Spec file or source file opens in the active Monaco editor tab"
+      "name": "refresh",
+      "trigger": "click on refresh button",
+      "action": "Disable button, add .sm-spinning class to SVG icon → clear state (nodes, specRawMap, nodeEls, SVG, panel, cycle/isolation modes) → call buildFromFiles() to read spec directory via IPC fs:readDir, parse main.spec.json and individual feature specs, compute layout, render nodes/edges → save snapshot to .cockpit/specsmap.json via IPC fs:writeFile → update validation badge counts → re-enable button, remove spinner",
+      "result": "Entire graph rebuilt from current spec files; snapshot cached for next load"
+    },
+    {
+      "name": "fit_view",
+      "trigger": "click on fit/eye button",
+      "action": "Calculate bounding box of all nodes (min/max x/y) → compute target scale = Math.min(viewportWidth/(maxX-minX+2*GRAPH_MARGIN), viewportHeight/(maxY-minY+2*GRAPH_MARGIN)) → compute target pan to center → animate pan and scale with 300ms ease-out cubic transition",
+      "result": "Viewport smoothly animates to show all nodes centered and visible"
+    },
+    {
+      "name": "open_settings",
+      "trigger": "click on cycle button",
+      "action": "Toggle cycleMode: detect dependency cycles via DFS on dependency graph → if cycles found, set cycleMode=true, render cycle level indicator, apply cycle border colors to cycle member nodes → clicking cycle button again advances cycleLevel through detected cycles. When in cycle mode with an active cycle, isolatedMode activates: dims non-cycle nodes to opacity 0.14, applies sm-flow-fast dashed border animation to cycle members",
+      "result": "Dependency cycles highlighted with colored borders; non-cycle members dimmed when isolation is active"
+    },
+    {
+      "name": "open_file",
+      "trigger": "click on 'Open File' link in detail panel",
+      "action": "Read data-open-file attribute from clicked element → fire this.onFileOpen?.(filePath) callback",
+      "result": "CanvasArea opens the source file in the active Explorer plugin's Monaco editor"
     }
   ],
   "states": {
-    "default": "All nodes at full opacity with dashed borders. All edges at base opacity (dep 0.3, glow 0.06, ui 0.25). No box-shadow on nodes. No edge animation.",
-    "hover": "Connected nodes: solid border colored by layer hex, box-shadow glow (0 0 0 1px <hex>33, 0 0 14px <hex>22), opacity 1. Non-connected nodes: opacity 0.14, no border/glow overrides. Connected dependency edges: stroke var(--accent), stroke-width 2, marker-end #sm-mk-hover, stroke-dasharray 6 3, animated dash-offset flow via .sm-edge-active (animation: sm-flow 0.8s linear infinite). Non-connected edges: opacity 0.04 (glow 0.01).",
-    "selected": "Selected node has .sm-selected class (border-style: solid, no dash). Panel visible at translateX(0). Other nodes at default opacity. Edges at default opacity.",
-    "panel_open": ".panel has transform:translateX(0), transition:transform 0.2s cubic-bezier(0.4,0,0.2,1). PanelInner has overflow-y:auto for scrolling content sections.",
-    "panel_closed": ".panel has transform:translateX(100%), occluded off the right edge.",
-    "loading": "Constructor called but loadSpecs() has not completed. No nodes rendered yet. Header visible.",
-    "settings_panel_open": "Right-side panel (320px) slides in with 'Settings' header. Shows GRAPH ANALYSIS section with toggle switch 'Show cyclic dependencies' (off by default). Toggle knob: left=off (bg var(--border)), right=on (bg var(--red)). Label shows On/Off. Panel state tracked via panelShowingSettings flag. Closing panel via × button or re-clicking gear restores gear color to default and hides panel (translateX:100%). Node click closes settings panel first, then opens node detail.",
-    "isolated_mode_on": "Settings panel visible. Isolated toggle ON (knob right, amber bg). Isolated nodes (no deps, no refs): amber #fbbf24 solid border, amber box-shadow glow, opacity 1. All other nodes dimmed to 0.14. All edges dimmed to 0.04. When cycle mode also ON: cycle-colored nodes keep cycle colors, isolated non-cycle nodes get amber, everything else dimmed. clearIsolatedHighlights() re-applies cycle highlights if active.",
-    "isolated_mode_off": "Isolated toggle OFF (knob left, default bg). Normal node appearance restored. If cycle mode active, cycle highlights re-applied.",
-    "cycle_mode_on_cyclic": "Settings panel visible. Toggle ON (knob right, red bg). DEPTH section shows level chips 1|2|3 (accent for current level, border for others). Level 1=cycle nodes only, Level 2=+immediate neighbors (gray border, 0.85 opacity), Level 3=+2-hop neighbors. CYCLES section lists each cycle with colored dot and member names. Nodes in cycles: solid border in cycle color (CYCLE_COLORS: #f87171 red, #fb923c orange, #fbbf24 amber, #f472b6 pink, #a78bfa purple), box-shadow glow, opacity 1. Neighbor nodes at level>1: gray border, 0.85 opacity. Non-cycle nodes: opacity 0.14. Non-cycle edges: opacity 0.04. Hover disabled. When isolated mode also ON: isolated non-cycle nodes get amber highlight instead of full dim.",
-    "cycle_mode_on_acyclic": "Settings panel visible. Toggle ON. DEPTH chips shown. '✓ No cycles — graph is a valid DAG' in green. All nodes and edges at normal opacity.",
-    "cycle_mode_off": "Gear icon at default color (var(--tertiary)). Settings panel closed or showing toggle OFF. All nodes and edges at default appearance. Normal hover/select behavior restored.",
-    "error": "If loadSpecs() throws, .nodeLayer contains: '<div style=\"padding:16px;color:var(--red);font-size:11px\">Error loading specs</div>'",
-    "empty": "No spec files found. Empty state overlay visible: icon, title, subtitle, chip picker of detected entry candidates (always shown), editable text input (always editable, never readOnly), SPECGEN.md integrity badge, and 'Copy Generation Prompt' button. fitGraph() returns early with no nodes."
+    "empty": "No spec files found in workspace's src/specs/ directory. Header shows '0/0' badge. Viewport shows emptyState div with centered message 'No spec files found' and a 'Generate Specs' button. Refresh available to retry.",
+    "loading": "Refresh button disabled. Refresh button SVG icon has .sm-spinning class (CSS rotation animation). Header sub shows 'loading...'. Graph area blank while loading.",
+    "loaded": "Graph rendered with full node set. Validation badge shows green 'N/N' (all parsed) or amber 'M/N' (some failed). Nodes positioned by computeLayout() with rows of up to 10 per layer, centered horizontally. SVG edges drawn as cubic bezier curves between port dots. Layer headers visible as dimmed absolute labels.",
+    "panel_open": "Detail panel visible (translateX(0) from right). Selected node has .sm-selected class with solid border. Panel header shows spec name and close button. Panel body shows sections: source file, layer badge, dependencies list (name + file + usage), referencers list, IPC channels list. 'Open File' link at bottom with data-open-file attribute.",
+    "settings_open": "cycleMode is true. Cycle button shows cycle level indicator (e.g. 'C1' for first cycle). Nodes in current cycle have colored highlight borders. If multiple cycles exist, clicking cycle button advances through levels."
   },
   "rendering": {
-    "node_dimensions": "Main spec nodes: 280x100 (NODE_W x NODE_H). UI sub-spec nodes: 230x62 (NODE_UI_W x NODE_UI_H). Gap between nodes: 28px (NODE_GAP). Gap between layers: 60px (LAYER_GAP). UI offset below parent: 64px (UI_OFFSET_Y). Port offset from center: 28px (PORT_OFFSET). Each main node renders 4 .sm-port marker dots (6px circles, layer color) at each port: top-left (calc(50%-28px)), top-right (calc(50%+28px)), bottom-left (calc(50%-28px)), bottom-right (calc(50%+28px)). Dots sit 3px outside node edge (top:-3px / bottom:-3px). Opacity 0.4 default, 0.85 with 1.3x scale on node hover. UI sub-nodes hide port dots (.sm-port display:none).",
-    "layout_formula": "For each layer in LAYER_ORDER: chunk items into groups of MAX_PER_ROW (10). For each chunk: compute rowW = chunk.length * NODE_W + (chunk.length-1) * NODE_GAP. startX = -rowW / 2. Position each item at (startX + i*(NODE_W+NODE_GAP), globalY). UI sub-nodes centered below their parent: x = parent.x + (NODE_W-NODE_UI_W)/2, y = globalY + NODE_H + UI_OFFSET_Y. Advance globalY by NODE_H + (hasUI ? UI_OFFSET_Y+NODE_UI_H+20 : 0) + LAYER_GAP per chunk.",
-    "edge_rendering": "Cubic bezier curves via SVG <path d='Mx1,y1 Ccx1,cy1 cx2,cy2 x2,y2'>. No side connections — only 4 ports per node on top and bottom edges: top-left (incoming), top-right (outgoing), bottom-left (outgoing), bottom-right (incoming). Edges stay on one side per flow direction: left-side ports (center − offset) for downward flow (src.bottom-left → tgt.top-left), right-side ports (center + offset) for upward flow (src.top-right → tgt.bottom-right). Same-row edges stay on one edge: rightward uses bottom-left→bottom-right arcing below the row (vertical control points at max(y)+NODE_GAP), leftward uses top-right→top-left arcing above the row (vertical control points at min(y)−NODE_GAP). Control points at 15% horizontal offset and 50% vertical distance for cross-layer edges. For UI parent-child edges: vertical curve centered with control points at 50% vertical distance. Each dependency edge has two paths: a glow path (stroke-width 6, opacity 0.06) behind a solid line (stroke-width 1.5, opacity 0.3) with an arrow marker at the target.",
-    "layer_colors": "foundation: #4ade80 (var(--green)), core: #5a8af4 (var(--accent)), widget: #a78bfa (var(--accent2)), modal: #fbbf24 (var(--amber)), overlay: #f87171 (var(--red)), plugin: #94a3b8 (var(--secondary)).",
-    "cycle_highlight_colors": "Up to 5 cycles can be distinguished: #f87171 (red), #fb923c (orange), #fbbf24 (amber), #f472b6 (pink), #a78bfa (purple). Cycles beyond 5 wrap to the start of the palette.",
-      "fit_graph_formula": "On initial load: compute graph bounding box from all nodes. fitX = (viewportWidth - 160) / graphWidth, fitY = (viewportHeight - 160) / graphHeight. fitScale = min(fitX, fitY, 1.0). scale = fitScale. panX = (viewportWidth - graphWidth*scale)/2 - minX*scale. panY = (viewportHeight - graphHeight*scale)/2 - minY*scale.",
-      "zoom_to_node_formula": "On node click: availableW = viewportWidth - PANEL_W (320px). targetScale = min(availableW / (node.w * 3), viewportHeight / (node.h * 3), 1.5). scale = max(targetScale, fitScale). panX = (availableW - node.w * scale) / 2 - node.x * scale. panY = (viewportHeight - node.h * scale) / 2 - node.y * scale. This ensures the node centers in the remaining space after the right panel opens.",
-    "panel_width": "320px (PANEL_W). Transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)."
+    "node_layout": "computeLayout() groups nodes by layer (foundation bottom → plugin top). Within each layer, nodes arranged in rows of up to MAX_PER_ROW (10), left-to-right, centered horizontally. Row height equals node height + NODE_GAP. NODE_W=280, NODE_H=100 for main nodes. NODE_UI_W=230, NODE_UI_H=62 for UI sub-spec nodes with UI_OFFSET_Y=64 vertical offset from parent",
+    "edge_curves": "curvePoints() generates cubic bezier SVG paths with directional port routing. Paths originate from port dots (28px offsets from corners) — outgoing from bottom-left/top-right, incoming at top-left/bottom-right. Arrow markers via SVG <marker> defs at path endpoints. Glow layers rendered as duplicate paths with lower opacity and wider stroke",
+    "transform": "CSS transform: translate(panX px, panY px) scale(scale) applied to both SVG and nodeLayer elements simultaneously. During animated transitions, CSS transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+    "reduced_motion": "prefers-reduced-motion media query disables sm-flow and sm-flow-fast CSS animations. Transition durations halved or removed"
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea.addSpecsmap() — DOM container created by PluginCard, SpecsMapPlugin constructor builds full UI, immediately calls loadSpecs()",
+    "destroyed_by": "Card terminate → SpecsMapPlugin.destroy() removes document-level mousemove/mouseup listeners, clears nodeEls and specRawMap maps. PluginCard then removes DOM container"
   }
 }

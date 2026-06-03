@@ -1,50 +1,69 @@
 {
   "name": "SpecsMap Plugin",
   "file": "src/renderer/components/SpecsMapPlugin.ts",
-  "description": "Spec dependency graph viewer. Reads the spec index (main.spec.json) and individual spec files from src/specs/ — or from a cached snapshot in .cockpit/specsmap.json — and displays a fixed layer-based graph where each node is a spec file and edges are dependency links. Supports zoom (ctrl+wheel), pan (drag), hover edge tracing, and a slide-in detail panel. On first open of a workspace with no spec files, shows an empty state with entry-point detection and SPECGEN.md integrity verification. Singleton (one instance per workspace).",
+  "description": "Visual dependency graph viewer for the specs system. Reads spec JSON files from workspace's src/specs/ directory (or auto-discovers via recursive walk). Parses main.spec.json for feature catalog and layer mapping, then reads individual feature spec files for dependency edges. Renders nodes colored by layer (foundation=green, core=blue, widget=purple, modal=yellow, overlay=red, plugin=gray) arranged bottom-to-top by architectural layer. Bezier curve edges connect source→target dependencies with SVG paths. Hovering a node highlights all connected nodes and edges, dims unrelated. Clicking a node opens a right-side detail panel showing: spec name, source file, layer badge, all dependencies (with usage descriptions), referencers, IPC channels, exported symbols. Panel has an 'Open File' link to open the source file in editor. Supports zoom (mousewheel), pan (left/middle-click drag), and fit-to-view (eye button). Caches parsed graph as JSON snapshot in .cockpit/specsmap.json validated against SPECGEN_HASH for fast reload. Refresh button rebuilds from files. Validation badge shows parse success count. Settings panel with cycle detection (highlight dependency cycles) and isolation mode.",
   "type": "ui",
   "layer": "plugin",
-  "singleton": true,
+  "singleton": false,
   "exports": ["SpecsMapPlugin"],
   "dependencies": [
     {
       "feature": "specgen-hash",
       "file": "specgen-hash.ts",
-      "usage": "Imports SPECGEN_HASH and SPECGEN_VERSION for integrity check against generated SPECGEN.md"
+      "usage": "SPECGEN_HASH for spec graph snapshot validation against cached .cockpit/specsmap.json"
     }
   ],
   "referenced_by": [
-    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+    {
+      "feature": "canvas-area",
+      "file": "CanvasArea.ts"
+    }
   ],
-  "ipc": ["fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "clipboard:writeText"],
+  "ipc": [
+    "fs:readDir",
+    "fs:readFile",
+    "fs:mkdir",
+    "fs:writeFile"
+  ],
   "interface": {
-    "constructor": "new SpecsMapPlugin(container: HTMLElement, wsPath: string)",
-    "properties": [
-      { "name": "onFileOpen", "signature": "((filePath: string) => void) | null", "description": "Callback invoked when user clicks a spec file or source file name in the detail panel. CanvasArea wires this to getActiveExplorerPlugin()?.openFile(filePath)." }
-    ],
+    "constructor": "constructor(container: HTMLElement, wsPath: string) — Creates full DOM structure (header with refresh/fit/cycle buttons and validation badge, viewport with SVG edge layer and HTML node layer, empty state overlay, slide-out detail panel). Injects CSS styles. Initializes pan/zoom interaction listeners. Immediately calls loadSpecs() to build graph from cached snapshot or spec files.",
     "methods": [
-      { "name": "destroy", "signature": "() => void", "description": "Remove document mousemove/mouseup listeners, clear internal node and spec maps" }
+      {
+        "name": "refresh",
+        "signature": "() => Promise<void>",
+        "description": "Clears current state (nodes, specRawMap, nodeEls, SVG, panel), disables refresh button with spinner, resets cycle/isolation modes, then rebuilds entire graph from spec files via buildFromFiles(). Updates validation badge with parse result counts. Re-enables refresh button on completion. Catches and displays errors inline."
+      },
+      {
+        "name": "destroy",
+        "signature": "() => void",
+        "description": "Removes document-level mousemove/mouseup listeners (pan tracking). Clears nodeEls and specRawMap maps to prevent memory leaks."
+      }
+    ],
+    "properties": [
+      {
+        "name": "onFileOpen",
+        "type": "((filePath: string) => void) | null",
+        "description": "Callback fired when user clicks the 'Open File' link in the detail panel. Set by CanvasArea to open the source file in the Monaco editor."
+      }
     ]
   },
   "features": {
-    "snapshot_cache": "On load, tries .cockpit/specsmap.json first (v:1 schema with SnapNode[]). If valid, skips IPC file reads and renders instantly. buildFromFiles() re-reads all spec files, saves a fresh snapshot, then renders. Refresh button always bypasses cache.",
-    "spec_loading": "buildFromFiles() finds main.spec.json by recursive workspace search (checks src/specs/, specs/, .specs/ first, then walks directories up to depth 4, skipping .git/node_modules/.cockpit). Uses the parent directory as base for reading features, layer mapping, and all other *.spec.json files. Saves a fresh snapshot after build. Refresh button always clears cached base dir and re-discovers.",
-    "layer_grouping": "Fixed vertical layout: foundation→core→widget→modal→overlay→plugin rows, wrapped to next line when a layer exceeds MAX_PER_ROW (10) nodes. UI sub-specs (44px tall) position below their parent node offset by UI_OFFSET_Y. Layer header labels sit left of each row.",
-    "dependency_display": "280×100px main nodes, 230×62px UI nodes. SVG cubic bezier edges colored by source layer; same-layer edges curve horizontally, cross-layer vertically. No side connections — edges only connect to node top and bottom edges via 4 fixed ports: top-left (incoming), top-right (outgoing), bottom-left (outgoing), bottom-right (incoming). Each main node renders 4 .sm-port marker dots (6px colored circles) at the port positions, visible on hover. Downward flow (src above → tgt below) uses left-side ports: src.bottom-left → tgt.top-left. Upward flow (src below → tgt above) uses right-side ports: src.top-right → tgt.bottom-right. Same-row flow stays on one edge: rightward uses bottom-left→bottom-right (arc below row), leftward uses top-right→top-left (arc above row). PORT_OFFSET=28px. Glow path (stroke-width:6, opacity:0.06) under each dep edge.",
-    "node_selection_panel": "Click opens a 284px overlay panel (translateX slide, z-index:20) with fixed header (name, layer, close) and scrollable body (spec file, source file, description, deps with usage, refs, IPC). Spec file and source file names are clickable (data-open-file) — opens the file in the active Monaco editor via onFileOpen callback. Nav links in panel navigate to other nodes. Click same node again or canvas background closes panel.",
-    "hover_tracing": "Mouseenter highlights connected subgraph (deps + refs + UI pair) at full opacity, dims others to 0.14. Dep edges animate (stroke-dashoffset flow). Mouseleave restores all styles. Selected node border stays solid after hover out.",
-    "zoom_and_pan": "Ctrl+wheel zoom cursor-centered, clamped to [fitScale*0.8, max(fitScale*2, 1.0)]. Plain wheel pans vertically. Drag on canvas (not nodes) pans. fitGraph() centers graph in viewport on initial render.",
-    "refresh_and_validation": "↻ button in header force-rebuilds from files, saves snapshot, shows spinning animation during build. After refresh, validation badge (✓ N/N or ⚠ N/N) compares parsed node count to raw file count. Header subtitle updates with main+UI spec counts.",
-    "cycle_detection": "Gear icon (⚙) opens settings drawer (right-side panel). Contains toggle switches for 'Show cyclic dependencies' and 'Show isolated nodes'. Cycle toggle: runs Tarjan's SCC algorithm to find all strongly connected components larger than 1 node (cycles of any depth). Cycles highlighted in distinct colors (red/orange/amber/pink/purple). Edges within cycles get animated dash flow. Depth level chips (1|2|3) control highlight expansion: Level 1 = cycle nodes only (default), Level 2 = cycle nodes + immediate neighbors (gray highlight), Level 3 = +2-hop neighbors. Non-highlighted nodes dim to 0.14 opacity. Settings panel shows cycle count and member listing. Clicking a cycle edge selects that cycle (thicker stroke, brighter glow), dims other cycles. Isolated toggle: highlights nodes with zero dependencies and zero references in amber (#fbbf24), dims unconnected nodes to 0.14. Both toggles can be active simultaneously — cycle-colored nodes take priority over isolated amber. Toggle off or graph refresh restores normal view.",
-    "empty_state_and_specgen": "When no spec files found: always scans workspace root for candidate entry points via detectEntrycandidates() (src/, lib/, docker-compose.yml, Makefile, etc.), prepends src/ if the directory exists. Shows chip picker + always-editable text input (not readOnly even when src/ exists). Verifies workspace SPECGEN.md integrity against bundled SHA-256 hash seeded with app version. Button writes SPECGEN.md if missing, reads optional Agents.md, builds 3-pass prompt adapted to dir vs file entry, copies to clipboard. Manual entry in the text input is always reflected in the clipboard prompt."
-  },
-  "lifecycle": {
-    "created_by": "CanvasArea — new SpecsMapPlugin(body, wsPath) when creating a new SpecsMap card or restoring state",
-    "destroyed_by": "CanvasArea via card.onDestroy = () => sm.destroy() when the card is terminated",
-    "singleton": true
+    "graph_rendering": "SVG bezier curve edges with directional port routing (top-left=incoming, top-right=outgoing, bottom-left=outgoing, bottom-right=incoming). HTML nodes positioned absolutely within a CSS-transformed viewport. Layer headers as absolutely positioned labels",
+    "hover_highlight": "Mouseenter on a node highlights all connected nodes (solid border, glow box-shadow, full opacity) and edges (increased stroke-width, dash animation, accent color). Unrelated nodes dimmed to opacity 0.14",
+    "detail_panel": "320px right-side slide-in panel showing selected node details: spec name, source file, layer badge, dependencies (with usage descriptions), referencers, IPC channels, 'Open File' link",
+    "zoom_pan": "Mousewheel cursor-centered zoom (clamped between fitScale and fitScale*3). Left/middle-click drag pan with rAF-throttled mouse tracking and cubic-bezier transform",
+    "fit_to_view": "Calculates bounding box of all nodes and animates pan+scale to fit entire graph in viewport (300ms ease-out cubic)",
+    "snapshot_cache": "Saves parsed graph as JSON to .cockpit/specsmap.json. On load, validates cached snapshot against SPECGEN_HASH; rebuilds from files if hash mismatches",
+    "cycle_detection": "Toggled via cycle button in header. Detects dependency cycles using DFS, highlights cycle members with colored borders, supports cycling through multiple cycle levels",
+    "isolation_mode": "When a cycle is selected, dims all non-cycle nodes to focus on the dependency cycle, with fast-dash animated borders"
   },
   "ui": {
     "spec": "specsmap-plugin-ui.spec.json"
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea.addSpecsmap() — instantiated when user creates a new SpecsMap card via TopBar menu or context menu",
+    "destroyed_by": "Card terminate → SpecsMapPlugin.destroy() — removes document listeners, clears maps, then DOM is removed by PluginCard",
+    "singleton": false
   },
   "external_deps": [],
   "test": "src/renderer/components/SpecsMapPlugin.test.ts"

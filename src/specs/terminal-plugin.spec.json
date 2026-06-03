@@ -1,34 +1,81 @@
 {
   "name": "Terminal Plugin",
   "file": "src/renderer/components/TerminalPlugin.ts",
-  "description": "xterm.js PTY terminal emulator embedded in a plugin card body. Connects to node-pty via IPC (create/write/resize/kill). Noir-themed Terminal instance with space-mono-adjacent font (Cascadia Code, Fira Code, monospace). Clipboard paste (Ctrl+Shift+V, context menu + IPC clipboard:readText). ResizeObserver + FitAddon for responsive terminal sizing. Keyboard event handling for special keys. Process exit detection via terminal:exit event listener. BASE_FONT_SIZE 13 for consistent rendering.",
+  "description": "xterm.js terminal emulator plugin. Creates a Terminal instance with Noir custom theme (#161C24 background, #C8D6E5 foreground, #00E5FF cursor). Connects to node-pty backend via IPC channels. Custom keyboard handler: Ctrl+Shift+C copies selection, Ctrl+Shift+V pastes clipboard to PTY (no local echo). Uses FitAddon and ResizeObserver for container-fit adaptation. Canvas zoom handled by PluginCard CSS transform — no PTY resize on zoom. On exit callback fires when terminal process terminates.",
   "type": "ui",
   "layer": "plugin",
   "singleton": false,
   "exports": ["TerminalPlugin"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+    { "feature": "canvas-area", "file": "CanvasArea.ts" }
   ],
-  "ipc": ["terminal:create", "terminal:write", "terminal:resize", "terminal:kill", "terminal:onData", "terminal:onExit", "clipboard:readText"],
+  "ipc": [
+    "terminal:create",
+    "terminal:write",
+    "terminal:resize",
+    "terminal:kill",
+    "terminal:data",
+    "terminal:exit",
+    "clipboard:readText",
+    "clipboard:writeText"
+  ],
   "interface": {
-    "constructor": "new TerminalPlugin(container: HTMLElement, uuid: string, cwd?: string)",
-    "properties": [
-      { "name": "uuid", "type": "string", "description": "Terminal session identifier" },
-      { "name": "element", "type": "HTMLDivElement", "description": "Container for xterm.js DOM" },
-      { "name": "onExit", "type": "(() => void) | null", "description": "Called when PTY process exits" }
-    ],
+    "constructor": "(container: HTMLElement, uuid: string, cwd?: string) — Creates root div element (100% width/height, overflow hidden), initializes xterm.js Terminal with Noir theme and custom key handler, attaches FitAddon, connects to PTY via IPC terminal:create, sets up ResizeObserver for container-fit adaptation, registers terminal:data and terminal:exit listeners",
     "methods": [
-      { "name": "destroy", "signature": "() => void", "description": "Kill PTY, unlisten events, disconnect ResizeObserver, remove DOM" }
+      {
+        "name": "fit",
+        "signature": "(): void",
+        "description": "Calls FitAddon.fit() to recalculate terminal columns/rows for current container dimensions"
+      },
+      {
+        "name": "setScale",
+        "signature": "(_scale: number): void",
+        "description": "No-op — PluginCard handles canvas zoom via CSS transform, no PTY resize or font size change needed at the terminal level"
+      },
+      {
+        "name": "destroy",
+        "signature": "(): void",
+        "description": "Idempotent cleanup: kills PTY via IPC terminal:kill, unsubscribes terminal:data and terminal:exit listeners, disconnects ResizeObserver, disposes FitAddon and xterm Terminal, removes root element from DOM. Sets destroyed flag to prevent re-destruction"
+      }
+    ],
+    "properties": [
+      {
+        "name": "uuid",
+        "type": "string",
+        "description": "Unique terminal identifier used to route IPC messages (terminal:write, terminal:resize, terminal:kill) and filter inbound events (terminal:data, terminal:exit) to the correct terminal instance"
+      },
+      {
+        "name": "element",
+        "type": "HTMLDivElement",
+        "description": "Root container div (width:100%, height:100%, overflow:hidden) that hosts the xterm.js viewport via Terminal.open()"
+      },
+      {
+        "name": "onExit",
+        "type": "(() => void) | null",
+        "description": "Callback fired when the terminal PTY process exits, triggered by terminal:exit IPC event. Set by CanvasArea to handle card cleanup"
+      }
+    ],
+    "events": [
+      {
+        "name": "onExit",
+        "description": "Fired when the PTY process on the main process terminates; null if no callback is set. Used by CanvasArea to handle terminal card cleanup"
+      }
     ]
   },
-  "lifecycle": {
-    "creation": "TerminalPlugin is constructed → IPC terminal:create spawns node-pty shell (platform-aware: cmd.exe / zsh / bash)",
-    "data_flow": "PTY onData → IPC terminal:data → xterm.write() → renderer Terminal widget",
-    "input_flow": "xterm onData → IPC terminal:write → PTY stdin",
-    "exit": "PTY onExit → IPC terminal:exit → onExit callback → card removed from canvas",
-    "cleanup": "destroy() → kill PTY, unlisten IPC events, disconnect ResizeObserver"
+  "features": {
+    "copy_selection": "Ctrl+Shift+C copies selected text from terminal to system clipboard via IPC clipboard:writeText",
+    "paste_clipboard": "Ctrl+Shift+V reads clipboard via IPC clipboard:readText and writes to PTY via IPC terminal:write (no local echo — PTY echo provides visual feedback)",
+    "container_fit": "FitAddon + ResizeObserver adapt terminal cols/rows to container dimensions on card resize; canvas zoom via CSS transform does NOT trigger PTY resize"
   },
-  "external_deps": ["@xterm/xterm (Terminal)", "@xterm/addon-fit (FitAddon)"],
+  "ui": {
+    "spec": "terminal-plugin-ui.spec.json"
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea.addTerminal() — instantiated when user creates a new terminal card via button or keyboard shortcut",
+    "destroyed_by": "CanvasArea.terminateCard() → TerminalPlugin.destroy() — kills PTY, disconnects all listeners and ResizeObserver, disposes xterm/FitAddon, removes element from DOM",
+    "singleton": false
+  },
+  "external_deps": ["@xterm/xterm", "@xterm/addon-fit"],
   "test": "src/renderer/components/TerminalPlugin.test.ts"
 }
