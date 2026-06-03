@@ -1,41 +1,53 @@
-# SPECGEN — Specs Graph Generator
+# SPECGEN — Specs Graph Standard
 
-## Purpose Test
+## Purpose
 
-SPECGEN defines the specification format and methodology for Cockpit IDE's source
-audit system. It produces a machine-readable **specs graph** — a DAG of JSON
-files where each node is a feature spec, edges are dependency/reference links,
-and leaf UI specs capture DOM structure and interaction behavior.
+SPECGEN defines a **language- and framework-agnostic specification format** for source code audit, design, and testing. It produces a machine-readable **specs graph** — a DAG of JSON files where each node is a feature spec, edges are dependency/reference links, and leaf UI specs capture DOM structure and interaction behavior (when applicable).
 
 The specs graph supports three workflows:
 
-1. **Audit** — scan `src/` and generate specs that mirror the actual implementation
-2. **Design** — define new features by writing specs first, then implementing to spec
+1. **Audit** — scan source and generate specs that mirror the actual implementation
+2. **Design** — define new features by writing specs first, then implement to spec
 3. **Test** — generate test cases from `interactions`, `states`, and `interface` blocks
+
+### Applicability
+
+This format works for any project — CLI tool, web app, library, desktop app, microservice, mobile app — written in any language. The terms are intentionally abstract:
+
+| Concept | In a web app | In a CLI tool | In a library | In a backend service |
+|---------|-------------|---------------|-------------|---------------------|
+| `process` layer | Main/preload process | Entry point daemon | N/A | Server entry / worker |
+| `IPC channel` | Electron IPC / postMessage | N/A | N/A | HTTP endpoint / RPC / message queue |
+| `UI sub-spec` | DOM components | TUI / CLI output | N/A | N/A |
+| `plugin` | Card-contained UI plugin | Subcommand plugin | Extension module | Plugin middleware |
+| `canvas` model | 2D infinite canvas | N/A | N/A | N/A |
+
+---
 
 ## File Structure
 
 ```
-src/specs/
-├── main.spec.json          # Root: project manifest, feature index, IPC catalog, dep graph
-├── <feature>.spec.json     # Feature spec: one per non-test source file in src/
-└── <feature>-ui.spec.json  # UI sub-spec: one per feature with complex DOM/interactions
+<specs_dir>/
+├── main.spec.json           # Root: project manifest, feature index, IPC/API catalog, dep graph
+├── <feature>.spec.json      # Feature spec: one per non-test source file
+└── <feature>-ui.spec.json   # UI sub-spec: one per feature with complex DOM/interactions
 ```
+
+`<specs_dir>` defaults to `src/specs/` but is configurable per project.
 
 ### Naming Convention
 
 | Pattern | Example | Purpose |
 |---------|---------|---------|
 | `main.spec.json` | Root index only | Project-level manifest |
-| `<feature>.spec.json` | `plugin-card.spec.json` | Feature definition (matches kebab-cased source file name) |
+| `<feature>.spec.json` | `plugin-card.spec.json` | Feature definition (matches kebab-cased source file stem) |
 | `<feature>-ui.spec.json` | `welcome-modal-ui.spec.json` | UI interaction spec for a UI-type feature |
 
 ---
 
 ## Tier 1 — `main.spec.json` (Root)
 
-The root index catalogs the entire project. It is the entry point for all tools
-traversing the specs graph.
+The root index catalogs the entire project. It is the entry point for all tools traversing the specs graph.
 
 ### Schema
 
@@ -43,32 +55,31 @@ traversing the specs graph.
 {
   // ─── Project identity ───
   "name": "string",             // Project display name
-  "version": "string",          // Semver from package.json
+  "version": "string",          // Semver from package manifest
 
   "description": "string",      // One-paragraph elevator pitch
 
   // ─── Technical stack ───
   "stack": {
-    "runtime": "string",        // e.g. "Electron 42"
-    "language": "string",       // e.g. "TypeScript 5.8"
-    "build": {                  // Build toolchain per target
-      "renderer": "string",
-      "main_preload": "string",
-      "dev": "string"
+    "runtime": "string",        // Runtime environment (e.g. "Node 22", "Deno 2", "Python 3.12")
+    "language": "string",       // Primary language (e.g. "TypeScript 5.8", "Rust 1.85")
+    "build": {                   // Build toolchain per target
+      "<target>": "string"      // e.g. { "main": "tsc", "renderer": "esbuild", "dev": "tsx --watch" }
     },
-    "key_deps": {               // Major third-party libraries
+    "key_deps": {                // Major third-party dependencies
       "<label>": "string"
     },
-    "testing": "string"         // Test framework + env
+    "testing": "string"         // Test framework + environment
   },
 
   // ─── Architecture overview ───
   "architecture": {
-    "process_model": "string",  // Electron process layout
-    "ipc_pattern": "string",    // How IPC flows (invoke, send, push events)
-    "canvas_model": "string",   // Coordinate transform formula
-    "card_model": "string",     // Card plugin containment pattern
-    "state_persistence": "string" // Serialization format and path
+    "process_model": "string",  // Process/deployment layout
+    "ipc_or_api_pattern": "string", // How cross-boundary communication flows
+    "state_persistence": "string", // Serialization format and storage
+    "concurrency_model": "string", // Threading/async/worker model (optional)
+    // Project-specific architecture fields can be added here
+    "<custom_key>": "string"
   },
 
   // ─── Feature index (by layer) ───
@@ -90,24 +101,36 @@ traversing the specs graph.
   "dependency_graph": {
     "description": "string",
     "edges": {
-      // "file.ts" → ["dep1.ts", "dep2.ts", ...]
-      // Only internal src/ imports, not external packages
+      // "file.ext" → ["dep1.ext", "dep2.ext", ...]
+      // Only internal project imports, not external packages
       "<file>": ["<dependency_file>"]
     }
   },
 
-  // ─── IPC channel catalog ───
+  // ─── IPC/API channel catalog ───
   "ipc_channels": {
-    // Namespace → array of channel names
+    // For desktop apps: namespace → array of IPC channel names.
+    // For web apps: namespace → array of event names or API endpoints.
+    // For services: service → array of RPC/endpoint names.
     "<namespace>": ["channel:action"]
   },
 
-  // ─── Global keyboard shortcuts ───
+  // ─── Global keyboard shortcuts (UI projects only) ───
   "keyboard_shortcuts": [
     {
       "key": "string",           // Key combo (e.g. "Ctrl+Shift+N")
-      "scope": "string",         // "app" | "canvas" | "editor" | "terminal" | "modal" | "palette"
+      "scope": "string",         // Applicable scope (e.g. "app" | "canvas" | "editor" | "modal")
       "action": "string"         // What happens
+    }
+  ],
+
+  // ─── API endpoints (server/CLI projects) ───
+  "api_endpoints": [
+    {
+      "method": "string",        // HTTP method or verb
+      "path": "string",          // Route or command path
+      "description": "string",
+      "handler_feature": "string" // Feature ID that handles this endpoint
     }
   ],
 
@@ -128,28 +151,32 @@ traversing the specs graph.
 
 ## Tier 2 — `<feature>.spec.json` (Feature Spec)
 
-One per non-test TypeScript source file under `src/`. Every file is a feature.
+One per non-test source file under the project's source directory. Every file is a feature.
 
 ### Type Taxonomy
 
-| `type` | Meaning | Example files |
-|--------|---------|---------------|
-| `model` | Ambient type declarations, interfaces, contracts | `global.d.ts` |
-| `process` | Electron main or preload process code | `main.ts`, `preload.ts` |
-| `ui` | DOM-manipulating component with visual output | `App.ts`, `PluginCard.ts`, modals |
-| `logic` | Pure logic with no DOM (utility singletons) | `theme.ts` |
-| `utility` | Stateless helper functions or classes | `canvas-grid.ts`, `TextRenderer.ts` |
+| `type` | Meaning | Examples |
+|--------|---------|----------|
+| `model` | Type/interface declarations, contracts | `types.d.ts`, `api.ts` (interfaces only) |
+| `process` | Entry-point or daemon process code | `main.ts`, `server.ts`, `cli.ts` |
+| `ui` | DOM or TUI component with visual output | `Button.tsx`, `Panel.vue`, `Dialog.svelte` |
+| `logic` | Stateful logic with no direct I/O (singletons) | `theme.ts`, `store.ts`, `state.rs` |
+| `utility` | Stateless helper functions or classes | `format.ts`, `math.ts`, `string-utils.rs` |
+| `data` | Data access, I/O, storage, or network layer | `repository.ts`, `api-client.py`, `db.rs` |
+| `config` | Configuration, constants, environment | `constants.ts`, `settings.rs`, `config.py` |
 
 ### Layer Taxonomy
 
-| `layer` | Meaning | Example features |
-|---------|---------|-----------------|
-| `foundation` | No src/ imports, consumes only platform APIs | `type-model`, `main-process`, `preload-bridge`, `ide-server` |
-| `core` | Imported by orchestrator, imports widgets | `renderer-entry`, `app-shell`, `canvas-engine`, `theme` |
-| `widget` | Reusable UI building blocks | `plugin-card`, `context-menu`, `topbar` |
-| `modal` | Promise-returning overlay dialogs | `welcome-modal`, `confirm-modal` |
-| `overlay` | Floating non-modal UI (palette, tutorial) | `command-palette`, `tutorial` |
-| `plugin` | Card-contained feature plugin | `terminal-plugin`, `monaco-editor-plugin`, `specsmap-plugin` |
+| `layer` | Meaning | Examples |
+|---------|---------|----------|
+| `foundation` | No internal project imports, consumes only platform/external APIs | Type definitions, platform bindings, entry points |
+| `core` | Imported by orchestrator, imports from foundation or same layer | App shell, orchestrator, event bus, main loop |
+| `widget` | Reusable UI or TUI building blocks | Buttons, cards, menus, prompts, panels |
+| `modal` | Overlay dialog (typically Promise-returning) | Confirm dialog, file picker, settings modal |
+| `overlay` | Floating non-modal UI (palette, tutorial, tooltip) | Command palette, tour overlay, dropdown |
+| `plugin` | Plugin/module loaded dynamically into a host | Editor plugins, middleware, CLI subcommands |
+| `service` | Long-lived service or data layer | Database service, API client, file watcher |
+| `utility` | Pure utility with no project imports | Math helpers, string formatters, validators |
 
 ### Schema
 
@@ -157,17 +184,17 @@ One per non-test TypeScript source file under `src/`. Every file is a feature.
 {
   // ─── Identity ───
   "name": "string",              // Human-readable feature name
-  "file": "string",              // Relative path from src/ (e.g. "src/renderer/components/PluginCard.ts")
+  "file": "string",              // Relative path from project root or src/
 
   "description": "string",       // What it does, how it works, key behaviors
 
-  "type": "ui | data | logic | process | utility | model",   // Kind category
-  "layer": "foundation | core | widget | plugin | modal | overlay | utility",  // Architectural layer
+  "type": "ui | data | logic | process | utility | model | config",   // Kind category
+  "layer": "foundation | core | widget | plugin | modal | overlay | service | utility",  // Architectural layer
 
-  "singleton": "boolean",        // true if only one instance exists in the app
+  "singleton": "boolean",        // true if only one instance exists at runtime
 
   // ─── Public surface ───
-  "exports": ["ClassName", "InterfaceName"],  // Top-level exports
+  "exports": ["ClassName", "InterfaceName", "functionName"],  // Top-level exports
 
   // ─── Dependency edges (what this feature imports) ───
   "dependencies": [
@@ -186,8 +213,9 @@ One per non-test TypeScript source file under `src/`. Every file is a feature.
     }
   ],
 
-  // ─── IPC channels (if any) ───
+  // ─── IPC / API channels (if any) ───
   "ipc": ["channel:action"],     // Channels this feature invokes or listens to
+  "api": ["endpoint or route"],  // API routes this feature handles
 
   // ─── Class/function interface ───
   "interface": {
@@ -195,7 +223,7 @@ One per non-test TypeScript source file under `src/`. Every file is a feature.
     "methods": [
       {
         "name": "string",
-        "signature": "string",   // TypeScript-style signature
+        "signature": "string",   // Language-appropriate signature
         "description": "string"
       }
     ],
@@ -217,7 +245,7 @@ One per non-test TypeScript source file under `src/`. Every file is a feature.
 
   // ─── State shape (if this feature serializes state) ───
   "state": {
-    "schema": "string",          // Type name
+    "schema": "string",          // Type name or schema reference
     "description": "string",     // When/how state is saved/loaded
     "fields": [
       {
@@ -241,76 +269,65 @@ One per non-test TypeScript source file under `src/`. Every file is a feature.
   },
 
   // ─── Platform contracts ───
-  "external_deps": ["package-name"],  // Third-party npm packages used
+  "external_deps": ["package-name"],  // Third-party packages used
 
   // ─── Test file ───
-  "test": "string"               // Relative test file path from src/
+  "test": "string"               // Relative test file path
 }
 ```
 
 ### Feature-type-specific extensions
 
-**For process-layer features** (`main-process`, `preload-bridge`):
+**For process-layer features** (entry points, server processes, daemons):
 
 ```jsonc
 {
-  "ipc_handlers": {
-    "<namespace>": ["channel:action (invoke|send)"],
-    "events": ["channel:data (push to renderer)"]
+  "handlers": {
+    "<namespace>": ["action or endpoint (protocol)"],
+    "events": ["event name (direction)"]
   },
   "security": {
     "<mechanism>": "string"
   },
   "bridge": {
-    "<namespace>": "string"      // How API shape is exposed
+    "<namespace>": "string"      // How API shape is exposed to consumers
   }
 }
 ```
 
-**For plugin features** (`terminal-plugin`, `monaco-editor-plugin`, etc.):
+**For plugin features** (loadable modules, extensions):
 
 ```jsonc
 {
   "features": {
     "<capability>": "string"     // Detailed feature descriptions
-  }
+  },
+  "activation": "string"         // How the plugin is activated (lazy, eager, on-demand)
 }
 ```
 
-**For canvas features** (`canvas-engine`):
+**For service/data features** (database, API, storage):
 
 ```jsonc
 {
-  "transforms": {
-    "<name>": "formula/description"
+  "api": {
+    "<endpoint>": "method path — description"
   },
-  "interactions": [              // Canvas-level interactions (distinct from UI sub-spec)
-    {
-      "name": "string",
-      "trigger": "string",
-      "behavior": "string"
-    }
-  ],
-  "callbacks": {
-    "<name>": "signature — description"
-  },
-  "plugins": {
-    "<plugin_type>": {
-      "default_size": { "w": "number", "h": "number" },
-      "singleton": "boolean"
-    }
+  "storage": {
+    "backend": "string",         // Storage backend (filesystem, SQLite, S3, etc.)
+    "serialization": "string"    // Serialization format
   }
 }
 ```
 
-**For modal features** (`welcome-modal`, `confirm-modal`, etc.):
+**For modal features**:
 
 ```jsonc
 {
   "interface": {
-    "constructor": "new ModalName()",
+    "constructor": "constructor signature",
     "methods": [
-      { "name": "open", "signature": "() => Promise<T>", "description": "string" }
+      { "name": "open", "signature": "() => Promise<T>", "description": "Opens the modal, resolves with result" }
     ]
   }
 }
@@ -320,19 +337,18 @@ One per non-test TypeScript source file under `src/`. Every file is a feature.
 
 ## Tier 3 — `<feature>-ui.spec.json` (UI Sub-Spec)
 
-Created for features with `type: "ui"` that have complex DOM structure and
-interactions warranting a separate spec. Criteria: the feature creates/manipulates
-DOM elements beyond a single wrapper div, has user interactions, or has distinct
-visual states.
+Created for features with `type: "ui"` that have complex DOM structure and interactions warranting a separate spec. Criteria: the feature creates/manipulates DOM elements beyond a single wrapper div, has user interactions, or has distinct visual states.
 
 ### Criteria for creating a UI sub-spec
 
 | Has UI sub-spec | Does NOT have UI sub-spec |
 |----------------|--------------------------|
-| Creates multiple DOM elements with structured layout | Single wrapper div for third-party embed (terminal, monaco) |
+| Creates multiple DOM elements with structured layout | Single wrapper div for third-party embed |
 | Has user interactions (click, drag, hover, keyboard) | Purely delegates to child components |
 | Has distinct visual states (open/closed, active/inactive, etc.) | State is fully described in parent feature spec |
 | Is a modal, overlay, menu, card, or plugin with complex DOM | Is a process handler, utility, or plugin glue |
+
+For non-DOM UI (TUI, CLI, terminal UI), adapt `dom` to describe the rendered output structure (e.g. lines, columns, widgets).
 
 ### Schema
 
@@ -344,11 +360,11 @@ visual states.
 
   "description": "string",       // Scope of this UI spec
 
-  // ─── DOM structure ───
+  // ─── DOM / rendered structure ───
   "dom": {
-    // Root element description: selector + CSS inline styles
-    "root": "string",            // e.g. ".card" or ".modal-overlay"
-    "style": "string",           // Key CSS properties inline
+    // Root element description: selector + CSS inline styles (or TUI coordinates)
+    "root": "string",            // e.g. ".card" or ".modal-overlay" or "screen:rows 10-20"
+    "style": "string",           // Key CSS properties inline (or layout properties)
     "container": "string",       // Parent element selector (if relevant)
 
     // Child element catalog
@@ -403,7 +419,7 @@ visual states.
     "<mechanism>": "string"
   },
 
-  // ─── Content/Props (optional, for configurable modals) ───
+  // ─── Content/Props (optional, for configurable modals/components) ───
   "props": {
     "<prop>": "type — description"
   },
@@ -422,6 +438,7 @@ Interactions follow a consistent prose style for the `action` field:
 - **Direct DOM**: `Set overlay display:flex, store onClose callback`
 - **Formula**: `screenX = snap(worldRawX) * scale + panX`
 - **IPC call**: `IPC workspace:select (native directory picker)`
+- **API call**: `POST /api/workspace/select` or `RPC workspace.select()`
 - **Callback fire**: `Fire onDragEnd(worldX, worldY), snap to 28px grid final position`
 - **Multi-action chains**: Use `→` separator — `Remove all existing menus → create new .ctx-menu → append to body`
 
@@ -431,33 +448,34 @@ Interactions follow a consistent prose style for the `action` field:
 
 ### Phase 1: File Discovery
 
-Walk `src/` recursively, collecting every `.ts` file that is not a test file
-(`*.test.ts`) and not test infrastructure (`src/test/setup.ts`).
+Walk the project source directory recursively, collecting every source file that is not a test file (by naming convention, e.g. `*.test.*`, `*_test.*`, `*_spec.*`, `*.spec.*`) and not test infrastructure files.
 
 ### Phase 2: Classification
 
 For each file, determine:
 
-1. **Type** — Read the file's imports and exports:
-   - Imports only from `electron` → `process`
-   - Imports DOM APIs (`document.createElement`, `innerHTML`, `appendChild`) → `ui`
+1. **Type** — Read the file's imports, exports, and content:
+   - Entry-point or daemon process code (run directly) → `process`
+   - Imports or uses DOM/TUI APIs → `ui`
    - Exports only types/interfaces, no runtime code → `model`
-   - Exports a singleton with state + CSS property setters but no DOM creation → `logic`
+   - Exports a singleton with state but no direct I/O → `logic`
    - Exports pure functions with no side effects → `utility`
+   - Contains I/O, storage, or network calls → `data`
+   - Contains only configuration/constants → `config`
 
 2. **Layer** — Map dependency depth to layer:
-   - `foundation` — imports nothing from `src/`
+   - `foundation` — imports nothing from the project's own source
    - `core` — imports only from foundation or same-layer
    - `widget` — imported by core, imports utilities
-   - `modal` / `overlay` — creates a fixed-position overlay, returns a Promise
-   - `plugin` — instantiated inside a `PluginCard` body
+   - `modal` / `overlay` — creates a fixed-position overlay or modal dialog, often Promise-returning
+   - `plugin` — instantiated dynamically inside a host
+   - `service` — long-lived service with its own lifecycle
 
-3. **Singleton** — `true` if the class is instantiated exactly once (check all call sites) or uses a singleton pattern.
+3. **Singleton** — `true` if the class/object is instantiated exactly once (check all call sites) or uses a singleton pattern.
 
 ### Phase 3: Dependency Edge Extraction
 
-Parse each file's `import` statements. For every import from `src/` (not `node_modules`),
-record an edge:
+Parse each file's import/use/include statements. For every import from the project's own source (not external packages or standard library), record an edge:
 
 ```
 <current_file> → <imported_file>
@@ -469,29 +487,31 @@ Edges go in both directions in the spec:
 
 ### Phase 4: Interface Extraction
 
-For each exported class or function:
+For each exported class, function, or type:
 
-- **Classes**: Extract `constructor` signature, public method names/signatures, public property names/types
+- **Classes**: Extract constructor signature, public method names/signatures, public property names/types
 - **Functions**: Extract parameter types and return type
 - **Types**: Extract interface/type alias definitions and their fields
-- **Events**: Extract callback property patterns (`onXxx: (() => void) | null`)
+- **Events**: Extract callback property patterns (`onXxx: callback signature`)
 
 ### Phase 5: State Schema Extraction
 
 Search for serialization patterns:
-- `JSON.stringify` calls on typed objects → that type is a state schema
-- Functions named `getState()`, `getSaveState()`, `toJSON()` → return type is a state schema
-- Files that `fs.writeFileSync` or IPC `workspace:save` → track what they write
+- `JSON.stringify` / `JSON.parse` calls on typed objects → that type is a state schema
+- Functions named `getState()`, `getSaveState()`, `toJSON()`, `serialize()` → return type is a state schema
+- Files that write to persistent storage (filesystem, database, localStorage) → track what they write
 
-### Phase 6: IPC Cataloging
+### Phase 6: IPC / API Cataloging
 
-Search for:
-- In main process: `ipcMain.handle('channel:name', ...)` and `ipcMain.on('channel:name', ...)`
-- In preload: `ipcRenderer.invoke('channel:name', ...)` and `ipcRenderer.send('channel:name', ...)`
-- In renderer: `window.electronAPI?.namespace.methodName()`
-- Push events: `webContents.send('channel:name', ...)` in main, `ipcRenderer.on('channel:name', ...)` in preload/renderer
+Search for cross-boundary communication:
 
-Map each IPC channel to the feature that produces it (main) and the features that consume it (renderer).
+- **IPC (desktop apps)**: `ipcMain.handle('channel')`, `ipcRenderer.invoke('channel')`, `webContents.send('channel')`
+- **HTTP API (web/services)**: Route handlers, controller methods, endpoint registrations
+- **RPC / Message queue**: Service method calls, event bus subscriptions, message handlers
+- **Event bus**: Publish/subscribe patterns, event emitter usage
+- **CLI commands**: Command/subcommand registrations, argument parsers
+
+Map each channel/endpoint to the feature that produces it and the features that consume it.
 
 ### Phase 7: UI Sub-Spec Generation
 
@@ -505,18 +525,18 @@ For each `type: "ui"` feature, evaluate UI sub-spec criteria:
 If **3+ criteria are met**, generate a UI sub-spec. Otherwise, inline UI details in the feature spec.
 
 The UI sub-spec is generated by:
-1. Reading `innerHTML` assignments and `createElement` + `appendChild` chains to reconstruct DOM
-2. Reading event listener registrations (`addEventListener`) to catalog interactions
-3. Reading `style.display = 'none'` / `style.display = 'flex'` patterns to identify states
+1. Reading DOM construction code (`innerHTML`, `createElement`, template literals, JSX) to reconstruct DOM
+2. Reading event listener registrations to catalog interactions
+3. Reading visibility/style toggles (`display: none`, `classList.toggle`, conditional rendering) to identify states
 
 ### Phase 8: Root Index Assembly
 
 `main.spec.json` is built by aggregating:
-- Project identity from `package.json`
+- Project identity from the project manifest
 - Feature index from all generated feature specs (grouped by layer)
 - Dependency graph as a flat edge map for quick traversal
-- IPC catalog from all `ipc` arrays across features
-- Keyboard shortcuts from `App.ts` keyboard handler + editor + terminal
+- IPC/API catalog from all `ipc` and `api` arrays across features
+- Keyboard shortcuts from UI components
 - Test coverage from file naming conventions
 
 ---
@@ -554,56 +574,55 @@ Each spec provides test scaffolding:
 | `interactions` | Integration test each interaction path |
 | `states` | Test each state transition, verify visual properties |
 | `dependencies` | Verify that mocked dependencies behave correctly |
-| `ipc` | Mock IPC channels, verify correct payloads |
+| `ipc` / `api` | Mock channels, verify correct payloads |
 | `security` | Test that security constraints hold |
 | `lifecycle` | Test create/destroy cycle, verify cleanup |
 
-### Example test flow for `welcome-modal`:
-
-```
-Spec → Test
-
-interface.methods[open]     → test: open() returns Promise<string|null>
-interactions[open_workspace] → test: click #welcome-open calls IPC workspace:select
-interactions[recent_click]   → test: click recent item resolves with correct path
-states[empty_recent]         → test: no recent workspaces → #welcome-recent is hidden
-states[missing_recent]       → test: deleted workspace path shown with .welcome-recent-item-missing
-```
-
 ---
 
-## File Count Summary
+## Adoption Guide
 
-| Tier | Count | Description |
-|------|-------|-------------|
-| `main.spec.json` | 1 | Root project index |
-| `<feature>.spec.json` | 26 | One per non-test source file |
-| `<feature>-ui.spec.json` | 11 | UI sub-specs for qualifying features |
-| **Total** | **38** | |
+To adopt SPECGEN for your project:
 
-### Feature specs (26)
+1. **Choose your specs directory** (default: `src/specs/`, but any path works)
+2. **Create `main.spec.json`** — fill in project identity, stack, architecture
+3. **Classify source files** — assign each file a `type` and `layer`
+4. **Generate feature specs** — one per non-test source file
+5. **Generate UI sub-specs** — for qualifying UI features
+6. **Wire up the dependency graph** — extract imports and build edge lists
+7. **Catalog IPC/API channels** — document all cross-boundary communication
+8. **Track test coverage** — link each spec to its test file
 
-| Layer | Count | Features |
-|-------|-------|----------|
-| foundation | 4 | type-model, main-process, preload-bridge, ide-server |
-| core | 6 | renderer-entry, app-shell, canvas-engine, theme, canvas-grid, canvas-statusbar |
-| widget | 4 | plugin-card, text-renderer, context-menu, topbar |
-| modal | 3 | welcome-modal, about-modal, confirm-modal |
-| overlay | 2 | tutorial, command-palette |
-| plugin | 7 | terminal-plugin, monaco-editor-plugin, file-explorer-plugin, explorer-plugin, markdown-plugin, git-plugin, specsmap-plugin |
+### Minimal starting template
 
-### UI sub-specs (11)
-
-| Parent feature | UI spec file |
-|---------------|-------------|
-| app-shell | `app-shell-ui.spec.json` |
-| canvas-engine | `canvas-engine-ui.spec.json` |
-| plugin-card | `plugin-card-ui.spec.json` |
-| topbar | `topbar-ui.spec.json` |
-| context-menu | `context-menu-ui.spec.json` |
-| welcome-modal | `welcome-modal-ui.spec.json` |
-| about-modal | `about-modal-ui.spec.json` |
-| confirm-modal | `confirm-modal-ui.spec.json` |
-| tutorial | `tutorial-ui.spec.json` |
-| command-palette | `command-palette-ui.spec.json` |
-| specsmap-plugin | `specsmap-plugin-ui.spec.json` |
+```jsonc
+// main.spec.json — start here
+{
+  "name": "<project>",
+  "version": "0.1.0",
+  "description": "<summary>",
+  "stack": {
+    "runtime": "<runtime and version>",
+    "language": "<language and version>",
+    "build": { "<target>": "<toolchain>" },
+    "key_deps": {},
+    "testing": "<framework>"
+  },
+  "architecture": {
+    "process_model": "<description>",
+    "ipc_or_api_pattern": "<description>",
+    "state_persistence": "<description>"
+  },
+  "features": {},
+  "dependency_graph": { "description": "", "edges": {} },
+  "test_coverage": {
+    "total_test_files": 0,
+    "total_tests": "0",
+    "run_time": "N/A",
+    "framework": "<framework>",
+    "specs_with_direct_tests": 0,
+    "specs_with_indirect_tests": 0,
+    "specs_without_tests": 0
+  }
+}
+```
