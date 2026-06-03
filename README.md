@@ -10,6 +10,7 @@
 ---
 
 [![Nightly Build (Dev)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml/badge.svg)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml)
+[![Tests](https://github.com/mrkprdo/cockpit-ide/actions/workflows/test.yml/badge.svg)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/test.yml)
 
 ---
 
