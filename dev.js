@@ -10,6 +10,7 @@ const { stamp, restore } = require('./scripts/version');
 let electron = null;
 let building = false;
 let pendingRestart = false;
+let lastBuildTime = 0;
 
 function startElectron() {
   if (electron) {
@@ -44,6 +45,7 @@ function build() {
     console.error('[dev] Build failed:', e.message);
   }
   building = false;
+  lastBuildTime = Date.now();
   if (electron) {
     console.log('[dev] Reloading...');
   } else {
@@ -60,6 +62,8 @@ for (const dir of watchDirs) {
   if (!fs.existsSync(fullPath)) continue;
   fs.watch(fullPath, { recursive: true }, (event, filename) => {
     if (!filename || filename.endsWith('.map')) return;
+    if (building) return; // build() reads from src/ (copy commands) — skip spurious events
+    if (Date.now() - lastBuildTime < 500) return; // cooldown after build for delayed fs events
     if (debounce) clearTimeout(debounce);
     debounce = setTimeout(build, 200);
   });

@@ -51,10 +51,10 @@ export class TerminalPlugin {
         return false;
       }
 
-      // Ctrl+Shift+V → paste
+      // Ctrl+Shift+V → paste (write to PTY only; PTY echo renders it — avoids double-paste from local echo + host echo)
       if (ctrlKey && shiftKey && (key === 'V' || key === 'v')) {
         const text = api.clipboard.readText();
-        if (text) term.paste(text);
+        if (text) api.terminal.write(uuid, text);
         return false;
       }
 

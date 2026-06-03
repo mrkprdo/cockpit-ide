@@ -53,6 +53,7 @@ const LAYER_GAP = 60;
 const UI_OFFSET_Y = 64;
 const PANEL_W = 320;
 const GRAPH_MARGIN = 80;
+const PORT_OFFSET = 8;
 
 const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugin'];
 const LAYER_LABELS: Record<string, string> = {
@@ -905,12 +906,16 @@ export class SpecsMapPlugin {
     }
 
     const srcAbove = src.y < tgt.y;
-    const x1 = src.x + src.w / 2;
-    const y1 = srcAbove ? src.y + src.h : src.y;
-    const x2 = tgt.x + tgt.w / 2;
-    const y2 = srcAbove ? tgt.y : tgt.y + tgt.h;
-    const dy = y2 - y1, dx = x2 - x1;
-    return { x1, y1, x2, y2, cx1: x1 + dx * 0.1, cy1: y1 + dy * 0.5, cx2: x2 - dx * 0.1, cy2: y2 - dy * 0.5 };
+    const srcCx = src.x + src.w / 2;
+    const tgtCx = tgt.x + tgt.w / 2;
+    // Outgoing: bottom-left (src above) or top-right (src below)
+    const p1x = srcAbove ? srcCx - PORT_OFFSET : srcCx + PORT_OFFSET;
+    const p1y = srcAbove ? src.y + src.h : src.y;
+    // Incoming: top-left (tgt below) or bottom-right (tgt above)
+    const p2x = srcAbove ? tgtCx - PORT_OFFSET : tgtCx + PORT_OFFSET;
+    const p2y = srcAbove ? tgt.y : tgt.y + tgt.h;
+    const dy = p2y - p1y, dx = p2x - p1x;
+    return { x1: p1x, y1: p1y, x2: p2x, y2: p2y, cx1: p1x + dx * 0.1, cy1: p1y + dy * 0.5, cx2: p2x - dx * 0.1, cy2: p2y - dy * 0.5 };
   }
 
   private renderEdges(nodeMap: Map<string, SpecNode>): void {
