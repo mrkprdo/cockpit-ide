@@ -1160,9 +1160,10 @@ export class SpecsMapPlugin {
     const cw = rect.width || 800;
     const ch = rect.height || 600;
 
-    const targetScale = Math.min(cw / (node.w * 3), ch / (node.h * 3), 1.5);
+    const availableW = cw - PANEL_W;
+    const targetScale = Math.min(availableW / (node.w * 3), ch / (node.h * 3), 1.5);
     const scale = Math.max(targetScale, this.fitScale);
-    const targetPanX = (cw - node.w * scale) / 2 - node.x * scale;
+    const targetPanX = (availableW - node.w * scale) / 2 - node.x * scale;
     const targetPanY = (ch - node.h * scale) / 2 - node.y * scale;
 
     this.animateTo(targetPanX, targetPanY, scale, 300);
