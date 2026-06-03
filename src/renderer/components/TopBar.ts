@@ -129,9 +129,9 @@ export class TopBar {
       <div class="menu-item">
         Tools
         <div class="menu-dropdown">
-          <div class="menu-dropdown-item" id="menu-theme">Theme</div>
-          <div class="menu-dropdown-separator"></div>
           <div class="menu-dropdown-item" id="menu-new-specsmap">SpecsMap</div>
+          <div class="menu-dropdown-separator"></div>
+          <div class="menu-dropdown-item" id="menu-theme">Theme</div>
         </div>
       </div>
       <div class="menu-item">

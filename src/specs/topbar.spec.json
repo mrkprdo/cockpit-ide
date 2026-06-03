@@ -37,7 +37,7 @@
     "menus": {
       "File": ["Open Workspace", "Exit"],
       "View": ["Terminal > New + instances", "Explorer", "Git", "Markdown", "Canvas > Dots/Grid/None", "Zoom > In/Out/Reset/Lock"],
-      "Tools": ["Theme...", "SpecsMap"],
+      "Tools": ["SpecsMap", "Theme..."],
       "Help": ["Tutorial", "About Cockpit IDE"]
     },
     "button": "#theme-toggle (◐ icon, toggles dark/light)"
