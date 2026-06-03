@@ -754,7 +754,7 @@ describe('GitPlugin', () => {
       new GitPlugin(container, '/test/repo');
       await flush();
 
-      const branchSelect = container.querySelectorAll('.git-select')[1] as HTMLSelectElement;
+      const branchSelect = container.querySelectorAll('.git-select')[0] as HTMLSelectElement;
       expect(branchSelect).toBeTruthy();
 
       branchSelect.value = 'develop';
