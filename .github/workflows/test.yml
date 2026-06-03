@@ -19,4 +19,5 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: node scripts/gen-specgen-hash.js
       - run: make test
