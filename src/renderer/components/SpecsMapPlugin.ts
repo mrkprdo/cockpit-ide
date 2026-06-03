@@ -130,6 +130,10 @@ export class SpecsMapPlugin {
   private panStartY = 0;
   private panStartPanX = 0;
   private panStartPanY = 0;
+  private cachedEdgePaths: SVGPathElement[] = [];
+  private pendingMouseX = 0;
+  private pendingMouseY = 0;
+  private rafPanPending = false;
 
   onFileOpen: ((filePath: string) => void) | null = null;
 
@@ -155,13 +159,25 @@ export class SpecsMapPlugin {
 
     this.onDocMouseMove = (e: MouseEvent) => {
       if (!this.isPanning) return;
-      this.panX = this.panStartPanX + (e.clientX - this.panStartX);
-      this.panY = this.panStartPanY + (e.clientY - this.panStartY);
-      this.applyTransform();
+      this.pendingMouseX = e.clientX;
+      this.pendingMouseY = e.clientY;
+      if (!this.rafPanPending) {
+        this.rafPanPending = true;
+        requestAnimationFrame(() => {
+          if (this.isPanning) {
+            this.panX = this.panStartPanX + (this.pendingMouseX - this.panStartX);
+            this.panY = this.panStartPanY + (this.pendingMouseY - this.panStartY);
+            this.applyTransform();
+          }
+          this.rafPanPending = false;
+        });
+      }
     };
     this.onDocMouseUp = () => {
       this.isPanning = false;
       this.viewport.style.cursor = '';
+      this.nodeLayer.style.willChange = '';
+      this.svg.style.willChange = '';
     };
 
     this.el = document.createElement('div');
@@ -257,7 +273,7 @@ export class SpecsMapPlugin {
 
     // Viewport
     this.viewport = document.createElement('div');
-    this.viewport.style.cssText = 'position:absolute;inset:0;overflow:hidden';
+    this.viewport.style.cssText = 'position:absolute;inset:0;overflow:hidden;contain:layout style';
     this.viewport.appendChild(this.svg);
     this.viewport.appendChild(this.nodeLayer);
 
@@ -272,10 +288,11 @@ export class SpecsMapPlugin {
 
     // Side panel (overlays right side)
     this.panel = document.createElement('div');
+    this.panel.className = 'sm-panel-el';
     this.panel.style.cssText =
       `position:absolute;right:0;top:0;bottom:0;width:${PANEL_W}px;` +
       'background:var(--surface);border-left:1px dashed var(--border);z-index:20;' +
-      'transform:translateX(100%);transition:transform 0.2s cubic-bezier(0.4,0,0.2,1);' +
+      'transform:translateX(100%);' +
       'display:flex;flex-direction:column;overflow:hidden;pointer-events:none';
 
     // Fixed header (never scrolls)
@@ -363,13 +380,16 @@ export class SpecsMapPlugin {
       .sm-isolated-border { animation: sm-flow-fast 0.4s linear infinite; stroke-dashoffset: 0; }
       @keyframes sm-spin { to { transform: rotate(360deg); } }
       .sm-spinning { display: inline-block; animation: sm-spin 0.7s linear infinite; }
+      .sm-panel-el { transition: transform 0.2s cubic-bezier(0.4,0,0.2,1); }
       @media (prefers-reduced-motion: reduce) {
         .sm-edge-active { animation: none; }
+        .sm-isolated-border { animation: none; }
         .sm-spinning { animation: none; }
+        .sm-panel-el { transition: none; }
       }
       .sm-header-btn { border:none; outline:none; background:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:5px 7px; color:var(--tertiary); line-height:0; transition:color 0.15s,background 0.15s; }
       .sm-header-btn:hover { color:var(--accent); background:var(--surface); }
-      .sm-header-btn:focus-visible { outline:none; }
+      .sm-header-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
       .sm-empty-btn {
         pointer-events: auto;
         background: transparent;
@@ -441,6 +461,8 @@ export class SpecsMapPlugin {
       this.panStartPanX = this.panX;
       this.panStartPanY = this.panY;
       this.viewport.style.cursor = 'grabbing';
+      this.nodeLayer.style.willChange = 'transform';
+      this.svg.style.willChange = 'transform';
     });
 
     document.addEventListener('mousemove', this.onDocMouseMove);
@@ -1003,6 +1025,7 @@ export class SpecsMapPlugin {
   }
 
   private renderEdges(nodeMap: Map<string, SpecNode>): void {
+    this.cachedEdgePaths = [];
     const ns = 'http://www.w3.org/2000/svg';
 
     const uiGroup = document.createElementNS(ns, 'g');
@@ -1023,6 +1046,7 @@ export class SpecsMapPlugin {
       p.dataset.target = child.id;
       p.dataset.etype = 'ui';
       uiGroup.appendChild(p);
+      this.cachedEdgePaths.push(p);
     }
     this.svg.appendChild(uiGroup);
 
@@ -1046,6 +1070,7 @@ export class SpecsMapPlugin {
         glow.dataset.etype = 'glow';
         glow.dataset.layer = node.layer;
         depGroup.appendChild(glow);
+        this.cachedEdgePaths.push(glow);
 
         const line = document.createElementNS(ns, 'path');
         line.setAttribute('d', d);
@@ -1059,6 +1084,7 @@ export class SpecsMapPlugin {
         line.dataset.etype = 'dep';
         line.dataset.layer = node.layer;
         depGroup.appendChild(line);
+        this.cachedEdgePaths.push(line);
       }
     }
     this.svg.appendChild(depGroup);
@@ -1078,7 +1104,7 @@ export class SpecsMapPlugin {
       if (node.parentId === id) connected.add(node.id);
     }
 
-    for (const path of this.svg.querySelectorAll<SVGPathElement>('path[data-source]')) {
+    for (const path of this.cachedEdgePaths) {
       const src = path.dataset.source!;
       const tgt = path.dataset.target!;
       const etype = path.dataset.etype!;
@@ -1254,7 +1280,6 @@ export class SpecsMapPlugin {
       `</div>`;
 
     const toggleBg = isActive ? 'var(--red)' : 'var(--border)';
-    const toggleKnob = isActive ? 'right:2px' : 'left:2px';
     const toggleLabel = isActive ? 'On' : 'Off';
 
     const levelChips = (lvl: number) =>
@@ -1288,7 +1313,6 @@ export class SpecsMapPlugin {
     }
 
     const isolatedToggleBg = this.isolatedMode ? 'var(--amber)' : 'var(--border)';
-    const isolatedKnob = this.isolatedMode ? 'right:2px' : 'left:2px';
     const isolatedLabel = this.isolatedMode ? 'On' : 'Off';
 
     this.panelInner.innerHTML =
@@ -1297,14 +1321,14 @@ export class SpecsMapPlugin {
       `<div style="display:flex;align-items:center;gap:12px;padding:8px 0">` +
       `<label style="flex:1;font-size:12px;color:var(--primary);cursor:pointer">Show cyclic dependencies</label>` +
       `<div id="sm-cycle-toggle" style="width:36px;height:20px;border-radius:10px;background:${toggleBg};cursor:pointer;position:relative;transition:background 0.15s;flex-shrink:0" role="switch" aria-checked="${isActive}">` +
-      `<div style="width:16px;height:16px;border-radius:50%;background:var(--bg);position:absolute;top:2px;${toggleKnob};transition:left 0.15s,right 0.15s"></div>` +
+      `<div style="width:16px;height:16px;border-radius:50%;background:var(--bg);position:absolute;top:2px;left:2px;transform:${isActive ? 'translateX(16px)' : 'translateX(0)'};transition:transform 0.15s"></div>` +
       `</div>` +
       `<span style="font-size:10px;color:var(--tertiary);min-width:20px;text-align:right">${toggleLabel}</span>` +
       `</div>` +
       `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--border);margin-top:4px;padding-top:12px">` +
       `<label style="flex:1;font-size:12px;color:var(--primary);cursor:pointer">Show isolated nodes</label>` +
       `<div id="sm-isolated-toggle" style="width:36px;height:20px;border-radius:10px;background:${isolatedToggleBg};cursor:pointer;position:relative;transition:background 0.15s;flex-shrink:0" role="switch" aria-checked="${this.isolatedMode}">` +
-      `<div style="width:16px;height:16px;border-radius:50%;background:var(--bg);position:absolute;top:2px;${isolatedKnob};transition:left 0.15s,right 0.15s"></div>` +
+      `<div style="width:16px;height:16px;border-radius:50%;background:var(--bg);position:absolute;top:2px;left:2px;transform:${this.isolatedMode ? 'translateX(16px)' : 'translateX(0)'};transition:transform 0.15s"></div>` +
       `</div>` +
       `<span style="font-size:10px;color:var(--tertiary);min-width:20px;text-align:right">${isolatedLabel}</span>` +
       `</div></div>` +
@@ -1846,7 +1870,7 @@ export class SpecsMapPlugin {
         el.style.opacity = '0.14';
       }
     }
-    for (const path of this.svg.querySelectorAll<SVGPathElement>('path[data-source]')) {
+    for (const path of this.cachedEdgePaths) {
       if (path.dataset.etype !== 'ui') path.setAttribute('opacity', '0.04');
     }
   }
@@ -1861,7 +1885,7 @@ export class SpecsMapPlugin {
       el.style.borderStyle = '';
       el.style.boxShadow = '';
     }
-    for (const path of this.svg.querySelectorAll<SVGPathElement>('path[data-source]')) {
+    for (const path of this.cachedEdgePaths) {
       const etype = path.dataset.etype!;
       const layer = path.dataset.layer ?? '';
       if (etype === 'dep') {
@@ -1963,7 +1987,7 @@ export class SpecsMapPlugin {
     const isConnected = (src: string, tgt: string) =>
       highlighted.has(src) && highlighted.has(tgt);
 
-    for (const path of this.svg.querySelectorAll<SVGPathElement>('path[data-source]')) {
+    for (const path of this.cachedEdgePaths) {
       const src = path.dataset.source!;
       const tgt = path.dataset.target!;
       const etype = path.dataset.etype!;
@@ -2001,7 +2025,7 @@ export class SpecsMapPlugin {
       el.style.borderStyle = '';
       el.style.boxShadow = '';
     }
-    for (const path of this.svg.querySelectorAll<SVGPathElement>('path[data-source]')) {
+    for (const path of this.cachedEdgePaths) {
       const etype = path.dataset.etype!;
       const layer = path.dataset.layer ?? '';
       path.classList.remove('sm-edge-active');
