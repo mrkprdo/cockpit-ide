@@ -448,7 +448,7 @@ export class SpecsMapPlugin {
           }
         }
       }
-      if (!(e.target as HTMLElement).closest('.sm-node')) this.closePanel();
+      if (!(e.target as HTMLElement).closest('.sm-node')) this.closePanel(true);
     });
   }
 
@@ -1140,7 +1140,7 @@ export class SpecsMapPlugin {
     }
 
     if (this.selectedId === id && this.panelOpen) {
-      this.closePanel();
+      this.closePanel(true);
       return;
     }
 
@@ -1204,7 +1204,7 @@ export class SpecsMapPlugin {
 
   private openSettingsPanel(): void {
     if (this.panelShowingSettings) {
-      this.closePanel();
+      this.closePanel(true);
       return;
     }
     if (this.panelOpen) {
@@ -1296,7 +1296,7 @@ export class SpecsMapPlugin {
       cyclesSection;
 
     this.panelHeaderEl.querySelector('#sm-panel-close')
-      ?.addEventListener('click', () => this.closePanel());
+      ?.addEventListener('click', () => this.closePanel(true));
 
     const toggle = this.panelInner.querySelector('#sm-cycle-toggle');
     toggle?.addEventListener('click', () => {
@@ -1342,7 +1342,7 @@ export class SpecsMapPlugin {
     });
   }
 
-  private closePanel(): void {
+  private closePanel(resetZoom?: boolean): void {
     this.panelOpen = false;
     this.panelShowingSettings = false;
     this.panel.style.transform = 'translateX(100%)';
@@ -1353,6 +1353,13 @@ export class SpecsMapPlugin {
       if (prev) prev.classList.remove('sm-selected');
     }
     this.selectedId = null;
+    if (resetZoom) {
+      const target = this.getFitTarget();
+      if (target) {
+        this.fitScale = target.scale;
+        this.animateTo(target.panX, target.panY, target.scale, 300);
+      }
+    }
   }
 
   private renderPanelContent(node: SpecNode): void {
@@ -1434,7 +1441,7 @@ export class SpecsMapPlugin {
     this.panelInner.innerHTML = identity + desc + depsSection + refsSection + ipcSection;
 
     this.panelHeaderEl.querySelector('#sm-panel-close')
-      ?.addEventListener('click', () => this.closePanel());
+      ?.addEventListener('click', () => this.closePanel(true));
 
     for (const el of this.panelInner.querySelectorAll<HTMLElement>('[data-goto]')) {
       el.addEventListener('click', () => this.selectNode(el.dataset.goto!));
@@ -1444,8 +1451,8 @@ export class SpecsMapPlugin {
     }
   }
 
-  private fitGraph(): void {
-    if (this.nodes.length === 0) return;
+  private getFitTarget(): { scale: number; panX: number; panY: number } | null {
+    if (this.nodes.length === 0) return null;
     const rect = this.viewport.getBoundingClientRect();
     const cw = rect.width || 800;
     const ch = rect.height || 600;
@@ -1459,13 +1466,21 @@ export class SpecsMapPlugin {
 
     const fitX = (cw - GRAPH_MARGIN * 2) / graphW;
     const fitY = (ch - GRAPH_MARGIN * 2) / graphH;
-    this.fitScale = Math.min(fitX, fitY, 1.0);
-    this.scale = this.fitScale;
+    const scale = Math.min(fitX, fitY, 1.0);
+    return {
+      scale,
+      panX: (cw - graphW * scale) / 2 - minX * scale,
+      panY: (ch - graphH * scale) / 2 - minY * scale,
+    };
+  }
 
-    // Center both axes
-    this.panX = (cw - graphW * this.scale) / 2 - minX * this.scale;
-    this.panY = (ch - graphH * this.scale) / 2 - minY * this.scale;
-
+  private fitGraph(): void {
+    const target = this.getFitTarget();
+    if (!target) return;
+    this.fitScale = target.scale;
+    this.scale = target.scale;
+    this.panX = target.panX;
+    this.panY = target.panY;
     this.applyTransform();
   }
 
