@@ -53,7 +53,7 @@ const LAYER_GAP = 60;
 const UI_OFFSET_Y = 64;
 const PANEL_W = 320;
 const GRAPH_MARGIN = 80;
-const PORT_OFFSET = 8;
+const PORT_OFFSET = 24;
 
 const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugin'];
 const LAYER_LABELS: Record<string, string> = {
@@ -896,13 +896,13 @@ export class SpecsMapPlugin {
     const sameRow = Math.abs(src.y - tgt.y) < 4;
     if (sameRow) {
       const goRight = tgt.x > src.x;
-      const x1 = goRight ? src.x + src.w : src.x;
-      const y1 = src.y + src.h / 2;
-      const x2 = goRight ? tgt.x : tgt.x + tgt.w;
-      const y2 = tgt.y + tgt.h / 2;
-      const dx = Math.abs(x2 - x1);
+      // Route above the row using quarter ports (not side-to-side, which crosses through nodes)
+      const srcPx = goRight ? src.x + src.w * 0.75 : src.x + src.w * 0.25;
+      const tgtPx = goRight ? tgt.x + tgt.w * 0.25 : tgt.x + tgt.w * 0.75;
+      const arcY = src.y - NODE_GAP;
+      const dx = Math.abs(tgtPx - srcPx);
       const sign = goRight ? 1 : -1;
-      return { x1, y1, x2, y2, cx1: x1 + dx * 0.45 * sign, cy1: y1, cx2: x2 - dx * 0.45 * sign, cy2: y2 };
+      return { x1: srcPx, y1: src.y, x2: tgtPx, y2: tgt.y, cx1: srcPx + dx * 0.45 * sign, cy1: arcY, cx2: tgtPx - dx * 0.45 * sign, cy2: arcY };
     }
 
     const srcAbove = src.y < tgt.y;
