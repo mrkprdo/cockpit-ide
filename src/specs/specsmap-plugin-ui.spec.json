@@ -131,7 +131,7 @@
     "cycle_mode_on_acyclic": "Settings panel visible. Toggle ON. DEPTH chips shown. '✓ No cycles — graph is a valid DAG' in green. All nodes and edges at normal opacity.",
     "cycle_mode_off": "Gear icon at default color (var(--tertiary)). Settings panel closed or showing toggle OFF. All nodes and edges at default appearance. Normal hover/select behavior restored.",
     "error": "If loadSpecs() throws, .nodeLayer contains: '<div style=\"padding:16px;color:var(--red);font-size:11px\">Error loading specs</div>'",
-    "empty": "No spec files found in src/specs/ directory. fitGraph() returns early with no nodes. No layer headers rendered."
+    "empty": "No spec files found. Empty state overlay visible: icon, title, subtitle, chip picker of detected entry candidates (always shown), editable text input (always editable, never readOnly), SPECGEN.md integrity badge, and 'Copy Generation Prompt' button. fitGraph() returns early with no nodes."
   },
   "rendering": {
     "node_dimensions": "Main spec nodes: 280x100 (NODE_W x NODE_H). UI sub-spec nodes: 230x62 (NODE_UI_W x NODE_UI_H). Gap between nodes: 28px (NODE_GAP). Gap between layers: 60px (LAYER_GAP). UI offset below parent: 64px (UI_OFFSET_Y).",

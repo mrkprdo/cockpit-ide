@@ -1413,7 +1413,11 @@ export class SpecsMapPlugin {
     const hasSrc = srcEntries !== null;
     const specgenExists = !!specgenRaw;
     const agentsExists = !!agentsRaw;
-    const candidates = hasSrc ? ['src/'] : this.detectEntrycandidates(rootEntries ?? []);
+    const candidates = (() => {
+      const detected = this.detectEntrycandidates(rootEntries ?? []);
+      if (hasSrc && !detected.includes('src/')) detected.unshift('src/');
+      return detected;
+    })();
 
     // Hash-verify workspace SPECGEN.md against bundled hash (seeded with version)
     type SpecgenIntegrity = 'verified' | 'modified' | 'missing';
@@ -1441,17 +1445,17 @@ export class SpecsMapPlugin {
       ? (specgenExists ? 'SPECGEN.md found. Copy the generation prompt and paste it into Claude.' : 'Write SPECGEN.md to this workspace and copy a 3-pass generation prompt.')
       : 'src/ not found. Choose the entry point for spec generation.';
 
-    // Entry point section (always shown; readonly when hasSrc)
+    // Entry point section (always shown, always editable)
     const entrySection = document.createElement('div');
     entrySection.style.cssText = 'width:100%;max-width:320px;margin-bottom:16px;pointer-events:auto';
 
     const entryLabel = document.createElement('div');
     entryLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.8px;color:var(--tertiary);margin-bottom:8px';
-    entryLabel.textContent = hasSrc ? 'ENTRY POINT' : 'ENTRY POINT — choose or type';
+    entryLabel.textContent = 'ENTRY POINT — choose or type';
     entrySection.appendChild(entryLabel);
 
     // Chip row for candidates
-    if (candidates.length > 0 && !hasSrc) {
+    if (candidates.length > 0) {
       const chipRow = document.createElement('div');
       chipRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px';
       for (const c of candidates) {
@@ -1474,16 +1478,12 @@ export class SpecsMapPlugin {
     entryInput.type = 'text';
     entryInput.value = candidates[0] ?? 'src/';
     entryInput.placeholder = 'e.g. src/ or docker-compose.yml';
-    entryInput.readOnly = hasSrc;
     entryInput.style.cssText =
       'width:100%;box-sizing:border-box;background:var(--bg);border:1px dashed var(--border);' +
       'border-radius:6px;padding:6px 12px;font-family:"Space Mono","Courier New",monospace;' +
-      'font-size:11px;color:var(--primary);outline:none;' +
-      (hasSrc ? 'opacity:0.5;cursor:default;' : 'transition:border-color 0.12s;');
-    if (!hasSrc) {
-      entryInput.addEventListener('focus', () => { entryInput.style.borderColor = 'var(--accent)'; entryInput.style.borderStyle = 'solid'; });
-      entryInput.addEventListener('blur', () => { entryInput.style.borderColor = ''; entryInput.style.borderStyle = ''; });
-    }
+      'font-size:11px;color:var(--primary);outline:none;transition:border-color 0.12s;';
+    entryInput.addEventListener('focus', () => { entryInput.style.borderColor = 'var(--accent)'; entryInput.style.borderStyle = 'solid'; });
+    entryInput.addEventListener('blur', () => { entryInput.style.borderColor = ''; entryInput.style.borderStyle = ''; });
     entrySection.appendChild(entryInput);
 
     // Integrity badge
