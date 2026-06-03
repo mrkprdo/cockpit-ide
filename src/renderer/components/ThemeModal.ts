@@ -14,6 +14,7 @@ export class ThemeModal {
   private overlay: HTMLDivElement;
   private el: HTMLDivElement;
   private onCloseCb: (() => void) | null = null;
+  private escHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor() {
     this.overlay = document.createElement('div');
@@ -72,6 +73,8 @@ export class ThemeModal {
     this.render();
     this.onCloseCb = onClose ?? null;
     this.overlay.style.display = 'flex';
+    this.escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.close(); };
+    document.addEventListener('keydown', this.escHandler);
   }
 
   private apply(): void {
@@ -85,6 +88,10 @@ export class ThemeModal {
 
   private close(): void {
     this.overlay.style.display = 'none';
+    if (this.escHandler) {
+      document.removeEventListener('keydown', this.escHandler);
+      this.escHandler = null;
+    }
     this.onCloseCb?.();
     this.onCloseCb = null;
   }

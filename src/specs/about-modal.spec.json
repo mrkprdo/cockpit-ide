@@ -1,7 +1,7 @@
 {
   "name": "About Modal",
   "file": "src/renderer/components/AboutModal.ts",
-  "description": "Version/credits dialog. Displays app name, tagline, version (from electron API), Electron/Node version numbers, and a clickable 'UseDesign.md' link that opens an external URL. Close button and overlay click dismiss. Supports optional onClose callback.",
+  "description": "Version/credits dialog. Displays app name, tagline, version (from electron API), Electron/Node version numbers, and a clickable 'UseDesign.md' link that opens an external URL. Close button, overlay click, and Escape key dismiss. Supports optional onClose callback.",
   "type": "ui",
   "layer": "modal",
   "singleton": false,
@@ -14,7 +14,7 @@
   "interface": {
     "constructor": "new AboutModal()",
     "methods": [
-      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Show overlay, store onClose callback. Close via close button, overlay click, or onClose callback." }
+      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Show overlay, store onClose callback, register Escape key listener. Close via close button, overlay click, Escape key, or onClose callback." }
     ]
   },
   "ui": {

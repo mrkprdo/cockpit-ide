@@ -9,7 +9,9 @@
   "dependencies": [],
   "referenced_by": [
     { "feature": "canvas-engine", "file": "CanvasArea.ts" },
-    { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts" }
+    { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts" },
+    { "feature": "monaco-editor-plugin", "file": "MonacoEditorPlugin.ts" },
+    { "feature": "markdown-plugin", "file": "MarkdownPlugin.ts" }
   ],
   "interface": {
     "types": [

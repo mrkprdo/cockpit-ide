@@ -10,8 +10,7 @@
     { "feature": "theme", "file": "theme.ts", "usage": "theme.toggle() on theme button click" }
   ],
   "referenced_by": [
-    { "feature": "app-shell", "file": "App.ts" },
-    { "feature": "tutorial", "file": "Tutorial.ts" }
+    { "feature": "app-shell", "file": "App.ts" }
   ],
   "interface": {
     "constructor": "new TopBar(el: HTMLElement, callbacks: TopBarCallbacks)",

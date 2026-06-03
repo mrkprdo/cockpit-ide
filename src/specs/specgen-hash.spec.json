@@ -1,0 +1,19 @@
+{
+  "name": "SpecGen Hash",
+  "file": "src/renderer/specgen-hash.ts",
+  "description": "Auto-generated constants for SPECGEN.md integrity verification. Exports SPECGEN_HASH (SHA-256 of the workspace SPECGEN.md seeded with app version) and SPECGEN_VERSION (current app version stamped at build time). Regenerated on every build via build-renderer.js. Imported by SpecsMapPlugin for integrity badge display.",
+  "type": "data",
+  "layer": "foundation",
+  "singleton": false,
+  "exports": ["SPECGEN_HASH", "SPECGEN_VERSION"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "specsmap-plugin", "file": "SpecsMapPlugin.ts" }
+  ],
+  "interface": {
+    "constants": [
+      { "name": "SPECGEN_HASH", "type": "string", "description": "SHA-256 hex digest of workspace SPECGEN.md content seeded with app version" },
+      { "name": "SPECGEN_VERSION", "type": "string", "description": "Version string stamped at build time (e.g. '0.0.20260602')" }
+    ]
+  }
+}

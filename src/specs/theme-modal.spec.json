@@ -1,44 +1,42 @@
 {
   "name": "Theme Modal",
   "file": "src/renderer/components/ThemeModal.ts",
-  "description": "Theme selection modal with Dark/Light radio button options. Opens from Tools > Theme... menu item. Reflects current theme state on open via theme.isDark. Apply button calls theme.setDark() and closes. Cancel / overlay click / Escape dismiss without changes.",
+  "description": "Theme selection modal with two radio sections: THEMES (default / monokai) and LIGHT / DARK (dark / light). Opens from Tools > Theme menu item. Reflects current theme.base and theme.mode on open. Apply button calls theme.setTheme(base, mode) and closes. Cancel / overlay click / Escape dismiss without changes.",
   "type": "ui",
   "layer": "widget",
   "singleton": true,
   "exports": ["ThemeModal"],
   "dependencies": [
-    { "feature": "theme", "file": "theme.ts", "usage": "read theme.isDark, call theme.setDark() on apply" }
+    { "feature": "theme", "file": "theme.ts", "usage": "read theme.base and theme.mode, call theme.setTheme(base, mode) on apply" }
   ],
   "referenced_by": [
-    { "feature": "app-shell", "file": "App.ts" },
-    { "feature": "topbar", "file": "TopBar.ts" }
+    { "feature": "app-shell", "file": "App.ts" }
   ],
   "interface": {
     "constructor": "new ThemeModal()",
     "methods": [
-      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Show modal, re-render to reflect current theme state, store onClose callback" }
+      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Re-render modal HTML to reflect current theme state, show overlay, register Escape key listener, store onClose callback" }
     ]
   },
   "dom": {
     "overlay": ".modal-overlay",
     "modal": ".modal",
     "header": ".modal-header (THEME)",
-    "body": ".modal-body",
-    "options": ".modal-radio > input[type=radio][name=theme-mode] (values: dark, light)",
+    "section_base": ".modal-label (THEMES) + .modal-radio > input[type=radio][name=theme-base] (values: default, monokai)",
+    "section_mode": ".modal-label (LIGHT / DARK) + .modal-radio > input[type=radio][name=theme-mode] (values: dark, light)",
     "actions": "#theme-apply (Apply) + #theme-cancel (Cancel)"
   },
   "interactions": [
-    { "name": "open", "trigger": "modal.open()", "action": "Render modal HTML with current theme checked, show overlay (display:flex)" },
-    { "name": "apply_dark", "trigger": "Click #theme-apply with dark radio checked", "action": "theme.setDark(true), close modal, fire onClose" },
-    { "name": "apply_light", "trigger": "Click #theme-apply with light radio checked", "action": "theme.setDark(false), close modal, fire onClose" },
+    { "name": "open", "trigger": "modal.open()", "action": "Render modal HTML with current base and mode radio checked, show overlay (display:flex), register Escape key listener" },
+    { "name": "apply", "trigger": "Click #theme-apply", "action": "Read checked values from theme-base and theme-mode radios, call theme.setTheme(base, mode), close modal, fire onClose" },
     { "name": "cancel", "trigger": "Click #theme-cancel", "action": "Close modal without applying, fire onClose" },
-    { "name": "overlay_dismiss", "trigger": "Click overlay background", "action": "Same as cancel — close without applying" },
-    { "name": "state_refresh", "trigger": "Each open() call", "action": "Re-render DOM to match current theme.isDark state" }
+    { "name": "overlay_dismiss", "trigger": "Click overlay background", "action": "Same as cancel — close without applying, remove Escape listener" },
+    { "name": "escape_dismiss", "trigger": "Escape key while modal is visible", "action": "Same as cancel — close without applying, remove Escape listener" },
+    { "name": "state_refresh", "trigger": "Each open() call", "action": "Re-render DOM to match current theme.base and theme.mode state" }
   ],
   "states": {
     "hidden": "Overlay display:none",
-    "visible_dark_selected": "Overlay display:flex, dark input[checked]",
-    "visible_light_selected": "Overlay display:flex, light input[checked]"
+    "visible": "Overlay display:flex, radios reflect current theme.base and theme.mode, Escape key registered"
   },
   "ui": {
     "spec": "theme-modal-ui.spec.json"

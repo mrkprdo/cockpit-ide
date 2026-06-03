@@ -2,6 +2,7 @@ export class WelcomeModal {
   private el: HTMLDivElement;
   private overlay: HTMLDivElement;
   private resolve: ((path: string | null) => void) | null = null;
+  private escHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor() {
     this.overlay = document.createElement('div');
@@ -41,6 +42,8 @@ export class WelcomeModal {
 
   async open(): Promise<string | null> {
     this.overlay.style.display = 'flex';
+    this.escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.close(null); };
+    document.addEventListener('keydown', this.escHandler);
     const recent = await window.electronAPI?.workspace.getRecent() || [];
     const container = this.el.querySelector('#welcome-recent') as HTMLElement;
     if (recent.length > 0) {
@@ -86,6 +89,10 @@ export class WelcomeModal {
 
   private close(path: string | null): void {
     this.overlay.style.display = 'none';
+    if (this.escHandler) {
+      document.removeEventListener('keydown', this.escHandler);
+      this.escHandler = null;
+    }
     this.resolve?.(path);
   }
 }

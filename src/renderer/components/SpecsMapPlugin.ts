@@ -384,22 +384,17 @@ export class SpecsMapPlugin {
 
   private initInteractions(): void {
     this.viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      if (e.ctrlKey) {
-        e.preventDefault();
-        const rect = this.viewport.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        const oldScale = this.scale;
-        const maxScale = Math.max(this.fitScale * 3, 1.0);
-        this.scale = Math.max(this.fitScale, Math.min(maxScale, this.scale * (1 + -e.deltaY * 0.001)));
-        this.panX = mx - (mx - this.panX) * (this.scale / oldScale);
-        this.panY = my - (my - this.panY) * (this.scale / oldScale);
-        this.applyTransform();
-      } else {
-        this.panY -= e.deltaY;
-        this.applyTransform();
-      }
+      const rect = this.viewport.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const oldScale = this.scale;
+      const maxScale = Math.max(this.fitScale * 3, 1.0);
+      this.scale = Math.max(this.fitScale, Math.min(maxScale, this.scale * (1 + -e.deltaY * 0.001)));
+      this.panX = mx - (mx - this.panX) * (this.scale / oldScale);
+      this.panY = my - (my - this.panY) * (this.scale / oldScale);
+      this.applyTransform();
     }, { passive: false });
 
     this.viewport.addEventListener('mousedown', (e) => {

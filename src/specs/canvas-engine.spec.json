@@ -19,8 +19,7 @@
     { "feature": "specsmap-plugin", "file": "SpecsMapPlugin.ts", "usage": "Instantiated inside specsmap plugin cards on new creation and state restore" }
   ],
   "referenced_by": [
-    { "feature": "app-shell", "file": "App.ts" },
-    { "feature": "tutorial", "file": "Tutorial.ts" }
+    { "feature": "app-shell", "file": "App.ts" }
   ],
   "ipc": [],
   "state": {

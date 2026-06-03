@@ -1,6 +1,6 @@
 # SPECGEN — Specs Graph Generator
 
-## Purpose
+## Purpose Test
 
 SPECGEN defines the specification format and methodology for Cockpit IDE's source
 audit system. It produces a machine-readable **specs graph** — a DAG of JSON

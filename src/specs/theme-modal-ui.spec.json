@@ -1,15 +1,15 @@
 {
   "name": "Theme Modal UI",
   "parent": "theme-modal",
-  "description": "UI interaction spec for the theme selection dialog.",
+  "description": "UI interaction spec for the theme selection dialog with two-section radios (THEMES, LIGHT/DARK).",
   "dom": {
     "overlay": ".modal-overlay (display:flex; align-items:center; justify-content:center; position:fixed; inset:0; background:rgba(8,14,22,0.72); z-index:200)",
     "modal": ".modal (min-width:380px; border:1px dashed var(--border); border-radius:12px; background:var(--surface); box-shadow:0 16px 48px rgba(0,0,0,0.45))",
     "structure": [
-      ".modal-header (padding:16px 20px; border-bottom:1px solid var(--border); font-size:13px; font-weight:700; letter-spacing:0.12em)",
+      ".modal-header (padding:16px 20px; border-bottom:1px solid var(--border); font-size:11px; font-weight:700; letter-spacing:0.12em)",
       ".modal-body (padding:20px)",
       ".modal-section > .modal-label (font-size:11px; font-weight:700; letter-spacing:0.1em; color:var(--secondary); margin-bottom:12px)",
-      ".modal-radio (display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:13px; color:var(--primary); border-radius:6px; transition:background 0.1s)",
+      ".modal-radio (display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:11px; color:var(--primary); border-radius:6px; transition:background 0.1s)",
       ".modal-radio:hover (background:var(--panel))",
       ".modal-radio input (accent-color:var(--primary))",
       ".modal-actions (display:flex; gap:8px; justify-content:flex-end; margin-top:16px)",
@@ -21,26 +21,31 @@
     {
       "name": "open",
       "trigger": "modal.open(onClose?)",
-      "action": "Re-render modal HTML to match current theme.isDark, set overlay display:flex, store onClose callback"
+      "action": "Re-render modal HTML with checked radios matching theme.base and theme.mode, set overlay display:flex, register Escape key listener, store onClose callback"
     },
     {
       "name": "apply",
       "trigger": "Click #theme-apply",
-      "action": "Read selected radio value, call theme.setDark(true/false), hide overlay (display:none), fire onClose callback, clear onClose reference"
+      "action": "Read checked values from theme-base and theme-mode radios, call theme.setTheme(base, mode), hide overlay (display:none), remove Escape listener, fire onClose callback, clear onClose reference"
     },
     {
       "name": "cancel",
       "trigger": "Click #theme-cancel button",
-      "action": "Hide overlay without applying, fire onClose callback"
+      "action": "Hide overlay without applying, remove Escape listener, fire onClose callback"
     },
     {
       "name": "overlay_dismiss",
       "trigger": "Click overlay background (e.target === overlay)",
-      "action": "Same as cancel — hide and fire callback without applying"
+      "action": "Same as cancel — hide, remove Escape listener, fire callback without applying"
+    },
+    {
+      "name": "escape_dismiss",
+      "trigger": "Escape key while modal is visible",
+      "action": "Same as cancel — close without applying, remove Escape listener"
     }
   ],
   "states": {
-    "hidden": "Overlay display:none, onClose callback null",
-    "visible": "Overlay display:flex, onClose callback stored and active"
+    "hidden": "Overlay display:none, onClose callback null, Escape listener removed",
+    "visible": "Overlay display:flex, onClose callback stored and active, Escape key listener registered"
   }
 }

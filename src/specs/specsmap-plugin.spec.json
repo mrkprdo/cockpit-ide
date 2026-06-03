@@ -8,9 +8,9 @@
   "exports": ["SpecsMapPlugin"],
   "dependencies": [
     {
-      "feature": "canvas-engine",
-      "file": "CanvasArea.ts",
-      "usage": "Instantiated by CanvasArea in the 'specsMap' card body on state restore and new card creation"
+      "feature": "specgen-hash",
+      "file": "specgen-hash.ts",
+      "usage": "Imports SPECGEN_HASH and SPECGEN_VERSION for integrity check against generated SPECGEN.md"
     }
   ],
   "referenced_by": [

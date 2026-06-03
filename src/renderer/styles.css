@@ -779,14 +779,14 @@ html, body {
   background: var(--surface);
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
-  width: 340px;
+  min-width: 360px;
   font-family: var(--font);
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.25);
   animation: modal-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .welcome-head {
-  padding: 24px 24px 20px;
+  padding: 16px 20px;
 }
 .welcome-name {
   font-size: var(--text-md);
@@ -811,7 +811,8 @@ html, body {
   padding: 16px 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 8px;
 }
 /* ===== Shared Modal Button Tokens ===== */
 /* .welcome-btn aliases .btn-primary; .welcome-btn-secondary aliases .btn-ghost */
@@ -868,14 +869,14 @@ html, body {
   background: var(--surface);
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
-  width: 300px;
+  min-width: 360px;
   font-family: var(--font);
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.25);
   animation: modal-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .about-head {
-  padding: 24px 24px 20px;
+  padding: 16px 20px;
 }
 .about-name {
   font-size: var(--text-md);
@@ -919,7 +920,7 @@ html, body {
   padding: 12px 24px 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 /* .about-close-btn extends .btn-ghost; compact padding override for tight footer */
 .about-close-btn { padding: 4px 10px; }

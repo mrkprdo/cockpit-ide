@@ -42,20 +42,13 @@
   "interactions": [
     {
       "name": "wheel_zoom",
-      "trigger": "wheel event on .viewport with ctrlKey true",
-      "gesture": "Ctrl+scroll on viewport",
-      "action": "e.preventDefault(). Compute mx, my relative to viewport. oldScale = scale. maxScale = max(fitScale * 2, 1.0). scale = clamp(fitScale * 0.8, maxScale, scale * (1 + -deltaY * 0.001)). panX = mx - (mx - panX) * (scale / oldScale). panY = my - (my - panY) * (scale / oldScale). applyTransform().",
-      "propagation": "e.stopPropagation() on viewport",
-      "result": "Viewport content scales centered on cursor position"
+      "trigger": "wheel event on .viewport",
+      "gesture": "Scroll on viewport",
+      "action": "e.preventDefault(). Compute mx, my relative to viewport. oldScale = scale. maxScale = max(fitScale * 3, 1.0). scale = clamp(fitScale, maxScale, scale * (1 + -deltaY * 0.001)). panX = mx - (mx - panX) * (scale / oldScale). panY = my - (my - panY) * (scale / oldScale). applyTransform().",
+      "propagation": "e.preventDefault() + e.stopPropagation() on viewport",
+      "result": "Viewport content zooms in/out centered on cursor position"
     },
-    {
-      "name": "wheel_scroll",
-      "trigger": "wheel event on .viewport without ctrlKey",
-      "action": "panY -= deltaY. applyTransform().",
-      "propagation": "e.stopPropagation() on viewport",
-      "result": "Viewport content scrolls vertically"
-    },
-    {
+{
       "name": "canvas_pan_start",
       "trigger": "mousedown on .viewport (button 0 or 1, not on .sm-node)",
       "action": "isPanning = true. Record panStartX/Y = clientX/Y, panStartPanX/Y = current panX/panY. Set cursor:grabbing.",

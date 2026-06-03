@@ -31,7 +31,8 @@
       { "id": "type-model", "name": "Type Model", "file": "global.d.ts", "spec": "type-model.spec.json" },
       { "id": "main-process", "name": "Main Process", "file": "main.ts", "spec": "main-process.spec.json" },
       { "id": "preload-bridge", "name": "Preload Bridge", "file": "preload.ts", "spec": "preload-bridge.spec.json" },
-      { "id": "ide-server", "name": "IDE Context Server", "file": "ide-server.ts", "spec": "ide-server.spec.json" }
+      { "id": "ide-server", "name": "IDE Context Server", "file": "ide-server.ts", "spec": "ide-server.spec.json" },
+      { "id": "specgen-hash", "name": "SpecGen Hash", "file": "specgen-hash.ts", "spec": "specgen-hash.spec.json" }
     ],
     "core": [
       { "id": "renderer-entry", "name": "Renderer Entry", "file": "index.ts", "spec": "renderer-entry.spec.json" },
@@ -77,6 +78,9 @@
       "PluginCard.ts": ["TextRenderer.ts"],
       "ExplorerPlugin.ts": ["FileExplorerPlugin.ts", "MonacoEditorPlugin.ts", "CommandPalette.ts"],
       "FileExplorerPlugin.ts": ["ContextMenu.ts", "ConfirmModal.ts"],
+      "MonacoEditorPlugin.ts": ["ContextMenu.ts"],
+      "MarkdownPlugin.ts": ["ContextMenu.ts"],
+      "ThemeModal.ts": ["theme.ts"],
       "main.ts": ["ide-server.ts"]
     }
   },

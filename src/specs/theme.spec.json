@@ -10,9 +10,7 @@
   "referenced_by": [
     { "feature": "app-shell", "file": "App.ts" },
     { "feature": "topbar", "file": "TopBar.ts" },
-    { "feature": "canvas-engine", "file": "CanvasArea.ts" },
-    { "feature": "monaco-editor-plugin", "file": "MonacoEditorPlugin.ts" },
-    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" }
+    { "feature": "theme-modal", "file": "ThemeModal.ts" }
   ],
   "palettes": {
     "dark": {

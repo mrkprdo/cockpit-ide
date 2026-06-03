@@ -8,8 +8,7 @@
   "exports": ["CommandPalette"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" },
-    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" }
   ],
   "ipc": ["fs:readDir"],
   "interface": {

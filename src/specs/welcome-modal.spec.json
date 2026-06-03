@@ -1,7 +1,7 @@
 {
   "name": "Welcome Modal",
   "file": "src/renderer/components/WelcomeModal.ts",
-  "description": "Startup workspace picker overlay shown when no CLI path is provided. Displays a centered modal with app name, 'Select a workspace' subtitle, 'Open Workspace' button (native directory picker via IPC), 'Close' button (closes app), and recent workspaces list (clickable with remove button, missing paths detected and styled differently). Returns Promise<string | null>.",
+  "description": "Startup workspace picker overlay shown when no CLI path is provided. Displays a centered modal with app name, 'Select a workspace' subtitle, 'Open Workspace' button (native directory picker via IPC), 'Close' button (closes app), and recent workspaces list (clickable with remove button, missing paths detected and styled differently). Escape key dismisses with null. Returns Promise<string | null>.",
   "type": "ui",
   "layer": "modal",
   "singleton": false,
@@ -14,7 +14,7 @@
   "interface": {
     "constructor": "new WelcomeModal()",
     "methods": [
-      { "name": "open", "signature": "() => Promise<string | null>", "description": "Show overlay, load recent workspaces, return path on selection or null on close" }
+      { "name": "open", "signature": "() => Promise<string | null>", "description": "Show overlay, register Escape key listener, load recent workspaces, return path on selection or null on close/Escape" }
     ]
   },
   "ui": {

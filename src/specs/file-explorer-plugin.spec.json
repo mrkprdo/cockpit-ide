@@ -11,8 +11,7 @@
     { "feature": "confirm-modal", "file": "ConfirmModal.ts", "usage": "Delete confirmation dialog" }
   ],
   "referenced_by": [
-    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" },
-    { "feature": "canvas-engine", "file": "CanvasArea.ts" }
+    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" }
   ],
   "ipc": ["fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete", "fs:copy", "fs:rename", "fs:onChanged"],
   "interface": {
