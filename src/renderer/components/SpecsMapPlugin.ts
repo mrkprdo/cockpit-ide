@@ -48,19 +48,20 @@ const NODE_H = 100;
 const NODE_UI_W = 230;
 const NODE_UI_H = 62;
 const NODE_GAP = 28;
+const MAX_PER_ROW = 10;
 const LAYER_GAP = 60;
 const UI_OFFSET_Y = 64;
 const PANEL_W = 320;
 const GRAPH_MARGIN = 80;
 
-const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugins'];
+const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugin'];
 const LAYER_LABELS: Record<string, string> = {
   foundation: 'Foundation',
   core: 'Core',
   widget: 'Widget',
   modal: 'Modal',
   overlay: 'Overlay',
-  plugins: 'Plugins',
+  plugin: 'Plugins',
 };
 
 const LAYER_COLORS_VAR: Record<string, string> = {
@@ -69,7 +70,7 @@ const LAYER_COLORS_VAR: Record<string, string> = {
   widget: 'var(--accent2)',
   modal: 'var(--amber)',
   overlay: 'var(--red)',
-  plugins: 'var(--secondary)',
+  plugin: 'var(--secondary)',
 };
 
 const LAYER_COLORS_HEX: Record<string, string> = {
@@ -78,7 +79,7 @@ const LAYER_COLORS_HEX: Record<string, string> = {
   widget: '#a78bfa',
   modal: '#fbbf24',
   overlay: '#f87171',
-  plugins: '#94a3b8',
+  plugin: '#94a3b8',
 };
 
 async function sha256(text: string): Promise<string> {
@@ -110,6 +111,13 @@ export class SpecsMapPlugin {
   private refCounts = new Map<string, number>();
   private selectedId: string | null = null;
   private panelOpen = false;
+  private panelShowingSettings = false;
+  private cycleMode = false;
+  private cycleSets: Set<string>[] = [];
+  private cycleLevel = 1;
+  private selectedCycleIndex: number | null = null;
+  private isolatedMode = false;
+  private cycleBtn!: HTMLButtonElement;
   private panX = 0;
   private panY = 0;
   private readonly onDocMouseMove: (e: MouseEvent) => void;
@@ -178,6 +186,19 @@ export class SpecsMapPlugin {
       `<polyline points="256 58 336 138 256 218"/>` +
       `</svg>`;
 
+    const SVG_GEAR =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" ` +
+      `fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">` +
+      `<circle cx="256" cy="256" r="48"/>` +
+      `<path d="M222.7 48.6a16 16 0 0 0-13.6 13.2l-3.4 22.5a17.4 17.4 0 0 1-13.5 14.8A187.2 187.2 0 0 0 145.2 119a17.4 17.4 0 0 1-14.8 6.3l-22.7-2.6a16 16 0 0 0-15.7 10.5 207.9 207.9 0 0 0-14.7 39.9 16 16 0 0 0 5.3 17.5l16.9 14.6a17.4 17.4 0 0 1 5.2 16.2 186.1 186.1 0 0 0 0 36.8 17.4 17.4 0 0 1-5.2 16.2L92.7 294.6a16 16 0 0 0-5.3 17.5 207.9 207.9 0 0 0 14.7 39.9 16 16 0 0 0 15.7 10.5l22.7-2.6a17.4 17.4 0 0 1 14.8 6.3 187.2 187.2 0 0 0 47 31.9 17.4 17.4 0 0 1 13.5 14.8l3.4 22.5a16 16 0 0 0 13.6 13.2 207.9 207.9 0 0 0 66.6 0 16 16 0 0 0 13.6-13.2l3.4-22.5a17.4 17.4 0 0 1 13.5-14.8 187.2 187.2 0 0 0 47-31.9 17.4 17.4 0 0 1 14.8-6.3l22.7 2.6a16 16 0 0 0 15.7-10.5 207.9 207.9 0 0 0 14.7-39.9 16 16 0 0 0-5.3-17.5l-16.9-14.6a17.4 17.4 0 0 1-5.2-16.2 186.1 186.1 0 0 0 0-36.8 17.4 17.4 0 0 1 5.2-16.2l16.9-14.6a16 16 0 0 0 5.3-17.5 207.9 207.9 0 0 0-14.7-39.9 16 16 0 0 0-15.7-10.5l-22.7 2.6a17.4 17.4 0 0 1-14.8-6.3 187.2 187.2 0 0 0-47-31.9 17.4 17.4 0 0 1-13.5-14.8l-3.4-22.5a16 16 0 0 0-13.6-13.2 207.9 207.9 0 0 0-66.6 0z"/>` +
+      `</svg>`;
+
+    this.cycleBtn = document.createElement('button');
+    this.cycleBtn.className = 'sm-header-btn';
+    this.cycleBtn.innerHTML = SVG_GEAR;
+    this.cycleBtn.title = 'Settings';
+    this.cycleBtn.addEventListener('click', () => this.openSettingsPanel());
+
     this.fitBtn = document.createElement('button');
     this.fitBtn.className = 'sm-header-btn';
     this.fitBtn.innerHTML = SVG_EYE;
@@ -190,10 +211,11 @@ export class SpecsMapPlugin {
     this.refreshBtn.title = 'Rebuild spec graph from src/specs/';
     this.refreshBtn.addEventListener('click', () => this.refresh());
 
-    // subtitle, path, validation, refresh, then reset-view (eye) on the right
+    // subtitle, path, validation, cycle controls, refresh, then reset-view (eye) on the right
     header.appendChild(headerSub);
     header.appendChild(headerPath);
     header.appendChild(this.validationBadge);
+    header.appendChild(this.cycleBtn);
     header.appendChild(this.refreshBtn);
     header.appendChild(this.fitBtn);
     this.el.appendChild(header);
@@ -318,6 +340,8 @@ export class SpecsMapPlugin {
       .sm-dep-usage { font-size: 9px; color: var(--secondary); line-height: 1.4; margin-top: 1px; }
       @keyframes sm-flow { to { stroke-dashoffset: -20; } }
       .sm-edge-active { animation: sm-flow 0.8s linear infinite; }
+      @keyframes sm-flow-fast { 0% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -24; } }
+      .sm-isolated-border { animation: sm-flow-fast 0.4s linear infinite; stroke-dashoffset: 0; }
       @keyframes sm-spin { to { transform: rotate(360deg); } }
       .sm-spinning { display: inline-block; animation: sm-spin 0.7s linear infinite; }
       @media (prefers-reduced-motion: reduce) {
@@ -350,6 +374,9 @@ export class SpecsMapPlugin {
       .sm-empty-btn:disabled {
         opacity: 0.45;
         cursor: default;
+      }
+      .sm-isolated {
+        box-shadow: 0 0 0 1px #fbbf2444, 0 0 14px #fbbf2433 !important;
       }
     `;
     document.head.appendChild(style);
@@ -389,8 +416,22 @@ export class SpecsMapPlugin {
     document.addEventListener('mousemove', this.onDocMouseMove);
     document.addEventListener('mouseup', this.onDocMouseUp);
 
-    // Click on canvas background → close panel
+    // Click on canvas background → close panel; cycle edges → select cycle
     this.viewport.addEventListener('click', (e) => {
+      if (this.cycleMode && this.cycleSets.length > 0) {
+        const rect = this.viewport.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        for (const hit of this.getCycleEdgeHitTargets()) {
+          const dist = Math.sqrt((cx - hit.cx) ** 2 + (cy - hit.cy) ** 2);
+          if (dist < 18) {
+            this.selectedCycleIndex = this.selectedCycleIndex === hit.cycleIdx ? null : hit.cycleIdx;
+            this.applyCycleHighlights();
+            if (this.panelShowingSettings) this.renderSettingsContent();
+            return;
+          }
+        }
+      }
       if (!(e.target as HTMLElement).closest('.sm-node')) this.closePanel();
     });
   }
@@ -528,7 +569,7 @@ export class SpecsMapPlugin {
     const rawNodes: SpecNode[] = [];
     for (const [filename, data] of this.specRawMap) {
       const isUI = uiToParent.has(filename);
-      const layer = specLayerMap.get(filename) ?? data.layer ?? 'plugins';
+      const layer = specLayerMap.get(filename) ?? data.layer ?? 'plugin';
       const deps: string[] = [];
       for (const dep of data.dependencies ?? []) {
         const basename = dep.file?.split('/').pop();
@@ -604,6 +645,14 @@ export class SpecsMapPlugin {
     this.refreshBtn.disabled = true;
     this.refreshBtn.querySelector('svg')?.classList.add('sm-spinning');
 
+    // Reset cycle mode
+    this.cycleMode = false;
+    this.cycleSets = [];
+    this.cycleLevel = 1;
+    this.selectedCycleIndex = null;
+    this.isolatedMode = false;
+    this.cycleBtn.style.color = '';
+
     // Clear current state
     this.specBaseDir = '';
     this.nodes = [];
@@ -671,17 +720,37 @@ export class SpecsMapPlugin {
     for (const layer of LAYER_ORDER) {
       const items = layerMap.get(layer);
       if (!items || items.length === 0) continue;
+      globalY = this.positionLayer(items, uiNodes, nodeById, globalY);
+    }
 
-      const rowW = items.length * NODE_W + (items.length - 1) * NODE_GAP;
+    // Unknown/custom layers (e.g. "FEATURE" from generated specs) — sort alphabetically, position below
+    const unknownLayers = [...layerMap.keys()].filter(l => !LAYER_ORDER.includes(l)).sort();
+    for (const layer of unknownLayers) {
+      const items = layerMap.get(layer)!;
+      globalY = this.positionLayer(items, uiNodes, nodeById, globalY);
+    }
+
+    return nodes;
+  }
+
+  private positionLayer(
+    items: SpecNode[],
+    uiNodes: SpecNode[],
+    nodeById: Map<string, SpecNode>,
+    globalY: number,
+  ): number {
+    for (let chunkStart = 0; chunkStart < items.length; chunkStart += MAX_PER_ROW) {
+      const chunk = items.slice(chunkStart, chunkStart + MAX_PER_ROW);
+      const rowW = chunk.length * NODE_W + (chunk.length - 1) * NODE_GAP;
       const startX = -rowW / 2;
 
-      for (let i = 0; i < items.length; i++) {
-        items[i].x = startX + i * (NODE_W + NODE_GAP);
-        items[i].y = globalY;
+      for (let i = 0; i < chunk.length; i++) {
+        chunk[i].x = startX + i * (NODE_W + NODE_GAP);
+        chunk[i].y = globalY;
       }
 
-      const layerUI = uiNodes.filter(u => u.parentId && items.some(m => m.id === u.parentId));
-      for (const uiNode of layerUI) {
+      const chunkUI = uiNodes.filter(u => u.parentId && chunk.some(m => m.id === u.parentId));
+      for (const uiNode of chunkUI) {
         const parent = nodeById.get(uiNode.parentId!);
         if (parent) {
           uiNode.x = parent.x + (NODE_W - NODE_UI_W) / 2;
@@ -689,11 +758,10 @@ export class SpecsMapPlugin {
         }
       }
 
-      const hasUI = layerUI.length > 0;
+      const hasUI = chunkUI.length > 0;
       globalY += NODE_H + (hasUI ? UI_OFFSET_Y + NODE_UI_H + 20 : 0) + LAYER_GAP;
     }
-
-    return nodes;
+    return globalY;
   }
 
   private renderGraph(): void {
@@ -913,6 +981,7 @@ export class SpecsMapPlugin {
   }
 
   private hoverNode(id: string, enter: boolean): void {
+    if (this.cycleMode) return;
     const connected = new Set<string>([id]);
     for (const node of this.nodes) {
       if (node.id === id) {
@@ -990,6 +1059,10 @@ export class SpecsMapPlugin {
   }
 
   private selectNode(id: string): void {
+    // Close settings panel if open
+    if (this.panelShowingSettings) {
+      this.closePanel();
+    }
     // Deselect previous
     if (this.selectedId) {
       const prev = this.nodeEls.get(this.selectedId);
@@ -1055,10 +1128,148 @@ export class SpecsMapPlugin {
     }
   }
 
+  private openSettingsPanel(): void {
+    if (this.panelShowingSettings) {
+      this.closePanel();
+      return;
+    }
+    if (this.panelOpen) {
+      this.closePanel();
+    }
+    this.panelShowingSettings = true;
+    this.panelOpen = true;
+    this.panel.style.transform = 'translateX(0)';
+    this.panel.style.pointerEvents = 'auto';
+    this.cycleBtn.style.color = 'var(--accent)';
+    try {
+      this.renderSettingsContent();
+    } catch {
+      this.panelHeaderEl.innerHTML = '';
+      this.panelInner.innerHTML =
+        '<div class="sm-panel-section" style="color:var(--red);font-size:12px">Error rendering settings</div>';
+    }
+  }
+
+  private renderSettingsContent(): void {
+    const isActive = this.cycleMode;
+    const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    this.panelHeaderEl.innerHTML =
+      `<div style="padding:14px 18px 12px;display:flex;align-items:center;gap:12px">` +
+      `<span style="font-size:14px;font-weight:700;color:var(--primary);flex:1">Settings</span>` +
+      `<button id="sm-panel-close" style="background:none;border:none;cursor:pointer;color:var(--tertiary);font-size:18px;line-height:1;padding:0 0 0 4px;font-family:inherit" aria-label="Close">×</button>` +
+      `</div>`;
+
+    const toggleBg = isActive ? 'var(--red)' : 'var(--border)';
+    const toggleKnob = isActive ? 'right:2px' : 'left:2px';
+    const toggleLabel = isActive ? 'On' : 'Off';
+
+    const levelChips = (lvl: number) =>
+      `<button class="sm-cycle-level" data-level="${lvl}" style="background:none;border:1px solid ${lvl === this.cycleLevel ? 'var(--accent)' : 'var(--border)'};color:${lvl === this.cycleLevel ? 'var(--accent)' : 'var(--tertiary)'};border-radius:5px;padding:2px 10px;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;transition:color 0.12s,border-color 0.12s" title="Level ${lvl}: ${lvl === 1 ? 'cycle nodes only' : lvl === 2 ? '+ immediate neighbors' : '+ 2-hop neighbors'}">${lvl}</button>`;
+
+    let cyclesSection = '';
+    if (isActive) {
+      cyclesSection =
+        `<div class="sm-panel-section">` +
+        `<div class="sm-panel-label">DEPTH</div>` +
+        `<div style="display:flex;gap:6px;padding:4px 0">${[1, 2, 3].map(levelChips).join('')}</div></div>`;
+      if (this.cycleSets.length > 0) {
+        cyclesSection +=
+          `<div class="sm-panel-section">` +
+          `<div class="sm-panel-label">CYCLES (${this.cycleSets.length}) — click edge on graph to trace</div>` +
+          this.cycleSets.map((s, i) => {
+            const CYCLE_COLORS = ['#f87171', '#fb923c', '#fbbf24', '#f472b6', '#a78bfa'];
+            const c = CYCLE_COLORS[i % CYCLE_COLORS.length];
+            const isSel = i === this.selectedCycleIndex;
+            return `<div style="font-size:11px;color:${c};padding:4px 0;display:flex;align-items:center;gap:6px;${isSel ? `background:${c}15;border-radius:4px;padding:4px 6px;margin:0 -6px;font-weight:700` : ''}">` +
+              `<span style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0"></span>` +
+              `<span>${isSel ? '▸ ' : ''}${esc([...s].join(' → '))}</span></div>`;
+          }).join('') +
+          `</div>`;
+      } else {
+        cyclesSection +=
+          `<div class="sm-panel-section">` +
+          `<div style="font-size:11px;color:var(--green);display:flex;align-items:center;gap:6px">` +
+          `<span>✓</span><span>No cycles — graph is a valid DAG</span></div></div>`;
+      }
+    }
+
+    const isolatedToggleBg = this.isolatedMode ? 'var(--amber)' : 'var(--border)';
+    const isolatedKnob = this.isolatedMode ? 'right:2px' : 'left:2px';
+    const isolatedLabel = this.isolatedMode ? 'On' : 'Off';
+
+    this.panelInner.innerHTML =
+      `<div class="sm-panel-section">` +
+      `<div class="sm-panel-label">GRAPH ANALYSIS</div>` +
+      `<div style="display:flex;align-items:center;gap:12px;padding:8px 0">` +
+      `<label style="flex:1;font-size:12px;color:var(--primary);cursor:pointer">Show cyclic dependencies</label>` +
+      `<div id="sm-cycle-toggle" style="width:36px;height:20px;border-radius:10px;background:${toggleBg};cursor:pointer;position:relative;transition:background 0.15s;flex-shrink:0" role="switch" aria-checked="${isActive}">` +
+      `<div style="width:16px;height:16px;border-radius:50%;background:var(--bg);position:absolute;top:2px;${toggleKnob};transition:left 0.15s,right 0.15s"></div>` +
+      `</div>` +
+      `<span style="font-size:10px;color:var(--tertiary);min-width:20px;text-align:right">${toggleLabel}</span>` +
+      `</div>` +
+      `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--border);margin-top:4px;padding-top:12px">` +
+      `<label style="flex:1;font-size:12px;color:var(--primary);cursor:pointer">Show isolated nodes</label>` +
+      `<div id="sm-isolated-toggle" style="width:36px;height:20px;border-radius:10px;background:${isolatedToggleBg};cursor:pointer;position:relative;transition:background 0.15s;flex-shrink:0" role="switch" aria-checked="${this.isolatedMode}">` +
+      `<div style="width:16px;height:16px;border-radius:50%;background:var(--bg);position:absolute;top:2px;${isolatedKnob};transition:left 0.15s,right 0.15s"></div>` +
+      `</div>` +
+      `<span style="font-size:10px;color:var(--tertiary);min-width:20px;text-align:right">${isolatedLabel}</span>` +
+      `</div></div>` +
+      cyclesSection;
+
+    this.panelHeaderEl.querySelector('#sm-panel-close')
+      ?.addEventListener('click', () => this.closePanel());
+
+    const toggle = this.panelInner.querySelector('#sm-cycle-toggle');
+    toggle?.addEventListener('click', () => {
+      if (this.cycleMode) {
+        this.cycleMode = false;
+        this.selectedCycleIndex = null;
+        this.clearCycleHighlights();
+        this.cycleSets = [];
+        if (!this.isolatedMode) this.cycleBtn.style.color = '';
+      } else {
+        this.cycleMode = true;
+        this.cycleLevel = 1;
+        this.selectedCycleIndex = null;
+        this.cycleSets = this.findCycles();
+        this.applyCycleHighlights();
+        this.cycleBtn.style.color = 'var(--accent)';
+      }
+      this.renderSettingsContent();
+    });
+
+    for (const chip of this.panelInner.querySelectorAll<HTMLElement>('.sm-cycle-level')) {
+      chip.addEventListener('click', () => {
+        const lvl = parseInt(chip.dataset.level ?? '1', 10);
+        if (lvl !== this.cycleLevel) {
+          this.cycleLevel = lvl;
+          this.applyCycleHighlights();
+          this.renderSettingsContent();
+        }
+      });
+    }
+
+    const isolatedToggle = this.panelInner.querySelector('#sm-isolated-toggle');
+    isolatedToggle?.addEventListener('click', () => {
+      this.isolatedMode = !this.isolatedMode;
+      if (this.isolatedMode) {
+        this.cycleBtn.style.color = 'var(--accent)';
+        this.applyIsolatedHighlights();
+      } else {
+        this.clearIsolatedHighlights();
+        if (!this.cycleMode) this.cycleBtn.style.color = '';
+      }
+      this.renderSettingsContent();
+    });
+  }
+
   private closePanel(): void {
     this.panelOpen = false;
+    this.panelShowingSettings = false;
     this.panel.style.transform = 'translateX(100%)';
     this.panel.style.pointerEvents = 'none';
+    if (!this.cycleMode && !this.isolatedMode) this.cycleBtn.style.color = '';
     if (this.selectedId) {
       const prev = this.nodeEls.get(this.selectedId);
       if (prev) prev.classList.remove('sm-selected');
@@ -1404,6 +1615,298 @@ export class SpecsMapPlugin {
       btn.style.borderStyle = '';
       btn.style.color = '';
     }, 3000);
+  }
+
+  private findCycles(): Set<string>[] {
+    const adj = new Map<string, string[]>();
+    const nodeIds = new Set(this.nodes.map(n => n.id));
+    for (const n of this.nodes) {
+      adj.set(n.id, n.deps.filter(d => nodeIds.has(d)));
+    }
+
+    const index = new Map<string, number>();
+    const lowlink = new Map<string, number>();
+    const onStack = new Set<string>();
+    const stack: string[] = [];
+    let idx = 0;
+    const sccs: Set<string>[] = [];
+
+    const strongconnect = (v: string) => {
+      index.set(v, idx);
+      lowlink.set(v, idx);
+      idx++;
+      stack.push(v);
+      onStack.add(v);
+
+      for (const w of adj.get(v) ?? []) {
+        if (!index.has(w)) {
+          strongconnect(w);
+          lowlink.set(v, Math.min(lowlink.get(v)!, lowlink.get(w)!));
+        } else if (onStack.has(w)) {
+          lowlink.set(v, Math.min(lowlink.get(v)!, index.get(w)!));
+        }
+      }
+
+      if (lowlink.get(v) === index.get(v)) {
+        const scc = new Set<string>();
+        let w: string;
+        do {
+          w = stack.pop()!;
+          onStack.delete(w);
+          scc.add(w);
+        } while (w !== v);
+        if (scc.size > 1) sccs.push(scc);
+      }
+    };
+
+    for (const v of adj.keys()) {
+      if (!index.has(v)) strongconnect(v);
+    }
+
+    return sccs;
+  }
+
+  private addIsolatedBorderRect(worldX: number, worldY: number, w: number, h: number): void {
+    const ns = 'http://www.w3.org/2000/svg';
+    const rect = document.createElementNS(ns, 'rect');
+    rect.setAttribute('x', `${worldX + 1}`);
+    rect.setAttribute('y', `${worldY + 1}`);
+    rect.setAttribute('width', `${w - 2}`);
+    rect.setAttribute('height', `${h - 2}`);
+    rect.setAttribute('rx', '8');
+    rect.setAttribute('ry', '8');
+    rect.setAttribute('fill', 'none');
+    rect.setAttribute('stroke', '#fbbf24');
+    rect.setAttribute('stroke-width', '2');
+    rect.setAttribute('stroke-dasharray', '6 3');
+    rect.classList.add('sm-isolated-border');
+    rect.style.pointerEvents = 'none';
+    rect.dataset.isolated = '1';
+    let group = this.svg.querySelector('#sm-isolated-group') as SVGGElement | null;
+    if (!group) {
+      group = document.createElementNS(ns, 'g');
+      group.id = 'sm-isolated-group';
+      this.svg.appendChild(group);
+    }
+    group.appendChild(rect);
+  }
+
+  private removeIsolatedBorderRects(): void {
+    const group = this.svg.querySelector('#sm-isolated-group');
+    if (group) group.innerHTML = '';
+  }
+
+  private applyIsolatedHighlights(): void {
+    const isolatedIds = new Set<string>();
+    for (const n of this.nodes) {
+      if (n.isUI) continue;
+      const refCount = this.refCounts.get(n.id) ?? 0;
+      if (n.deps.length === 0 && refCount === 0) isolatedIds.add(n.id);
+    }
+    if (isolatedIds.size === 0) {
+      this.isolatedMode = false;
+      return;
+    }
+
+    const addRects = (nid: string) => {
+      const node = this.nodes.find(n => n.id === nid);
+      if (node) this.addIsolatedBorderRect(node.x, node.y, node.w, node.h);
+    };
+
+    if (this.cycleMode) {
+      for (const [nid, el] of this.nodeEls) {
+        if (isolatedIds.has(nid) && !this.cycleSets.some(c => c.has(nid))) {
+          el.classList.add('sm-isolated');
+          el.style.opacity = '1';
+          addRects(nid);
+        }
+      }
+      return;
+    }
+
+    for (const [nid, el] of this.nodeEls) {
+      if (isolatedIds.has(nid)) {
+        el.classList.add('sm-isolated');
+        el.style.opacity = '1';
+        addRects(nid);
+      } else {
+        el.style.opacity = '0.14';
+      }
+    }
+    for (const path of this.svg.querySelectorAll<SVGPathElement>('path[data-source]')) {
+      if (path.dataset.etype !== 'ui') path.setAttribute('opacity', '0.04');
+    }
+  }
+
+  private clearIsolatedHighlights(): void {
+    this.removeIsolatedBorderRects();
+    for (const [, el] of this.nodeEls) el.classList.remove('sm-isolated');
+    if (this.cycleMode) { this.applyCycleHighlights(); return; }
+    for (const [, el] of this.nodeEls) {
+      el.style.opacity = '';
+      el.style.borderColor = '';
+      el.style.borderStyle = '';
+      el.style.boxShadow = '';
+    }
+    for (const path of this.svg.querySelectorAll<SVGPathElement>('path[data-source]')) {
+      const etype = path.dataset.etype!;
+      const layer = path.dataset.layer ?? '';
+      if (etype === 'dep') {
+        path.style.stroke = LAYER_COLORS_VAR[layer] ?? 'var(--secondary)';
+        path.setAttribute('stroke-width', '1.5');
+        path.setAttribute('marker-end', `url(#sm-mk-${layer})`);
+        path.setAttribute('opacity', '0.3');
+      } else if (etype === 'glow') {
+        path.setAttribute('opacity', '0.06');
+      } else if (etype === 'ui') {
+        path.setAttribute('opacity', '0.25');
+      }
+      path.style.stroke = '';
+    }
+  }
+
+  private getCycleEdgeHitTargets(): Array<{ cx: number; cy: number; cycleIdx: number }> {
+    const hits: Array<{ cx: number; cy: number; cycleIdx: number }> = [];
+    const cycleNodeIds = new Set<string>();
+    for (const cycle of this.cycleSets) {
+      for (const id of cycle) cycleNodeIds.add(id);
+    }
+    for (const node of this.nodes) {
+      if (!cycleNodeIds.has(node.id)) continue;
+      for (const depId of node.deps) {
+        if (!cycleNodeIds.has(depId)) continue;
+        const cycleIdx = this.cycleSets.findIndex(c => c.has(node.id) && c.has(depId));
+        if (cycleIdx === -1) continue;
+        const target = this.nodes.find(n => n.id === depId);
+        if (!target) continue;
+        const midX = (node.x + node.w / 2 + target.x + target.w / 2) / 2;
+        const midY = (node.y + node.h / 2 + target.y + target.h / 2) / 2;
+        hits.push({ cx: midX * this.scale + this.panX, cy: midY * this.scale + this.panY, cycleIdx });
+      }
+    }
+    return hits;
+  }
+
+  private getAffectedNodes(cycleNodeIds: Set<string>): Set<string> {
+    if (this.cycleLevel <= 1) return cycleNodeIds;
+
+    const affected = new Set(cycleNodeIds);
+    const adj = new Map<string, string[]>();
+    for (const n of this.nodes) adj.set(n.id, n.deps);
+
+    const queue = [...cycleNodeIds];
+    let hops = 0;
+    while (queue.length > 0 && hops < this.cycleLevel) {
+      const levelSize = queue.length;
+      for (let i = 0; i < levelSize; i++) {
+        const id = queue.shift()!;
+        for (const dep of adj.get(id) ?? []) {
+          if (!affected.has(dep)) { affected.add(dep); queue.push(dep); }
+        }
+        for (const n of this.nodes) {
+          if (n.deps.includes(id) && !affected.has(n.id)) { affected.add(n.id); queue.push(n.id); }
+        }
+      }
+      hops++;
+    }
+    return affected;
+  }
+
+  private applyCycleHighlights(): void {
+    if (this.cycleSets.length === 0) return;
+
+    const cycleNodeIds = new Set<string>();
+    for (const cycle of this.cycleSets) {
+      for (const id of cycle) cycleNodeIds.add(id);
+    }
+
+    const highlighted = this.getAffectedNodes(cycleNodeIds);
+    const CYCLE_COLORS = ['#f87171', '#fb923c', '#fbbf24', '#f472b6', '#a78bfa'];
+
+    for (const [nid, el] of this.nodeEls) {
+      if (highlighted.has(nid)) {
+        if (cycleNodeIds.has(nid)) {
+          const cycleIdx = this.cycleSets.findIndex(c => c.has(nid));
+          const isSelected = cycleIdx === this.selectedCycleIndex;
+          const c = CYCLE_COLORS[cycleIdx % CYCLE_COLORS.length];
+          el.style.borderColor = c;
+          el.style.borderStyle = 'solid';
+          el.style.boxShadow = isSelected
+            ? `0 0 0 2px ${c}, 0 0 20px ${c}55`
+            : `0 0 0 1px ${c}44, 0 0 14px ${c}33`;
+          el.style.opacity = isSelected ? '1' : (this.selectedCycleIndex !== null ? '0.5' : '1');
+        } else {
+          const c = '#94a3b8';
+          el.style.borderColor = c;
+          el.style.borderStyle = 'solid';
+          el.style.boxShadow = `0 0 0 1px ${c}33, 0 0 10px ${c}22`;
+          el.style.opacity = '0.85';
+        }
+      } else {
+        el.style.opacity = '0.14';
+      }
+    }
+
+    const isConnected = (src: string, tgt: string) =>
+      highlighted.has(src) && highlighted.has(tgt);
+
+    for (const path of this.svg.querySelectorAll<SVGPathElement>('path[data-source]')) {
+      const src = path.dataset.source!;
+      const tgt = path.dataset.target!;
+      const etype = path.dataset.etype!;
+      const bothInCycle = cycleNodeIds.has(src) && cycleNodeIds.has(tgt);
+      const sameCycle = bothInCycle && this.cycleSets.some(c => c.has(src) && c.has(tgt));
+      if (sameCycle) {
+        const cycleIdx = this.cycleSets.findIndex(c => c.has(src));
+        const isSelected = cycleIdx === this.selectedCycleIndex;
+        const c = CYCLE_COLORS[cycleIdx % CYCLE_COLORS.length];
+        if (etype === 'glow') {
+          path.style.stroke = c;
+          path.setAttribute('opacity', isSelected ? '0.4' : '0.25');
+        } else {
+          path.style.stroke = c;
+          path.setAttribute('opacity', isSelected ? '1' : (this.selectedCycleIndex !== null ? '0.3' : '1'));
+          path.setAttribute('stroke-width', isSelected ? '4' : '2.5');
+          path.classList.add('sm-edge-active');
+          path.setAttribute('stroke-dasharray', '6 3');
+          path.style.cursor = 'pointer';
+        }
+      } else if (isConnected(src, tgt) && etype !== 'glow') {
+        path.setAttribute('opacity', '0.6');
+      } else if (etype !== 'ui' || !isConnected(src, tgt)) {
+        path.setAttribute('opacity', '0.04');
+      }
+    }
+  }
+
+  private clearCycleHighlights(): void {
+    this.removeIsolatedBorderRects();
+    for (const [, el] of this.nodeEls) {
+      el.classList.remove('sm-isolated');
+      el.style.opacity = '';
+      el.style.borderColor = '';
+      el.style.borderStyle = '';
+      el.style.boxShadow = '';
+    }
+    for (const path of this.svg.querySelectorAll<SVGPathElement>('path[data-source]')) {
+      const etype = path.dataset.etype!;
+      const layer = path.dataset.layer ?? '';
+      path.classList.remove('sm-edge-active');
+      path.removeAttribute('stroke-dasharray');
+      path.style.cursor = '';
+      if (etype === 'dep') {
+        path.style.stroke = LAYER_COLORS_VAR[layer] ?? 'var(--secondary)';
+        path.setAttribute('stroke-width', '1.5');
+        path.setAttribute('marker-end', `url(#sm-mk-${layer})`);
+        path.setAttribute('opacity', '0.3');
+      } else if (etype === 'glow') {
+        path.setAttribute('opacity', '0.06');
+      } else if (etype === 'ui') {
+        path.setAttribute('opacity', '0.25');
+      }
+      path.style.stroke = '';
+    }
+    if (this.isolatedMode) this.applyIsolatedHighlights();
   }
 
   destroy(): void {

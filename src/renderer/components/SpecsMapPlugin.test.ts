@@ -309,4 +309,376 @@ describe('SpecsMapPlugin', () => {
     const styles = document.querySelectorAll('#sm-styles');
     expect(styles.length).toBe(1);
   });
+
+  it('renders a gear cycle-detection button in the header', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btn = container.querySelector('.sm-header-btn') as HTMLElement;
+    expect(btn).toBeTruthy();
+  });
+
+  it('gear click opens settings panel with toggle', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const gearBtns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    gearBtns[0].click();
+    expect(container.textContent).toContain('Settings');
+    expect(container.textContent).toContain('Show cyclic dependencies');
+  });
+
+  it('gear click again closes settings panel', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const gearBtns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    const gearBtn = gearBtns[0];
+    gearBtn.click();
+    // Find the panel by its z-index style
+    const panel = container.querySelector('[style*="z-index: 20"]') as HTMLElement;
+    expect(panel).toBeTruthy();
+    expect(panel.style.transform).not.toContain('100%');
+    gearBtn.click();
+    expect(panel.style.transform).toContain('100%');
+  });
+
+  it('toggle in settings panel detects 2-node cycle (A→B→A)', async () => {
+    const cyclicSpecFiles: Record<string, string> = {
+      'main.spec.json': JSON.stringify({
+        features: {
+          core: [
+            { id: 'alpha', name: 'Alpha', file: 'alpha.ts', spec: 'alpha.spec.json' },
+            { id: 'beta', name: 'Beta', file: 'beta.ts', spec: 'beta.spec.json' },
+          ],
+        },
+      }),
+      'alpha.spec.json': JSON.stringify({
+        name: 'Alpha', file: 'src/alpha.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'Beta', file: 'beta.ts' }],
+        referenced_by: [{ feature: 'Beta', file: 'beta.ts' }],
+      }),
+      'beta.spec.json': JSON.stringify({
+        name: 'Beta', file: 'src/beta.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'Alpha', file: 'alpha.ts' }],
+        referenced_by: [{ feature: 'Alpha', file: 'alpha.ts' }],
+      }),
+    };
+
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue(
+      Object.keys(cyclicSpecFiles).map(name => ({ name, isDirectory: false }))
+    );
+    (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
+      const filename = path.split('/').pop()!;
+      return Promise.resolve(cyclicSpecFiles[filename] ?? '{}');
+    });
+
+    const c = makeContainer();
+    new SpecsMapPlugin(c, '/test/ws');
+    await flushSpecs();
+
+    // Open settings panel
+    const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
+    gearBtns[0].click();
+
+    // Click the toggle to run cycle detection
+    const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
+    expect(toggle).toBeTruthy();
+    toggle.click();
+
+    // Nodes should be highlighted (solid border) for cycle
+    const nodes = c.querySelectorAll('.sm-node');
+    for (const node of nodes) {
+      expect((node as HTMLElement).style.borderStyle).toBe('solid');
+      expect((node as HTMLElement).style.borderColor).toBeTruthy();
+    }
+
+    // Panel should show cycle info
+    expect(c.textContent).toContain('CYCLES');
+  });
+
+  it('toggle in settings panel shows acyclic for single isolated node', async () => {
+    const isolatedSpecFiles: Record<string, string> = {
+      'main.spec.json': JSON.stringify({
+        features: {
+          core: [
+            { id: 'solo', name: 'Solo', file: 'solo.ts', spec: 'solo.spec.json' },
+          ],
+        },
+      }),
+      'solo.spec.json': JSON.stringify({
+        name: 'Solo', file: 'src/solo.ts', type: 'logic', layer: 'core',
+        dependencies: [],
+        referenced_by: [],
+      }),
+    };
+
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue(
+      Object.keys(isolatedSpecFiles).map(name => ({ name, isDirectory: false }))
+    );
+    (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
+      const filename = path.split('/').pop()!;
+      return Promise.resolve(isolatedSpecFiles[filename] ?? '{}');
+    });
+
+    const c = makeContainer();
+    new SpecsMapPlugin(c, '/test/ws');
+    await flushSpecs();
+
+    const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
+    gearBtns[0].click();
+
+    const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
+    toggle.click();
+
+    expect(c.textContent).toContain('No cycles');
+  });
+
+  it('toggle detects 3-node cycle (A→B→C→A) and shows members in panel', async () => {
+    const cyclicSpecFiles: Record<string, string> = {
+      'main.spec.json': JSON.stringify({
+        features: {
+          core: [
+            { id: 'a', name: 'A', file: 'a.ts', spec: 'a.spec.json' },
+            { id: 'b', name: 'B', file: 'b.ts', spec: 'b.spec.json' },
+            { id: 'c', name: 'C', file: 'c.ts', spec: 'c.spec.json' },
+          ],
+        },
+      }),
+      'a.spec.json': JSON.stringify({
+        name: 'A', file: 'src/a.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'B', file: 'b.ts' }],
+        referenced_by: [{ feature: 'C', file: 'c.ts' }],
+      }),
+      'b.spec.json': JSON.stringify({
+        name: 'B', file: 'src/b.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'C', file: 'c.ts' }],
+        referenced_by: [{ feature: 'A', file: 'a.ts' }],
+      }),
+      'c.spec.json': JSON.stringify({
+        name: 'C', file: 'src/c.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'A', file: 'a.ts' }],
+        referenced_by: [{ feature: 'B', file: 'b.ts' }],
+      }),
+    };
+
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue(
+      Object.keys(cyclicSpecFiles).map(name => ({ name, isDirectory: false }))
+    );
+    (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
+      const filename = path.split('/').pop()!;
+      return Promise.resolve(cyclicSpecFiles[filename] ?? '{}');
+    });
+
+    const c = makeContainer();
+    new SpecsMapPlugin(c, '/test/ws');
+    await flushSpecs();
+
+    const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
+    gearBtns[0].click();
+
+    const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
+    toggle.click();
+
+    // Panel should show cycle count of 1 and contain all 3 node names
+    expect(c.textContent).toContain('CYCLES');
+    expect(c.textContent).toContain('a.spec.json');
+    expect(c.textContent).toContain('b.spec.json');
+    expect(c.textContent).toContain('c.spec.json');
+  });
+
+  it('clicking near a cycle edge midpoint selects that cycle', async () => {
+    const cyclicSpecFiles: Record<string, string> = {
+      'main.spec.json': JSON.stringify({
+        features: {
+          core: [
+            { id: 'x', name: 'X', file: 'x.ts', spec: 'x.spec.json' },
+            { id: 'y', name: 'Y', file: 'y.ts', spec: 'y.spec.json' },
+          ],
+        },
+      }),
+      'x.spec.json': JSON.stringify({
+        name: 'X', file: 'src/x.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'Y', file: 'y.ts' }],
+        referenced_by: [{ feature: 'Y', file: 'y.ts' }],
+      }),
+      'y.spec.json': JSON.stringify({
+        name: 'Y', file: 'src/y.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'X', file: 'x.ts' }],
+        referenced_by: [{ feature: 'X', file: 'x.ts' }],
+      }),
+    };
+
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue(
+      Object.keys(cyclicSpecFiles).map(name => ({ name, isDirectory: false }))
+    );
+    (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
+      const filename = path.split('/').pop()!;
+      return Promise.resolve(cyclicSpecFiles[filename] ?? '{}');
+    });
+
+    const c = makeContainer();
+    new SpecsMapPlugin(c, '/test/ws');
+    await flushSpecs();
+
+    // Open settings and toggle cycle detection
+    const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
+    gearBtns[0].click();
+    const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
+    toggle.click();
+    await new Promise(r => setTimeout(r, 0));
+
+    // Find the viewport (parent of the SVG) and compute the cycle edge midpoint
+    const svg = c.querySelector('svg.sm-graph')!;
+    const viewport = svg.parentElement!;
+    const rect = viewport.getBoundingClientRect();
+
+    // With 2 nodes (280x100), NODE_GAP=28, GRAPH_MARGIN=80:
+    // Node positions: X@(-294,40), Y@(14,40)
+    // Edge midpoint world: (( -294+140 + 14+140 )/2, (40+50 + 40+50)/2) = (0, 90)
+    // fitScale=1.0, panX=400, panY=210
+    // Viewport coords: (400, 300)
+    viewport.dispatchEvent(new MouseEvent('click', {
+      bubbles: true,
+      clientX: rect.left + 400,
+      clientY: rect.top + 300,
+    }));
+
+    // The selected cycle edge should have stroke-width 4
+    const svgEl = c.querySelector('svg.sm-graph')!;
+    const depPaths = svgEl.querySelectorAll<SVGPathElement>('path[data-etype="dep"]');
+    const selectedEdge = Array.from(depPaths).find(p => p.getAttribute('stroke-width') === '4');
+    expect(selectedEdge).toBeTruthy();
+  });
+
+  it('toggling cycle detection off clears highlights', async () => {
+    const cyclicSpecFiles: Record<string, string> = {
+      'main.spec.json': JSON.stringify({
+        features: {
+          core: [
+            { id: 'a', name: 'A', file: 'a.ts', spec: 'a.spec.json' },
+            { id: 'b', name: 'B', file: 'b.ts', spec: 'b.spec.json' },
+          ],
+        },
+      }),
+      'a.spec.json': JSON.stringify({
+        name: 'A', file: 'src/a.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'B', file: 'b.ts' }],
+        referenced_by: [{ feature: 'B', file: 'b.ts' }],
+      }),
+      'b.spec.json': JSON.stringify({
+        name: 'B', file: 'src/b.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'A', file: 'a.ts' }],
+        referenced_by: [{ feature: 'A', file: 'a.ts' }],
+      }),
+    };
+
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue(
+      Object.keys(cyclicSpecFiles).map(name => ({ name, isDirectory: false }))
+    );
+    (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
+      const filename = path.split('/').pop()!;
+      return Promise.resolve(cyclicSpecFiles[filename] ?? '{}');
+    });
+
+    const c = makeContainer();
+    new SpecsMapPlugin(c, '/test/ws');
+    await flushSpecs();
+
+    const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
+    gearBtns[0].click();
+
+    // Toggle ON
+    const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
+    toggle.click();
+    expect(c.textContent).toContain('CYCLES');
+
+    // Toggle OFF
+    toggle.click();
+    expect(c.textContent).not.toContain('CYCLES');
+  });
+
+  it('settings panel has isolated nodes toggle', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const gearBtns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    gearBtns[0].click();
+    expect(container.textContent).toContain('Show isolated nodes');
+    const isolatedToggle = container.querySelector('#sm-isolated-toggle') as HTMLElement;
+    expect(isolatedToggle).toBeTruthy();
+  });
+
+  it('toggling isolated mode highlights nodes with no deps/refs', async () => {
+    // Use a node with no dependencies and no references
+    const specFiles: Record<string, string> = {
+      'main.spec.json': JSON.stringify({
+        features: {
+          core: [
+            { id: 'connected', name: 'Connected', file: 'connected.ts', spec: 'connected.spec.json' },
+            { id: 'orphan', name: 'Orphan', file: 'orphan.ts', spec: 'orphan.spec.json' },
+          ],
+        },
+      }),
+      'connected.spec.json': JSON.stringify({
+        name: 'Connected', file: 'src/connected.ts', type: 'logic', layer: 'core',
+        dependencies: [{ feature: 'Theme', file: 'theme.ts' }],
+        referenced_by: [],
+      }),
+      'orphan.spec.json': JSON.stringify({
+        name: 'Orphan', file: 'src/orphan.ts', type: 'logic', layer: 'core',
+        dependencies: [],
+        referenced_by: [],
+      }),
+    };
+
+    const allFiles = { ...specFiles, 'theme.spec.json': JSON.stringify({
+      name: 'Theme', file: 'src/theme.ts', type: 'logic', layer: 'core',
+      dependencies: [],
+      referenced_by: [{ feature: 'Connected', file: 'connected.ts' }],
+    }) };
+
+    (mockElectronAPI.fs.readDir as any).mockResolvedValue(
+      Object.keys(allFiles).map(name => ({ name, isDirectory: false }))
+    );
+    (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
+      const fn = path.split('/').pop()!;
+      return Promise.resolve(allFiles[fn] ?? '{}');
+    });
+
+    const c = makeContainer();
+    new SpecsMapPlugin(c, '/test/ws');
+    await flushSpecs();
+
+    const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
+    gearBtns[0].click();
+
+    const isolatedToggle = c.querySelector('#sm-isolated-toggle') as HTMLElement;
+    isolatedToggle.click();
+
+    // Orphan node should have amber border
+    const nodes = c.querySelectorAll('.sm-node');
+    const orphanEl = Array.from(nodes).find(n => n.textContent?.includes('orphan')) as HTMLElement;
+    expect(orphanEl).toBeTruthy();
+    expect(orphanEl.classList.contains('sm-isolated')).toBe(true);
+    const svg = c.querySelector('svg.sm-graph')!;
+    expect(svg.querySelector('#sm-isolated-group rect')).toBeTruthy();
+  });
+
+  it('toggling isolated mode off restores default view', async () => {
+    const c = makeContainer();
+    new SpecsMapPlugin(c, '/test/ws');
+    await flushSpecs();
+
+    const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
+    gearBtns[0].click();
+
+    const isolatedToggle = c.querySelector('#sm-isolated-toggle') as HTMLElement;
+    isolatedToggle.click();
+    isolatedToggle.click();
+
+    // After toggling off, sm-isolated class and SVG rects should be removed
+    const nodes = c.querySelectorAll('.sm-node');
+    for (const node of nodes) {
+      expect((node as HTMLElement).classList.contains('sm-isolated')).toBe(false);
+    }
+    const svg = c.querySelector('svg.sm-graph')!;
+    expect(svg.querySelector('#sm-isolated-group rect')).toBeFalsy();
+  });
 });
