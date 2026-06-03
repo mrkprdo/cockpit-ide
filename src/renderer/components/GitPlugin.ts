@@ -193,51 +193,30 @@ export class GitPlugin {
   private buildUI(): void {
     // ─── Left panel ───
 
-    // Changes section header
+    // Navigation: Branch (primary) then Remote
+    const branchLabel = this.labelEl('Branch');
+    this.leftCol.appendChild(branchLabel);
+    this.branchSelect = document.createElement('select');
+    this.branchSelect.className = 'git-select';
+    this.branchSelect.addEventListener('change', () => this.onBranchChange());
+    this.leftCol.appendChild(this.branchSelect);
+
+    const remoteLabel = this.labelEl('Remote');
+    this.leftCol.appendChild(remoteLabel);
+    this.remoteSelect = document.createElement('select');
+    this.remoteSelect.className = 'git-select';
+    this.remoteSelect.addEventListener('change', () => { /* display only */ });
+    this.leftCol.appendChild(this.remoteSelect);
+
+    const navSep = document.createElement('div');
+    navSep.className = 'git-section-sep';
+    this.leftCol.appendChild(navSep);
+
+    // Changes section
     const changesLabel = this.labelEl('Changes');
-    changesLabel.className = 'git-label';
     this.leftCol.appendChild(changesLabel);
 
-    // Commit bar: input + commit button + push button
-    const commitBar = document.createElement('div');
-    commitBar.className = 'git-commit-bar';
-    this.commitInput = document.createElement('input');
-    this.commitInput.className = 'git-commit-input';
-    this.commitInput.type = 'text';
-    this.commitInput.placeholder = 'Commit message...';
-    this.commitBtn = document.createElement('button');
-    this.commitBtn.className = 'git-commit-btn';
-    this.commitBtn.textContent = 'Commit';
-    this.commitBtn.disabled = true;
-    this.commitBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.handleCommit();
-    });
-    this.commitInput.addEventListener('input', () => {
-      if (this.commitBtn) {
-        this.commitBtn.disabled = this.stagedFiles.length === 0 || !this.commitInput?.value.trim();
-      }
-    });
-    this.commitInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && this.commitInput?.value.trim()) {
-        e.stopPropagation();
-        this.handleCommit();
-      }
-    });
-    this.pushBtn = document.createElement('button');
-    this.pushBtn.className = 'git-push-btn';
-    this.pushBtn.textContent = 'Push';
-    this.pushBtn.disabled = true;
-    this.pushBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.handlePush();
-    });
-    commitBar.appendChild(this.commitInput);
-    commitBar.appendChild(this.commitBtn);
-    commitBar.appendChild(this.pushBtn);
-    this.leftCol.appendChild(commitBar);
-
-    // Staged header + files
+    // Staged header + files (index 0 — tests depend on this order)
     this.stagedHeader = document.createElement('div');
     this.stagedHeader.className = 'git-changes-item';
     this.stagedArrow = document.createElement('span');
@@ -263,7 +242,7 @@ export class GitPlugin {
       this.toggleChanges('staged');
     });
 
-    // Unstaged header + files
+    // Unstaged header + files (index 1)
     this.unstagedHeader = document.createElement('div');
     this.unstagedHeader.className = 'git-changes-item';
     this.unstagedArrow = document.createElement('span');
@@ -288,21 +267,50 @@ export class GitPlugin {
       this.toggleChanges('unstaged');
     });
 
-    // Remote, Branch, Commits
-    const remoteLabel = this.labelEl('Remote');
-    this.leftCol.appendChild(remoteLabel);
-    this.remoteSelect = document.createElement('select');
-    this.remoteSelect.className = 'git-select';
-    this.remoteSelect.addEventListener('change', () => { /* display only */ });
-    this.leftCol.appendChild(this.remoteSelect);
+    // Commit bar below staged/unstaged — natural workflow: see changes → write message → commit/push
+    const commitBar = document.createElement('div');
+    commitBar.className = 'git-commit-bar';
+    this.commitInput = document.createElement('input');
+    this.commitInput.className = 'git-commit-input';
+    this.commitInput.type = 'text';
+    this.commitInput.placeholder = 'Commit message…';
+    this.commitInput.addEventListener('input', () => {
+      if (this.commitBtn) {
+        this.commitBtn.disabled = this.stagedFiles.length === 0 || !this.commitInput?.value.trim();
+      }
+    });
+    this.commitInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && this.commitInput?.value.trim()) {
+        e.stopPropagation();
+        this.handleCommit();
+      }
+    });
+    commitBar.appendChild(this.commitInput);
 
-    const branchLabel = this.labelEl('Branch');
-    this.leftCol.appendChild(branchLabel);
-    this.branchSelect = document.createElement('select');
-    this.branchSelect.className = 'git-select';
-    this.branchSelect.addEventListener('change', () => this.onBranchChange());
-    this.leftCol.appendChild(this.branchSelect);
+    const commitBtnRow = document.createElement('div');
+    commitBtnRow.className = 'git-commit-btn-row';
+    this.commitBtn = document.createElement('button');
+    this.commitBtn.className = 'git-commit-btn';
+    this.commitBtn.textContent = 'Commit';
+    this.commitBtn.disabled = true;
+    this.commitBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handleCommit();
+    });
+    this.pushBtn = document.createElement('button');
+    this.pushBtn.className = 'git-push-btn';
+    this.pushBtn.textContent = 'Push';
+    this.pushBtn.disabled = true;
+    this.pushBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handlePush();
+    });
+    commitBtnRow.appendChild(this.commitBtn);
+    commitBtnRow.appendChild(this.pushBtn);
+    commitBar.appendChild(commitBtnRow);
+    this.leftCol.appendChild(commitBar);
 
+    // Commits section
     const commitsHeader = this.labelEl('Commits');
     this.leftCol.appendChild(commitsHeader);
 
@@ -312,11 +320,10 @@ export class GitPlugin {
 
     // ─── Right panel ───
     this.topPanel = document.createElement('div');
-    this.topPanel.style.cssText = 'flex:none;height:150px;overflow-y:auto';
+    this.topPanel.className = 'git-top-panel';
     this.rightCol.appendChild(this.topPanel);
 
     const filesHeader = this.labelEl('Changed Files');
-    filesHeader.className = 'git-label';
     this.topPanel.appendChild(filesHeader);
 
     this.commitInfoEl = document.createElement('div');
@@ -334,21 +341,20 @@ export class GitPlugin {
     this.rightCol.appendChild(this.vResizeHandle);
 
     this.bottomPanel = document.createElement('div');
-    this.bottomPanel.style.cssText = 'flex:1;min-height:40px;display:flex;flex-direction:column;overflow:hidden';
+    this.bottomPanel.className = 'git-bottom-panel';
     this.rightCol.appendChild(this.bottomPanel);
 
     // Diff header with view mode dropdown
     const diffHeaderRow = document.createElement('div');
-    diffHeaderRow.style.cssText = 'display:flex;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0';
+    diffHeaderRow.className = 'git-diff-header';
 
     const diffLabel = document.createElement('div');
-    diffLabel.className = 'git-label';
-    diffLabel.style.cssText = 'border:none;flex:1';
+    diffLabel.className = 'git-label git-diff-header-label';
     diffLabel.textContent = 'Diff';
     diffHeaderRow.appendChild(diffLabel);
 
     const btnWrap = document.createElement('div');
-    btnWrap.style.cssText = 'position:relative;flex-shrink:0;padding:2px 4px';
+    btnWrap.className = 'git-diff-btn-wrap';
 
     this.dropdownBtn = document.createElement('button');
     this.dropdownBtn.className = 'git-diff-btn';
