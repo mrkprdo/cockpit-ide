@@ -2,6 +2,7 @@ import { TopBar } from './TopBar';
 import { CanvasArea, SaveState } from './CanvasArea';
 import { WelcomeModal } from './WelcomeModal';
 import { AboutModal } from './AboutModal';
+import { ThemeModal } from './ThemeModal';
 import { Tutorial } from './Tutorial';
 import { theme } from '../theme';
 
@@ -9,6 +10,7 @@ export class App {
   private canvas: CanvasArea;
   private topBar: TopBar;
   private about: AboutModal;
+  private themeModal: ThemeModal;
   private tutorial: Tutorial;
   private lastSaved = '';
   private wsPath = '';
@@ -64,6 +66,7 @@ export class App {
     };
 
     this.about = new AboutModal();
+    this.themeModal = new ThemeModal();
     this.tutorial = new Tutorial();
 
     this.topBar = new TopBar(document.getElementById('menu-bar')!, {
@@ -77,7 +80,9 @@ export class App {
         this.canvas.refresh();
         this.canvas.getActiveExplorerPlugin()?.updateTheme();
         const prefs = (await window.electronAPI?.prefs.load()) || {};
-        prefs.isDark = theme.isDark;
+        prefs.themeName = theme.themeName;
+        prefs.baseTheme = theme.base;
+        prefs.themeMode = theme.mode;
         window.electronAPI?.prefs.save(prefs);
       },
       onOpenWorkspace: () => this.openWorkspace(),
@@ -97,6 +102,19 @@ export class App {
       onAbout: () => {
         this.canvas.locked = true;
         this.about.open(() => { this.canvas.locked = false; });
+      },
+      onTheme: () => {
+        this.canvas.locked = true;
+        this.themeModal.open(async () => {
+          this.canvas.locked = false;
+          this.canvas.refresh();
+          this.canvas.getActiveExplorerPlugin()?.updateTheme();
+          const prefs = (await window.electronAPI?.prefs.load()) || {};
+          prefs.themeName = theme.themeName;
+          prefs.baseTheme = theme.base;
+          prefs.themeMode = theme.mode;
+          window.electronAPI?.prefs.save(prefs);
+        });
       },
       onTutorial: () => {
         this.startTutorial();
@@ -137,7 +155,11 @@ export class App {
   private async loadThemePref(): Promise<void> {
     try {
       const prefs = await window.electronAPI?.prefs.load();
-      if (prefs?.isDark !== undefined) {
+      if (prefs?.baseTheme && prefs?.themeMode) {
+        theme.setTheme(prefs.baseTheme, prefs.themeMode);
+      } else if (prefs?.themeName) {
+        theme.setTheme(prefs.themeName);
+      } else if (prefs?.isDark !== undefined) {
         theme.setDark(prefs.isDark);
       }
     } catch {

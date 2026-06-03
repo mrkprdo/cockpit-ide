@@ -1,0 +1,46 @@
+{
+  "name": "Theme Modal UI",
+  "parent": "theme-modal",
+  "description": "UI interaction spec for the theme selection dialog.",
+  "dom": {
+    "overlay": ".modal-overlay (display:flex; align-items:center; justify-content:center; position:fixed; inset:0; background:rgba(8,14,22,0.72); z-index:200)",
+    "modal": ".modal (min-width:380px; border:1px dashed var(--border); border-radius:12px; background:var(--surface); box-shadow:0 16px 48px rgba(0,0,0,0.45))",
+    "structure": [
+      ".modal-header (padding:16px 20px; border-bottom:1px solid var(--border); font-size:13px; font-weight:700; letter-spacing:0.12em)",
+      ".modal-body (padding:20px)",
+      ".modal-section > .modal-label (font-size:11px; font-weight:700; letter-spacing:0.1em; color:var(--secondary); margin-bottom:12px)",
+      ".modal-radio (display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:13px; color:var(--primary); border-radius:6px; transition:background 0.1s)",
+      ".modal-radio:hover (background:var(--panel))",
+      ".modal-radio input (accent-color:var(--primary))",
+      ".modal-actions (display:flex; gap:8px; justify-content:flex-end; margin-top:16px)",
+      "button.btn-ghost#theme-cancel (padding:6px 12px; background:transparent; border:1px solid var(--border); font-size:11px; cursor:pointer; letter-spacing:0.05em)",
+      "button.btn-primary#theme-apply (padding:7px 16px; background:var(--primary); color:var(--bg); border:none; font-size:11px; font-weight:700; cursor:pointer; letter-spacing:0.05em)"
+    ]
+  },
+  "interactions": [
+    {
+      "name": "open",
+      "trigger": "modal.open(onClose?)",
+      "action": "Re-render modal HTML to match current theme.isDark, set overlay display:flex, store onClose callback"
+    },
+    {
+      "name": "apply",
+      "trigger": "Click #theme-apply",
+      "action": "Read selected radio value, call theme.setDark(true/false), hide overlay (display:none), fire onClose callback, clear onClose reference"
+    },
+    {
+      "name": "cancel",
+      "trigger": "Click #theme-cancel button",
+      "action": "Hide overlay without applying, fire onClose callback"
+    },
+    {
+      "name": "overlay_dismiss",
+      "trigger": "Click overlay background (e.target === overlay)",
+      "action": "Same as cancel — hide and fire callback without applying"
+    }
+  ],
+  "states": {
+    "hidden": "Overlay display:none, onClose callback null",
+    "visible": "Overlay display:flex, onClose callback stored and active"
+  }
+}

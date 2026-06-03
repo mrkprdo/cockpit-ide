@@ -50,13 +50,14 @@
     "modal": [
       { "id": "welcome-modal", "name": "Welcome Modal", "file": "WelcomeModal.ts", "spec": "welcome-modal.spec.json", "ui": "welcome-modal-ui.spec.json" },
       { "id": "about-modal", "name": "About Modal", "file": "AboutModal.ts", "spec": "about-modal.spec.json", "ui": "about-modal-ui.spec.json" },
-      { "id": "confirm-modal", "name": "Confirm Modal", "file": "ConfirmModal.ts", "spec": "confirm-modal.spec.json", "ui": "confirm-modal-ui.spec.json" }
+      { "id": "confirm-modal", "name": "Confirm Modal", "file": "ConfirmModal.ts", "spec": "confirm-modal.spec.json", "ui": "confirm-modal-ui.spec.json" },
+      { "id": "theme-modal", "name": "Theme Modal", "file": "ThemeModal.ts", "spec": "theme-modal.spec.json", "ui": "theme-modal-ui.spec.json" }
     ],
     "overlay": [
       { "id": "tutorial", "name": "Tutorial", "file": "Tutorial.ts", "spec": "tutorial.spec.json", "ui": "tutorial-ui.spec.json" },
       { "id": "command-palette", "name": "Command Palette", "file": "CommandPalette.ts", "spec": "command-palette.spec.json", "ui": "command-palette-ui.spec.json" }
     ],
-    "plugins": [
+    "plugin": [
       { "id": "terminal-plugin", "name": "Terminal Plugin", "file": "TerminalPlugin.ts", "spec": "terminal-plugin.spec.json" },
       { "id": "monaco-editor-plugin", "name": "Monaco Editor Plugin", "file": "MonacoEditorPlugin.ts", "spec": "monaco-editor-plugin.spec.json" },
       { "id": "file-explorer-plugin", "name": "File Explorer Plugin", "file": "FileExplorerPlugin.ts", "spec": "file-explorer-plugin.spec.json" },
@@ -70,7 +71,7 @@
     "description": "Edges in the format 'file -> [dependencies]' showing what each feature imports from within src/",
     "edges": {
       "index.ts": ["App.ts"],
-      "App.ts": ["TopBar.ts", "CanvasArea.ts", "WelcomeModal.ts", "AboutModal.ts", "Tutorial.ts", "theme.ts"],
+      "App.ts": ["TopBar.ts", "CanvasArea.ts", "WelcomeModal.ts", "AboutModal.ts", "ThemeModal.ts", "Tutorial.ts", "theme.ts"],
       "CanvasArea.ts": ["canvas-grid.ts", "canvas-statusbar.ts", "PluginCard.ts", "TerminalPlugin.ts", "MonacoEditorPlugin.ts", "ExplorerPlugin.ts", "GitPlugin.ts", "ContextMenu.ts", "MarkdownPlugin.ts", "SpecsMapPlugin.ts"],
       "TopBar.ts": ["theme.ts"],
       "PluginCard.ts": ["TextRenderer.ts"],
@@ -106,8 +107,8 @@
     { "key": "Enter", "scope": "palette", "action": "Select highlighted file" }
   ],
   "test_coverage": {
-    "total_test_files": 24,
-    "total_tests": "839",
+    "total_test_files": 25,
+    "total_tests": "855",
     "run_time": "~11s",
     "framework": "vitest 4 + jsdom + V8 coverage",
     "specs_with_direct_tests": 21,

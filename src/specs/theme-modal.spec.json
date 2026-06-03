@@ -1,0 +1,47 @@
+{
+  "name": "Theme Modal",
+  "file": "src/renderer/components/ThemeModal.ts",
+  "description": "Theme selection modal with Dark/Light radio button options. Opens from Tools > Theme... menu item. Reflects current theme state on open via theme.isDark. Apply button calls theme.setDark() and closes. Cancel / overlay click / Escape dismiss without changes.",
+  "type": "ui",
+  "layer": "widget",
+  "singleton": true,
+  "exports": ["ThemeModal"],
+  "dependencies": [
+    { "feature": "theme", "file": "theme.ts", "usage": "read theme.isDark, call theme.setDark() on apply" }
+  ],
+  "referenced_by": [
+    { "feature": "app-shell", "file": "App.ts" },
+    { "feature": "topbar", "file": "TopBar.ts" }
+  ],
+  "interface": {
+    "constructor": "new ThemeModal()",
+    "methods": [
+      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Show modal, re-render to reflect current theme state, store onClose callback" }
+    ]
+  },
+  "dom": {
+    "overlay": ".modal-overlay",
+    "modal": ".modal",
+    "header": ".modal-header (THEME)",
+    "body": ".modal-body",
+    "options": ".modal-radio > input[type=radio][name=theme-mode] (values: dark, light)",
+    "actions": "#theme-apply (Apply) + #theme-cancel (Cancel)"
+  },
+  "interactions": [
+    { "name": "open", "trigger": "modal.open()", "action": "Render modal HTML with current theme checked, show overlay (display:flex)" },
+    { "name": "apply_dark", "trigger": "Click #theme-apply with dark radio checked", "action": "theme.setDark(true), close modal, fire onClose" },
+    { "name": "apply_light", "trigger": "Click #theme-apply with light radio checked", "action": "theme.setDark(false), close modal, fire onClose" },
+    { "name": "cancel", "trigger": "Click #theme-cancel", "action": "Close modal without applying, fire onClose" },
+    { "name": "overlay_dismiss", "trigger": "Click overlay background", "action": "Same as cancel — close without applying" },
+    { "name": "state_refresh", "trigger": "Each open() call", "action": "Re-render DOM to match current theme.isDark state" }
+  ],
+  "states": {
+    "hidden": "Overlay display:none",
+    "visible_dark_selected": "Overlay display:flex, dark input[checked]",
+    "visible_light_selected": "Overlay display:flex, light input[checked]"
+  },
+  "ui": {
+    "spec": "theme-modal-ui.spec.json"
+  },
+  "test": "src/renderer/components/ThemeModal.test.ts"
+}

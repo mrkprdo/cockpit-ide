@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { theme, darkTheme, lightTheme } from '../renderer/theme';
+import { theme, defaultDarkTheme, defaultLightTheme } from '../renderer/theme';
 import { ConfirmModal } from '../renderer/components/ConfirmModal';
 import { ContextMenu } from '../renderer/components/ContextMenu';
 import { WelcomeModal } from '../renderer/components/WelcomeModal';
@@ -45,7 +45,7 @@ describe('Theme edge cases', () => {
 
   it('setDark back and forth restores exact colors', () => {
     theme.setDark(true);
-    const darkVars = { ...darkTheme };
+    const darkVars = { ...defaultDarkTheme };
     theme.setDark(false);
     theme.setDark(true);
     expect(theme.colors.bg).toBe(darkVars.bg);

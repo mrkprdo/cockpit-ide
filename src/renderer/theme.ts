@@ -8,7 +8,7 @@ export interface ThemeColors {
   border: string;
 }
 
-export const darkTheme: ThemeColors = {
+export const defaultDarkTheme: ThemeColors = {
   bg: '#161C24',
   surface: '#1C2538',
   panel: '#243248',
@@ -18,7 +18,7 @@ export const darkTheme: ThemeColors = {
   border: '#2A3A4A',
 };
 
-export const lightTheme: ThemeColors = {
+export const defaultLightTheme: ThemeColors = {
   bg: '#f8f8f8',
   surface: '#eeeeee',
   panel: '#e0e0e0',
@@ -28,19 +28,88 @@ export const lightTheme: ThemeColors = {
   border: '#1a1a1a',
 };
 
-class Theme {
-  private _isDark = true;
+export const monokaiDarkTheme: ThemeColors = {
+  bg: '#272822',
+  surface: '#2e2e29',
+  panel: '#383830',
+  primary: '#f8f8f2',
+  secondary: '#a09f8c',
+  tertiary: '#75715e',
+  border: '#49483e',
+};
 
-  get isDark(): boolean { return this._isDark; }
-  get colors(): ThemeColors { return this._isDark ? darkTheme : lightTheme; }
+export const monokaiLightTheme: ThemeColors = {
+  bg: '#e2dfd0',
+  surface: '#d6d3c4',
+  panel: '#cbc8b8',
+  primary: '#272822',
+  secondary: '#5e5c50',
+  tertiary: '#8c8878',
+  border: '#9c9988',
+};
+
+const palettes: Record<string, Record<string, ThemeColors>> = {
+  default: { dark: defaultDarkTheme, light: defaultLightTheme },
+  monokai: { dark: monokaiDarkTheme, light: monokaiLightTheme },
+};
+
+class Theme {
+  private _base: 'default' | 'monokai' = 'default';
+  private _mode: 'dark' | 'light' = 'dark';
+
+  get base(): string { return this._base; }
+  get mode(): string { return this._mode; }
+  get themeName(): string { return `${this._base}-${this._mode}`; }
+  get isDark(): boolean { return this._mode === 'dark'; }
+  get colors(): ThemeColors { return palettes[this._base]?.[this._mode] || defaultDarkTheme; }
+
+  setBase(base: string): void {
+    if (palettes[base]) {
+      this._base = base as 'default' | 'monokai';
+      this.apply();
+    }
+  }
+
+  setMode(mode: string): void {
+    if (mode === 'dark' || mode === 'light') {
+      this._mode = mode;
+      this.apply();
+    }
+  }
+
+  private parseLegacy(name: string): { base: string; mode: string } | null {
+    const legacy: Record<string, { base: string; mode: string }> = {
+      'dark': { base: 'default', mode: 'dark' },
+      'light': { base: 'default', mode: 'light' },
+      'monokai': { base: 'monokai', mode: 'dark' },
+    };
+    return legacy[name] || null;
+  }
+
+  setTheme(base: string, mode?: string): void {
+    if (mode && palettes[base]?.[mode]) {
+      this._base = base as 'default' | 'monokai';
+      this._mode = mode as 'dark' | 'light';
+    } else if (palettes[base]?.[this._mode]) {
+      this._base = base as 'default' | 'monokai';
+    } else {
+      const mapped = this.parseLegacy(base);
+      if (mapped && palettes[mapped.base]?.[mapped.mode]) {
+        this._base = mapped.base as 'default' | 'monokai';
+        this._mode = mapped.mode as 'dark' | 'light';
+      }
+    }
+    this.apply();
+  }
 
   setDark(dark: boolean): void {
-    this._isDark = dark;
+    this._base = 'default';
+    this._mode = dark ? 'dark' : 'light';
     this.apply();
   }
 
   toggle(): void {
-    this._isDark = !this._isDark;
+    this._mode = this._mode === 'dark' ? 'light' : 'dark';
     this.apply();
   }
 

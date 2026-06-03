@@ -4,7 +4,7 @@ import { MarkdownPlugin } from '../renderer/components/MarkdownPlugin';
 import { MonacoEditorPlugin } from '../renderer/components/MonacoEditorPlugin';
 import { ExplorerPlugin } from '../renderer/components/ExplorerPlugin';
 import { ConfirmModal } from '../renderer/components/ConfirmModal';
-import { theme, darkTheme, lightTheme } from '../renderer/theme';
+import { theme, defaultDarkTheme, defaultLightTheme, monokaiDarkTheme, monokaiLightTheme } from '../renderer/theme';
 import { mockElectronAPI } from './setup';
 
 function makeContainer(w = 800, h = 500): HTMLElement {
@@ -466,25 +466,28 @@ describe('Explorer Plugin workflows', () => {
 // ─────────────────────────────────────────────
 
 describe('Theme persistence workflow', () => {
-  it('dark is the default theme', () => {
+  it('default-dark is the default theme', () => {
     theme.setDark(true);
-    expect(theme.isDark).toBe(true);
+    expect(theme.base).toBe('default');
+    expect(theme.mode).toBe('dark');
     expect(theme.colors.bg).toBe('#161C24');
   });
 
-  it('toggle switches theme and propagates CSS vars', () => {
-    theme.setDark(true);
+  it('toggle flips between dark and light mode, preserving base', () => {
+    theme.setTheme('monokai', 'dark');
     const root = document.documentElement;
 
     theme.toggle();
-    expect(theme.isDark).toBe(false);
-    expect(root.style.getPropertyValue('--bg')).toBe('#f8f8f8');
-    expect(root.style.getPropertyValue('--primary')).toBe('#1a1a1a');
+    expect(theme.base).toBe('monokai');
+    expect(theme.mode).toBe('light');
+    expect(root.style.getPropertyValue('--bg')).toBe('#e2dfd0');
+    expect(root.style.getPropertyValue('--primary')).toBe('#272822');
 
     theme.toggle();
-    expect(theme.isDark).toBe(true);
-    expect(root.style.getPropertyValue('--bg')).toBe('#161C24');
-    expect(root.style.getPropertyValue('--primary')).toBe('#C8D6E5');
+    expect(theme.base).toBe('monokai');
+    expect(theme.mode).toBe('dark');
+    expect(root.style.getPropertyValue('--bg')).toBe('#272822');
+    expect(root.style.getPropertyValue('--primary')).toBe('#f8f8f2');
   });
 
   it('setDark propagates to all CSS custom properties', () => {
@@ -502,10 +505,41 @@ describe('Theme persistence workflow', () => {
     expect(root.style.getPropertyValue('--surface')).toBe('#eeeeee');
   });
 
-  it('dark and light palettes are distinct', () => {
-    expect(darkTheme.bg).not.toBe(lightTheme.bg);
-    expect(darkTheme.primary).not.toBe(lightTheme.primary);
-    expect(darkTheme.tertiary).not.toBe(lightTheme.tertiary);
+  it('default-dark and default-light palettes are distinct', () => {
+    expect(defaultDarkTheme.bg).not.toBe(defaultLightTheme.bg);
+    expect(defaultDarkTheme.primary).not.toBe(defaultLightTheme.primary);
+    expect(defaultDarkTheme.tertiary).not.toBe(defaultLightTheme.tertiary);
+  });
+
+  it('monokai-dark theme applies all CSS custom properties', () => {
+    theme.setTheme('monokai', 'dark');
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--bg')).toBe('#272822');
+    expect(root.style.getPropertyValue('--surface')).toBe('#2e2e29');
+    expect(root.style.getPropertyValue('--panel')).toBe('#383830');
+    expect(root.style.getPropertyValue('--primary')).toBe('#f8f8f2');
+    expect(root.style.getPropertyValue('--secondary')).toBe('#a09f8c');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#75715e');
+    expect(root.style.getPropertyValue('--border')).toBe('#49483e');
+  });
+
+  it('monokai-light theme applies all CSS custom properties', () => {
+    theme.setTheme('monokai', 'light');
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--bg')).toBe('#e2dfd0');
+    expect(root.style.getPropertyValue('--surface')).toBe('#d6d3c4');
+    expect(root.style.getPropertyValue('--panel')).toBe('#cbc8b8');
+    expect(root.style.getPropertyValue('--primary')).toBe('#272822');
+    expect(root.style.getPropertyValue('--secondary')).toBe('#5e5c50');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#8c8878');
+    expect(root.style.getPropertyValue('--border')).toBe('#9c9988');
+  });
+
+  it('all four palette combinations are distinct', () => {
+    expect(defaultDarkTheme.bg).not.toBe(monokaiDarkTheme.bg);
+    expect(defaultLightTheme.bg).not.toBe(monokaiLightTheme.bg);
+    expect(defaultDarkTheme.bg).not.toBe(defaultLightTheme.bg);
+    expect(monokaiDarkTheme.bg).not.toBe(monokaiLightTheme.bg);
   });
 });
 

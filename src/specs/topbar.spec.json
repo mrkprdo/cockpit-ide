@@ -30,7 +30,7 @@
     "onFocusExplorer (uuid)", "onReopenExplorer (uuid)",
     "onFocusMarkdown (uuid)", "onReopenMarkdown (uuid)",
     "onNewSpecsmap ()", "onFocusSpecsmap (uuid)", "onReopenSpecsmap (uuid)",
-    "onAbout ()", "onTutorial ()",
+    "onAbout ()", "onTheme ()", "onTutorial ()",
     "onZoomIn ()", "onZoomOut ()", "onResetView ()", "onZoomLock (locked: boolean)"
   ],
   "dom": {
@@ -38,7 +38,7 @@
     "menus": {
       "File": ["Open Workspace", "Exit"],
       "View": ["Terminal > New + instances", "Explorer", "Git", "Markdown", "Canvas > Dots/Grid/None", "Zoom > In/Out/Reset/Lock"],
-      "Tools": ["SpecsMap"],
+      "Tools": ["Theme...", "SpecsMap"],
       "Help": ["Tutorial", "About Cockpit IDE"]
     },
     "button": "#theme-toggle (◐ icon, toggles dark/light)"
