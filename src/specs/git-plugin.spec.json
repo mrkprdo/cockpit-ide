@@ -1,147 +1,45 @@
 {
-  "name": "Git Plugin",
-  "file": "src/renderer/components/GitPlugin.ts",
-  "description": "Full-featured Git client plugin with three-panel layout. Left panel: Branch and Remote selectors, Staged/Unstaged file lists with expand/collapse and per-file stage/unstage buttons (+/-), Commit message input with Commit/Push buttons, and scrollable commit history. Right panel (split vertically): top panel shows commit info and changed-file tree for selected commit, bottom panel shows diff output. Supports unified and side-by-side diff views via dropdown toggle. Horizontal resize handle between left/right columns, vertical resize between top/bottom panels. Staged/unstaged file lists auto-expand when files present. File change auto-refresh debounced 1s via file:changed listener. Stage/unstage via +/- buttons. Commit via Enter or button (disabled when no staged files). Push button enabled only when ahead of remote. State serialization includes selected commit, file, diff view mode, and column/panel widths.",
-  "type": "ui",
-  "layer": "plugin",
-  "singleton": false,
-  "exports": ["GitPlugin", "GitState"],
-  "dependencies": [],
-  "referenced_by": [
-    { "feature": "canvas-area", "file": "CanvasArea.ts" }
-  ],
-  "ipc": [
-    "git:remotes",
-    "git:branches",
-    "git:checkout",
-    "git:log",
-    "git:showTree",
-    "git:diff",
-    "git:currentBranch",
-    "git:stagedFiles",
-    "git:unstagedFiles",
-    "git:stagedDiff",
-    "git:unstagedDiff",
-    "git:commitBody",
-    "git:stage",
-    "git:unstage",
-    "git:commit",
-    "git:push",
-    "git:checkAhead",
-    "file:changed"
-  ],
-  "interface": {
-    "constructor": "(container: HTMLElement, wsPath: string) — Creates root DOM structure with three-panel layout (left column, horizontal resize handle, right column split vertically). Initializes branch/remote selectors, staged/unstaged file lists, commit input, commit history list, file tree, and diff viewer. Fetches initial git state via refresh(). Registers file:changed listener for file change auto-refresh debounced 1s.",
-    "methods": [
-      {
-        "name": "refresh",
-        "signature": "(): Promise<void>",
-        "description": "Full refresh: fetches remotes, branches, commit log, current branch, and staged/unstaged file changes. Rebuilds branch/remote selectors, commit history list, and file lists."
-      },
-      {
-        "name": "refreshChanges",
-        "signature": "(): Promise<void>",
-        "description": "Refreshes only staged and unstaged file lists and checkAhead status, preserving selected commit and diff state. Used for debounced file change auto-refresh and after stage/unstage/commit/push operations."
-      },
-      {
-        "name": "getState",
-        "signature": "(): GitState",
-        "description": "Returns serializable state including selected commit hash, selected file path, diff view mode (unified/side-by-side), left column width, top panel height, and expanded changes sections."
-      },
-      {
-        "name": "restoreState",
-        "signature": "(state: GitState): Promise<void>",
-        "description": "Restores plugin state from serialized data: selects commit, file, diff view mode, and applies column/panel widths via applyLayout. Triggers refresh to populate data."
-      },
-      {
-        "name": "applyLayout",
-        "signature": "(state: GitState): void",
-        "description": "Applies saved column widths and panel heights without re-fetching data. Sets CSS widths/heights on left column and top panel elements."
-      },
-      {
-        "name": "destroy",
-        "signature": "(): void",
-        "description": "Cleanup: unsubscribes file:changed listener, removes all DOM event listeners (resize handles, selectors, buttons, commit items, file items), removes root element from DOM."
-      }
-    ],
-    "properties": [
-      {
-        "name": "onStateChange",
-        "type": "(() => void) | null",
-        "description": "Callback fired when plugin state changes (commit selection, file selection, diff view toggle, column resize). Used by CanvasArea to trigger workspace save."
-      },
-      {
-        "name": "onFileOpen",
-        "type": "((filePath: string) => void) | null",
-        "description": "Callback fired when user double-clicks a file in the staged/unstaged file lists or commit file tree. Used by CanvasArea to open the file in an editor."
-      }
-    ],
-    "events": [
-      {
-        "name": "onStateChange",
-        "description": "Fired when plugin state changes; null if no callback is set. Used by CanvasArea to trigger workspace serialization."
-      },
-      {
-        "name": "onFileOpen",
-        "description": "Fired when user opens a file from the git plugin; null if no callback is set. Used by CanvasArea to open files in the editor."
-      }
-    ]
-  },
-  "state": {
-    "schema": "GitState",
-    "description": "Serialized plugin state persisted to .cockpit/window.json via CanvasArea state manager.",
-    "fields": [
-      {
-        "name": "selectedCommitHash",
-        "type": "string | null",
-        "description": "Hash of the currently selected commit in the commit history list"
-      },
-      {
-        "name": "selectedFilePath",
-        "type": "string | null",
-        "description": "Path of the currently selected file in the commit file tree or changes list"
-      },
-      {
-        "name": "diffViewMode",
-        "type": "'unified' | 'side-by-side'",
-        "description": "Current diff display mode"
-      },
-      {
-        "name": "leftColWidth",
-        "type": "number",
-        "description": "Width of the left panel in pixels (default 260, clamped 120-600)"
-      },
-      {
-        "name": "topPanelHeight",
-        "type": "number",
-        "description": "Height of the top-right panel in pixels"
-      },
-      {
-        "name": "changesExpanded",
-        "type": "{ staged: boolean, unstaged: boolean }",
-        "description": "Expand/collapse state of staged and unstaged file sections"
-      }
-    ]
-  },
-  "features": {
-    "branch_switching": "Branch selector populated from git:branches. On change calls git:checkout then full refresh.",
-    "commit_browsing": "Commit history list from git:log. Clicking a commit calls git:showTree for changed files and git:commitBody for commit info.",
-    "file_staging": "Unstaged files show + button per file. Staged files show - button per file. Buttons call git:stage/git:unstage then refreshChanges.",
-    "committing": "Commit input with Commit button (disabled when no staged files). Enter key or button click calls git:commit with message. Auto-refresh after commit.",
-    "pushing": "Push button enabled only when git:checkAhead indicates ahead of remote. Calls git:push then refresh.",
-    "diff_viewing": "Unified diff shown in pre.git-diff-pre. Side-by-side diff shown with .git-sbs-row elements. Toggle via dropdown with unified/side-by-side options.",
-    "resize_columns": "Drag vertical handle (.git-resize) between left and right columns. Left column width clamped 120-600px.",
-    "resize_panels": "Drag horizontal handle (.git-resize-h) between top and bottom right panels. Top panel height clamped 40px to total-40px."
-  },
-  "activation": "on-demand — instantiated by CanvasArea.addGit() when user creates a Git card via button",
-  "ui": {
-    "spec": "git-plugin-ui.spec.json"
-  },
-  "lifecycle": {
-    "created_by": "CanvasArea.addGit()",
-    "destroyed_by": "Card terminate or GitPlugin.destroy() — unsubscribes listeners, removes DOM",
-    "singleton": false
-  },
-  "external_deps": [],
-  "test": "src/renderer/components/GitPlugin.test.ts"
+    "name":  "Git Plugin",
+    "file":  "src/renderer/components/GitPlugin.ts",
+    "description":  "Git UI plugin providing log viewer, diff display, stage/unstage, commit with message, push/pull, branch management, remote management, and stash operations. All operations delegate to main process git CLI handlers via IPC.",
+    "type":  "ui",
+    "layer":  "plugin",
+    "singleton":  false,
+    "exports":  [
+                    "GitPlugin"
+                ],
+    "dependencies":  [
+
+                     ],
+    "referenced_by":  [
+                          {
+                              "file":  "src/renderer/components/CanvasArea.ts",
+                              "usage":  [
+                                            "GitPlugin"
+                                        ]
+                          }
+                      ],
+    "ipc":  [
+                "git:log",
+                "git:branches",
+                "git:remotes",
+                "git:diff",
+                "git:stage",
+                "git:unstage",
+                "git:commit",
+                "git:push",
+                "git:pull",
+                "git:status",
+                "git:stash"
+            ],
+    "interface":  {
+                      "constructor":  "constructor(card: PluginCard, workspacePath: string)",
+                      "methods":  [
+                                      "destroy(): void",
+                                      "refresh(): Promise\u003cvoid\u003e"
+                                  ],
+                      "properties":  [
+                                         "workspacePath: string"
+                                     ]
+                  }
 }

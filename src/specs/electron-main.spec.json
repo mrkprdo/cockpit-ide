@@ -1,180 +1,39 @@
 {
-  "name": "Main Process",
+  "name": "Electron Main Process",
   "file": "src/main/main.ts",
-
-  "description": "Electron main process entry — creates frameless BrowserWindow (1440x900, maximized, contextIsolation=true, sandbox=true), registers all IPC handlers for filesystem operations (with path security — isPathSafe restricts operations to workspace subtree), PTY terminal sessions (platform-aware shell selection: COMSPEC on Windows, /bin/zsh on Darwin, /bin/bash on Linux), chokidar file watching (debounced 100ms, ignores .git/node_modules), workspace persistence (last-workspace.txt, recent-workspaces.json in userData, .cockpit/window.json per workspace), window controls (minimize/maximize/close/isMaximized/new, multi-window support with per-window workspace tracking), clipboard operations, user preferences (preferences.json in userData), shell.openExternal with URL protocol validation, native directory picker, and git operations via child_process.execFile. IDE server lifecycle is tied to workspace: started on workspace select/setPath, stopped on close. Environment filtering for PTY spawns (ALLOWED_ENV_KEYS only). Terminal cleanup on window close. Multi-window terminal session tracking via terminalSenders Map.",
-
+  "description": "Electron main process entry. Creates frameless BrowserWindows (1440x900), manages PTY terminal sessions via node-pty, provides IPC handlers for filesystem operations, directory picker, window controls, workspace persistence (last-workspace.txt, recent-workspaces.json, .cockpit/window.json), clipboard, user preferences, shell open, git CLI operations, and spec graph data serving. Multi-window support via single-window-lock topWindow tracking. Path security validation (no symlink escapes).",
   "type": "process",
   "layer": "foundation",
-
   "singleton": true,
-
-  "exports": ["_testSetWorkspacePath", "_testIsPathSafe"],
-
-  "dependencies": [
-    { "feature": "ide-server", "file": "ide-server.ts", "usage": "IDE context server started/stopped on workspace open/close" }
+  "exports": [],
+  "dependencies": [],
+  "referenced_by": [
+    { "file": "src/main/ide-server.ts", "usage": "main process reference via require" }
   ],
-
-  "referenced_by": [],
-
   "ipc": [
-    "app:version",
-    "clipboard:readText",
-    "clipboard:writeText",
-    "fs:readDir",
-    "fs:readFile",
-    "fs:writeFile",
-    "fs:mkdir",
-    "fs:delete",
-    "fs:copy",
-    "fs:rename",
-    "terminal:create",
-    "terminal:write",
-    "terminal:resize",
-    "terminal:kill",
-    "terminal:data",
-    "terminal:exit",
-    "window:new",
-    "window:minimize",
-    "window:maximize",
-    "window:close",
-    "window:isMaximized",
-    "workspace:select",
-    "workspace:getPath",
-    "workspace:setPath",
-    "workspace:load",
-    "workspace:save",
-    "workspace:getRecent",
-    "workspace:addRecent",
-    "workspace:removeRecent",
-    "shell:openExternal",
-    "prefs:load",
-    "prefs:save",
-    "file:watch",
-    "file:unwatch",
-    "file:changed",
-    "ide:editorState",
-    "ide:status",
-    "git:remotes",
-    "git:branches",
-    "git:checkout",
-    "git:log",
-    "git:showTree",
-    "git:diff",
-    "git:currentBranch",
-    "git:stagedFiles",
-    "git:unstagedFiles",
-    "git:stagedDiff",
-    "git:unstagedDiff",
-    "git:commitBody",
-    "git:stage",
-    "git:unstage",
-    "git:commit",
-    "git:push",
-    "git:checkAhead"
+    "app:getVersion", "window:new", "window:minimize", "window:maximize",
+    "window:close", "window:isMaximized", "clipboard:readText", "clipboard:writeText",
+    "terminal:create", "terminal:write", "terminal:resize", "terminal:kill",
+    "terminal:data", "terminal:exit",
+    "workspace:select", "workspace:setPath", "workspace:getPath", "workspace:load",
+    "workspace:save", "workspace:recentWorkspaces",
+    "fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete",
+    "fs:rename", "fs:exists", "fs:stat", "fs:copy", "fs:onChanged", "fs:onSelected",
+    "shell:openPath", "shell:openExternal",
+    "dialog:openFile", "dialog:saveFile", "dialog:selectDirectory",
+    "git:log", "git:branches", "git:remotes", "git:diff", "git:stage", "git:unstage",
+    "git:commit", "git:push", "git:pull", "git:status", "git:stash",
+    "specsmap:getSpecData",
+    "prefs:load", "prefs:save", "app:getVersion"
   ],
-
-  "handlers": {
-    "ipcMain.handle": [
-      "fs:readDir",
-      "fs:readFile",
-      "fs:writeFile",
-      "fs:mkdir",
-      "fs:delete",
-      "fs:copy",
-      "fs:rename",
-      "clipboard:writeText",
-      "terminal:create",
-      "window:new",
-      "window:isMaximized",
-      "workspace:select",
-      "workspace:getPath",
-      "workspace:setPath",
-      "workspace:load",
-      "workspace:save",
-      "workspace:getRecent",
-      "workspace:addRecent",
-      "workspace:removeRecent",
-      "shell:openExternal",
-      "prefs:load",
-      "prefs:save",
-      "file:watch",
-      "file:unwatch",
-      "ide:status",
-      "git:remotes",
-      "git:branches",
-      "git:checkout",
-      "git:log",
-      "git:showTree",
-      "git:diff",
-      "git:currentBranch",
-      "git:stagedFiles",
-      "git:unstagedFiles",
-      "git:stagedDiff",
-      "git:unstagedDiff",
-      "git:commitBody",
-      "git:stage",
-      "git:unstage",
-      "git:commit",
-      "git:push",
-      "git:checkAhead"
-    ],
-    "ipcMain.on": [
-      "app:version (sendSync)",
-      "clipboard:readText (sendSync)",
-      "window:minimize",
-      "window:maximize",
-      "window:close",
-      "terminal:write",
-      "terminal:resize",
-      "terminal:kill",
-      "ide:editorState"
-    ],
-    "events": [
-      "terminal:data (webContents.send — sent from PTY onData callback)",
-      "terminal:exit (webContents.send — sent from PTY onExit callback)",
-      "file:changed (webContents.send — debounced 100ms via chokidar batched queue)"
-    ]
-  },
-
-  "security": {
-    "isPathSafe": "Resolves both target and real paths, checks they start with workspace path + separator (case-insensitive on win32) — restricts all fs:* operations to workspace subtree",
-    "urlProtocolValidation": "shell:openExternal only allows https:, http:, mailto: protocols via URL constructor check",
-    "sandbox": "BrowserWindow sandbox=true — renderer has no Node.js access",
-    "contextIsolation": "contextIsolation=true — renderer accesses only contextBridge-exposed API",
-    "csp": "Content Security Policy enforced in index.html",
-    "nodeIntegration": "false — renderer cannot access Node.js APIs",
-    "devTools": "Disabled in packaged builds (only enabled when not app.isPackaged or --dev flag)",
-    "zoomLock": "Ctrl+/-/= prevented via before-input-event to block browser zoom; setVisualZoomLevelLimits(1,1)",
-    "navigation": "will-navigate defaultPrevented, windowOpenHandler denies all new windows",
-    "filterEnv": "Only ALLOWED_ENV_KEYS (PATH, HOME, SHELL, COMSPEC, TEMP, etc.) passed to PTY env — prevents credential leakage"
-  },
-
   "interface": {
-    "constructor": "none — module-level execution via app.whenReady().then(...)",
-    "methods": [
-      {
-        "name": "_testSetWorkspacePath",
-        "signature": "(p: string | null) => void",
-        "description": "Test helper — sets defaultWorkspacePath for unit test isolation"
-      },
-      {
-        "name": "_testIsPathSafe",
-        "signature": "(p: string) => boolean",
-        "description": "Test helper — exposes isPathSafe check for unit test verification"
-      }
-    ],
-    "properties": [],
-    "events": []
+    "methods": []
   },
-
-  "lifecycle": {
-    "created_by": "Electron app.whenReady() — creates main BrowserWindow, registers all IPC handlers, starts file watcher and IDE server if CLI workspace path provided",
-    "destroyed_by": "app.on('window-all-closed') — stops IDE server, stops file watcher, kills all PTY processes, clears terminal maps, quits (except macOS)",
-    "singleton": true
+  "security": {
+    "path_traversal": "All file I/O validates resolved paths against workspace root. Symbolic link targets within workspace are allowed; outside are rejected.",
+    "pty_isolation": "Each PTY session has isolated cwd. Session IDs are UUIDs. Kill by owner session only."
   },
-
-  "external_deps": ["electron", "node-pty", "chokidar"],
-
-  "test": "src/main/main.test.ts"
+  "bridge": {
+    "preload": "contextBridge.exposeInMainWorld exposes all IPC as window.electronAPI via invoke/send wrappers"
+  }
 }

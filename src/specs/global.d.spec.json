@@ -1,0 +1,25 @@
+{
+  "name": "Global Type Declarations",
+  "file": "src/global.d.ts",
+  "description": "Ambient type declarations for Window.electronAPI, EditorState, WorkspaceState, and DirEntry. Defines the IPC contract shape between preload and renderer — every namespace and method the renderer can invoke.",
+  "type": "config",
+  "layer": "foundation",
+  "singleton": true,
+  "exports": [
+    "EditorState", "WorkspaceState", "DirEntry", "Window.electronAPI"
+  ],
+  "dependencies": [],
+  "referenced_by": [
+    { "file": "src/preload/preload.ts", "usage": ["Window.electronAPI"] },
+    { "file": "src/main/main.ts", "usage": ["EditorState", "WorkspaceState"] },
+    { "file": "src/renderer/components/App.ts", "usage": ["EditorState", "WorkspaceState"] },
+    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["EditorState"] },
+    { "file": "src/renderer/components/MonacoEditorPlugin.ts", "usage": ["EditorState"] },
+    { "file": "src/renderer/components/ExplorerPlugin.ts", "usage": ["EditorState"] },
+    { "file": "src/renderer/components/FileExplorerPlugin.ts", "usage": ["DirEntry"] }
+  ],
+  "ipc": [],
+  "interface": {
+    "methods": []
+  }
+}

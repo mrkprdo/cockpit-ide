@@ -1,67 +1,37 @@
 {
-  "name": "IDE Server",
-  "file": "src/main/ide-server.ts",
+    "name":  "IDE Context Server",
+    "file":  "src/main/ide-server.ts",
+    "description":  "HTTP/WebSocket server providing MCP-style agent integration. Exposes editor state (tabs, cursor, selections), file tree, and git status to external AI agents via JSON messages over WebSocket. Runs on localhost with configurable port.",
+    "type":  "service",
+    "layer":  "service",
+    "singleton":  true,
+    "exports":  [
+                    "IDEContextServer"
+                ],
+    "dependencies":  [
+                         {
+                             "file":  "src/main/main.ts",
+                             "usage":  [
+                                           "ipcMain",
+                                           "BrowserWindow"
+                                       ]
+                         }
+                     ],
+    "referenced_by":  [
 
-  "description": "WebSocket-based IDE context server (LSP-aligned JSON-RPC protocol). Writes transport lock files to .cockpit/ide.lock, %USERPROFILE%/.claude/ide/{port}.lock, and {xdgData}/opencode/ide/{port}.lock. Broadcasts editor selection state to connected WebSocket clients using `selection_changed` JSON-RPC notification. Supports initialize handshake with protocolVersion '2025-11-25'. Instances: single exported singleton `ideServer`.",
-
-  "type": "service",
-  "layer": "service",
-
-  "singleton": true,
-
-  "exports": ["IdeServer", "ideServer", "EditorSelectionState"],
-
-  "dependencies": [],
-
-  "referenced_by": [
-    { "feature": "main", "file": "main.ts" }
-  ],
-
-  "ipc": [],
-  "api": [
-    { "endpoint": "initialize (JSON-RPC)", "description": "Client sends initialize request, server responds with protocolVersion and serverInfo" },
-    { "endpoint": "selection_changed (JSON-RPC notification)", "description": "Server broadcasts current editor selection state to all connected clients" }
-  ],
-
-  "interface": {
-    "constructor": "new IdeServer() — no constructor arguments, initializes with null server/wss/port",
-    "methods": [
-      {
-        "name": "start",
-        "signature": "(wsPath: string) => Promise<void>",
-        "description": "Starts an HTTP server on 127.0.0.1:0, attaches WebSocketServer, writes lock files to .cockpit/, ~/.claude/ide/, and XDG opencode/ide/ directories"
-      },
-      {
-        "name": "stop",
-        "signature": "() => void",
-        "description": "Closes all WebSocket connections, shuts down HTTP server, removes all lock files, resets port to 0"
-      },
-      {
-        "name": "updateEditorState",
-        "signature": "(state: EditorSelectionState | null) => void",
-        "description": "Broadcasts selection_changed JSON-RPC notification to all connected WebSocket clients, computes relative path from workspace root"
-      },
-      {
-        "name": "getPort",
-        "signature": "() => number",
-        "description": "Returns the current server port (0 if not running)"
-      },
-      {
-        "name": "getLockPaths",
-        "signature": "() => string[]",
-        "description": "Returns a copy of current lock file paths"
-      }
-    ],
-    "properties": []
-  },
-
-  "lifecycle": {
-    "created_by": "Module-level instantiation: `export const ideServer = new IdeServer()` — created once at import",
-    "destroyed_by": "stop() called by main.ts when workspace closes; server and all connections torn down",
-    "singleton": true
-  },
-
-  "external_deps": ["ws"],
-
-  "test": "src/main/ide-server.test.ts"
+                      ],
+    "ipc":  "ide-server:state",
+    "interface":  {
+                      "constructor":  "constructor(private port: number)",
+                      "methods":  [
+                                      "start(): Promise\u003cvoid\u003e",
+                                      "stop(): void",
+                                      "broadcast(data: object): void"
+                                  ],
+                      "properties":  [
+                                         "port: number",
+                                         "wss: WebSocketServer",
+                                         "connections: Set\u003cWebSocket\u003e"
+                                     ]
+                  }
 }

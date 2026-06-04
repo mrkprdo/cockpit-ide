@@ -1,56 +1,17 @@
 {
-  "name": "Tutorial",
+  "name": "Tutorial Overlay",
   "file": "src/renderer/components/Tutorial.ts",
-  "description": "Interactive guided tutorial overlay with step-based walkthrough. Each step has title, description, optional target element selector for highlighting, optional overflowHidden toggle, optional renderExtra callback for custom content, and onEnter/onLeave lifecycle hooks. Dark overlay with tooltip-style step cards positioned near highlighted targets. Steps navigated via Next/Previous buttons or keyboard (ArrowRight/Enter/ArrowLeft). 'Show on launch' checkbox persisted to user prefs. Final step shows completion card. Steps cover: welcome intro, canvas panning/zoom, menu bar, terminal tool, explorer, file search, markdown viewer, specsmap, theme, plugin cards, plugin list panel, arrange panel, keyboard shortcuts, stay connected (external links), thank you (completion). Tooltip positioning prefers below target → above → right → left → center fallback, clamped within viewport at max-width 360px.",
+  "description": "Interactive guided tutorial overlay. Step-based walkthrough with title, description, optional target element highlighting, extra content renderer, and lifecycle hooks. Dark overlay with tooltip-style step cards. Provides skip/finish/next/prev navigation.",
   "type": "ui",
-  "layer": "overlay",
-  "singleton": true,
-  "exports": ["Tutorial"],
+  "layer": "core",
+  "singleton": false,
+  "exports": ["Tutorial", "TutorialStep"],
   "dependencies": [],
-  "referenced_by": [
-    { "feature": "app", "file": "App.ts" }
-  ],
-  "ipc": ["shell:openExternal"],
+  "referenced_by": [],
+  "ipc": [],
   "interface": {
-    "constructor": "constructor() — Creates three div elements appended to document.body: .tutorial-overlay (fixed fullscreen dark transparent backdrop, display:none), .tutorial-tooltip (positioned step card, display:none), and .tutorial-ring (absolute border highlight for target elements, display:none). Registers document-level keydown listener (onKeydown) for Escape (close), ArrowRight/Enter (next step), ArrowLeft (previous step). Listener is a no-op when overlay is hidden.",
-    "methods": [
-      {
-        "name": "start",
-        "signature": "(onClose?: () => void): void",
-        "description": "Stores optional onClose callback, resets stepIdx to 0, sets overlay display:flex and tooltip visible, calls showStep() to render the first step (Welcome intro)."
-      },
-      {
-        "name": "getShowOnLaunch",
-        "signature": "(): boolean",
-        "description": "Returns the internal showOnLaunch flag. Updated on final step when 'Do not show this again' checkbox state is read before closing."
-      },
-      {
-        "name": "destroy",
-        "signature": "(): void",
-        "description": "Removes the document keydown listener, then removes overlay, tooltip, and ring elements from DOM if they have a parent."
-      }
-    ],
-    "properties": [
-      {
-        "name": "showOnLaunch",
-        "type": "boolean",
-        "description": "Internal flag controlling whether tutorial auto-starts on next workspace load. Updated on final step when 'Do not show again' checkbox state is read before closing. Default true. Read via getShowOnLaunch()."
-      },
-      {
-        "name": "prevOnLeave",
-        "type": "(() => void) | null",
-        "description": "Stores the current step's onLeave callback before advancing to next step. Called when navigating away or closing. Reset to null after firing."
-      }
-    ]
-  },
-  "ui": {
-    "spec": "tutorial-ui.spec.json"
-  },
-  "lifecycle": {
-    "created_by": "App constructor — instantiated once as Tutorial singleton",
-    "destroyed_by": "Lives for the duration of the renderer process; DOM elements removed only on destroy() or window close",
-    "singleton": true
-  },
-  "external_deps": [],
-  "test": "src/renderer/components/Tutorial.test.ts"
+    "constructor": "constructor(steps: TutorialStep[], onFinish?: () => void)",
+    "methods": ["start(): void", "next(): void", "prev(): void", "skip(): void", "destroy(): void"],
+    "properties": ["currentStep: number", "overlay: HTMLElement"]
+  }
 }

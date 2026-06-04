@@ -1,37 +1,17 @@
 {
-  "name": "Index",
+  "name": "Renderer Entry",
   "file": "src/renderer/index.ts",
-
-  "description": "Renderer process entry point. Instantiates App class to bootstrap the entire IDE shell. Also handles a legacy theme-toggle click handler (deprecated — TopBar now handles toggling). Loaded as a script by index.html after DOM ready. This is a single-line bootstrap: new App().",
-
-  "type": "process",
+  "description": "Renderer entry point. Instantiates the App class when DOM is ready. Has a legacy theme-toggle click listener (deprecated — TopBar handles toggling).",
+  "type": "entry",
   "layer": "foundation",
-
   "singleton": true,
-
   "exports": [],
-
   "dependencies": [
-    { "feature": "app", "file": "App.ts", "usage": "Instantiate App class to bootstrap the entire renderer" }
+    { "file": "src/renderer/components/App.ts", "usage": ["App"] }
   ],
-
   "referenced_by": [],
-
   "ipc": [],
-
   "interface": {
-    "constructor": "none — module-level execution, no class",
-    "methods": [],
-    "properties": []
-  },
-
-  "lifecycle": {
-    "created_by": "index.html — loaded as a script tag after DOM ready; executes new App() immediately",
-    "destroyed_by": "Lives for the entire renderer process lifetime (window close terminates process)",
-    "singleton": true
-  },
-
-  "external_deps": [],
-
-  "test": "none"
+    "methods": []
+  }
 }

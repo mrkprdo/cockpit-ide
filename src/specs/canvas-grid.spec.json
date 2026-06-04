@@ -1,45 +1,20 @@
 {
-  "name": "Canvas Grid",
+  "name": "Canvas Grid Utility",
   "file": "src/renderer/components/canvas-grid.ts",
-  "description": "Canvas grid pattern generator and applicator. generateGridPattern() renders a dot or grid pattern to a small canvas and returns a data URL. applyGridToElement() sets CSS background-image with proper scale and pan offsets. GridStyle type: 'none' | 'dots' | 'grid'.",
+  "description": "GridStyle type definition and pattern generation. Exports grid pattern CSS background-image strings for dot, grid, and none styles. applyGridStyle() applies the pattern to an element.",
   "type": "utility",
   "layer": "utility",
   "singleton": false,
-  "exports": ["GridStyle", "generateGridPattern", "applyGridToElement"],
+  "exports": ["GridStyle", "defaultGridStyle", "applyGridStyle", "getGridPattern"],
   "dependencies": [],
   "referenced_by": [
-    {
-      "feature": "canvas-area",
-      "file": "CanvasArea.ts"
-    }
+    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["GridStyle", "applyGridStyle"] }
   ],
   "ipc": [],
   "interface": {
-    "functions": [
-      {
-        "name": "generateGridPattern",
-        "signature": "(style: GridStyle, patternSize: number): string",
-        "description": "Creates a small canvas with dot or grid pattern and returns a data URL."
-      },
-      {
-        "name": "applyGridToElement",
-        "signature": "(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number, scale: number, panX: number, panY: number): void",
-        "description": "Sets CSS background-image, background-size, and background-position on an element for the grid pattern."
-      }
-    ],
-    "types": [
-      {
-        "name": "GridStyle",
-        "definition": "'none' | 'dots' | 'grid'",
-        "description": "Visual style of the canvas background grid."
-      }
+    "methods": [
+      "applyGridStyle(el: HTMLElement, style: GridStyle, zoom: number): void",
+      "getGridPattern(style: GridStyle, zoom: number): string"
     ]
-  },
-  "lifecycle": {
-    "created_by": "Imported statically by CanvasArea",
-    "destroyed_by": "N/A (pure functions, no instances)",
-    "singleton": false
-  },
-  "external_deps": [],
-  "test": "none (tested via CanvasArea tests)"
+  }
 }

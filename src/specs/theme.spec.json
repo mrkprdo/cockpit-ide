@@ -1,95 +1,18 @@
 {
-  "name": "Theme Manager",
+  "name": "Theme System",
   "file": "src/renderer/theme.ts",
-
-  "description": "Theme singleton managing CSS custom property application for dark/light modes and palette sets (default, monokai, idol). Maintains _base and _mode state. Sets 9 CSS custom properties (--bg, --surface, --panel, --primary, --secondary, --tertiary, --border, --accent, --accent2) on document.documentElement. Supports legacy theme name parsing (dark, light, monokai). Auto-applies default dark theme on import.",
-
+  "description": "Theme singleton managing six theme definitions (default/monokai/idol × dark/light) with full CSS custom property application. Defines ThemeColors interface with 70+ palette fields. Exports theme configs for light and dark variants. apply() sets 7 CSS custom properties on document.documentElement. Auto-applies on import.",
   "type": "logic",
-  "layer": "foundation",
-
+  "layer": "core",
   "singleton": true,
-
-  "exports": ["ThemeColors", "defaultDarkTheme", "defaultLightTheme", "monokaiDarkTheme", "monokaiLightTheme", "idolDarkTheme", "idolLightTheme", "theme"],
-
+  "exports": ["theme", "ThemeColors", "darkTheme", "lightTheme", "ThemeConfig", "darkThemeConfigs", "lightThemeConfigs"],
   "dependencies": [],
-
   "referenced_by": [
-    { "feature": "app", "file": "App.ts" },
-    { "feature": "top-bar", "file": "TopBar.ts" },
-    { "feature": "theme-modal", "file": "ThemeModal.ts" }
+    { "file": "src/renderer/components/App.ts", "usage": ["theme"] }
   ],
-
   "ipc": [],
-
   "interface": {
-    "constructor": "new Theme() — initializes _base='default', _mode='dark'",
-    "methods": [
-      {
-        "name": "get base",
-        "signature": "get base(): string",
-        "description": "Returns current palette base name ('default' | 'monokai' | 'idol')"
-      },
-      {
-        "name": "get mode",
-        "signature": "get mode(): string",
-        "description": "Returns current mode ('dark' | 'light')"
-      },
-      {
-        "name": "get themeName",
-        "signature": "get themeName(): string",
-        "description": "Returns combined theme name (e.g. 'default-dark', 'monokai-light')"
-      },
-      {
-        "name": "get isDark",
-        "signature": "get isDark(): boolean",
-        "description": "Returns true if current mode is 'dark'"
-      },
-      {
-        "name": "get colors",
-        "signature": "get colors(): ThemeColors",
-        "description": "Returns current ThemeColors palette object, falls back to defaultDarkTheme"
-      },
-      {
-        "name": "setBase",
-        "signature": "(base: string) => void",
-        "description": "Sets palette base if valid ('default' | 'monokai'), triggers apply()"
-      },
-      {
-        "name": "setMode",
-        "signature": "(mode: string) => void",
-        "description": "Sets mode if 'dark' or 'light', triggers apply()"
-      },
-      {
-        "name": "setTheme",
-        "signature": "(base: string, mode?: string) => void",
-        "description": "Sets base and optionally mode; supports legacy names ('dark'→default-dark, 'light'→default-light, 'monokai'→monokai-dark); triggers apply()"
-      },
-      {
-        "name": "setDark",
-        "signature": "(dark: boolean) => void",
-        "description": "Resets base to 'default' and sets mode to 'dark' or 'light', triggers apply()"
-      },
-      {
-        "name": "toggle",
-        "signature": "() => void",
-        "description": "Toggles mode between 'dark' and 'light', triggers apply()"
-      },
-      {
-        "name": "apply",
-        "signature": "() => void",
-        "description": "Reads current ThemeColors and sets --bg, --surface, --panel, --primary, --secondary, --tertiary, --border, --accent, --accent2 CSS custom properties on document.documentElement"
-      }
-    ],
-    "properties": []
-  },
-
-  "lifecycle": {
-    "created_by": "Module-level instantiation: `export const theme = new Theme()` followed by `theme.apply()` — created once at renderer import",
-    "destroyed_by": "Lives for the duration of the renderer process",
-    "singleton": true
-  },
-
-  "external_deps": [],
-
-  "test": "src/renderer/theme.test.ts"
+    "methods": ["setDark(isDark: boolean): void", "toggle(): void", "apply(): void"],
+    "properties": ["isDark: boolean", "current: ThemeColors"]
+  }
 }

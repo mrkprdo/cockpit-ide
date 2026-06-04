@@ -1,48 +1,42 @@
 {
   "name": "Context Menu UI",
-  "parent": "context-menu",
-  "description": "Context menu DOM and interactions. Documents the floating menu structure with item/separator/disabled-item rendering, click-to-select semantics, outside-click dismissal, and the static open-menu tracking that enforces single-menu-at-a-time behavior.",
+  "parent": "ContextMenu",
+  "description": "Floating right-click context menu singleton. Items with labels and actions, separators, disabled items.",
   "dom": {
-    "root": ".ctx-menu (position:absolute, left:x px, top:y px — positioned at click coordinates relative to viewport)",
+    "root": ".ctx-menu (position: fixed, z-index: 10001, background: var(--surface), border: 1px solid var(--border), border-radius: 8px, padding: 4px 0, min-width: 160px, box-shadow: 0 4px 16px rgba(0,0,0,0.3))",
     "container": "document.body",
-    "elements": {
-      "menu": "div.ctx-menu — root menu container, absolute positioned at (x,y)",
-      "item": "div.ctx-item — clickable menu item with textContent from item.label, fires item.action() on click then calls remove(). Skipped entirely if item.separator is true",
-      "disabled_item": "div.ctx-item.ctx-disabled — non-clickable item (no click listener bound) with textContent from item.label",
-      "separator": "div.ctx-sep — visual separator between menu groups, rendered when item.separator is true"
-    }
+    "children": [
+      ".ctx-item (padding: 6px 16px, cursor: pointer, font-size: 13px, display: flex, align-items: center, gap: 8px)",
+      ".ctx-item:hover (background: var(--accent), color: var(--bg))",
+      ".ctx-item.disabled (opacity: 0.4, cursor: not-allowed)",
+      ".ctx-separator (height: 1px, background: var(--border), margin: 4px 8px)"
+    ]
   },
   "interactions": [
     {
       "name": "select_item",
-      "trigger": "click on .ctx-item (not .ctx-disabled)",
-      "action": "Fire item.action?.() → call this.remove()",
-      "result": "Action executed, menu removed from DOM and openMenus, onClose callback fired"
+      "trigger": "click on .ctx-item:not(.disabled)",
+      "action": "Execute item.action callback → Remove menu from DOM → Fire onClose (if set)",
+      "result": "Menu removed, action executed"
     },
     {
-      "name": "dismiss",
-      "trigger": "click anywhere outside .ctx-menu (document-level click listener added with 0ms setTimeout)",
-      "action": "Call this.remove() — removes click listener, splices from openMenus, removes element from DOM, fires onClose",
-      "result": "Menu dismissed without executing any item action"
+      "name": "close_outside",
+      "trigger": "click outside .ctx-menu",
+      "action": "Remove menu from DOM → Fire onClose (if set)",
+      "propagation": "Stop propagation on menu clicks to prevent immediate close"
     },
     {
-      "name": "open_new_menu",
-      "trigger": "new ContextMenu() constructor call",
-      "action": "Loop static openMenus: remove all existing menus → clear openMenus array → create new .ctx-menu with items → append to document.body → push to openMenus → add document click listener via setTimeout(0)",
-      "result": "Only one context menu visible at a time; previous menus cleaned up before new one appears"
+      "name": "close_existing",
+      "trigger": "open() called while another menu exists",
+      "action": "Remove all existing .ctx-menu elements from DOM before creating new one",
+      "result": "Only one context menu visible at a time"
     }
   ],
   "states": {
-    "open": ".ctx-menu appended to document.body, present in static openMenus array, document click listener (outsideClick) active",
-    "closed": ".ctx-menu removed from document.body and static openMenus array, document click listener removed, onClose callback fired"
+    "open": "Menu visible at (x, y) coordinates, items rendered with labels and separators",
+    "closed": "No .ctx-menu in DOM"
   },
-  "lifecycle": {
-    "created_by": "new ContextMenu(items, x, y) — instantiated per right-click event",
-    "destroyed_by": "remove() — item click, outside click, or superseded by new context menu"
-  },
-  "props": {
-    "items": "ContextMenuItem[] — array of menu items with optional label, action, disabled, separator fields",
-    "x": "number — horizontal position in viewport pixels",
-    "y": "number — vertical position in viewport pixels"
+  "dynamic_content": {
+    "items": "Each item is rendered as .ctx-item with label text. Separator items render .ctx-separator (no click handler). Disabled items add .disabled class."
   }
 }

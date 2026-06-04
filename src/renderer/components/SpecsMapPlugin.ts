@@ -4,6 +4,8 @@ import { SPECGEN_HASH, SPECGEN_VERSION } from '../specgen-hash';
 interface SpecData {
   name?: string;
   file?: string;
+  entry?: string;
+  title?: string;
   parent?: string;
   layer?: string;
   dependencies?: Array<{ feature: string; file: string; usage?: string }>;
@@ -11,7 +13,15 @@ interface SpecData {
   ui?: { spec: string };
   ipc?: string[];
   description?: string;
+  scripts?: Record<string, string>;
+  build?: Record<string, string>;
   [key: string]: unknown;
+}
+
+interface SpecCollection {
+  title: string;
+  specsDir: string;
+  mainData: Record<string, unknown> | null;
 }
 
 interface SnapNode {
@@ -19,6 +29,8 @@ interface SnapNode {
   name: string;
   specFile: string;
   sourceFile: string;
+  isEntry: boolean;
+  entryPath: string;
   layer: string;
   isUI: boolean;
   parentId?: string;
@@ -32,6 +44,8 @@ interface SpecNode {
   name: string;
   specFile: string;
   sourceFile: string;
+  isEntry: boolean;
+  entryPath: string;
   layer: string;
   isUI: boolean;
   parentId?: string;
@@ -106,6 +120,9 @@ export class SpecsMapPlugin {
   private specBaseDir = '';
   private snapshotPath = '';
   private specDirLabel: HTMLSpanElement;
+  private collections: SpecCollection[] = [];
+  private activeCollectionIndex = 0;
+  private tabBar!: HTMLDivElement;
   private nodes: SpecNode[] = [];
   private nodeEls = new Map<string, HTMLDivElement>();
   private specRawMap = new Map<string, SpecData>();
@@ -162,9 +179,11 @@ export class SpecsMapPlugin {
 
   private tryResolveSourcePath(rawData: Record<string, unknown>): string {
     const filePath = (rawData as any).file;
-    if (!filePath || typeof filePath !== 'string') return '';
+    const entryPath = (rawData as any).entry;
     const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
-    return wsRoot + '/' + filePath;
+    if (filePath && typeof filePath === 'string') return wsRoot + '/' + filePath;
+    if (entryPath && typeof entryPath === 'string') return wsRoot + '/' + entryPath;
+    return '';
   }
 
   constructor(container: HTMLElement, wsPath: string) {
@@ -283,6 +302,14 @@ export class SpecsMapPlugin {
     header.appendChild(this.refreshBtn);
     header.appendChild(this.fitBtn);
     this.el.appendChild(header);
+
+    // Tab bar (hidden by default, shown when 2+ collections found)
+    this.tabBar = document.createElement('div');
+    this.tabBar.style.cssText =
+      'display:none;flex-shrink:0;padding:0 6px;border-bottom:1px dashed var(--border);' +
+      'background:var(--bg);gap:0;overflow-x:auto;overflow-y:hidden';
+    this.tabBar.style.display = 'none';
+    this.el.appendChild(this.tabBar);
 
     // Content area: canvas + panel
     const content = document.createElement('div');
@@ -617,12 +644,28 @@ export class SpecsMapPlugin {
 
   private async loadSpecs(): Promise<void> {
     try {
+      const collections = await this.findAllCollections();
+      if (collections.length === 0) {
+        await this.showEmptyState();
+        return;
+      }
+      this.collections = collections;
+      this.activeCollectionIndex = 0;
+      this.renderTabBar();
+
+      // Set snapshot path before trying cache
+      const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
+      const base = collections[0].specsDir;
+      this.snapshotPath = wsRoot + '/.cockpit/specsmap-' +
+        base.replace(wsRoot, '').replace(/[\/\\]/g, '_').replace(/^_/, '') + '.json';
+
       const fromCache = await this.loadSnapshot();
       if (fromCache) {
         this.renderGraph();
         return;
       }
-      await this.buildFromFiles();
+
+      await this.buildFromFiles(0);
     } catch (e) {
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       console.error('[SpecsMapPlugin] loadSpecs failed:', e);
@@ -647,6 +690,7 @@ export class SpecsMapPlugin {
         this.specRawMap.set(sn.id, sn.raw as SpecData);
         rawNodes.push({
           id: sn.id, name: sn.name, specFile: sn.specFile, sourceFile: sn.sourceFile,
+          isEntry: sn.isEntry, entryPath: sn.entryPath,
           layer: sn.layer, isUI: sn.isUI, parentId: sn.parentId, uiChildId: sn.uiChildId,
           deps: sn.deps, x: 0, y: 0,
           w: sn.isUI ? NODE_UI_W : NODE_W,
@@ -675,6 +719,7 @@ export class SpecsMapPlugin {
       ts: new Date().toISOString(),
       nodes: this.nodes.map(n => ({
         id: n.id, name: n.name, specFile: n.specFile, sourceFile: n.sourceFile,
+        isEntry: n.isEntry, entryPath: n.entryPath,
         layer: n.layer, isUI: n.isUI, parentId: n.parentId, uiChildId: n.uiChildId,
         deps: n.deps,
         raw: (this.specRawMap.get(n.id) ?? {}) as Record<string, unknown>,
@@ -683,26 +728,20 @@ export class SpecsMapPlugin {
     await window.electronAPI?.fs.writeFile(this.snapshotPath, JSON.stringify(snap));
   }
 
-  private async buildFromFiles(): Promise<void> {
+  private async buildFromFiles(collectionIndex: number): Promise<void> {
     const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
-    let base: string | null = this.specBaseDir;
-    if (!base) {
-      base = await this.findBaseDir();
-      if (base) {
-        this.specBaseDir = base;
-        this.specDirLabel.textContent = base + '/';
-      }
-    }
-    if (!base) {
+    const collection = this.collections[collectionIndex];
+    if (!collection) {
       await this.showEmptyState();
       return;
     }
+    const base = collection.specsDir;
+    this.specBaseDir = base;
+    this.specDirLabel.textContent = base + '/';
+    this.snapshotPath = wsRoot + '/.cockpit/specsmap-' +
+      base.replace(wsRoot, '').replace(/[\/\\]/g, '_').replace(/^_/, '') + '.json';
 
-    const mainRaw = await window.electronAPI?.fs.readFile(base + '/main.spec.json') ?? '{}';
-    let mainData: any = {};
-    try { mainData = JSON.parse(mainRaw); } catch (e) {
-      console.error('[SpecsMapPlugin] Failed to parse main.spec.json:', e);
-    }
+    const mainData = collection.mainData ?? {};
 
     const specLayerMap = new Map<string, string>();
     const specToUI = new Map<string, string>();
@@ -773,6 +812,8 @@ export class SpecsMapPlugin {
     for (const [filename, data] of this.specRawMap) {
       const isUI = uiToParent.has(filename);
       const layer = specLayerMap.get(filename) ?? data.layer ?? 'plugin';
+      const hasEntry = !!data.entry;
+      const entryPath = data.entry ?? '';
       const deps: string[] = [];
       for (const dep of data.dependencies ?? []) {
         const basename = dep.file?.split('/').pop();
@@ -785,7 +826,9 @@ export class SpecsMapPlugin {
         id: filename,
         name: data.name ?? filename.replace('.spec.json', ''),
         specFile: filename,
-        sourceFile: data.file ? data.file.split('/').pop()! : '',
+        sourceFile: hasEntry ? entryPath : (data.file ? data.file.split('/').pop()! : ''),
+        isEntry: hasEntry,
+        entryPath,
         layer, isUI,
         parentId: isUI ? uiToParent.get(filename) : undefined,
         uiChildId: specToUI.get(filename),
@@ -805,8 +848,9 @@ export class SpecsMapPlugin {
     this.renderGraph();
   }
 
-  private async findBaseDir(): Promise<string | null> {
+  private async findAllCollections(): Promise<SpecCollection[]> {
     const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
+    const foundPaths: string[] = [];
 
     // Fast path: check common locations
     const quickPaths = [
@@ -816,32 +860,142 @@ export class SpecsMapPlugin {
     ];
     for (const p of quickPaths) {
       const raw = await window.electronAPI?.fs.readFile(p);
-      if (raw) return p.replace(/\/main\.spec\.json$/, '');
+      if (raw && !foundPaths.includes(p)) foundPaths.push(p);
     }
 
-    // Recursive walk
-    const found = await this.walkFind(wsRoot, 0, 4);
-    if (found) return found.replace(/\/main\.spec\.json$/, '');
-    return null;
+    // Recursive walk for more collections
+    await this.walkFindAll(wsRoot, 0, 4, foundPaths);
+
+    const collections: SpecCollection[] = [];
+    const seenDirs = new Set<string>();
+    for (const p of foundPaths) {
+      const dir = p.replace(/\/main\.spec\.json$/, '');
+      if (seenDirs.has(dir)) continue;
+      seenDirs.add(dir);
+      const raw = await window.electronAPI?.fs.readFile(p);
+      let mainData: Record<string, unknown> | null = null;
+      let title = '';
+      if (raw) {
+        try { mainData = JSON.parse(raw); } catch { /* skip */ }
+      }
+      if (mainData && typeof mainData === 'object') {
+        title = String((mainData as any).title ?? (mainData as any).name ?? '');
+      }
+      if (!title) title = dir.split('/').pop() || 'Specs';
+      collections.push({ title, specsDir: dir, mainData });
+    }
+
+    // Sort by depth (shallower first), then alphabetically
+    collections.sort((a, b) => {
+      const aDepth = a.specsDir.split('/').length;
+      const bDepth = b.specsDir.split('/').length;
+      if (aDepth !== bDepth) return aDepth - bDepth;
+      return a.title.localeCompare(b.title);
+    });
+
+    return collections;
   }
 
-  private async walkFind(dir: string, depth: number, maxDepth: number): Promise<string | null> {
-    if (depth > maxDepth) return null;
+  private async walkFindAll(dir: string, depth: number, maxDepth: number, out: string[]): Promise<void> {
+    if (depth > maxDepth) return;
     const entries = await window.electronAPI?.fs.readDir(dir);
-    if (!entries) return null;
+    if (!entries) return;
 
     // Check current dir
     const mainRaw = await window.electronAPI?.fs.readFile(dir + '/main.spec.json');
-    if (mainRaw) return dir + '/main.spec.json';
+    if (mainRaw) {
+      const p = dir + '/main.spec.json';
+      if (!out.includes(p)) out.push(p);
+    }
 
     // Recurse into subdirectories (skip junk dirs)
     for (const e of entries) {
       if (!e.isDirectory) continue;
-      if (e.name === '.git' || e.name === 'node_modules' || e.name === '.cockpit') continue;
-      const found = await this.walkFind(dir + '/' + e.name, depth + 1, maxDepth);
-      if (found) return found;
+      if (e.name === '.git' || e.name === 'node_modules' || e.name === '.cockpit' ||
+          e.name === '.codegraph' || e.name === 'coverage' || e.name === 'dist') continue;
+      await this.walkFindAll(dir + '/' + e.name, depth + 1, maxDepth, out);
     }
-    return null;
+  }
+
+  private renderTabBar(): void {
+    if (this.collections.length < 2) {
+      this.tabBar.style.display = 'none';
+      return;
+    }
+    this.tabBar.style.display = 'flex';
+    this.tabBar.innerHTML = '';
+    for (let i = 0; i < this.collections.length; i++) {
+      const c = this.collections[i];
+      const active = i === this.activeCollectionIndex;
+      const tab = document.createElement('button');
+      tab.style.cssText =
+        'background:none;border:none;border-bottom:2px solid ' +
+        (active ? 'var(--accent)' : 'transparent') + ';' +
+        'padding:4px 12px;font-family:"Space Mono","Courier New",monospace;' +
+        'font-size:11px;font-weight:' + (active ? '700' : '400') + ';' +
+        'color:' + (active ? 'var(--accent)' : 'var(--tertiary)') + ';' +
+        'cursor:pointer;white-space:nowrap;transition:color 0.12s,border-color 0.12s;' +
+        'flex-shrink:0';
+      tab.textContent = c.title;
+      tab.title = c.specsDir;
+      tab.addEventListener('mouseenter', () => {
+        if (i !== this.activeCollectionIndex) {
+          tab.style.color = 'var(--primary)';
+          tab.style.borderColor = 'var(--border)';
+        }
+      });
+      tab.addEventListener('mouseleave', () => {
+        if (i !== this.activeCollectionIndex) {
+          tab.style.color = '';
+          tab.style.borderColor = '';
+        }
+      });
+      tab.addEventListener('click', () => this.switchToTab(i));
+      this.tabBar.appendChild(tab);
+    }
+  }
+
+  private async switchToTab(index: number): Promise<void> {
+    if (index === this.activeCollectionIndex || index < 0 || index >= this.collections.length) return;
+
+    // Save current collection state
+    await this.saveSnapshot();
+
+    // Switch
+    this.activeCollectionIndex = index;
+    this.renderTabBar();
+
+    // Reset view state
+    this.cycleMode = false;
+    this.cycleSets = [];
+    this.cycleLevel = 1;
+    this.selectedCycleIndex = null;
+    this.isolatedMode = false;
+    this.cycleBtn.style.color = '';
+    this.nodes = [];
+    this.specRawMap.clear();
+    this.refCounts.clear();
+    this.nodeEls.clear();
+    this.nodeLayer.innerHTML = '';
+    this.svg.innerHTML = '';
+    this.emptyState.style.display = 'none';
+    this.closePanel();
+
+    try {
+      const fromCache = await this.loadSnapshot();
+      if (fromCache) {
+        this.renderGraph();
+      } else {
+        await this.buildFromFiles(index);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error('[SpecsMapPlugin] Tab switch failed:', e);
+      this.nodeLayer.innerHTML =
+        '<div style="padding:16px;color:var(--red);font-size:14px;line-height:1.5">' +
+        '<div style="font-weight:700;margin-bottom:6px">Error loading collection</div>' +
+        '<div style="font-size:11px;opacity:0.85;word-break:break-all">' + this.esc(msg) + '</div></div>';
+    }
   }
 
   private async refresh(): Promise<void> {
@@ -856,6 +1010,11 @@ export class SpecsMapPlugin {
     this.isolatedMode = false;
     this.cycleBtn.style.color = '';
 
+    // Re-discover collections
+    this.collections = await this.findAllCollections();
+    if (this.activeCollectionIndex >= this.collections.length) this.activeCollectionIndex = 0;
+    this.renderTabBar();
+
     // Clear current state
     this.specBaseDir = '';
     this.nodes = [];
@@ -868,7 +1027,11 @@ export class SpecsMapPlugin {
     this.closePanel();
 
     try {
-      await this.buildFromFiles();
+      if (this.collections.length > 0) {
+        await this.buildFromFiles(this.activeCollectionIndex);
+      } else {
+        await this.showEmptyState();
+      }
     } catch (e) {
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       console.error('[SpecsMapPlugin] Refresh failed:', e);
@@ -1020,15 +1183,20 @@ export class SpecsMapPlugin {
         const refsHtml = refCount ? `<span style="color:var(--tertiary)">←&nbsp;${refCount}</span>` : '';
         const isolatedHtml = !depCount && !refCount
           ? `<span style="color:var(--secondary);opacity:0.5">no links</span>` : '';
+        const entryBadge = node.isEntry
+          ? `<span style="font-size:11px;line-height:1;opacity:0.5;flex-shrink:0" title="Entry file: ${this.esc(node.entryPath)}">⚙</span>`
+          : '';
+        const sourceLabel = node.isEntry ? node.entryPath : node.specFile;
 
         el.innerHTML =
           `<div class="sm-node-inner">` +
           `<div class="sm-node-head">` +
           `<span class="sm-dot" style="background:${colorHex}"></span>` +
           `<span class="sm-name">${node.name}</span>` +
+          entryBadge +
           `<span class="sm-layer-badge">${layerLabel.toUpperCase()}</span>` +
           `</div>` +
-          `<div class="sm-file">${node.specFile}</div>` +
+          `<div class="sm-file">${sourceLabel}</div>` +
           `<div class="sm-meta">${depsHtml}${refsHtml}${isolatedHtml}</div>` +
           `</div>` +
           portsHtml;
@@ -1568,9 +1736,12 @@ export class SpecsMapPlugin {
     const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
     // Fixed header (inside panelHeaderEl, never scrolls)
+    const isEntry = node.isEntry;
+    const headerIcon = isEntry ? '⚙' : '';
     this.panelHeaderEl.innerHTML =
       `<div style="padding:14px 18px 12px;display:flex;align-items:center;gap:12px">` +
       `<span style="width:12px;height:12px;border-radius:50%;background:${colorHex};flex-shrink:0;display:inline-block"></span>` +
+      (isEntry ? `<span style="font-size:14px;line-height:1;opacity:0.6;flex-shrink:0" title="Entry file">⚙</span>` : '') +
       `<span style="font-size:14px;font-weight:700;color:var(--primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(node.name)}</span>` +
       `<span style="font-size:10px;font-weight:700;letter-spacing:0.8px;color:${colorVar};flex-shrink:0">${layerLabel.toUpperCase()}</span>` +
       `<button id="sm-panel-close" style="background:none;border:none;cursor:pointer;color:var(--tertiary);font-size:18px;line-height:1;padding:0 0 0 4px;font-family:inherit" aria-label="Close">×</button>` +
@@ -1579,11 +1750,12 @@ export class SpecsMapPlugin {
     // Scrollable body
     const specFullPath = this.specFullPath(node.specFile);
     const sourceFullPath = node.sourceFile ? this.tryResolveSourcePath(data) : '';
+    const fileLabel = isEntry ? 'ENTRY FILE' : 'SOURCE FILE';
     const identity =
       `<div class="sm-panel-section">` +
       `<div class="sm-panel-label">SPEC FILE</div>` +
       `<div class="sm-panel-row" style="font-size:11px;cursor:pointer;color:var(--accent)" data-open-file="${esc(specFullPath)}">${esc(node.specFile)}</div>` +
-      (sourceFullPath ? `<div class="sm-panel-label" style="margin-top:8px">SOURCE FILE</div><div class="sm-panel-row" style="font-size:11px;cursor:pointer;color:var(--accent)" data-open-file="${esc(sourceFullPath)}">${esc(node.sourceFile)}</div>` : '') +
+      (sourceFullPath ? `<div class="sm-panel-label" style="margin-top:8px">${fileLabel}</div><div class="sm-panel-row" style="font-size:11px;cursor:pointer;color:var(--accent)" data-open-file="${esc(sourceFullPath)}">${esc(node.sourceFile)}</div>` : '') +
       (parentNode ? `<div class="sm-panel-label" style="margin-top:8px">UI SPEC FOR</div><div class="sm-panel-row" style="font-size:12px;cursor:pointer;color:${colorVar}" data-goto="${esc(parentNode.id)}">${esc(parentNode.name)}</div>` : '') +
       (uiChild ? `<div class="sm-panel-label" style="margin-top:8px">UI SPEC</div><div class="sm-panel-row" style="font-size:12px;cursor:pointer;color:${colorVar}" data-goto="${esc(uiChild.id)}">${esc(uiChild.name)}</div>` : '') +
       `</div>`;
@@ -1627,7 +1799,43 @@ export class SpecsMapPlugin {
         `</div>`
       : '';
 
-    this.panelInner.innerHTML = identity + desc + depsSection + refsSection + ipcSection;
+    // Entry-specific sections
+    const scripts = isEntry && data.scripts && typeof data.scripts === 'object' ? data.scripts as Record<string, string> : null;
+    const buildDef = isEntry && data.build && typeof data.build === 'object' ? data.build as Record<string, string> : null;
+    const declaredDeps = isEntry && data.dependencies && typeof data.dependencies === 'object' && !Array.isArray(data.dependencies)
+      ? data.dependencies as Record<string, string> : null;
+
+    const scriptsSection = scripts
+      ? `<div class="sm-panel-section"><div class="sm-panel-label">SCRIPTS (${Object.keys(scripts).length})</div>` +
+        Object.entries(scripts).map(([k, v]) =>
+          `<div style="font-size:11px;padding:3px 0;display:flex;gap:8px;border-bottom:1px solid var(--border)">` +
+          `<span style="font-weight:700;color:var(--primary);flex-shrink:0">${esc(k)}</span>` +
+          `<span style="color:var(--tertiary);word-break:break-all">${esc(v)}</span></div>`
+        ).join('') +
+        `</div>`
+      : '';
+
+    const buildSection = buildDef
+      ? `<div class="sm-panel-section"><div class="sm-panel-label">BUILD</div>` +
+        Object.entries(buildDef).map(([k, v]) =>
+          `<div style="font-size:11px;padding:3px 0;display:flex;gap:8px">` +
+          `<span style="font-weight:700;color:var(--primary);flex-shrink:0">${esc(k)}</span>` +
+          `<span style="color:var(--tertiary);word-break:break-all">${esc(v)}</span></div>`
+        ).join('') +
+        `</div>`
+      : '';
+
+    const declaredDepsSection = declaredDeps
+      ? `<div class="sm-panel-section"><div class="sm-panel-label">DECLARED DEPS (${Object.keys(declaredDeps).length})</div>` +
+        Object.entries(declaredDeps).map(([k, v]) =>
+          `<div style="font-size:11px;padding:2px 0;display:flex;gap:8px">` +
+          `<span style="color:var(--primary);font-weight:700;flex-shrink:0">${esc(k)}</span>` +
+          `<span style="color:var(--tertiary);word-break:break-all;font-size:10px">${esc(v)}</span></div>`
+        ).join('') +
+        `</div>`
+      : '';
+
+    this.panelInner.innerHTML = identity + desc + depsSection + refsSection + ipcSection + scriptsSection + buildSection + declaredDepsSection;
 
     this.panelHeaderEl.querySelector('#sm-panel-close')
       ?.addEventListener('click', () => this.closePanel(true));

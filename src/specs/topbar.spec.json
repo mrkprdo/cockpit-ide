@@ -1,0 +1,32 @@
+{
+    "name":  "Top Bar Menu",
+    "file":  "src/renderer/components/TopBar.ts",
+    "description":  "Custom menu bar with dropdown menus (File/View/Tools/Help). Plugin submenus (Terminal/Explorer/Markdown/Git/SpecsMap) for focus/reopen. Buttons: Open Workspace, New Terminal/Explorer/Markdown, Zoom In/Out, Reset View, Theme Toggle, About, Tutorial.",
+    "type":  "ui",
+    "layer":  "core",
+    "singleton":  true,
+    "exports":  [
+                    "TopBar"
+                ],
+    "dependencies":  [
+
+                     ],
+    "referenced_by":  [
+                          {
+                              "file":  "src/renderer/components/App.ts",
+                              "usage":  [
+                                            "TopBar"
+                                        ]
+                          }
+                      ],
+    "ipc":  "dialog:selectDirectory",
+    "interface":  {
+                      "constructor":  "constructor(container: HTMLElement, callbacks: TopBarCallbacks)",
+                      "methods":  [
+                                      "setCallbacks(callbacks: TopBarCallbacks): void"
+                                  ],
+                      "properties":  [
+                                         "element: HTMLElement"
+                                     ]
+                  }
+}

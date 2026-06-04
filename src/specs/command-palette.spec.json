@@ -1,50 +1,30 @@
 {
-  "name": "Command Palette",
-  "file": "src/renderer/components/CommandPalette.ts",
-  "description": "Ctrl+P fuzzy file finder overlay. Displays a search input with results list. On first search, performs throttled recursive directory walk (skips .git, node_modules, .cockpit). Filters files by name or path matching search term (case-insensitive), returns top 50. Stores up to 10 recent files in localStorage under 'cockpit-recent-files' key. Empty input shows recent files. Arrow key navigation with visual highlight. Enter selects and opens file. Escape closes palette. Overlay click outside dismisses. Debounced 150ms search input.",
-  "type": "ui",
-  "layer": "overlay",
-  "singleton": false,
-  "exports": ["CommandPalette"],
-  "dependencies": [],
-  "referenced_by": [
-    {
-      "feature": "explorer-plugin",
-      "file": "ExplorerPlugin.ts"
-    }
-  ],
-  "ipc": [
-    "fs:readDir"
-  ],
-  "interface": {
-    "constructor": "constructor(wsPath: string, onSelect: (filePath: string) => void) — Creates .palette-overlay (role=dialog, aria-modal) containing .palette > input.palette-input + .palette-progress + .palette-results. Loads recent files from localStorage('cockpit-recent-files'). Registers input event (debounced 150ms search), keydown (ArrowUp/ArrowDown/Enter/Escape), overlay click (dismiss if target === overlay). Appends overlay to document.body.",
-    "methods": [
-      {
-        "name": "open",
-        "signature": "(): void",
-        "description": "Sets isOpen=true, adds .open class to overlay, clears input and results, resets selectedIndex and allFiles/filesLoaded flags, renders recent files, focuses input after 50ms."
-      },
-      {
-        "name": "close",
-        "signature": "(): void",
-        "description": "Sets isOpen=false, removes .open class from overlay, clears any pending search timer."
-      },
-      {
-        "name": "destroy",
-        "signature": "(): void",
-        "description": "Removes overlay element from DOM."
-      }
-    ],
-    "properties": []
-  },
-  "ui": {
-    "spec": "command-palette-ui.spec.json"
-  },
-  "lifecycle": {
-    "created_by": "ExplorerPlugin.openFileSearch() — lazily created on first Ctrl+P invocation, stored as ExplorerPlugin.palette",
-    "destroyed_by": "When ExplorerPlugin instance destroyed (card termination), overlay removed from DOM",
-    "singleton": false
-  },
-  "external_deps": [],
-  "test": "src/renderer/components/CommandPalette.test.ts"
+    "name":  "Command Palette",
+    "file":  "src/renderer/components/CommandPalette.ts",
+    "description":  "Ctrl+P fuzzy file finder overlay. Overlay with input, progress indicator, file index (throttled directory walk), filtered results, recent-file tracking, arrow-key navigation, Enter to open in editor. Debounced refresh on workspace change.",
+    "type":  "ui",
+    "layer":  "plugin",
+    "singleton":  false,
+    "exports":  [
+                    "CommandPalette"
+                ],
+    "dependencies":  [
+
+                     ],
+    "referenced_by":  [
+
+                      ],
+    "ipc":  "fs:readDir",
+    "interface":  {
+                      "constructor":  "constructor(onOpenFile: (path: string) =\u003e void)",
+                      "methods":  [
+                                      "open(): void",
+                                      "close(): void",
+                                      "refresh(): Promise\u003cvoid\u003e"
+                                  ],
+                      "properties":  [
+                                         "overlay: HTMLElement",
+                                         "input: HTMLInputElement"
+                                     ]
+                  }
 }

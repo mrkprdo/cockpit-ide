@@ -1,55 +1,22 @@
 {
-  "name": "Text Renderer",
+  "name": "Canvas Text Renderer",
   "file": "src/renderer/components/TextRenderer.ts",
-  "description": "Canvas 2D text measurement and rendering utility wrapping @chenglou/pretext. Provides static methods for measuring text height, drawing wrapped text onto a canvas context, creating single-style HTMLCanvasElement from text, and creating multi-style canvas from array of styled line segments. Handles device pixel ratio for sharp rendering.",
+  "description": "Canvas text utility wrapping @chenglou/pretext for measure(), draw(), createCanvas() (single-style), createCanvas2() (multi-style with varied line heights). Used by PluginCard for title rendering.",
   "type": "utility",
   "layer": "utility",
   "singleton": false,
-  "exports": ["TextStyle", "TextRenderer"],
+  "exports": ["measure", "draw", "createCanvas", "createCanvas2"],
   "dependencies": [],
   "referenced_by": [
-    {
-      "feature": "plugin-card",
-      "file": "PluginCard.ts"
-    }
+    { "file": "src/renderer/components/PluginCard.ts", "usage": ["measure", "createCanvas", "createCanvas2"] }
   ],
   "ipc": [],
   "interface": {
-    "functions": [
-      {
-        "name": "measure",
-        "signature": "(text: string, font: string, maxWidth: number): number",
-        "description": "Measures the rendered height of text when laid out with the given font and max width."
-      },
-      {
-        "name": "draw",
-        "signature": "(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, style: TextStyle): void",
-        "description": "Draws wrapped text onto a canvas context at the given coordinates using prepareWithSegments() and layoutWithLines()."
-      },
-      {
-        "name": "createCanvas",
-        "signature": "(text: string, width: number, height: number, style: TextStyle): HTMLCanvasElement",
-        "description": "Creates an HTMLCanvasElement with text rendered in a single style, scaled for device pixel ratio."
-      },
-      {
-        "name": "createCanvas2",
-        "signature": "(lines: { text: string; style: TextStyle }[], width: number, height: number): HTMLCanvasElement",
-        "description": "Creates an HTMLCanvasElement with multiple styled line segments, each potentially using different fonts/colors. Computes line heights and stacks them vertically."
-      }
-    ],
-    "types": [
-      {
-        "name": "TextStyle",
-        "definition": "interface TextStyle { font: string; color: string; lineHeight?: number; }",
-        "description": "Style descriptor for text rendering including font CSS string, fill color, and optional line height."
-      }
+    "methods": [
+      "measure(text: string, style: TextStyle): TextMetrics",
+      "draw(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, style: TextStyle): void",
+      "createCanvas(text: string, style: TextStyle): HTMLCanvasElement",
+      "createCanvas2(lines: {text: string, style: TextStyle}[]): HTMLCanvasElement"
     ]
-  },
-  "lifecycle": {
-    "created_by": "Imported statically (static methods only)",
-    "destroyed_by": "N/A (no instances)",
-    "singleton": false
-  },
-  "external_deps": ["@chenglou/pretext"],
-  "test": "none"
+  }
 }

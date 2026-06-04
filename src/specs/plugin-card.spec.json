@@ -1,113 +1,28 @@
 {
-  "name": "Plugin Card",
+  "name": "Plugin Card Widget",
   "file": "src/renderer/components/PluginCard.ts",
-  "description": "Draggable/resizable card widget for housing plugins on the canvas. Created with a unique UUID via crypto.randomUUID(). Card structure: header with canvas-rendered title (via @chenglou/pretext for measurement and layout), minimize/fit-viewport/terminate buttons, body div, and edge resize handles (east, south, southeast). Drag snaps to 28px grid. Resize with minimum 280px (10*SNAP). Mousedown delegation to callbacks on options. Double-click header triggers fitViewport. Context menu on header right-click.",
+  "description": "Draggable/resizable card widget. DOM card with header (canvas-rendered title via @chenglou/pretext), close button (hover-reveal), body, edge resize handles (east/south/southeast). Drag by header (snaps to 28px grid). Resize with minimum snap. UUID via crypto.randomUUID().",
   "type": "ui",
-  "layer": "widget",
+  "layer": "core",
   "singleton": false,
-  "exports": ["CardOptions", "PluginCard"],
+  "exports": ["PluginCard"],
   "dependencies": [
-    {
-      "feature": "text-renderer",
-      "file": "TextRenderer.ts",
-      "usage": "Canvas text rendering for card body content via setContent()"
-    }
+    { "file": "src/renderer/components/TextRenderer.ts", "usage": ["measure", "createCanvas", "createCanvas2"] }
   ],
   "referenced_by": [
-    {
-      "feature": "canvas-area",
-      "file": "CanvasArea.ts"
-    }
+    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["PluginCard"] }
   ],
   "ipc": [],
   "interface": {
-    "constructor": "constructor(parent: HTMLElement, opts: CardOptions, getTransform: () => { scale: number; panX: number; panY: number })",
+    "constructor": "constructor(id: string, title: string, container: HTMLElement)",
     "methods": [
-      {
-        "name": "renderTitle",
-        "signature": "(): void",
-        "description": "Renders the card title onto the header canvas using @chenglou/pretext for multi-line layout with device pixel ratio scaling."
-      },
-      {
-        "name": "setContent",
-        "signature": "(html: string): void",
-        "description": "Sets card body content by rendering text to a canvas via TextRenderer.createCanvas()."
-      },
-      {
-        "name": "remove",
-        "signature": "(): void",
-        "description": "Calls onDestroy callback and removes the card DOM element."
-      }
+      "setContent(element: HTMLElement): void",
+      "setTitle(title: string): void",
+      "focus(): void",
+      "remove(): void",
+      "getState(): { id: string, title: string, x: number, y: number, w: number, h: number }",
+      "restoreState(state: ...): void"
     ],
-    "properties": [
-      {
-        "name": "el",
-        "type": "HTMLDivElement",
-        "description": "Root DOM element of the card with class 'card'."
-      },
-      {
-        "name": "opts",
-        "type": "CardOptions",
-        "description": "Configuration options passed at construction including callbacks and dimensions."
-      },
-      {
-        "name": "uuid",
-        "type": "string",
-        "description": "Unique identifier generated via crypto.randomUUID()."
-      },
-      {
-        "name": "onDestroy",
-        "type": "(() => void) | null",
-        "description": "External destroy callback, fired on remove()."
-      }
-    ],
-    "events": [
-      {
-        "name": "onDragStart",
-        "description": "Fired when card header mousedown triggers drag start."
-      },
-      {
-        "name": "onDragMove",
-        "description": "Fired during card drag on mousemove."
-      },
-      {
-        "name": "onDragEnd",
-        "description": "Fired on mouseup after drag, with final world coordinates."
-      },
-      {
-        "name": "onResizeEnd",
-        "description": "Fired after resize mouseup with final width and height."
-      },
-      {
-        "name": "onFocus",
-        "description": "Fired on mousedown anywhere on the card (capture phase)."
-      },
-      {
-        "name": "onHeaderContextMenu",
-        "description": "Fired on right-click of card header."
-      },
-      {
-        "name": "onMinimize",
-        "description": "Fired on minimize button click."
-      },
-      {
-        "name": "onFitViewport",
-        "description": "Fired on fit-viewport button click or header double-click."
-      },
-      {
-        "name": "onTerminate",
-        "description": "Fired on terminate button click."
-      }
-    ]
-  },
-  "lifecycle": {
-    "created_by": "CanvasArea.addCard()",
-    "destroyed_by": "terminateCard() or remove()",
-    "singleton": false
-  },
-  "ui": {
-    "spec": "plugin-card-ui.spec.json"
-  },
-  "external_deps": ["@chenglou/pretext"],
-  "test": "src/renderer/components/PluginCard.test.ts"
+    "properties": ["id: string", "element: HTMLElement", "title: string", "x: number", "y: number", "w: number", "h: number"]
+  }
 }

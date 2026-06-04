@@ -55,6 +55,7 @@ The root index catalogs the entire project. It is the entry point for all tools 
 {
   // ─── Project identity ───
   "name": "string",             // Project display name
+  "title": "string",            // Short tab label for multi-spec UIs (optional; falls back to name)
   "version": "string",          // Semver from package manifest
 
   "description": "string",      // One-paragraph elevator pitch
@@ -90,7 +91,8 @@ The root index catalogs the entire project. It is the entry point for all tools 
       {
         "id": "string",          // Unique feature ID (kebab-case, matches file stem)
         "name": "string",        // Human-readable display name
-        "file": "string",        // Source file name (no path, for cross-reference)
+        "file": "string",        // Source file name (no path, for cross-reference); OR
+        "entry": "string",       // Entry/config file path from repo root (e.g. "package.json", "Makefile")
         "spec": "string",        // Feature spec filename
         "ui": "string"           // UI sub-spec filename (only if type=ui + complex DOM)
       }
@@ -157,6 +159,7 @@ One per non-test source file under the project's source directory. Every file is
 
 | `type` | Meaning | Examples |
 |--------|---------|----------|
+| `entry` | Project entry point or config file (package.json, Makefile, Dockerfile) | `package.json`, `Makefile`, `docker-compose.yml`, `pyproject.toml` |
 | `model` | Type/interface declarations, contracts | `types.d.ts`, `api.ts` (interfaces only) |
 | `process` | Entry-point or daemon process code | `main.ts`, `server.ts`, `cli.ts` |
 | `ui` | DOM or TUI component with visual output | `Button.tsx`, `Panel.vue`, `Dialog.svelte` |
@@ -184,11 +187,15 @@ One per non-test source file under the project's source directory. Every file is
 {
   // ─── Identity ───
   "name": "string",              // Human-readable feature name
-  "file": "string",              // Relative path from project root or src/
+  "file": "string",              // Relative path from project root or src/ (source code file); OR
+  "entry": "string",             // Entry/config file path from repo root (e.g. "package.json", "Makefile")
+                                 // When set, the feature represents a project entry/config point describing
+                                 // scripts, build commands, dependencies, and project setup — not a source module.
+                                 // At least one of file / entry must be present. Both may be set.
 
   "description": "string",       // What it does, how it works, key behaviors
 
-  "type": "ui | data | logic | process | utility | model | config",   // Kind category
+  "type": "entry | ui | data | logic | process | utility | model | config",   // Kind category
   "layer": "foundation | core | widget | plugin | modal | overlay | service | utility",  // Architectural layer
 
   "singleton": "boolean",        // true if only one instance exists at runtime
@@ -277,6 +284,22 @@ One per non-test source file under the project's source directory. Every file is
 ```
 
 ### Feature-type-specific extensions
+
+**For entry-type features** (project config files, manifest files, build definitions):
+
+```jsonc
+{
+  "scripts": {
+    "<name>": "string"           // Scripts/commands defined in this entry file
+  },
+  "build": {
+    "<target>": "string"         // Build toolchain commands
+  },
+  "dependencies": {
+    "<name>": "string"           // External dependencies declared in this entry
+  }
+}
+```
 
 **For process-layer features** (entry points, server processes, daemons):
 
@@ -450,18 +473,21 @@ Interactions follow a consistent prose style for the `action` field:
 
 Walk the project source directory recursively, collecting every source file that is not a test file (by naming convention, e.g. `*.test.*`, `*_test.*`, `*_spec.*`, `*.spec.*`) and not test infrastructure files.
 
+**Entry files** (`package.json`, `Makefile`, `docker-compose.yml`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `build.gradle`, `pom.xml`, `CMakeLists.txt`, `Dockerfile`, `.github/workflows/*.yml`) are always collected regardless of location. Each entry file becomes a feature spec with `type: "entry"`.
+
 ### Phase 2: Classification
 
 For each file, determine:
 
-1. **Type** — Read the file's imports, exports, and content:
-   - Entry-point or daemon process code (run directly) → `process`
-   - Imports or uses DOM/TUI APIs → `ui`
-   - Exports only types/interfaces, no runtime code → `model`
-   - Exports a singleton with state but no direct I/O → `logic`
-   - Exports pure functions with no side effects → `utility`
-   - Contains I/O, storage, or network calls → `data`
-   - Contains only configuration/constants → `config`
+ 1. **Type** — Read the file's imports, exports, and content:
+    - Entry or config file from root (`package.json`, `Makefile`, `Dockerfile`, `docker-compose.yml`, CI configs) → `entry`
+    - Entry-point or daemon process code (run directly) → `process`
+    - Imports or uses DOM/TUI APIs → `ui`
+    - Exports only types/interfaces, no runtime code → `model`
+    - Exports a singleton with state but no direct I/O → `logic`
+    - Exports pure functions with no side effects → `utility`
+    - Contains I/O, storage, or network calls → `data`
+    - Contains only configuration/constants → `config`
 
 2. **Layer** — Map dependency depth to layer:
    - `foundation` — imports nothing from the project's own source

@@ -1,42 +1,31 @@
 {
-  "name": "About Modal",
-  "file": "src/renderer/components/AboutModal.ts",
-  "description": "Version/credits modal dialog. Displays Cockpit IDE branding, app version, Electron major version, Node major version, and a clickable 'UseDesign.md' link that opens in browser. Shows runtime versions from window.electronAPI.versions. Accepts optional onClose callback on open(). Overlay click and Escape key close the modal. Frameless — simple display panel.",
-  "type": "ui",
-  "layer": "modal",
-  "singleton": true,
-  "exports": ["AboutModal"],
-  "dependencies": [],
-  "referenced_by": [
-    { "feature": "app", "file": "App.ts" }
-  ],
-  "ipc": [
-    "shell:openExternal"
-  ],
-  "interface": {
-    "constructor": "() — Creates overlay div (modal-overlay class, display:none), builds about-modal DOM with COCKPIT IDE branding, version specs (VERSION/ELECTRON/NODE/STYLE rows), close button, and design.md link. Reads versions from (window as any).electronAPI?.versions. Registers click listeners: close button → close(), design-link → shell.openExternal(), overlay click → close(). Appends overlay to document.body.",
-    "methods": [
-      {
-        "name": "open",
-        "signature": "(onClose?: () => void): void",
-        "description": "Stores optional onClose callback, sets overlay display:flex, registers Escape keydown listener to trigger close()"
-      },
-      {
-        "name": "close",
-        "signature": "private close(): void",
-        "description": "Sets overlay display:none, removes Escape keydown listener, fires stored onClose callback, nulls callback"
-      }
-    ],
-    "properties": []
-  },
-  "ui": {
-    "spec": "about-modal-ui.spec.json"
-  },
-  "lifecycle": {
-    "created_by": "App constructor — instantiated once",
-    "destroyed_by": "Lives for the duration of the renderer process, overlay element stays in DOM (toggled via display)",
-    "singleton": true
-  },
-  "external_deps": [],
-  "test": "src/renderer/components/AboutModal.test.ts"
+    "name":  "About Modal",
+    "file":  "src/renderer/components/AboutModal.ts",
+    "description":  "Version/credits dialog showing app version (0.0.1), Electron/Node runtime versions, clickable \u0027design.md\u0027 link. Optional onClose callback.",
+    "type":  "ui",
+    "layer":  "core",
+    "singleton":  false,
+    "exports":  [
+                    "AboutModal"
+                ],
+    "dependencies":  [
+
+                     ],
+    "referenced_by":  [
+
+                      ],
+    "ipc":  [
+                "app:getVersion",
+                "shell:openExternal"
+            ],
+    "interface":  {
+                      "methods":  [
+                                      "open(onClose?: () =\u003e void): void",
+                                      "close(): void"
+                                  ],
+                      "properties":  [
+                                         "overlay: HTMLElement",
+                                         "modal: HTMLElement"
+                                     ]
+                  }
 }

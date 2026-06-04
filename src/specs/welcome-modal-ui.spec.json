@@ -1,73 +1,41 @@
 {
   "name": "Welcome Modal UI",
-  "parent": "welcome-modal",
-  "description": "Welcome modal DOM and interactions. Documents the modal overlay structure, branding header, recent workspaces list with existence checks and per-item remove buttons, action buttons, and visual states for open/closed modal and empty recent list.",
+  "parent": "WelcomeModal",
+  "description": "Startup workspace picker modal with overlay, open button, and recent workspaces list.",
   "dom": {
-    "root": ".modal-overlay (this.overlay) — full-screen fixed overlay, display:none by default",
+    "root": ".welcome-overlay (position: fixed, inset: 0, background: rgba(0,0,0,0.6), display: flex, align-items: center, justify-content: center, z-index: 10000)",
     "container": "document.body",
-    "elements": {
-      "welcome_modal": ".welcome-modal (this.el) — centered dialog card, role=dialog, aria-modal=true, aria-labelledby=welcome-title",
-      "welcome_head": ".welcome-head — branding header section containing name and subtext",
-      "welcome_name": ".welcome-name#welcome-title — 'COCKPIT IDE' branding text",
-      "welcome_sub": ".welcome-sub — 'Select a workspace' subtitle",
-      "welcome_sep": ".welcome-sep — horizontal separator line (two instances: after head, before actions)",
-      "recent_container": ".welcome-recent#welcome-recent — scrollable recent workspaces list container",
-      "recent_title": ".welcome-recent-title — 'Recent' section heading, inserted dynamically",
-      "recent_sep": ".welcome-sep#welcome-recent-sep — separator before actions, hidden when recent is empty",
-      "welcome_actions": ".welcome-actions — button row at bottom of modal",
-      "close_btn": "button.welcome-btn-secondary#welcome-close — 'Close' button, click resolves Promise with null",
-      "open_btn": "button.welcome-btn#welcome-open — 'Open Workspace' button, triggers native directory picker"
-    },
-    "dynamic_elements": {
-      "recent_item": ".welcome-recent-item — per-workspace clickable row, contains path span and remove button",
-      "recent_path": ".welcome-recent-item-path — displays workspace path text. Has .welcome-recent-item-missing class if path no longer exists on disk",
-      "recent_remove": ".welcome-recent-item-remove — '×' button with aria-label='Remove {path} from recent', click with stopPropagation"
-    }
+    "children": [
+      ".welcome-modal (background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, padding: 32px, min-width: 400px, max-width: 500px)",
+      ".welcome-modal h2 (text: 'Welcome to Cockpit IDE', font: Space Mono, margin-bottom: 24px)",
+      ".welcome-modal .open-btn (text: 'Open Workspace', button styling per DESIGN.md, margin-bottom: 16px)",
+      ".welcome-modal .recent-list (unordered list of recent workspace paths, each clickable)",
+      ".welcome-modal .recent-item (block: path text, overflow: hidden, text-overflow: ellipsis, cursor: pointer, padding: 4px 0)",
+      ".welcome-modal .close-btn (text: 'Close', position: absolute, top: 8px, right: 8px)"
+    ]
   },
   "interactions": [
     {
       "name": "open_workspace",
-      "trigger": "click on #welcome-open button",
-      "action": "IPC workspace:select → opens native OS directory picker dialog. If user selects a path, close(path) → resolve(path). If user cancels, picker returns null — Promise remains pending.",
-      "result": "Workspace path selected and Promise resolves with the path"
-    },
-    {
-      "name": "close_modal",
-      "trigger": "click on #welcome-close button or Escape key press",
-      "action": "close(null) → overlay display:none, remove Escape key listener, resolve(null). If window is closed via IPC window:close, the Promise is left unresolved.",
-      "result": "Modal hidden, Promise resolves with null"
+      "trigger": "click on .open-btn",
+      "action": "IPC workspace:select (native directory picker) → If path selected, resolve promise with path → Close modal",
+      "result": "Promise resolves with workspace path string"
     },
     {
       "name": "select_recent",
-      "trigger": "click on .welcome-recent-item",
-      "action": "If path exists on disk (verified by fs:readDir check during open()), close(path) → resolve(path). Missing paths (.welcome-recent-item-missing class) do nothing on click.",
-      "result": "Existing workspace path selected, modal closes and resolves path"
+      "trigger": "click on .recent-item",
+      "action": "Read data-path attribute → Resolve promise with that path → Close modal",
+      "result": "Promise resolves with recent workspace path"
     },
     {
-      "name": "remove_recent",
-      "trigger": "click on .welcome-recent-item-remove button",
-      "action": "e.stopPropagation() to prevent select_recent → IPC workspace:removeRecent(path) → remove .welcome-recent-item from DOM. If no items remain: hide .welcome-recent and #welcome-recent-sep (display:none).",
-      "result": "Recent item removed from list; if list becomes empty, section hidden"
-    },
-    {
-      "name": "escape_close",
-      "trigger": "Escape keydown on document",
-      "action": "escHandler checks e.key === 'Escape' → close(null). Listener removed during close().",
-      "result": "Modal closed, resolves null"
+      "name": "close",
+      "trigger": "click on .close-btn or overlay background",
+      "action": "Resolve promise with null → Remove overlay from DOM",
+      "result": "Promise resolves with null (no workspace selected)"
     }
   ],
   "states": {
-    "closed": "Initial state. .modal-overlay display:none. No Escape key listener. Promise not yet created.",
-    "open": ".modal-overlay display:flex. Escape key listener active. Recent workspaces loaded and rendered. Promise pending, resolves on close().",
-    "recent_empty": "Sub-state of open: workspace:getRecent returns empty array. .welcome-recent and #welcome-recent-sep both set to display:none.",
-    "recent_loaded": "Sub-state of open: workspace:getRecent returns non-empty array. Recent items rendered with existence checks. Missing paths get .welcome-recent-item-missing class."
-  },
-  "lifecycle": {
-    "created_by": "App.promptWorkspace()",
-    "destroyed_by": "close() resolves Promise; overlay DOM remains in body but hidden. Each open() creates new Promise; class instance is not reused."
-  },
-  "accessibility": {
-    "keyboard": ["Escape (close modal with null)"],
-    "aria": ["role=dialog on .welcome-modal", "aria-modal=true on .welcome-modal", "aria-labelledby=welcome-title on .welcome-modal", "aria-label on each .welcome-recent-item-remove button"]
+    "open": "Overlay visible (display: flex), modal centered, recent list populated from IPC workspace:recentWorkspaces",
+    "closed": "Overlay removed from DOM"
   }
 }

@@ -1,81 +1,42 @@
 {
-  "name": "Terminal Plugin",
-  "file": "src/renderer/components/TerminalPlugin.ts",
-  "description": "xterm.js terminal emulator plugin. Creates a Terminal instance with Noir custom theme (#161C24 background, #C8D6E5 foreground, #00E5FF cursor). Connects to node-pty backend via IPC channels. Custom keyboard handler: Ctrl+Shift+C copies selection, Ctrl+Shift+V pastes clipboard to PTY (no local echo). Uses FitAddon and ResizeObserver for container-fit adaptation. Canvas zoom handled by PluginCard CSS transform — no PTY resize on zoom. On exit callback fires when terminal process terminates.",
-  "type": "ui",
-  "layer": "plugin",
-  "singleton": false,
-  "exports": ["TerminalPlugin"],
-  "dependencies": [],
-  "referenced_by": [
-    { "feature": "canvas-area", "file": "CanvasArea.ts" }
-  ],
-  "ipc": [
-    "terminal:create",
-    "terminal:write",
-    "terminal:resize",
-    "terminal:kill",
-    "terminal:data",
-    "terminal:exit",
-    "clipboard:readText",
-    "clipboard:writeText"
-  ],
-  "interface": {
-    "constructor": "(container: HTMLElement, uuid: string, cwd?: string) — Creates root div element (100% width/height, overflow hidden), initializes xterm.js Terminal with Noir theme and custom key handler, attaches FitAddon, connects to PTY via IPC terminal:create, sets up ResizeObserver for container-fit adaptation, registers terminal:data and terminal:exit listeners",
-    "methods": [
-      {
-        "name": "fit",
-        "signature": "(): void",
-        "description": "Calls FitAddon.fit() to recalculate terminal columns/rows for current container dimensions"
-      },
-      {
-        "name": "setScale",
-        "signature": "(_scale: number): void",
-        "description": "No-op — PluginCard handles canvas zoom via CSS transform, no PTY resize or font size change needed at the terminal level"
-      },
-      {
-        "name": "destroy",
-        "signature": "(): void",
-        "description": "Idempotent cleanup: kills PTY via IPC terminal:kill, unsubscribes terminal:data and terminal:exit listeners, disconnects ResizeObserver, disposes FitAddon and xterm Terminal, removes root element from DOM. Sets destroyed flag to prevent re-destruction"
-      }
-    ],
-    "properties": [
-      {
-        "name": "uuid",
-        "type": "string",
-        "description": "Unique terminal identifier used to route IPC messages (terminal:write, terminal:resize, terminal:kill) and filter inbound events (terminal:data, terminal:exit) to the correct terminal instance"
-      },
-      {
-        "name": "element",
-        "type": "HTMLDivElement",
-        "description": "Root container div (width:100%, height:100%, overflow:hidden) that hosts the xterm.js viewport via Terminal.open()"
-      },
-      {
-        "name": "onExit",
-        "type": "(() => void) | null",
-        "description": "Callback fired when the terminal PTY process exits, triggered by terminal:exit IPC event. Set by CanvasArea to handle card cleanup"
-      }
-    ],
-    "events": [
-      {
-        "name": "onExit",
-        "description": "Fired when the PTY process on the main process terminates; null if no callback is set. Used by CanvasArea to handle terminal card cleanup"
-      }
-    ]
-  },
-  "features": {
-    "copy_selection": "Ctrl+Shift+C copies selected text from terminal to system clipboard via IPC clipboard:writeText",
-    "paste_clipboard": "Ctrl+Shift+V reads clipboard via IPC clipboard:readText and writes to PTY via IPC terminal:write (no local echo — PTY echo provides visual feedback)",
-    "container_fit": "FitAddon + ResizeObserver adapt terminal cols/rows to container dimensions on card resize; canvas zoom via CSS transform does NOT trigger PTY resize"
-  },
-  "ui": {
-    "spec": "terminal-plugin-ui.spec.json"
-  },
-  "lifecycle": {
-    "created_by": "CanvasArea.addTerminal() — instantiated when user creates a new terminal card via button or keyboard shortcut",
-    "destroyed_by": "CanvasArea.terminateCard() → TerminalPlugin.destroy() — kills PTY, disconnects all listeners and ResizeObserver, disposes xterm/FitAddon, removes element from DOM",
-    "singleton": false
-  },
-  "external_deps": ["@xterm/xterm", "@xterm/addon-fit"],
-  "test": "src/renderer/components/TerminalPlugin.test.ts"
+    "name":  "Terminal Plugin",
+    "file":  "src/renderer/components/TerminalPlugin.ts",
+    "description":  "xterm.js terminal emulator wrapped as a plugin card. Creates Terminal with Noir custom theme. Connects to node-pty via IPC (create/write/resize/kill). Clipboard paste (Ctrl+Shift+V, Ctrl+V). ResizeObserver-based fit. Keyboard event handling. Process exit detection.",
+    "type":  "ui",
+    "layer":  "plugin",
+    "singleton":  false,
+    "exports":  [
+                    "TerminalPlugin"
+                ],
+    "dependencies":  [
+
+                     ],
+    "referenced_by":  [
+                          {
+                              "file":  "src/renderer/components/CanvasArea.ts",
+                              "usage":  [
+                                            "TerminalPlugin"
+                                        ]
+                          }
+                      ],
+    "ipc":  [
+                "terminal:create",
+                "terminal:write",
+                "terminal:resize",
+                "terminal:kill",
+                "terminal:data",
+                "terminal:exit",
+                "clipboard:readText"
+            ],
+    "interface":  {
+                      "constructor":  "constructor(card: PluginCard, cwd?: string, onExit?: (id: string) =\u003e void)",
+                      "methods":  [
+                                      "destroy(): void",
+                                      "fit(): void"
+                                  ],
+                      "properties":  [
+                                         "terminal: Terminal",
+                                         "id: string"
+                                     ]
+                  }
 }

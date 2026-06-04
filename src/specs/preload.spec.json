@@ -1,118 +1,17 @@
 {
-  "name": "Preload Script",
+  "name": "Preload Bridge",
   "file": "src/preload/preload.ts",
-
-  "description": "Electron preload script that bridges main and renderer processes via contextBridge. Exposes window.electronAPI with a flat namespace structure (window, clipboard, terminal, workspace, shell, prefs, git, fs, ide). Uses ipcRenderer.invoke for request/response, ipcRenderer.send for fire-and-forget, and ipcRenderer.sendSync for clipboard read. Registers event listeners (terminal:data, terminal:exit, file:changed) that return unsubscribe functions.",
-
+  "description": "Electron preload script using contextBridge.exposeInMainWorld to expose window.electronAPI to the renderer process. Wires ipcRenderer.invoke (request/response) and ipcRenderer.send (fire-and-forget) for every channel. Registers event listeners for terminal:data, terminal:exit, file:changed — returns unsubscribe functions.",
   "type": "process",
   "layer": "foundation",
-
   "singleton": true,
-
   "exports": [],
-
   "dependencies": [],
-
-  "referenced_by": [],
-
-  "ipc": [
-    "app:version",
-    "window:new",
-    "window:minimize",
-    "window:maximize",
-    "window:close",
-    "window:isMaximized",
-    "clipboard:readText",
-    "clipboard:writeText",
-    "terminal:create",
-    "terminal:write",
-    "terminal:resize",
-    "terminal:kill",
-    "terminal:data",
-    "terminal:exit",
-    "workspace:select",
-    "workspace:setPath",
-    "workspace:getPath",
-    "workspace:load",
-    "workspace:save",
-    "workspace:getRecent",
-    "workspace:addRecent",
-    "workspace:removeRecent",
-    "shell:openExternal",
-    "prefs:load",
-    "prefs:save",
-    "git:remotes",
-    "git:branches",
-    "git:checkout",
-    "git:log",
-    "git:showTree",
-    "git:diff",
-    "git:currentBranch",
-    "git:stagedFiles",
-    "git:unstagedFiles",
-    "git:stagedDiff",
-    "git:unstagedDiff",
-    "git:commitBody",
-    "git:stage",
-    "git:unstage",
-    "git:commit",
-    "git:push",
-    "git:checkAhead",
-    "fs:readDir",
-    "fs:readFile",
-    "fs:writeFile",
-    "fs:mkdir",
-    "fs:delete",
-    "fs:copy",
-    "fs:rename",
-    "file:watch",
-    "file:unwatch",
-    "file:changed",
-    "ide:editorState",
-    "ide:status"
+  "referenced_by": [
+    { "file": "src/global.d.ts", "usage": ["Window.electronAPI interface"] }
   ],
-
+  "ipc": [],
   "interface": {
-    "bridge": {
-      "object": "window.electronAPI",
-      "namespaces": {
-        "window": "newWindow (invoke), minimize (send), maximize (send), close (send), isMaximized (invoke)",
-        "clipboard": "readText (sendSync), writeText (invoke)",
-        "terminal": "create (invoke), write (send), resize (send), kill (send), onData (listener returns unsubscribe), onExit (listener returns unsubscribe)",
-        "workspace": "select (invoke), setPath (invoke), getPath (invoke), load (invoke), save (invoke), getRecent (invoke), addRecent (invoke), removeRecent (invoke)",
-        "shell": "openExternal (invoke)",
-        "prefs": "load (invoke), save (invoke)",
-        "git": "remotes (invoke), branches (invoke), checkout (invoke), log (invoke), showTree (invoke), diff (invoke), currentBranch (invoke), stagedFiles (invoke), unstagedFiles (invoke), stagedDiff (invoke), unstagedDiff (invoke), commitBody (invoke), stage (invoke), unstage (invoke), commit (invoke), push (invoke), checkAhead (invoke)",
-        "fs": "readDir (invoke), readFile (invoke), writeFile (invoke), mkdir (invoke), delete (invoke), copy (invoke), rename (invoke), watch (invoke), unwatch (invoke), onChanged (listener returns unsubscribe)",
-        "ide": "editorState (send), status (invoke)"
-      },
-      "platform": "string (process.platform)",
-      "versions": "node, chrome, electron, app"
-    }
-  },
-
-  "handlers": {
-    "ipc": {
-      "invoke": ["window:new", "window:isMaximized", "clipboard:writeText", "terminal:create", "workspace:select", "workspace:setPath", "workspace:getPath", "workspace:load", "workspace:save", "workspace:getRecent", "workspace:addRecent", "workspace:removeRecent", "shell:openExternal", "prefs:load", "prefs:save", "all git:* channels", "all fs:* channels", "ide:status"],
-      "send": ["window:minimize", "window:maximize", "window:close", "terminal:write", "terminal:resize", "terminal:kill", "ide:editorState"],
-      "sendSync": ["app:version", "clipboard:readText"],
-      "listeners": ["terminal:data (returns unsubscribe)", "terminal:exit (returns unsubscribe)", "file:changed (returns unsubscribe)"]
-    }
-  },
-
-  "security": {
-    "contextIsolation": "true — contextBridge.exposeInMainWorld used",
-    "nodeIntegration": "false — no Node.js APIs exposed to renderer",
-    "sandbox": "false — preload has access to Node.js APIs"
-  },
-
-  "lifecycle": {
-    "created_by": "Electron — loaded automatically as preload script on BrowserWindow creation",
-    "destroyed_by": "BrowserWindow close — preload context destroyed with window",
-    "singleton": true
-  },
-
-  "external_deps": ["electron"],
-
-  "test": "src/preload/preload.test.ts"
+    "methods": []
+  }
 }

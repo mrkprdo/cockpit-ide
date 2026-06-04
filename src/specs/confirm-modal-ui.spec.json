@@ -1,44 +1,40 @@
 {
   "name": "Confirm Modal UI",
-  "parent": "confirm-modal",
-  "description": "Confirm modal DOM and interactions.",
+  "parent": "ConfirmModal",
+  "description": "Generic confirmation dialog with message, Cancel, and confirm button.",
   "dom": {
-    "root": ".modal-overlay.confirm",
-    "style": "display:none (set to flex on open); position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.6); align-items:center; justify-content:center",
-    "elements": {
-      "modal": ".modal — dialog box. CSS: width:420px, max-width:90vw, background:var(--surface), border-radius:8px, border:1px dashed var(--border), box-shadow:var(--shadow), padding:0, overflow:hidden. Attributes: role=dialog, aria-modal=true, aria-label=confirmLabel.",
-      "body": ".modal-body — content container. CSS: padding:24px.",
-      "message": ".confirm-modal-msg — sanitized HTML message. CSS: margin-bottom:20px, font-size:14px, line-height:1.5, color:var(--primary), white-space:pre-wrap, word-break:break-word.",
-      "actions": ".modal-actions — button row. CSS: display:flex, justify-content:flex-end, gap:8px.",
-      "cancel_btn": "#confirm-cancel — Cancel button. CSS: btn-ghost class. Attributes: id=confirm-cancel.",
-      "ok_btn": "#confirm-ok — Confirm button. CSS: btn-primary class, plus btn-ok-destructive if destructive=true. Attributes: id=confirm-ok. Text: confirmLabel (default 'Delete')."
-    }
+    "root": ".confirm-overlay (position: fixed, inset: 0, background: rgba(0,0,0,0.6), display: flex, align-items: center, justify-content: center, z-index: 10000)",
+    "container": "document.body",
+    "children": [
+      ".confirm-modal (background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, padding: 24px, min-width: 300px, max-width: 450px)",
+      ".confirm-message (margin-bottom: 20px, font-size: 14px, line-height: 1.5, allows HTML content via innerHTML)",
+      ".confirm-actions (display: flex, justify-content: flex-end, gap: 8px)",
+      ".confirm-cancel (button: 'Cancel', secondary styling)",
+      ".confirm-ok (button: default 'Delete' or custom label, primary/danger styling)"
+    ]
   },
   "interactions": [
     {
       "name": "confirm",
-      "trigger": "click on #confirm-ok",
-      "action": "done(true) → remove overlay from DOM → resolve Promise<true>"
+      "trigger": "click on .confirm-ok",
+      "action": "Resolve promise with true → Remove overlay from DOM",
+      "result": "Promise resolves true"
     },
     {
       "name": "cancel",
-      "trigger": "click on #confirm-cancel or Escape keydown or click on .modal-overlay.confirm (target === overlay)",
-      "action": "done(false) → remove overlay from DOM → resolve Promise<false>"
+      "trigger": "click on .confirm-cancel",
+      "action": "Resolve promise with false → Remove overlay from DOM",
+      "result": "Promise resolves false"
+    },
+    {
+      "name": "dismiss",
+      "trigger": "click on .confirm-overlay (background)",
+      "action": "Resolve promise with false → Remove overlay from DOM",
+      "result": "Promise resolves false"
     }
   ],
   "states": {
-    "open": "Overlay display:flex. Cancel button (#confirm-cancel) focused. Escape keydown listener registered on document.",
-    "closed": "Overlay removed from DOM entirely via overlay.remove(). Escape listener unregistered. Promise resolved."
-  },
-  "lifecycle": {
-    "created_by": "FileExplorerPlugin.deletePath() — new instance per confirmation",
-    "destroyed_by": "Permanently removed from DOM on resolution"
-  },
-  "accessibility": {
-    "keyboard": ["Escape (cancel)", "Enter on #confirm-ok (confirm)"],
-    "aria": ["role=dialog on .modal", "aria-modal=true on .modal", "aria-label on .modal"]
-  },
-  "security": {
-    "html_sanitization": "Strips script/img/iframe/embed/object/link/style tags and on* event attributes from message HTML before rendering via innerHTML"
+    "open": "Overlay visible, message displayed, Cancel and confirm buttons rendered",
+    "closed": "Overlay removed from DOM"
   }
 }

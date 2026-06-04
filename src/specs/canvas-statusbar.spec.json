@@ -1,40 +1,26 @@
 {
   "name": "Canvas Status Bar",
   "file": "src/renderer/components/canvas-statusbar.ts",
-  "description": "Status bar UI widget pinned to the bottom of the IDE window. Shows zoom level (with lock/unlock SVG icon), workspace name, and a 'view all' reset button. Clicking zoom toggles lock. Clicking the reset-zoom icon (visible when zoom != 1x && unlocked) resets zoom to 100%. Injects elements into #statusbar DOM element.",
+  "description": "Status bar UI showing zoom level, pan lock state, workspace path, and refresh/arrange controls. Provides interactive elements for zoom slider, lock toggle, and View All button.",
   "type": "ui",
-  "layer": "widget",
-  "singleton": true,
+  "layer": "core",
+  "singleton": false,
   "exports": ["StatusBar"],
   "dependencies": [],
   "referenced_by": [
-    {
-      "feature": "canvas-area",
-      "file": "CanvasArea.ts"
-    }
+    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["StatusBar"] }
   ],
   "ipc": [],
   "interface": {
-    "constructor": "constructor() — no arguments, initialization deferred to init()",
+    "constructor": "constructor(container: HTMLElement)",
     "methods": [
-      {
-        "name": "init",
-        "signature": "(): void",
-        "description": "Creates and injects status bar DOM elements (zoom display, lock indicator, workspace name, view-all button) into #statusbar. Guards against duplicate initialization."
-      },
-      {
-        "name": "update",
-        "signature": "(locked: boolean, scale: number, workspaceName: string, onLockToggle: (() => void) | null, fitAll: () => void, resetZoom?: (() => void) | null): void",
-        "description": "Updates all status bar display values: zoom percentage with lock/unlock icon, reset-zoom icon visibility, workspace name. Stores callbacks for interactive elements."
-      }
+      "setZoom(zoom: number): void",
+      "setWorkspace(path: string): void",
+      "setLocked(locked: boolean): void",
+      "onArrange(cb: () => void): void",
+      "onViewAll(cb: () => void): void",
+      "destroy(): void"
     ],
-    "properties": []
-  },
-  "lifecycle": {
-    "created_by": "CanvasArea constructor",
-    "destroyed_by": "Never destroyed (persists for application lifetime)",
-    "singleton": true
-  },
-  "external_deps": [],
-  "test": "none (tested via CanvasArea tests)"
+    "properties": ["element: HTMLElement"]
+  }
 }

@@ -118,8 +118,8 @@ D:\cockpit_ide\
 │   │       └── Tutorial.test.ts   # Tutorial step navigation tests (~179 lines)
 │   ├── specs/
 │   │   ├── main.spec.json         # Root specs index: features, IPC, shortcuts, dep graph
-│   │   ├── *.spec.json            # 24 feature specs (one per non-test source file)
-│   │   └── *-ui.spec.json         # 10 UI sub-specs (DOM details, interactions, states)
+│   │   ├── *.spec.json            # 28 feature specs (one per non-test source file)
+│   │   └── *-ui.spec.json         # 7 UI sub-specs (DOM details, interactions, states)
 │   └── test/
 │       ├── README.md              # Test infrastructure docs (23 files, 755 tests)
 │       ├── setup.ts               # Global mocks: IPC, Canvas, xterm, DOM, ResizeObserver

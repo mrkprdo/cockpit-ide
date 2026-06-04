@@ -1,51 +1,21 @@
 {
   "name": "Context Menu",
   "file": "src/renderer/components/ContextMenu.ts",
-  "description": "Floating singleton context menu that positions at click coordinates. Items can be labels with actions, separators, or disabled items. All existing menus are closed before a new one opens (static openMenus tracking). Menu closes on outside click (document click listener added after 0ms timeout to avoid immediate close). Fires optional onClose callback on removal.",
+  "description": "Right-click floating context menu. Singleton menu with items (labels + actions), separators, disabled items. Positions at click coordinates. Closes on outside click or item selection. Tracks all open menus and closes previous before opening new one.",
   "type": "ui",
-  "layer": "overlay",
-  "singleton": false,
-  "exports": ["ContextMenuItem", "ContextMenu"],
+  "layer": "core",
+  "singleton": true,
+  "exports": ["ContextMenu", "ContextMenuItem"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "canvas-area", "file": "CanvasArea.ts" },
-    { "feature": "monaco-editor-plugin", "file": "MonacoEditorPlugin.ts" },
-    { "feature": "file-explorer-plugin", "file": "FileExplorerPlugin.ts" },
-    { "feature": "markdown-plugin", "file": "MarkdownPlugin.ts" },
-    { "feature": "git-plugin", "file": "GitPlugin.ts" }
+    { "file": "src/renderer/components/FileExplorerPlugin.ts", "usage": ["ContextMenu"] }
   ],
   "ipc": [],
   "interface": {
-    "constructor": "(items: ContextMenuItem[], x: number, y: number) — Closes all existing menus via static openMenus loop, clears array, creates .ctx-menu div positioned at (x,y), builds item children (.ctx-item normal, .ctx-item.ctx-disabled for disabled, .ctx-sep for separators), binds click handlers (item click fires action → remove()), appends to document.body, pushes to openMenus, adds document click listener (outsideClick) after 0ms setTimeout",
     "methods": [
-      {
-        "name": "remove",
-        "signature": "(): void",
-        "description": "Removes document click listener (outsideClick), splices self from static openMenus array, removes .ctx-menu element from DOM, fires optional onClose callback"
-      }
+      "open(items: ContextMenuItem[], x: number, y: number): void",
+      "close(): void"
     ],
-    "properties": [
-      {
-        "name": "onClose",
-        "type": "(() => void) | null",
-        "description": "Optional callback invoked after menu removal — null by default, set by caller before remove()"
-      }
-    ],
-    "events": [
-      {
-        "name": "onClose",
-        "description": "Fired during remove() after DOM removal — allows callers to clean up state tied to menu lifetime"
-      }
-    ]
-  },
-  "ui": {
-    "spec": "context-menu-ui.spec.json"
-  },
-  "lifecycle": {
-    "created_by": "Right-click event handlers in CanvasArea, MonacoEditorPlugin, FileExplorerPlugin, MarkdownPlugin, GitPlugin — new ContextMenu(items, x, y)",
-    "destroyed_by": "remove() called by: item click action, outside document click (outsideClick handler), or opening a new context menu (which calls remove() on all openMenus)",
-    "singleton": false
-  },
-  "external_deps": [],
-  "test": "src/renderer/components/ContextMenu.test.ts"
+    "properties": ["element: HTMLElement"]
+  }
 }

@@ -1,71 +1,37 @@
 {
-  "name": "SpecsMap Plugin",
-  "file": "src/renderer/components/SpecsMapPlugin.ts",
-  "description": "Visual dependency graph viewer for the specs system. Reads spec JSON files from workspace's src/specs/ directory (or auto-discovers via recursive walk). Parses main.spec.json for feature catalog and layer mapping, then reads individual feature spec files for dependency edges. Renders nodes colored by layer (foundation=green, core=blue, widget=purple, modal=yellow, overlay=red, plugin=gray) arranged bottom-to-top by architectural layer. Bezier curve edges connect source→target dependencies with SVG paths. Hovering a node highlights all connected nodes and edges, dims unrelated. Clicking a node opens a right-side detail panel showing: spec name, source file, layer badge, all dependencies (with usage descriptions), referencers, IPC channels, exported symbols. Panel has an 'Open File' link to open the source file in editor. Supports zoom (mousewheel), pan (left/middle-click drag), and fit-to-view (eye button). Caches parsed graph as JSON snapshot in .cockpit/specsmap.json validated against SPECGEN_HASH for fast reload. Refresh button rebuilds from files. Validation badge shows parse success count. Settings panel with cycle detection (highlight dependency cycles) and isolation mode.",
-  "type": "ui",
-  "layer": "plugin",
-  "singleton": false,
-  "exports": ["SpecsMapPlugin"],
-  "dependencies": [
-    {
-      "feature": "specgen-hash",
-      "file": "specgen-hash.ts",
-      "usage": "SPECGEN_HASH for spec graph snapshot validation against cached .cockpit/specsmap.json"
-    }
-  ],
-  "referenced_by": [
-    {
-      "feature": "canvas-area",
-      "file": "CanvasArea.ts"
-    }
-  ],
-  "ipc": [
-    "fs:readDir",
-    "fs:readFile",
-    "fs:mkdir",
-    "fs:writeFile"
-  ],
-  "interface": {
-    "constructor": "constructor(container: HTMLElement, wsPath: string) — Creates full DOM structure (header with search/refresh/fit/cycle buttons and validation badge, viewport with SVG edge layer and HTML node layer, search bar overlay, empty state overlay, slide-out detail panel). Injects CSS styles. Initializes pan/zoom interaction listeners and keyboard shortcuts (Ctrl+F). Immediately calls loadSpecs() to build graph from cached snapshot or spec files.",
-    "methods": [
-      {
-        "name": "refresh",
-        "signature": "() => Promise<void>",
-        "description": "Clears current state (nodes, specRawMap, nodeEls, SVG, panel), disables refresh button with spinner, resets cycle/isolation modes, then rebuilds entire graph from spec files via buildFromFiles(). Updates validation badge with parse result counts. Re-enables refresh button on completion. Catches and displays errors inline."
-      },
-      {
-        "name": "destroy",
-        "signature": "() => void",
-        "description": "Removes document-level mousemove/mouseup/keydown listeners. Clears nodeEls, specRawMap, and nameTextOrigins maps to prevent memory leaks."
-      }
-    ],
-    "properties": [
-      {
-        "name": "onFileOpen",
-        "type": "((filePath: string) => void) | null",
-        "description": "Callback fired when user clicks the 'Open File' link in the detail panel. Set by CanvasArea to open the source file in the Monaco editor."
-      }
-    ]
-  },
-  "features": {
-    "graph_rendering": "SVG bezier curve edges with directional port routing (top-left=incoming, top-right=outgoing, bottom-left=outgoing, bottom-right=incoming). HTML nodes positioned absolutely within a CSS-transformed viewport. Layer headers as absolutely positioned labels",
-    "hover_highlight": "Mouseenter on a node highlights all connected nodes (solid border, glow box-shadow, full opacity) and edges (increased stroke-width, dash animation, accent color). Unrelated nodes dimmed to opacity 0.14",
-    "detail_panel": "320px right-side slide-in panel showing selected node details: spec name, source file, layer badge, dependencies (with usage descriptions), referencers, IPC channels, 'Open File' link",
-    "zoom_pan": "Mousewheel cursor-centered zoom (clamped between fitScale and fitScale*3). Left/middle-click drag pan with rAF-throttled mouse tracking and cubic-bezier transform",
-    "fit_to_view": "Calculates bounding box of all nodes and animates pan+scale to fit entire graph in viewport (300ms ease-out cubic)",
-    "snapshot_cache": "Saves parsed graph as JSON to .cockpit/specsmap.json. On load, validates cached snapshot against SPECGEN_HASH; rebuilds from files if hash mismatches",
-    "cycle_detection": "Toggled via cycle button in header. Detects dependency cycles using DFS, highlights cycle members with colored borders, supports cycling through multiple cycle levels",
-    "isolation_mode": "When a cycle is selected, dims all non-cycle nodes to focus on the dependency cycle, with fast-dash animated borders",
-    "search_nodes": "Ctrl+F or magnifying glass button opens inline search bar at top of content area. Typing queries search across node name, spec file, source file, layer, description, dependencies, referencers, and IPC channels (case-insensitive). Non-matching nodes dimmed to 0.14 opacity. Enter/Shift+Enter navigates results with keyword highlighting in selected node's .sm-name. Blur/Escape/× closes and restores graph."
-  },
-  "ui": {
-    "spec": "specsmap-plugin-ui.spec.json"
-  },
-  "lifecycle": {
-    "created_by": "CanvasArea.addSpecsmap() — instantiated when user creates a new SpecsMap card via TopBar menu or context menu",
-    "destroyed_by": "Card terminate → SpecsMapPlugin.destroy() — removes document listeners, clears maps, then DOM is removed by PluginCard",
-    "singleton": false
-  },
-  "external_deps": [],
-  "test": "src/renderer/components/SpecsMapPlugin.test.ts"
+    "name":  "SpecsMap Plugin",
+    "file":  "src/renderer/components/SpecsMapPlugin.ts",
+    "description":  "Visual dependency graph renderer. Reads src/specs/*.spec.json files, parses the dependency DAG, and renders an interactive graph on the canvas with nodes and edges. Uses SPECGEN.md as template reference. Provides zoom/pan on the graph view.",
+    "type":  "ui",
+    "layer":  "plugin",
+    "singleton":  false,
+    "exports":  [
+                    "SpecsMapPlugin"
+                ],
+    "dependencies":  [
+
+                     ],
+    "referenced_by":  [
+                          {
+                              "file":  "src/renderer/components/CanvasArea.ts",
+                              "usage":  [
+                                            "SpecsMapPlugin"
+                                        ]
+                          }
+                      ],
+    "ipc":  [
+                "specsmap:getSpecData",
+                "fs:readDir",
+                "fs:readFile"
+            ],
+    "interface":  {
+                      "constructor":  "constructor(card: PluginCard, workspacePath: string)",
+                      "methods":  [
+                                      "destroy(): void",
+                                      "refresh(): Promise\u003cvoid\u003e"
+                                  ],
+                      "properties":  [
+                                         "graph: GraphData"
+                                     ]
+                  }
 }

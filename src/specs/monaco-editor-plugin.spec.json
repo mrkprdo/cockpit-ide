@@ -1,116 +1,48 @@
 {
-  "name": "Monaco Editor Plugin",
-  "file": "src/renderer/components/MonacoEditorPlugin.ts",
-  "description": "Monaco code editor plugin with multi-tab editing. Bootstrap loads Monaco AMD loader once across all instances via shared monacoReady promise. Defines custom themes (cockpit-dark: base vs-dark, background #0A0E14; cockpit-light: base vs, background #f8f8f8). Multi-tab editing with per-tab cursor/scroll position tracking via savedCursors map. 30+ language detection from file extension. Auto-save debounced 1.5s after content change. Ctrl+S explicit save. External file change detection via fs.onChanged with auto-reload (preserves editor value if matching, closes tab if file deleted). Drag-and-drop tab reorder. Right-click tab context menu (Close, Close Others, Close All, Copy File Path). Sends editor selection state to ide:editorState IPC with 150ms debounce.",
-  "type": "ui",
-  "layer": "plugin",
-  "singleton": false,
-  "exports": ["MonacoEditorPlugin"],
-  "dependencies": [
-    {
-      "feature": "context-menu",
-      "file": "ContextMenu.ts",
-      "usage": "Tab right-click context menu — renders Close, Close Others, Close All separator, and Copy File Path actions"
-    }
-  ],
-  "referenced_by": [
-    { "feature": "canvas-area", "file": "CanvasArea.ts" },
-    { "feature": "explorer-plugin", "file": "ExplorerPlugin.ts" }
-  ],
-  "ipc": [
-    "fs:readFile",
-    "fs:writeFile",
-    "file:changed",
-    "clipboard:writeText",
-    "ide:editorState"
-  ],
-  "interface": {
-    "constructor": "(container: HTMLElement) — Creates editor DOM structure (.editor-wrap > .editor-tab-bar > .editor-tab-scroll + .editor-area with unique id monaco-{uuid}), registers file change listener via fs.onChanged, bootstraps shared Monaco AMD loader, initializes empty tab state with 'No file selected' dummy",
-    "methods": [
-      {
-        "name": "openFile",
-        "signature": "(filePath: string) => Promise<void>",
-        "description": "Normalizes path (backslashes to forward slashes, lowercases for key), reads file content via IPC fs:readFile, pushes new Tab to tabs array or switches to existing tab, loads content into editor, detects language from file extension, fires onStateChange"
-      },
-      {
-        "name": "closeActiveTab",
-        "signature": "(): void",
-        "description": "Closes the currently active tab via internal closeTab method"
-      },
-      {
-        "name": "saveCurrentFile",
-        "signature": "(): void",
-        "description": "Writes current editor content to file via IPC fs:writeFile, removes active tab from dirtyFiles set, updates dirty CSS indicator"
-      },
-      {
-        "name": "updateTheme",
-        "signature": "(): void",
-        "description": "Reads CSS --bg custom property to detect dark/light mode, applies cocktail-dark or cocktail-light Monaco editor theme accordingly"
-      },
-      {
-        "name": "reloadIfOpen",
-        "signature": "(filePath: string) => Promise<void>",
-        "description": "If filePath is open in a tab: reads current file content from disk via IPC fs:readFile. If file deleted (content is null), closes tab. If content changed and tab is active, updates editor value preserving dirty flag via suppressDirty mechanism"
-      },
-      {
-        "name": "getState",
-        "signature": "() => { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, {lineNumber: number; column: number; scrollTop: number}> } | null",
-        "description": "Serializes current editor state: original file paths for open tabs, active file path, explorer split width (default 260), and per-file cursor position + scroll top. Returns null if no tabs are open"
-      },
-      {
-        "name": "restoreState",
-        "signature": "(state: { openFiles: string[]; activeFile: string; explorerWidth?: number; cursors: Record<string, {lineNumber: number; column: number; scrollTop: number}> }) => Promise<void>",
-        "description": "Restores editor state from serialized data: opens all files from openFiles array, switches to activeFile, waits for requestAnimationFrame, then restores per-file cursor positions and scroll offsets"
-      },
-      {
-        "name": "getCurrentFile",
-        "signature": "(): string",
-        "description": "Returns the file path of the active tab (lowercased key), or empty string if no active tab"
-      },
-      {
-        "name": "getContent",
-        "signature": "(): string",
-        "description": "Returns current Monaco editor text content via editor.getValue(), or empty string if editor not initialized"
-      }
-    ],
-    "properties": [
-      {
-        "name": "tabs",
-        "type": "Tab[]",
-        "description": "Array of open tab objects, each with filePath (lowercased key), name (filename only), and originalPath (full OS path). Displayed in tab bar."
-      },
-      {
-        "name": "activeTab",
-        "type": "string | null",
-        "description": "Lowercased file path key of the currently active tab, or null if no tabs are open"
-      },
-      {
-        "name": "onStateChange",
-        "type": "(() => void) | null",
-        "description": "Callback fired when tabs change (open, close, switch, reorder). Set by ExplorerPlugin to trigger workspace state auto-save"
-      }
-    ]
-  },
-  "features": {
-    "multi_tab_editing": "Multiple files open simultaneously in tabs with per-tab cursor/scroll position tracked in savedCursors map. Active tab switch preserves content and cursor of previous tab",
-    "auto_save": "onDidChangeModelContent event triggers 1.5s debounced auto-save via IPC fs:writeFile, marks tab as dirty during the interval",
-    "manual_save": "Ctrl+S Monaco keybinding triggers immediate saveCurrentFile call",
-    "language_detection": "30+ file extensions mapped to Monaco language modes (ts→typescript, js→javascript, py→python, rs→rust, etc.). Unrecognized extensions default to plaintext",
-    "custom_themes": "cockpit-dark (base vs-dark, editor background #0A0E14) and cockpit-light (base vs, editor background #f8f8f8) themes defined via monaco.editor.defineTheme",
-    "file_watch": "fs.onChanged listener registered in constructor auto-reloads or closes tabs when files change externally",
-    "drag_reorder": "Tab reordering via HTML5 drag-and-drop (dragstart/dragenter/dragover/dragleave/drop events on .editor-tab elements)",
-    "tab_context_menu": "Right-click on tab shows ContextMenu with Close, Close Others, Close All, separator, and Copy File Path (copies original OS path via IPC clipboard:writeText)",
-    "middle_click_close": "Middle mouse button (button === 1) on a tab closes it",
-    "editor_selection_state": "onDidChangeCursorSelection event debounced 150ms sends ide:editorState IPC notification with active file path, selection range (startLine/startColumn/endLine/endColumn), and selected text"
-  },
-  "ui": {
-    "spec": "monaco-editor-plugin-ui.spec.json"
-  },
-  "lifecycle": {
-    "created_by": "ExplorerPlugin constructor — one MonacoEditorPlugin instance per Explorer panel for the editor half of the split layout",
-    "destroyed_by": "ExplorerPlugin card terminate — editor state saved via getState() and restored via restoreState() across sessions",
-    "singleton": false
-  },
-  "external_deps": ["monaco-editor"],
-  "test": "src/renderer/components/MonacoEditorPlugin.test.ts"
+    "name":  "Monaco Editor Plugin",
+    "file":  "src/renderer/components/MonacoEditorPlugin.ts",
+    "description":  "Monaco code editor wrapper with multi-tab editing. Dynamically loads Monaco via AMD require() at runtime. Defines custom themes (cockpit-dark, cockpit-light). Per-tab cursor/scroll tracking. 30+ language detection (file extension). Auto-save (debounced 1.5s). External file change detection with auto-reload. Ctrl+S save action. Full state serialization/restoration.",
+    "type":  "ui",
+    "layer":  "plugin",
+    "singleton":  false,
+    "exports":  [
+                    "MonacoEditorPlugin"
+                ],
+    "dependencies":  [
+
+                     ],
+    "referenced_by":  [
+                          {
+                              "file":  "src/renderer/components/CanvasArea.ts",
+                              "usage":  [
+                                            "MonacoEditorPlugin"
+                                        ]
+                          },
+                          {
+                              "file":  "src/renderer/components/ExplorerPlugin.ts",
+                              "usage":  [
+                                            "MonacoEditorPlugin"
+                                        ]
+                          }
+                      ],
+    "ipc":  [
+                "fs:readFile",
+                "fs:writeFile",
+                "fs:onChanged"
+            ],
+    "interface":  {
+                      "constructor":  "constructor(card: PluginCard, initialPath?: string, onStateChange?: () =\u003e void)",
+                      "methods":  [
+                                      "openFile(path: string): Promise\u003cvoid\u003e",
+                                      "getState(): EditorState[]",
+                                      "restoreState(state: EditorState[]): void",
+                                      "reloadIfOpen(path: string): Promise\u003cvoid\u003e",
+                                      "setTheme(theme: string): void",
+                                      "destroy(): void"
+                                  ],
+                      "properties":  [
+                                         "editor: monaco.editor.IStandaloneCodeEditor",
+                                         "tabs: Map\u003cstring, EditorTab\u003e"
+                                     ]
+                  }
 }

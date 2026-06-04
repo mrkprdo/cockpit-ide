@@ -1,105 +1,28 @@
 {
-  "name": "Explorer Plugin",
+  "name": "Explorer Split-Pane Plugin",
   "file": "src/renderer/components/ExplorerPlugin.ts",
-  "description": "Split-pane Explorer plugin combining FileExplorerPlugin (left column, 260px default, resizable 120-600px via drag handle) and MonacoEditorPlugin (right column, flex-grow). Horizontal flex layout with a 2px col-resize handle between columns. Editor column hidden when no tabs are open. Bridges click-to-open file from explorer to editor. Delegates markdown openers and theme updates. Ctrl+P opens CommandPalette for fuzzy file search. Editor state serialization includes explorer column width and per-tab cursor/scroll positions.",
+  "description": "Combined split-pane plugin. FileExplorerPlugin (left, 260px default, resizable 120-600px) + MonacoEditorPlugin (right) in horizontal flex layout with drag handle. Bridges markdown openers and theme updates between child panes.",
   "type": "ui",
   "layer": "plugin",
   "singleton": false,
   "exports": ["ExplorerPlugin"],
   "dependencies": [
-    {
-      "feature": "file-explorer-plugin",
-      "file": "FileExplorerPlugin.ts",
-      "usage": "File tree browser in left panel"
-    },
-    {
-      "feature": "monaco-editor-plugin",
-      "file": "MonacoEditorPlugin.ts",
-      "usage": "Code editor in right panel"
-    },
-    {
-      "feature": "command-palette",
-      "file": "CommandPalette.ts",
-      "usage": "Ctrl+P file search overlay"
-    }
+    { "file": "src/renderer/components/FileExplorerPlugin.ts", "usage": ["FileExplorerPlugin"] },
+    { "file": "src/renderer/components/MonacoEditorPlugin.ts", "usage": ["MonacoEditorPlugin"] }
   ],
   "referenced_by": [
-    {
-      "feature": "canvas-area",
-      "file": "CanvasArea.ts"
-    }
+    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["ExplorerPlugin"] }
   ],
   "ipc": [],
   "interface": {
-    "constructor": "constructor(container: HTMLElement, wsPath: string)",
+    "constructor": "constructor(card: PluginCard, workspacePath: string, onStateChange?: () => void)",
     "methods": [
-      {
-        "name": "openFile",
-        "signature": "(filePath: string) => void",
-        "description": "Opens a file in the Monaco editor and reveals it in the file explorer tree."
-      },
-      {
-        "name": "closeActiveTab",
-        "signature": "() => void",
-        "description": "Closes the currently active editor tab. If no tabs remain, hides the editor column."
-      },
-      {
-        "name": "openFileSearch",
-        "signature": "() => void",
-        "description": "Creates or reveals the CommandPalette overlay for fuzzy file search. Selecting a file opens it in the editor."
-      },
-      {
-        "name": "revealFile",
-        "signature": "(filePath: string) => void",
-        "description": "Reveals and highlights a file in the file explorer tree via selectFile()."
-      },
-      {
-        "name": "setMarkdownOpeners",
-        "signature": "(labels: string[], callback: (filePath: string, label: string) => void) => void",
-        "description": "Delegates markdown viewer labels and callback to the file explorer for .md context menu items."
-      },
-      {
-        "name": "updateTheme",
-        "signature": "() => void",
-        "description": "Propagates current theme to the Monaco editor to sync cockpit-dark/cockpit-light themes."
-      },
-      {
-        "name": "getEditorState",
-        "signature": "() => EditorState | null",
-        "description": "Returns serializable editor state including open tabs, cursor/scroll positions, and explorer column width. Returns null if no editor state to save."
-      },
-      {
-        "name": "restoreEditorState",
-        "signature": "(state: EditorState | null) => Promise<void>",
-        "description": "Restores editor state from serialized data: opens tabs with cursor/scroll positions and sets explorer column width."
-      }
+      "getEditorState(): EditorState[]",
+      "restoreEditorState(state: EditorState[]): void",
+      "setMarkdownOpeners(fn: (path: string) => void): void",
+      "updateTheme(theme: string): void",
+      "destroy(): void"
     ],
-    "properties": [
-      {
-        "name": "editor",
-        "type": "MonacoEditorPlugin",
-        "description": "The Monaco editor instance in the right pane."
-      },
-      {
-        "name": "palette",
-        "type": "CommandPalette | null",
-        "description": "The CommandPalette instance for fuzzy file search, null before first open."
-      },
-      {
-        "name": "onStateChange",
-        "type": "(() => void) | null",
-        "description": "Callback fired when editor state changes (tab open/close, content change). Used by CanvasArea to trigger save."
-      }
-    ]
-  },
-  "lifecycle": {
-    "created_by": "CanvasArea.addExplorer()",
-    "destroyed_by": "Explorer card termination",
-    "singleton": false
-  },
-  "ui": {
-    "spec": "explorer-plugin-ui.spec.json"
-  },
-  "external_deps": [],
-  "test": "src/renderer/components/ExplorerPlugin.test.ts"
+    "properties": ["fileExplorer: FileExplorerPlugin", "editor: MonacoEditorPlugin"]
+  }
 }

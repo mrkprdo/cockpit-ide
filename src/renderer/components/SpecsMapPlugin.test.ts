@@ -255,10 +255,12 @@ describe('SpecsMapPlugin', () => {
     const snapshot = JSON.stringify({ v: 1, ts: new Date().toISOString(), nodes: snapNodes });
 
     (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
-      if (path.includes('.cockpit/specsmap.json')) return Promise.resolve(snapshot);
+      if (path.includes('.cockpit/specsmap-')) return Promise.resolve(snapshot);
+      if (path.includes('main.spec.json')) return Promise.resolve(JSON.stringify({
+        name: 'Test Specs', features: { core: [] }
+      }));
       return Promise.resolve('{}');
     });
-    // readDir should NOT be called if snapshot is valid
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([]);
 
     new SpecsMapPlugin(container, '/test/ws');
@@ -266,7 +268,11 @@ describe('SpecsMapPlugin', () => {
 
     const nodes = container.querySelectorAll('.sm-node');
     expect(nodes.length).toBe(Object.keys(SPEC_FILES).length);
-    expect(mockElectronAPI.fs.readDir).not.toHaveBeenCalled();
+    // Individual spec files should NOT be read (graph comes from snapshot)
+    const specFileCalls = (mockElectronAPI.fs.readFile as any).mock.calls.filter(
+      (c: string[]) => /\.spec\.json$/.test(c[0]) && !c[0].includes('main.')
+    );
+    expect(specFileCalls.length).toBe(0);
   });
 
   it('shows empty state when no spec files found', async () => {
