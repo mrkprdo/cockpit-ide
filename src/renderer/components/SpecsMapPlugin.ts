@@ -135,6 +135,7 @@ export class SpecsMapPlugin {
   private pendingMouseX = 0;
   private pendingMouseY = 0;
   private rafPanPending = false;
+  private resizeObserver: ResizeObserver | null = null;
 
   // Search state
   private searchOpen = false;
@@ -313,6 +314,9 @@ export class SpecsMapPlugin {
     this.viewport.appendChild(this.emptyState);
 
     content.appendChild(this.viewport);
+
+    this.resizeObserver = new ResizeObserver(() => this.fitGraph());
+    this.resizeObserver.observe(this.viewport);
 
     // Side panel (overlays right side)
     this.panel = document.createElement('div');
@@ -2723,6 +2727,10 @@ export class SpecsMapPlugin {
   }
 
   destroy(): void {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
     document.removeEventListener('mousemove', this.onDocMouseMove);
     document.removeEventListener('mouseup', this.onDocMouseUp);
     document.removeEventListener('keydown', this.onSearchKeydown);

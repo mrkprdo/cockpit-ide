@@ -38,6 +38,12 @@
   },
   "interactions": [
     {
+      "name": "resize_viewport",
+      "trigger": "ResizeObserver on this.viewport — fires when the plugin card is resized (window resize, pane drag, etc.)",
+      "action": "fitGraph() re-calculates bounding box from this.nodes, computes target pan/scale to show all nodes centered, applies transform instantly",
+      "result": "Graph view automatically re-fits to show all nodes whenever the card dimensions change"
+    },
+    {
       "name": "hover_node",
       "trigger": "mouseenter on .sm-node",
       "action": "Highlight connected nodes: set border style to solid with 2px thickness and LAYER_COLORS_VAR glow box-shadow, set opacity to 1. Animate connected edges: increase stroke-width, add dash-array animation (.sm-edge-active class with sm-flow keyframe). Dim unrelated nodes: set opacity to 0.14",
@@ -147,6 +153,6 @@
   },
   "lifecycle": {
     "created_by": "CanvasArea.addSpecsmap() — DOM container created by PluginCard, SpecsMapPlugin constructor builds full UI, immediately calls loadSpecs()",
-    "destroyed_by": "Card terminate → SpecsMapPlugin.destroy() removes document-level mousemove/mouseup listeners, clears nodeEls and specRawMap maps. PluginCard then removes DOM container"
+    "destroyed_by": "Card terminate → SpecsMapPlugin.destroy() disconnects ResizeObserver, removes document-level mousemove/mouseup listeners, clears nodeEls and specRawMap maps. PluginCard then removes DOM container"
   }
 }

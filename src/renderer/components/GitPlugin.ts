@@ -645,7 +645,7 @@ export class GitPlugin {
     this.updateChangesFileSelection();
     this.clearCommitSelection();
 
-    this.onFileOpen?.(filePath);
+    this.onFileOpen?.(this.wsPath + '/' + filePath);
     const fn = mode === 'staged' ? 'stagedDiff' : 'unstagedDiff';
     const diff = await (window.electronAPI?.git as any)[fn](this.wsPath, filePath) || '';
     this.diffContent = diff;
@@ -855,7 +855,7 @@ export class GitPlugin {
   private async selectFile(filePath: string): Promise<void> {
     this.selectedFilePath = filePath;
     this.renderFileTree();
-    try { this.onFileOpen?.(filePath); } catch {}
+    try { this.onFileOpen?.(this.wsPath + '/' + filePath); } catch {}
     if (this.selectedCommitHash) {
       const diff = await window.electronAPI?.git.diff(this.wsPath, this.selectedCommitHash, filePath) || '';
       this.diffContent = diff;
