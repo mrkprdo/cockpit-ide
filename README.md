@@ -20,6 +20,10 @@ A spatial IDE built in Electron — drag your editor, terminal, and docs whereve
   Your browser does not support the video tag.
 </video>
 
+<p align="center" width="100%">
+<video src="https://github.com/user-attachments/assets/6c921410-5c9a-4df5-b0e1-c2cf3da64271" width="80%" controls></video>
+</p>
+
 ---
 
 **Dev** — Monaco editor + resizable file explorer in one card  
