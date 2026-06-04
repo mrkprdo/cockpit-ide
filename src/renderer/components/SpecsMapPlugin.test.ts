@@ -321,7 +321,7 @@ describe('SpecsMapPlugin', () => {
     new SpecsMapPlugin(container, '/test/ws');
     await flushSpecs();
     const gearBtns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
-    gearBtns[0].click();
+    gearBtns[1].click();
     expect(container.textContent).toContain('Settings');
     expect(container.textContent).toContain('Show cyclic dependencies');
   });
@@ -330,7 +330,7 @@ describe('SpecsMapPlugin', () => {
     new SpecsMapPlugin(container, '/test/ws');
     await flushSpecs();
     const gearBtns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
-    const gearBtn = gearBtns[0];
+    const gearBtn = gearBtns[1];
     gearBtn.click();
     // Find the panel by its z-index style
     const panel = container.querySelector('[style*="z-index: 20"]') as HTMLElement;
@@ -376,7 +376,7 @@ describe('SpecsMapPlugin', () => {
 
     // Open settings panel
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
-    gearBtns[0].click();
+    gearBtns[1].click();
 
     // Click the toggle to run cycle detection
     const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
@@ -423,7 +423,7 @@ describe('SpecsMapPlugin', () => {
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
-    gearBtns[0].click();
+    gearBtns[1].click();
 
     const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
     toggle.click();
@@ -472,7 +472,7 @@ describe('SpecsMapPlugin', () => {
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
-    gearBtns[0].click();
+    gearBtns[1].click();
 
     const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
     toggle.click();
@@ -520,7 +520,7 @@ describe('SpecsMapPlugin', () => {
 
     // Open settings and toggle cycle detection
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
-    gearBtns[0].click();
+    gearBtns[1].click();
     const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
     toggle.click();
     await new Promise(r => setTimeout(r, 0));
@@ -583,7 +583,7 @@ describe('SpecsMapPlugin', () => {
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
-    gearBtns[0].click();
+    gearBtns[1].click();
 
     // Toggle ON
     const toggle = c.querySelector('#sm-cycle-toggle') as HTMLElement;
@@ -599,7 +599,7 @@ describe('SpecsMapPlugin', () => {
     new SpecsMapPlugin(container, '/test/ws');
     await flushSpecs();
     const gearBtns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
-    gearBtns[0].click();
+    gearBtns[1].click();
     expect(container.textContent).toContain('Show isolated nodes');
     const isolatedToggle = container.querySelector('#sm-isolated-toggle') as HTMLElement;
     expect(isolatedToggle).toBeTruthy();
@@ -647,7 +647,7 @@ describe('SpecsMapPlugin', () => {
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
-    gearBtns[0].click();
+    gearBtns[1].click();
 
     const isolatedToggle = c.querySelector('#sm-isolated-toggle') as HTMLElement;
     isolatedToggle.click();
@@ -667,7 +667,7 @@ describe('SpecsMapPlugin', () => {
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
-    gearBtns[0].click();
+    gearBtns[1].click();
 
     const isolatedToggle = c.querySelector('#sm-isolated-toggle') as HTMLElement;
     isolatedToggle.click();
@@ -680,5 +680,209 @@ describe('SpecsMapPlugin', () => {
     }
     const svg = c.querySelector('svg.sm-graph')!;
     expect(svg.querySelector('#sm-isolated-group rect')).toBeFalsy();
+  });
+
+  // ── Search tests ──
+
+  it('renders a search button in the header', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    const searchBtn = btns[0];
+    expect(searchBtn).toBeTruthy();
+    expect(searchBtn.title).toContain('Search');
+  });
+
+  it('clicking search button opens search bar', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+    const searchBar = container.querySelector('.sm-search-bar') as HTMLElement;
+    expect(searchBar).toBeTruthy();
+    expect(searchBar.style.opacity).toBe('1');
+    expect(searchBar.style.pointerEvents).toBe('auto');
+  });
+
+  it('typing in search dims non-matching nodes', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    // Open search
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+    const input = container.querySelector('.sm-search-bar input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+
+    // Type partial word
+    input.value = 'theme';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    const nodes = container.querySelectorAll('.sm-node');
+    expect(nodes.length).toBeGreaterThan(0);
+    // Theme node should be full opacity, others dimmed
+    const themeEl = Array.from(nodes).find(n => n.textContent?.includes('Theme')) as HTMLElement;
+    const pluginEl = Array.from(nodes).find(n => n.textContent?.includes('Terminal')) as HTMLElement;
+    expect(themeEl).toBeTruthy();
+    expect(pluginEl).toBeTruthy();
+    expect(themeEl.style.opacity).toBe('1');
+    expect(pluginEl.style.opacity).toBe('0.14');
+  });
+
+  it('search count shows correct number of matches', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+    const input = container.querySelector('.sm-search-bar input') as HTMLInputElement;
+    const countEl = container.querySelector('.sm-search-bar span:nth-child(3)') as HTMLElement;
+
+    input.value = 'canvas';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+    // Matches: Canvas Engine node, Canvas Engine UI node, Plugin Card (dep feature), Theme (ref feature), Terminal Plugin (ref feature)
+    expect(countEl.textContent).toBe('5');
+  });
+
+  it('Enter navigates to next search result', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+    const input = container.querySelector('.sm-search-bar input') as HTMLInputElement;
+
+    input.value = 'terminal';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    // Should have selected first match (Terminal Plugin)
+    let selected = container.querySelector('.sm-node.sm-selected');
+    expect(selected).toBeTruthy();
+    expect(selected!.textContent).toContain('Terminal');
+
+    // Press Enter → navigate; single result wraps so still Terminal
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    selected = container.querySelector('.sm-node.sm-selected');
+    expect(selected).toBeTruthy();
+    expect(selected!.textContent).toContain('Terminal');
+  });
+
+  it('Shift+Enter navigates to previous search result', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+    const input = container.querySelector('.sm-search-bar input') as HTMLInputElement;
+
+    input.value = 'terminal';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    // Shift+Enter on single-result search → wraps, still Terminal
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true }));
+    const selected = container.querySelector('.sm-node.sm-selected');
+    expect(selected).toBeTruthy();
+    expect(selected!.textContent).toContain('Terminal');
+  });
+
+  it('keyword is highlighted in selected node .sm-name', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+    const input = container.querySelector('.sm-search-bar input') as HTMLInputElement;
+
+    input.value = 'theme';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    const selected = container.querySelector('.sm-node.sm-selected .sm-name') as HTMLElement;
+    expect(selected).toBeTruthy();
+    // Should contain a highlight span
+    const mark = selected.querySelector('.sm-search-mark');
+    expect(mark).toBeTruthy();
+    expect(mark!.textContent!.toLowerCase()).toBe('theme');
+  });
+
+  it('blur closes search and restores all node opacities', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+    const input = container.querySelector('.sm-search-bar input') as HTMLInputElement;
+
+    input.value = 'theme';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    // Blur the input
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 200));
+
+    // Search bar should be hidden
+    const searchBar = container.querySelector('.sm-search-bar') as HTMLElement;
+    expect(searchBar.style.opacity).toBe('0');
+    expect(searchBar.style.pointerEvents).toBe('none');
+
+    // All nodes should have cleared opacity
+    const nodes = container.querySelectorAll('.sm-node');
+    for (const node of nodes) {
+      expect((node as HTMLElement).style.opacity).toBe('');
+    }
+  });
+
+  it('Escape closes search', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+    const input = container.querySelector('.sm-search-bar input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    const searchBar = container.querySelector('.sm-search-bar') as HTMLElement;
+    expect(searchBar.style.opacity).toBe('0');
+  });
+
+  it('Ctrl+F toggles search from document', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    // Open via Ctrl+F
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true }));
+    const searchBar = container.querySelector('.sm-search-bar') as HTMLElement;
+    expect(searchBar.style.opacity).toBe('1');
+    expect(searchBar.style.pointerEvents).toBe('auto');
+
+    // Close via Ctrl+F
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true }));
+    expect(searchBar.style.opacity).toBe('0');
+  });
+
+  it('hover does nothing while search is open', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+
+    // Hover should not trigger (searchOpen guard)
+    const node = container.querySelector('.sm-node') as HTMLElement;
+    node.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    // Should not have solid border from hover
+    expect(node.style.borderStyle).not.toBe('solid');
+  });
+
+  it('search with no matches shows 0 count', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
+    btns[0].click();
+    const input = container.querySelector('.sm-search-bar input') as HTMLInputElement;
+    const countEl = container.querySelector('.sm-search-bar span:nth-child(3)') as HTMLElement;
+
+    input.value = 'nonexistent12345';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+    expect(countEl.textContent).toBe('0');
   });
 });

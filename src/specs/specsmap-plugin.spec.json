@@ -26,7 +26,7 @@
     "fs:writeFile"
   ],
   "interface": {
-    "constructor": "constructor(container: HTMLElement, wsPath: string) — Creates full DOM structure (header with refresh/fit/cycle buttons and validation badge, viewport with SVG edge layer and HTML node layer, empty state overlay, slide-out detail panel). Injects CSS styles. Initializes pan/zoom interaction listeners. Immediately calls loadSpecs() to build graph from cached snapshot or spec files.",
+    "constructor": "constructor(container: HTMLElement, wsPath: string) — Creates full DOM structure (header with search/refresh/fit/cycle buttons and validation badge, viewport with SVG edge layer and HTML node layer, search bar overlay, empty state overlay, slide-out detail panel). Injects CSS styles. Initializes pan/zoom interaction listeners and keyboard shortcuts (Ctrl+F). Immediately calls loadSpecs() to build graph from cached snapshot or spec files.",
     "methods": [
       {
         "name": "refresh",
@@ -36,7 +36,7 @@
       {
         "name": "destroy",
         "signature": "() => void",
-        "description": "Removes document-level mousemove/mouseup listeners (pan tracking). Clears nodeEls and specRawMap maps to prevent memory leaks."
+        "description": "Removes document-level mousemove/mouseup/keydown listeners. Clears nodeEls, specRawMap, and nameTextOrigins maps to prevent memory leaks."
       }
     ],
     "properties": [
@@ -55,7 +55,8 @@
     "fit_to_view": "Calculates bounding box of all nodes and animates pan+scale to fit entire graph in viewport (300ms ease-out cubic)",
     "snapshot_cache": "Saves parsed graph as JSON to .cockpit/specsmap.json. On load, validates cached snapshot against SPECGEN_HASH; rebuilds from files if hash mismatches",
     "cycle_detection": "Toggled via cycle button in header. Detects dependency cycles using DFS, highlights cycle members with colored borders, supports cycling through multiple cycle levels",
-    "isolation_mode": "When a cycle is selected, dims all non-cycle nodes to focus on the dependency cycle, with fast-dash animated borders"
+    "isolation_mode": "When a cycle is selected, dims all non-cycle nodes to focus on the dependency cycle, with fast-dash animated borders",
+    "search_nodes": "Ctrl+F or magnifying glass button opens inline search bar at top of content area. Typing queries search across node name, spec file, source file, layer, description, dependencies, referencers, and IPC channels (case-insensitive). Non-matching nodes dimmed to 0.14 opacity. Enter/Shift+Enter navigates results with keyword highlighting in selected node's .sm-name. Blur/Escape/× closes and restores graph."
   },
   "ui": {
     "spec": "specsmap-plugin-ui.spec.json"

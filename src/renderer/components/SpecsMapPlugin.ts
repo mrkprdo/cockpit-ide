@@ -123,6 +123,7 @@ export class SpecsMapPlugin {
   private panY = 0;
   private readonly onDocMouseMove: (e: MouseEvent) => void;
   private readonly onDocMouseUp: () => void;
+  private readonly onSearchKeydown: (e: KeyboardEvent) => void;
   private scale = 1;
   private fitScale = 1;
   private isPanning = false;
@@ -134,6 +135,18 @@ export class SpecsMapPlugin {
   private pendingMouseX = 0;
   private pendingMouseY = 0;
   private rafPanPending = false;
+
+  // Search state
+  private searchOpen = false;
+  private searchQuery = '';
+  private searchResults: string[] = [];
+  private searchIndex = -1;
+  private searchBar!: HTMLDivElement;
+  private searchInput!: HTMLInputElement;
+  private searchCountEl!: HTMLSpanElement;
+  private searchBtn!: HTMLButtonElement;
+  private nameTextOrigins = new Map<string, string>();
+  private searchPrevNodeId: string | null = null;
 
   onFileOpen: ((filePath: string) => void) | null = null;
 
@@ -228,6 +241,13 @@ export class SpecsMapPlugin {
       `<path d="M222.7 48.6a16 16 0 0 0-13.6 13.2l-3.4 22.5a17.4 17.4 0 0 1-13.5 14.8A187.2 187.2 0 0 0 145.2 119a17.4 17.4 0 0 1-14.8 6.3l-22.7-2.6a16 16 0 0 0-15.7 10.5 207.9 207.9 0 0 0-14.7 39.9 16 16 0 0 0 5.3 17.5l16.9 14.6a17.4 17.4 0 0 1 5.2 16.2 186.1 186.1 0 0 0 0 36.8 17.4 17.4 0 0 1-5.2 16.2L92.7 294.6a16 16 0 0 0-5.3 17.5 207.9 207.9 0 0 0 14.7 39.9 16 16 0 0 0 15.7 10.5l22.7-2.6a17.4 17.4 0 0 1 14.8 6.3 187.2 187.2 0 0 0 47 31.9 17.4 17.4 0 0 1 13.5 14.8l3.4 22.5a16 16 0 0 0 13.6 13.2 207.9 207.9 0 0 0 66.6 0 16 16 0 0 0 13.6-13.2l3.4-22.5a17.4 17.4 0 0 1 13.5-14.8 187.2 187.2 0 0 0 47-31.9 17.4 17.4 0 0 1 14.8-6.3l22.7 2.6a16 16 0 0 0 15.7-10.5 207.9 207.9 0 0 0 14.7-39.9 16 16 0 0 0-5.3-17.5l-16.9-14.6a17.4 17.4 0 0 1-5.2-16.2 186.1 186.1 0 0 0 0-36.8 17.4 17.4 0 0 1 5.2-16.2l16.9-14.6a16 16 0 0 0 5.3-17.5 207.9 207.9 0 0 0-14.7-39.9 16 16 0 0 0-15.7-10.5l-22.7 2.6a17.4 17.4 0 0 1-14.8-6.3 187.2 187.2 0 0 0-47-31.9 17.4 17.4 0 0 1-13.5-14.8l-3.4-22.5a16 16 0 0 0-13.6-13.2 207.9 207.9 0 0 0-66.6 0z"/>` +
       `</svg>`;
 
+    const SVG_SEARCH =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" ` +
+      `fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">` +
+      `<path d="M221.09 64a157.09 157.09 0 1 0 0 314.17 157.09 157.09 0 0 0 0-314.17z" stroke-miterlimit="10"/>` +
+      `<path d="M338.29 338.29L448 448" stroke-miterlimit="10"/>` +
+      `</svg>`;
+
     this.cycleBtn = document.createElement('button');
     this.cycleBtn.className = 'sm-header-btn';
     this.cycleBtn.innerHTML = SVG_GEAR;
@@ -250,6 +270,14 @@ export class SpecsMapPlugin {
     header.appendChild(headerSub);
     header.appendChild(headerPath);
     header.appendChild(this.validationBadge);
+
+    this.searchBtn = document.createElement('button');
+    this.searchBtn.className = 'sm-header-btn';
+    this.searchBtn.innerHTML = SVG_SEARCH;
+    this.searchBtn.title = 'Search nodes (Ctrl+F)';
+    this.searchBtn.addEventListener('click', () => this.toggleSearch());
+    header.appendChild(this.searchBtn);
+
     header.appendChild(this.cycleBtn);
     header.appendChild(this.refreshBtn);
     header.appendChild(this.fitBtn);
@@ -307,6 +335,68 @@ export class SpecsMapPlugin {
     this.panel.appendChild(this.panelInner);
     content.appendChild(this.panel);
 
+    // Search bar (slides down from top of content area)
+    this.searchBar = document.createElement('div');
+    this.searchBar.className = 'sm-search-bar';
+    this.searchBar.style.cssText =
+      'position:absolute;top:0;left:0;right:0;height:34px;z-index:25;' +
+      'background:var(--panel);border-bottom:1px dashed var(--border);' +
+      'display:flex;align-items:center;gap:6px;padding:0 10px;' +
+      'transform:translateY(-100%);opacity:0;pointer-events:none;' +
+      'transition:transform 0.15s cubic-bezier(0.4,0,0.2,1), opacity 0.15s ease';
+
+    const searchIcon = document.createElement('span');
+    searchIcon.innerHTML = SVG_SEARCH;
+    searchIcon.style.cssText = 'flex-shrink:0;opacity:0.5;line-height:0;display:flex';
+    this.searchBar.appendChild(searchIcon);
+
+    this.searchInput = document.createElement('input');
+    this.searchInput.type = 'text';
+    this.searchInput.placeholder = 'Type to search nodes…';
+    this.searchInput.style.cssText =
+      'flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:5px;' +
+      'padding:3px 8px;font-family:"Space Mono","Courier New",monospace;font-size:12px;' +
+      'color:var(--primary);outline:none';
+    this.searchInput.setAttribute('autocomplete', 'off');
+    this.searchInput.setAttribute('spellcheck', 'false');
+    this.searchBar.appendChild(this.searchInput);
+
+    this.searchInput.addEventListener('input', () => this.performSearch(this.searchInput.value));
+    this.searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) this.goToPrev();
+        else this.goToNext();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.closeSearch();
+      }
+    });
+    this.searchInput.addEventListener('blur', (e) => {
+      const related = e.relatedTarget as HTMLElement | null;
+      if (related && this.searchBar.contains(related)) return;
+      setTimeout(() => {
+        if (this.searchOpen) this.closeSearch();
+      }, 150);
+    });
+
+    this.searchCountEl = document.createElement('span');
+    this.searchCountEl.style.cssText = 'font-size:10px;color:var(--tertiary);flex-shrink:0;min-width:28px;text-align:right';
+    this.searchCountEl.textContent = '0';
+    this.searchBar.appendChild(this.searchCountEl);
+
+    const searchClose = document.createElement('button');
+    searchClose.textContent = '×';
+    searchClose.style.cssText =
+      'background:none;border:none;cursor:pointer;color:var(--tertiary);font-size:16px;' +
+      'line-height:1;padding:0 2px;font-family:inherit;flex-shrink:0';
+    searchClose.setAttribute('aria-label', 'Close search');
+    searchClose.addEventListener('click', () => this.closeSearch());
+    this.searchBar.appendChild(searchClose);
+
+    content.appendChild(this.searchBar);
+
     container.appendChild(this.el);
 
     this.injectStyles();
@@ -332,6 +422,8 @@ export class SpecsMapPlugin {
       }
       .sm-node.sm-selected {
         border-style: solid;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent), 0 0 18px color-mix(in oklab, var(--accent) 18%, transparent);
       }
       .sm-node-inner {
         padding: 8px 10px;
@@ -433,6 +525,15 @@ export class SpecsMapPlugin {
       .sm-node-ui .sm-port {
         display: none;
       }
+      .sm-search-bar { box-sizing: border-box; }
+      .sm-search-bar input::placeholder { color: var(--tertiary); opacity: 0.5; }
+      .sm-search-bar input:focus { border-color: var(--accent); }
+      .sm-search-mark {
+        background: var(--accent);
+        color: var(--bg);
+        border-radius: 2px;
+        padding: 0 2px;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -467,6 +568,20 @@ export class SpecsMapPlugin {
 
     document.addEventListener('mousemove', this.onDocMouseMove);
     document.addEventListener('mouseup', this.onDocMouseUp);
+
+    // Ctrl+F / Cmd+F → toggle search
+    document.addEventListener('keydown', this.onSearchKeydown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        if (this.el.isConnected) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.toggleSearch();
+        }
+      }
+      if (e.key === 'Escape' && this.searchOpen) {
+        this.closeSearch();
+      }
+    });
 
     // Click on canvas background → close panel; cycle edges → select cycle
     this.viewport.addEventListener('click', (e) => {
@@ -856,6 +971,7 @@ export class SpecsMapPlugin {
     this.nodeLayer.innerHTML = '';
     this.svg.innerHTML = '';
     this.nodeEls.clear();
+    this.nameTextOrigins.clear();
     this.updateHeaderCounts();
 
     const nodeMap = new Map<string, SpecNode>(this.nodes.map(n => [n.id, n]));
@@ -1091,7 +1207,7 @@ export class SpecsMapPlugin {
   }
 
   private hoverNode(id: string, enter: boolean): void {
-    if (this.cycleMode) return;
+    if (this.cycleMode || this.searchOpen) return;
     const connected = new Set<string>([id]);
     for (const node of this.nodes) {
       if (node.id === id) {
@@ -1168,7 +1284,7 @@ export class SpecsMapPlugin {
     }
   }
 
-  private selectNode(id: string): void {
+  private selectNode(id: string, fromSearch = false): void {
     // Close settings panel if open
     if (this.panelShowingSettings) {
       this.closePanel();
@@ -1179,7 +1295,9 @@ export class SpecsMapPlugin {
       if (prev) prev.classList.remove('sm-selected');
     }
 
-    if (this.selectedId === id && this.panelOpen) {
+    // Toggle behavior: clicking same node closes panel
+    // From search navigation: re-select without toggle
+    if (this.selectedId === id && this.panelOpen && !fromSearch) {
       this.closePanel(true);
       return;
     }
@@ -1193,6 +1311,12 @@ export class SpecsMapPlugin {
 
     this.zoomToNode(node);
     this.openPanel(node);
+
+    // If search is open, highlight keyword in selected node name
+    if (this.searchOpen && this.searchQuery) {
+      this.restoreNodeNames();
+      this.highlightInNode(id, this.searchQuery);
+    }
   }
 
   private zoomToNode(node: SpecNode): void {
@@ -2420,10 +2544,190 @@ export class SpecsMapPlugin {
     if (this.isolatedMode) this.applyIsolatedHighlights();
   }
 
+  private toggleSearch(): void {
+    if (this.searchOpen) this.closeSearch();
+    else this.openSearch();
+  }
+
+  private openSearch(): void {
+    if (this.searchOpen) return;
+    this.searchOpen = true;
+    this.searchResults = [];
+    this.searchIndex = -1;
+    this.searchQuery = '';
+    this.searchPrevNodeId = null;
+    this.searchInput.value = '';
+    this.searchCountEl.textContent = '0';
+
+    this.searchBar.style.transform = 'translateY(0)';
+    this.searchBar.style.opacity = '1';
+    this.searchBar.style.pointerEvents = 'auto';
+
+    this.searchBtn.style.color = 'var(--accent)';
+    this.searchInput.focus();
+  }
+
+  private closeSearch(): void {
+    if (!this.searchOpen) return;
+    this.searchOpen = false;
+
+    this.searchBar.style.transform = 'translateY(-100%)';
+    this.searchBar.style.opacity = '0';
+    this.searchBar.style.pointerEvents = 'none';
+
+    this.searchBtn.style.color = '';
+    this.searchQuery = '';
+    this.searchResults = [];
+    this.searchIndex = -1;
+    this.searchPrevNodeId = null;
+
+    // Restore all node opacities
+    for (const [, el] of this.nodeEls) {
+      el.style.opacity = '';
+    }
+
+    // Restore all .sm-name textContent
+    this.restoreNodeNames();
+    this.nameTextOrigins.clear();
+
+    // If selected node was from search, keep it selected
+  }
+
+  private performSearch(query: string): void {
+    const q = query.trim();
+    this.searchQuery = q;
+
+    if (!q) {
+      // Restore all nodes
+      for (const [, el] of this.nodeEls) {
+        el.style.opacity = '';
+      }
+      this.restoreNodeNames();
+      this.searchResults = [];
+      this.searchIndex = -1;
+      this.searchPrevNodeId = null;
+      this.searchCountEl.textContent = '0';
+      if (this.selectedId && !this.panelShowingSettings) {
+        // Keep current selection
+      }
+      return;
+    }
+
+    const qLower = q.toLowerCase();
+    const matches: string[] = [];
+
+    for (const node of this.nodes) {
+      const raw = this.specRawMap.get(node.id);
+      let found =
+        node.name.toLowerCase().includes(qLower) ||
+        node.specFile.toLowerCase().includes(qLower) ||
+        node.sourceFile.toLowerCase().includes(qLower) ||
+        node.layer.toLowerCase().includes(qLower);
+
+      if (!found && raw) {
+        if (raw.description && typeof raw.description === 'string' && raw.description.toLowerCase().includes(qLower)) found = true;
+        if (Array.isArray(raw.dependencies)) {
+          for (const d of raw.dependencies) {
+            if ((d.feature && String(d.feature).toLowerCase().includes(qLower)) ||
+                (d.file && String(d.file).toLowerCase().includes(qLower)) ||
+                (d.usage && String(d.usage).toLowerCase().includes(qLower))) {
+              found = true; break;
+            }
+          }
+        }
+        if (Array.isArray(raw.referenced_by)) {
+          for (const r of raw.referenced_by) {
+            if ((r.feature && String(r.feature).toLowerCase().includes(qLower)) ||
+                (r.file && String(r.file).toLowerCase().includes(qLower))) {
+              found = true; break;
+            }
+          }
+        }
+        if (Array.isArray(raw.ipc)) {
+          for (const ch of raw.ipc) {
+            if (String(ch).toLowerCase().includes(qLower)) { found = true; break; }
+          }
+        }
+      }
+
+      if (found) matches.push(node.id);
+    }
+
+    this.searchResults = matches;
+    this.searchCountEl.textContent = String(matches.length);
+
+    // Dim non-matching nodes, keep matching at full opacity
+    for (const [nid, el] of this.nodeEls) {
+      if (matches.includes(nid)) {
+        el.style.opacity = '1';
+      } else {
+        el.style.opacity = '0.14';
+      }
+    }
+
+    this.restoreNodeNames();
+
+    if (matches.length > 0) {
+      this.searchIndex = 0;
+      this.selectNode(matches[0], true);
+    } else {
+      this.searchIndex = -1;
+      this.searchPrevNodeId = null;
+    }
+  }
+
+  private goToNext(): void {
+    if (this.searchResults.length === 0) return;
+    this.searchPrevNodeId = this.selectedId;
+    this.searchIndex = (this.searchIndex + 1) % this.searchResults.length;
+    this.selectNode(this.searchResults[this.searchIndex], true);
+    this.searchInput.focus();
+  }
+
+  private goToPrev(): void {
+    if (this.searchResults.length === 0) return;
+    this.searchPrevNodeId = this.selectedId;
+    this.searchIndex = (this.searchIndex - 1 + this.searchResults.length) % this.searchResults.length;
+    this.selectNode(this.searchResults[this.searchIndex], true);
+    this.searchInput.focus();
+  }
+
+  private highlightInNode(nodeId: string, query: string): void {
+    const el = this.nodeEls.get(nodeId);
+    if (!el) return;
+    const nameEl = el.querySelector('.sm-name') as HTMLElement | null;
+    if (!nameEl) return;
+
+    // Store original if not stored
+    if (!this.nameTextOrigins.has(nodeId)) {
+      this.nameTextOrigins.set(nodeId, nameEl.textContent || '');
+    }
+
+    const text = this.nameTextOrigins.get(nodeId)!;
+    if (!query || !text) return;
+
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const html = text.replace(regex, '<span class="sm-search-mark">$1</span>');
+    nameEl.innerHTML = html;
+  }
+
+  private restoreNodeNames(): void {
+    for (const [nodeId, original] of this.nameTextOrigins) {
+      const el = this.nodeEls.get(nodeId);
+      if (!el) continue;
+      const nameEl = el.querySelector('.sm-name') as HTMLElement | null;
+      if (nameEl) nameEl.textContent = original;
+    }
+    this.nameTextOrigins.clear();
+  }
+
   destroy(): void {
     document.removeEventListener('mousemove', this.onDocMouseMove);
     document.removeEventListener('mouseup', this.onDocMouseUp);
+    document.removeEventListener('keydown', this.onSearchKeydown);
     this.nodeEls.clear();
     this.specRawMap.clear();
+    this.nameTextOrigins.clear();
   }
 }

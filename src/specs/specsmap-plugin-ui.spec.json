@@ -8,6 +8,7 @@
       "header": "div (this.el first child) — padding:3px 10px 3px 12px, font-size:11px, font-weight:700, letter-spacing:1.5px, color:var(--accent), border-bottom:1px solid var(--border), user-select:none, display:flex, align-items:center, gap:10px",
       "header_sub": ".sm-header-sub — font-size:10px, color:var(--tertiary), font-weight:400, letter-spacing:0.3px, text-transform:none, flex-shrink:0. Displays spec file count and parse status",
       "validation_badge": "span — font-size:11px, font-weight:700, color:var(--green) on success or var(--red) on failure. Shows parsed/total count (e.g. '28/28')",
+      "search_btn": "button.sm-header-btn — toggles search bar. Shows magnifying glass SVG icon. title='Search nodes (Ctrl+F)'",
       "cycle_btn": "button.sm-header-btn — toggles cycle detection mode. Shows cycle indicator when cycles detected",
       "refresh_btn": "button.sm-header-btn — triggers refresh(). Disabled during loading, SVG spinner class during reload",
       "fit_btn": "button.sm-header-btn — triggers fitGraph(). Eye icon SVG",
@@ -15,7 +16,11 @@
       "svg_graph": "svg.sm-graph — position:absolute, inset:0, pointer-events:none, z-index:1, overflow:visible. Contains edge path elements and arrow marker defs",
       "node_layer": "div — position:absolute, inset:0, z-index:2. Contains absolutely positioned .sm-node elements. Will-change:transform during pan, CSS transform for pan/zoom",
       "empty_state": "div — position:absolute, inset:0, display:none, flex column, center aligned, z-index:10. Shows 'No spec files found' with 'Generate Specs' button when empty",
-      "panel": ".sm-panel-el — position:absolute, right:0, top:0, bottom:0, width:320px, background:var(--surface), border-left:1px dashed var(--border), z-index:20. Transform:translateX(100%) when closed, translateX(0) when open. flex column with overflow:hidden"
+      "panel": ".sm-panel-el — position:absolute, right:0, top:0, bottom:0, width:320px, background:var(--surface), border-left:1px dashed var(--border), z-index:20. Transform:translateX(100%) when closed, translateX(0) when open. flex column with overflow:hidden",
+      "search_bar": ".sm-search-bar — position:absolute, top:0, left:0, right:0, height:34px, z-index:25, background:var(--panel), border-bottom:1px dashed var(--border). Flex row with align-items:center, gap:6px, padding:0 10px. transform:translateY(-100%) opacity:0 pointer-events:none when closed. Slides down to translateY(0) opacity:1 pointer-events:auto when open. Contains search icon, input, count span, close button",
+      "search_input": "input element — flex:1, font-family:Space Mono, background:var(--bg), border:1px solid var(--border), border-radius:5px, padding:3px 8px, font-size:12px, color:var(--primary). placeholder 'Type to search nodes…'",
+      "search_count": "span — font-size:10px, color:var(--tertiary), flex-shrink:0, min-width:28px, text-align:right. Shows match count",
+      "search_close": "button — '×', background:none, border:none, color:var(--tertiary), font-size:16px. Click calls closeSearch()"
     }
   },
   "node_structure": {
@@ -93,6 +98,36 @@
       "trigger": "click on 'Open File' link in detail panel",
       "action": "Read data-open-file attribute from clicked element → fire this.onFileOpen?.(filePath) callback",
       "result": "CanvasArea opens the source file in the active Explorer plugin's Monaco editor"
+    },
+    {
+      "name": "open_search",
+      "trigger": "click on magnifying glass button in header, or Ctrl+F/Cmd+F on keyboard",
+      "action": "Slide search bar down from top of content area (transform:translateY(0), opacity:1). Focus search input. Set searchBtn color to accent",
+      "result": "Search bar visible at top of viewport, input focused"
+    },
+    {
+      "name": "close_search",
+      "trigger": "click × button, blur on input, Escape key, or Ctrl+F/Cmd+F when search is open",
+      "action": "Slide search bar up (transform:translateY(-100%), opacity:0). Restore all node opacities to 1. Restore all .sm-name innerHTML to original text. Clear searchResults, searchQuery, searchIndex",
+      "result": "Search bar hidden, nodes return to normal appearance"
+    },
+    {
+      "name": "search_type",
+      "trigger": "input event on search input",
+      "action": "Call performSearch(query). If query non-empty: iterate this.nodes and this.specRawMap, match against name/specFile/sourceFile/layer/description/dependencies/referenced_by/ipc (all case-insensitive). Dim non-matching nodes to opacity 0.14. Select first match and highlight keyword in .sm-name. Update searchCountEl. If query empty: restore all nodes",
+      "result": "Matching nodes highlighted, non-matching dimmed; count displayed; first result selected with keyword highlight"
+    },
+    {
+      "name": "search_next",
+      "trigger": "Enter key on search input",
+      "action": "goToNext(): increment searchIndex (wrap), call selectNode(resultId, true). Zoom to node, open detail panel, highlight keyword in selected .sm-name via sm-search-mark span (background:var(--accent), color:var(--bg))",
+      "result": "Next matching node selected, zoomed to, with keyword highlighted in its name"
+    },
+    {
+      "name": "search_prev",
+      "trigger": "Shift+Enter on search input",
+      "action": "goToPrev(): decrement searchIndex (wrap), call selectNode(resultId, true). Zoom to node, open detail panel, highlight keyword in selected .sm-name",
+      "result": "Previous matching node selected, zoomed to, with keyword highlighted in its name"
     }
   ],
   "states": {
@@ -100,7 +135,9 @@
     "loading": "Refresh button disabled. Refresh button SVG icon has .sm-spinning class (CSS rotation animation). Header sub shows 'loading...'. Graph area blank while loading.",
     "loaded": "Graph rendered with full node set. Validation badge shows green 'N/N' (all parsed) or amber 'M/N' (some failed). Nodes positioned by computeLayout() with rows of up to 10 per layer, centered horizontally. SVG edges drawn as cubic bezier curves between port dots. Layer headers visible as dimmed absolute labels.",
     "panel_open": "Detail panel visible (translateX(0) from right). Selected node has .sm-selected class with solid border. Panel header shows spec name and close button. Panel body shows sections: source file, layer badge, dependencies list (name + file + usage), referencers list, IPC channels list. 'Open File' link at bottom with data-open-file attribute.",
-    "settings_open": "cycleMode is true. Cycle button shows cycle level indicator (e.g. 'C1' for first cycle). Nodes in current cycle have colored highlight borders. If multiple cycles exist, clicking cycle button advances through levels."
+    "settings_open": "cycleMode is true. Cycle button shows cycle level indicator (e.g. 'C1' for first cycle). Nodes in current cycle have colored highlight borders. If multiple cycles exist, clicking cycle button advances through levels.",
+    "search_open": "Search bar visible at top of viewport (translateY(0)). Input focused with blinking cursor. Non-matching nodes dimmed to opacity 0.14. Matching nodes at full opacity. Selected node has .sm-selected class and keyword highlighted in .sm-name with .sm-search-mark span (accent bg). Search count shows N matches. Close × visible",
+    "search_empty": "Search bar visible, input empty. All nodes at full opacity (no dimming). Count shows '0'. Typing triggers search; backspace to empty restores all nodes."
   },
   "rendering": {
     "node_layout": "computeLayout() groups nodes by layer (foundation bottom → plugin top). Within each layer, nodes arranged in rows of up to MAX_PER_ROW (10), left-to-right, centered horizontally. Row height equals node height + NODE_GAP. NODE_W=280, NODE_H=100 for main nodes. NODE_UI_W=230, NODE_UI_H=62 for UI sub-spec nodes with UI_OFFSET_Y=64 vertical offset from parent",
