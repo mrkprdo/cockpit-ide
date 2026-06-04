@@ -30,9 +30,13 @@ const STEPS: TutorialStep[] = [
     target: '.menu-bar',
   },
   {
-    title: 'Dev Tool',
-    description: 'Monaco editor + file explorer in one split card. View > Explorer. 30+ languages, multi-tab. Singleton instance.',
+    title: 'Explorer',
+    description: 'Split-pane: file tree + Monaco editor. View > Explorer. 30+ languages, multi-tab. Singleton instance.',
     target: '.menu-bar',
+  },
+  {
+    title: 'File Search',
+    description: 'Ctrl+P to fuzzy-find files. Type to filter, arrows to navigate, Enter to open.',
   },
   {
     title: 'Markdown Viewer',
@@ -40,8 +44,13 @@ const STEPS: TutorialStep[] = [
     target: '.menu-bar',
   },
   {
-    title: 'Theme Toggle',
-    description: 'Dark/light switch.',
+    title: 'SpecsMap',
+    description: 'Visual dependency graph. Tools > SpecsMap. See how features connect.',
+    target: '.menu-bar',
+  },
+  {
+    title: 'Theme',
+    description: 'Dark/light toggle. Tools > Theme or the ◐ button.',
     target: '#theme-toggle',
   },
   {
@@ -131,7 +140,7 @@ export class Tutorial {
   private ring: HTMLDivElement;
   private stepIdx = 0;
   private onCloseCb: (() => void) | null = null;
-  private startOnLaunch = true;
+  private showOnLaunch = true;
   private prevOnLeave: (() => void) | null = null;
 
   constructor() {
@@ -169,7 +178,7 @@ export class Tutorial {
   }
 
   getShowOnLaunch(): boolean {
-    return this.startOnLaunch;
+    return this.showOnLaunch;
   }
 
   private showStep(): void {
@@ -230,7 +239,7 @@ export class Tutorial {
       doneBtn.className = 'tutorial-btn tutorial-btn-done';
       doneBtn.textContent = 'Done';
       doneBtn.addEventListener('click', () => {
-        this.startOnLaunch = (extra.querySelector('input[type="checkbox"]') as HTMLInputElement | null)?.checked !== true;
+        this.showOnLaunch = (extra.querySelector('input[type="checkbox"]') as HTMLInputElement | null)?.checked !== true;
         this.close();
       });
       btnRow.appendChild(doneBtn);

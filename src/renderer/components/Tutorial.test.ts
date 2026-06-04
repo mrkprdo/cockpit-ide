@@ -264,24 +264,36 @@ describe('Tutorial', () => {
     expect(document.querySelector('.tutorial-overlay')).toBeFalsy();
   });
 
-  it('13 total steps', () => {
+  it('15 total steps', () => {
     const t = new Tutorial();
     t.start();
     const dots = document.querySelectorAll('.tutorial-dot');
-    expect(dots.length).toBe(13);
+    expect(dots.length).toBe(15);
     t.destroy();
   });
 
-  it('"Dev Tool" step says "View > Explorer" not "View > Dev"', () => {
+  it('"Explorer" step says "View > Explorer" not "View > Dev"', () => {
     const t = new Tutorial();
     t.start();
     const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
     for (let i = 0; i < 4; i++) {
       tooltip.querySelector('.tutorial-btn-next')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     }
-    expect(tooltip.textContent).toContain('Dev Tool');
+    expect(tooltip.textContent).toContain('Explorer');
     expect(tooltip.textContent).toContain('View > Explorer');
     expect(tooltip.textContent).not.toContain('View > Dev');
+    t.destroy();
+  });
+
+  it('"SpecsMap" step renders with Tools > SpecsMap description', () => {
+    const t = new Tutorial();
+    t.start();
+    const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
+    for (let i = 0; i < 7; i++) {
+      tooltip.querySelector('.tutorial-btn-next')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+    expect(tooltip.textContent).toContain('SpecsMap');
+    expect(tooltip.textContent).toContain('Tools > SpecsMap');
     t.destroy();
   });
 
@@ -289,7 +301,7 @@ describe('Tutorial', () => {
     const t = new Tutorial();
     t.start();
     const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
-    for (let i = 0; i < 11; i++) {
+    for (let i = 0; i < 13; i++) {
       const btn = tooltip.querySelector('.tutorial-btn-next');
       if (!btn) break;
       btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));

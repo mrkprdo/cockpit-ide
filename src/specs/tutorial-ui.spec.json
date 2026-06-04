@@ -7,7 +7,7 @@
     "container": "document.body",
     "elements": {
       "overlay": ".tutorial-overlay — fixed inset:0, z-index above canvas, dark semi-transparent background",
-      "tooltip": ".tutorial-tooltip — positioned step card containing step header, body, optional extra content, and navigation",
+      "tooltip": ".tutorial-tooltip — positioned step card (min-width:360px, max-width:520px) containing step header, body, optional extra content, and navigation",
       "ring": ".tutorial-ring — absolutely positioned border-highlight div drawn over highlighted target element, display:none/display:block toggled",
       "step_header": ".tutorial-step-header — step title text element",
       "step_body": ".tutorial-step-body — step description text element (newlines preserved via pre-wrap or equivalent)",
@@ -50,7 +50,7 @@
     {
       "name": "highlight_target",
       "trigger": "showStep() when step.target selector is defined",
-      "action": "querySelector(step.target) → getBoundingClientRect() → set .tutorial-ring left/top/width/height to target rect values → display:block. If step.overflowHidden: set target element style.overflow='hidden'. Then positionTooltip(step.target): calculate available space in 4 quadrants — prefer below target (rect.bottom+12, clamped left), else above, else right of, else left of, else center-screen fallback. Tooltip width clamped to min(360, vw-40).",
+      "action": "querySelector(step.target) → getBoundingClientRect() → set .tutorial-ring left/top/width/height to target rect values → display:block. If step.overflowHidden: set target element style.overflow='hidden'. Then positionTooltip(step.target): calculate available space in 4 quadrants — prefer below target (rect.bottom+12, clamped left), else above, else right of, else left of, else center-screen fallback. Tooltip width clamped to Math.min(360, vw-40); CSS min-width:360px / max-width:520px.",
       "result": "Ring highlight border drawn over target element; tooltip positioned near target within viewport bounds"
     },
     {

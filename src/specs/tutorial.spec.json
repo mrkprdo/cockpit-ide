@@ -1,7 +1,7 @@
 {
   "name": "Tutorial",
   "file": "src/renderer/components/Tutorial.ts",
-  "description": "Interactive guided tutorial overlay with step-based walkthrough. Each step has title, description, optional target element selector for highlighting, optional overflowHidden toggle, optional renderExtra callback for custom content, and onEnter/onLeave lifecycle hooks. Dark overlay with tooltip-style step cards positioned near highlighted targets. Steps can be navigated via Next/Previous buttons or skipped entirely. 'Show on launch' checkbox persisted to user prefs. Final step shows completion summary with option to re-run or close. Steps cover: welcome intro, canvas panning/zoom, menu bar, terminal tool, dev tool, markdown viewer, theme toggle, plugin cards, plugin list panel, arrange panel, keyboard shortcuts, stay connected (external links), thank you (completion). Tooltip positioning prefers below target → above → right → left → center fallback, clamped within viewport at max-width 360px.",
+  "description": "Interactive guided tutorial overlay with step-based walkthrough. Each step has title, description, optional target element selector for highlighting, optional overflowHidden toggle, optional renderExtra callback for custom content, and onEnter/onLeave lifecycle hooks. Dark overlay with tooltip-style step cards positioned near highlighted targets. Steps navigated via Next/Previous buttons or keyboard (ArrowRight/Enter/ArrowLeft). 'Show on launch' checkbox persisted to user prefs. Final step shows completion card. Steps cover: welcome intro, canvas panning/zoom, menu bar, terminal tool, explorer, file search, markdown viewer, specsmap, theme, plugin cards, plugin list panel, arrange panel, keyboard shortcuts, stay connected (external links), thank you (completion). Tooltip positioning prefers below target → above → right → left → center fallback, clamped within viewport at max-width 360px.",
   "type": "ui",
   "layer": "overlay",
   "singleton": true,
@@ -30,7 +30,18 @@
         "description": "Removes the document keydown listener, then removes overlay, tooltip, and ring elements from DOM if they have a parent."
       }
     ],
-    "properties": []
+    "properties": [
+      {
+        "name": "showOnLaunch",
+        "type": "boolean",
+        "description": "Internal flag controlling whether tutorial auto-starts on next workspace load. Updated on final step when 'Do not show again' checkbox state is read before closing. Default true. Read via getShowOnLaunch()."
+      },
+      {
+        "name": "prevOnLeave",
+        "type": "(() => void) | null",
+        "description": "Stores the current step's onLeave callback before advancing to next step. Called when navigating away or closing. Reset to null after firing."
+      }
+    ]
   },
   "ui": {
     "spec": "tutorial-ui.spec.json"
