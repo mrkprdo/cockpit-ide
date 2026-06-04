@@ -1,7 +1,7 @@
 {
   "name": "Cockpit IDE",
   "version": "0.0.20260603",
-  "description": "Spatial/floating-panel IDE built in Electron. Monaco editor, xterm.js terminal, file explorer, and markdown viewer live as draggable/resizable cards on an infinite zoomable/pannable canvas. Sessions persist to .cockpit/window.json.",
+  "description": "Spatial/floating-panel IDE built in Electron. Monaco editor, xterm.js terminal, file explorer, and markdown viewer live as draggable/resizable cards on a zoomable/pannable canvas. Sessions persist to .cockpit/window.json.",
   "stack": {
     "runtime": "Electron 42 (Node 22, Chromium 138)",
     "language": "TypeScript 5.8",
@@ -22,7 +22,7 @@
     "testing": "vitest 4 + jsdom (22 test files, 755+ tests)"
   },
   "architecture": {
-    "process_model": "Electron multi-process: main process (IPC handlers, PTY, file watcher), preload script (contextBridge), renderer process (infinite canvas with plugin cards). Multi-window support with per-window workspace tracking.",
+    "process_model": "Electron multi-process: main process (IPC handlers, PTY, file watcher), preload script (contextBridge), renderer process (bounded canvas with plugin cards). Multi-window support with per-window workspace tracking.",
     "ipc_or_api_pattern": "Electron IPC: ipcMain.handle (request/response), ipcRenderer.invoke (promise), ipcRenderer.send/sendSync (fire-and-forget/sync), webContents.send (main→renderer events). Plus WebSocket JSON-RPC IDE server on 127.0.0.1:0.",
     "state_persistence": "Workspace state serialized as JSON to .cockpit/window.json per workspace. User preferences in preferences.json in Electron userData. Recent workspaces in recent-workspaces.json. Terminal sessions ephemeral (PTY). Editor state persisted within workspace state.",
     "concurrency_model": "Single renderer thread with requestAnimationFrame-batched canvas transforms. Async IPC for all I/O. Debounced auto-save (1.5s editor, file changes 100–500ms)."

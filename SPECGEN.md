@@ -20,7 +20,7 @@ This format works for any project — CLI tool, web app, library, desktop app, m
 | `IPC channel` | Electron IPC / postMessage | N/A | N/A | HTTP endpoint / RPC / message queue |
 | `UI sub-spec` | DOM components | TUI / CLI output | N/A | N/A |
 | `plugin` | Card-contained UI plugin | Subcommand plugin | Extension module | Plugin middleware |
-| `canvas` model | 2D infinite canvas | N/A | N/A | N/A |
+| `canvas` model | 2D bounded canvas | N/A | N/A | N/A |
 
 ---
 

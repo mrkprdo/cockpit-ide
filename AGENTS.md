@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cockpit IDE v0.0.1 — spatial/floating-panel IDE built in Electron. Monaco editor, xterm.js terminal, file explorer, and markdown viewer live as draggable/resizable cards on an infinite zoomable/pannable canvas. Sessions persist to `.cockpit/window.json`.
+Cockpit IDE v0.0.1 — spatial/floating-panel IDE built in Electron. Monaco editor, xterm.js terminal, file explorer, and markdown viewer live as draggable/resizable cards on a zoomable/pannable canvas. Sessions persist to `.cockpit/window.json`.
 
 **Stack:** Electron 42 · TypeScript 5.8 · esbuild 0.28 (renderer) · tsc (main/preload) · Monaco Editor 0.53 (AMD-loaded) · @xterm/xterm 6 + node-pty 1 · @chenglou/pretext (canvas text) · marked 18 · vitest 4
 
@@ -189,7 +189,7 @@ D:\cockpit_ide\
 
 | File | Description |
 |------|-------------|
-| `src/renderer/index.html` | HTML shell (~30 lines). CSP meta tag, Space Mono font from Google Fonts, styles.css + xterm.css. DOM: `#titlebar` (frameless drag region, logo, menu bar, window controls), `#canvas` (infinite canvas), `#statusbar`. Loads `index.js`. |
+| `src/renderer/index.html` | HTML shell (~30 lines). CSP meta tag, Space Mono font from Google Fonts, styles.css + xterm.css. DOM: `#titlebar` (frameless drag region, logo, menu bar, window controls), `#canvas` (bounded canvas), `#statusbar`. Loads `index.js`. |
 | `src/renderer/index.ts` | Renderer entry (~9 lines). Instantiates `App` class. Has a legacy theme-toggle click listener (deprecated — TopBar handles toggling). |
 | `src/renderer/styles.css` | Complete design system (~766 lines). CSS custom properties (--bg/surface/panel/primary/secondary/tertiary/border, --accent/green/amber/red, --font, --radius, --shadow). Styles for: title bar, menu bar with dropdowns, canvas, plugin list panel (lower-left), arrange panel (lower-right), context menu, status bar, cards (with edge resize handles), modals (generic, welcome, about, confirm), markdown content rendering. |
 | `src/renderer/theme.ts` | Theme singleton (~61 lines). Defines `darkTheme` (Noir: `#161C24` bg, `#C8D6E5` text) and `lightTheme` (inverse: `#f8f8f8` bg, `#1a1a1a` text) palettes. Class manages state with `setDark()`, `toggle()`, `apply()` that sets 7 CSS custom properties on `document.documentElement`. Auto-applies on import. |
@@ -201,7 +201,7 @@ D:\cockpit_ide\
 |------|-------------|
 | `src/renderer/components/App.ts` | Root orchestrator (~177 lines). Creates CanvasArea and TopBar. Sets up keyboard shortcuts (Ctrl+Shift+N new window, Ctrl+W prevention, Ctrl+Tab card cycling). Manages workspace lifecycle: checks CLI path, shows WelcomeModal if none, auto-saves on state change (debounced JSON diff), restores user prefs. |
 | `src/renderer/components/App.test.ts` | Tests: title, CanvasArea/TopBar creation, window control bindings, keyboard shortcuts, CLI workspace path loading flow. |
-| `src/renderer/components/CanvasArea.ts` | Core infinite canvas engine (~1073 lines). World-to-screen coordinate transform (`screenX = worldX * scale + panX`). Pan (left/middle-click drag), zoom (wheel, cursor-centered, 0.1x-5x). Grid rendering (dots/grid/none) via CSS background-image. Card management (add/remove/terminate/reopen/focus with z-order stacking). Snap-to-grid (28px). Plugin lifecycle (Terminal/Explorer/Markdown). Arrange panel (Auto Arrange, Tile Plugins with custom WxH). Status bar (zoom/pan/workspace/origin, View All button). Animated pan (ease-out cubic 300ms). State serialization. |
+| `src/renderer/components/CanvasArea.ts` | Core bounded canvas engine (~1073 lines). World-to-screen coordinate transform (`screenX = worldX * scale + panX`). Pan (left/middle-click drag), zoom (wheel, cursor-centered, 0.1x-5x). Grid rendering (dots/grid/none) via CSS background-image. Card management (add/remove/terminate/reopen/focus with z-order stacking). Snap-to-grid (28px). Plugin lifecycle (Terminal/Explorer/Markdown). Arrange panel (Auto Arrange, Tile Plugins with custom WxH). Status bar (zoom/pan/workspace/origin, View All button). Animated pan (ease-out cubic 300ms). State serialization. |
 | `src/renderer/components/CanvasArea.test.ts` | Tests: grid styles, zoom bounds, resetView, setView, save state structure, state change callbacks, fit all / Auto Arrange / Tile Plugins with edge cases. |
 | `src/renderer/components/PluginCard.ts` | Draggable/resizable card widget (~223 lines). DOM card with header (canvas-rendered title via @chenglou/pretext), close button (hover-reveal), body, edge resize handles (east/south/southeast). Drag by header (snaps to 28px grid). Resize with minimum snap. UUID via `crypto.randomUUID()`. |
 | `src/renderer/components/PluginCard.test.ts` | Tests: card structure, positioning, UUID, callbacks (close/focus/destroy), canvas title rendering, drag interaction, resize edge handles. |
