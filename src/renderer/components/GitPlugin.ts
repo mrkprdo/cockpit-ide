@@ -29,6 +29,7 @@ export type GitState = {
   diffViewMode: DiffViewMode;
   leftColWidth: number;
   topPanelHeight: number;
+  changesExpanded: { staged: boolean; unstaged: boolean };
 } | null;
 
 export class GitPlugin {
@@ -53,6 +54,7 @@ export class GitPlugin {
   private diffContent = '';
   private currentBranchName = '';
   private diffViewMode: DiffViewMode = 'unified';
+  private changesExpanded: { staged: boolean; unstaged: boolean } = { staged: false, unstaged: false };
 
   private remoteSelect: HTMLSelectElement | null = null;
   private branchSelect: HTMLSelectElement | null = null;
@@ -163,6 +165,7 @@ export class GitPlugin {
       diffViewMode: this.diffViewMode,
       leftColWidth: this.leftCol.offsetWidth || 260,
       topPanelHeight: this.topPanel.offsetHeight || 150,
+      changesExpanded: { ...this.changesExpanded },
     };
   }
 
@@ -182,6 +185,9 @@ export class GitPlugin {
     if (!state) return;
     if (state.diffViewMode) this.diffViewMode = state.diffViewMode;
     this.applyLayout(state);
+    if (state.changesExpanded) {
+      this.changesExpanded = { ...state.changesExpanded };
+    }
     if (state.selectedCommitHash && this.commits.some(c => c.hash === state.selectedCommitHash)) {
       await this.selectCommit(state.selectedCommitHash);
       if (state.selectedFilePath) {
@@ -515,10 +521,12 @@ export class GitPlugin {
       filesEl.innerHTML = '';
       arrow.className = 'git-collapse-arrow git-collapse-arrow-closed';
       arrow.textContent = '▸';
+      this.changesExpanded[mode] = false;
     } else {
       filesEl.style.display = '';
       arrow.className = 'git-collapse-arrow git-collapse-arrow-open';
       arrow.textContent = '▾';
+      this.changesExpanded[mode] = true;
       this.renderChangesFiles(mode, files, filesEl);
     }
   }
@@ -541,6 +549,7 @@ export class GitPlugin {
       const displayStatus = this.normalizeStatus(file.status);
       const el = document.createElement('div');
       el.className = 'git-changes-file' + (file.path === this.selectedFilePath ? ' is-selected' : '');
+      el.dataset.path = file.path;
       const status = document.createElement('span');
       status.className = 'git-file-status git-status-' + displayStatus.toLowerCase();
       status.textContent = displayStatus;
@@ -1006,12 +1015,14 @@ export class GitPlugin {
       this.stagedFilesEl.style.display = '';
       this.stagedArrow.className = 'git-collapse-arrow git-collapse-arrow-open';
       this.stagedArrow.textContent = '▾';
+      this.changesExpanded.staged = true;
       this.renderChangesFiles('staged', this.stagedFiles, this.stagedFilesEl);
     }
     if (this.unstagedFiles.length && this.unstagedFilesEl && this.unstagedArrow) {
       this.unstagedFilesEl.style.display = '';
       this.unstagedArrow.className = 'git-collapse-arrow git-collapse-arrow-open';
       this.unstagedArrow.textContent = '▾';
+      this.changesExpanded.unstaged = true;
       this.renderChangesFiles('unstaged', this.unstagedFiles, this.unstagedFilesEl);
     }
     await this.updatePushBtn();

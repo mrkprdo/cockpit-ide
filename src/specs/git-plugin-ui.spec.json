@@ -6,7 +6,7 @@
     "root": "div[style='display:flex;width:100%;height:100%'] (root flex row)",
     "container": "PluginCard body element",
     "elements": {
-      "leftCol": ".git-left — Left panel (default 260px). Contains: branch label + select.git-select, remote label + select.git-select, .git-section-sep, .git-label Changes, .git-changes-item (Staged header with .git-collapse-arrow and .git-changes-count) + .git-changes-files (expandable file list with +/- buttons), .git-changes-item (Unstaged header) + .git-changes-files, .git-commit-bar (.git-commit-input textarea + .git-commit-btn-row with Commit and Push buttons), .git-commits scrollable list of .git-commit-item elements (each with hash, message, meta).",
+      "leftCol": ".git-left — Left panel (default 260px). Contains: branch label + select.git-select, remote label + select.git-select, .git-section-sep, .git-label Changes, .git-changes-item (Staged header with .git-collapse-arrow and .git-changes-count) + .git-changes-files (expandable file list with +/- buttons, each .git-changes-file has dataset.path), .git-changes-item (Unstaged header) + .git-changes-files, .git-commit-bar (.git-commit-input textarea + .git-commit-btn-row with Commit and Push buttons), .git-commits scrollable list of .git-commit-item elements (each with hash, message, meta).",
       "resizeHandle": ".git-resize — Vertical resize handle (2px width, col-resize cursor) between left and right columns.",
       "rightCol": ".git-right — Right panel, flex-grow, vertically split. Contains:",
       "topPanel": ".git-top-panel — Top section. Contains: .git-commit-info (hidden by default, shows author/date/message for selected commit), .git-filetree (list of .git-file-item elements for changed files in selected commit).",

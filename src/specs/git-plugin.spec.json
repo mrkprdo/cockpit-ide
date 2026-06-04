@@ -92,14 +92,14 @@
     "description": "Serialized plugin state persisted to .cockpit/window.json via CanvasArea state manager.",
     "fields": [
       {
-        "name": "selectedCommit",
+        "name": "selectedCommitHash",
         "type": "string | null",
         "description": "Hash of the currently selected commit in the commit history list"
       },
       {
-        "name": "selectedFile",
+        "name": "selectedFilePath",
         "type": "string | null",
-        "description": "Path of the currently selected file in the commit file tree"
+        "description": "Path of the currently selected file in the commit file tree or changes list"
       },
       {
         "name": "diffViewMode",
@@ -107,12 +107,12 @@
         "description": "Current diff display mode"
       },
       {
-        "name": "leftWidth",
+        "name": "leftColWidth",
         "type": "number",
         "description": "Width of the left panel in pixels (default 260, clamped 120-600)"
       },
       {
-        "name": "topHeight",
+        "name": "topPanelHeight",
         "type": "number",
         "description": "Height of the top-right panel in pixels"
       },

@@ -11,11 +11,12 @@ interface EditorState {
 }
 
 interface WorkspaceState {
-  plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState }[];
+  plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; markdownState?: any; gitState?: any }[];
   zOrder: string[];
   zoom: number;
   panX: number;
   panY: number;
+  locked?: boolean;
 }
 
 interface DirEntry { name: string; isDirectory: boolean; }

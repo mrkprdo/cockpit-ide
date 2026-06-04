@@ -424,6 +424,18 @@ describe('GitPlugin', () => {
       expect(statusSpans[0].textContent).toBe('U');
     });
 
+    it('sets dataset.path on git-changes-file elements for selection tracking', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const stagedFile = container.querySelector('.git-changes-file') as HTMLElement;
+      expect(stagedFile.dataset.path).toBe('src/staged.ts');
+
+      const unstagedFiles = container.querySelectorAll('.git-changes-file');
+      expect((unstagedFiles[1] as HTMLElement).dataset.path).toBe('src/unstaged.ts');
+      expect((unstagedFiles[2] as HTMLElement).dataset.path).toBe('src/new.ts');
+    });
+
     it('selecting a file from staged shows diff in right panel', async () => {
       new GitPlugin(container, '/test/repo');
       await flush();
@@ -788,6 +800,31 @@ describe('GitPlugin', () => {
       expect(typeof state.leftColWidth).toBe('number');
       expect(typeof state.topPanelHeight).toBe('number');
     });
+
+    it('getState() includes changesExpanded with staged/unstaged booleans', async () => {
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const stateWithSelection = (git as any).getState();
+      // Null when nothing selected (but changesExpanded alone doesn't count as selection)
+      expect(stateWithSelection).toBeNull();
+
+      // Select a commit then check
+      const commitItems = container.querySelectorAll('.git-commit-item');
+      (commitItems[0] as HTMLElement).click();
+      await flush();
+
+      const state = (git as any).getState();
+      expect(state.changesExpanded).toEqual({ staged: true, unstaged: true });
+
+      // Collapse staged section
+      const stagedHeader = container.querySelectorAll('.git-changes-item')[0] as HTMLElement;
+      stagedHeader.click();
+      await flush();
+
+      const state2 = (git as any).getState();
+      expect(state2.changesExpanded).toEqual({ staged: false, unstaged: true });
+    });
   });
 
   describe('restoreState', () => {
@@ -818,6 +855,51 @@ describe('GitPlugin', () => {
 
       expect((git as any).leftCol.style.width).toBe('180px');
       expect((git as any).topPanel.style.height).toBe('200px');
+    });
+  });
+
+  describe('refreshChanges', () => {
+    it('refreshChanges reloads staged and unstaged files', async () => {
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+      vi.clearAllMocks();
+
+      await git.refreshChanges();
+      expect(mockElectronAPI.git.stagedFiles).toHaveBeenCalledWith('/test/repo');
+      expect(mockElectronAPI.git.unstagedFiles).toHaveBeenCalledWith('/test/repo');
+    });
+
+    it('refreshChanges preserves collapsed state of sections', async () => {
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const files = container.querySelectorAll('.git-changes-files');
+      expect(files[0].querySelectorAll('.git-changes-file').length).toBe(1);
+
+      const stagedHeader = container.querySelectorAll('.git-changes-item')[0] as HTMLElement;
+      stagedHeader.click();
+      await flush();
+      expect(files[0].querySelectorAll('.git-changes-file').length).toBe(0);
+
+      await git.refreshChanges();
+      // Should still be collapsed
+      expect(files[0].style.display).toBe('none');
+    });
+
+    it('refreshChanges enables commit button when staged files and message exist', async () => {
+      (mockElectronAPI.git.stagedFiles as any).mockResolvedValue([]);
+      const git = new GitPlugin(container, '/test/repo');
+      await flush();
+      vi.clearAllMocks();
+
+      const commitBtn = container.querySelector('.git-commit-btn') as HTMLButtonElement;
+      const input = container.querySelector('.git-commit-input') as HTMLInputElement;
+      expect(commitBtn.disabled).toBe(true);
+
+      (mockElectronAPI.git.stagedFiles as any).mockResolvedValue([{ status: 'M', path: 'src/test.ts' }]);
+      input.value = 'fix: test';
+      await git.refreshChanges();
+      expect(commitBtn.disabled).toBe(false);
     });
   });
 
