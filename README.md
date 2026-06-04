@@ -16,7 +16,9 @@
 
 A spatial IDE built in Electron — drag your editor, terminal, and docs wherever they fit, stack them, zoom out to see everything at once. Open multiple instances of anything. Sessions restore exactly as you left them.
 
-<iframe width="100%" height="480" src="https://www.youtube-nocookie.com/embed/GoyIwmrYI58" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<video controls width="100%" src="assets/cockpit-ide-demo.mp4">
+  Your browser does not support the video tag.
+</video>
 
 ---
 
