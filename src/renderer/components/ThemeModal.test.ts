@@ -15,6 +15,7 @@ describe('ThemeModal', () => {
     expect(document.body.textContent).toContain('THEME');
     expect(document.body.textContent).toContain('Default');
     expect(document.body.textContent).toContain('Monokai');
+    expect(document.body.textContent).toContain('Idol');
     expect(document.body.textContent).toContain('Dark');
     expect(document.body.textContent).toContain('Light');
   });
@@ -172,6 +173,18 @@ describe('ThemeModal', () => {
     (document.querySelector('#theme-cancel') as HTMLElement).click();
 
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('Apply with idol+dark sets theme correctly', () => {
+    const modal = new ThemeModal();
+    modal.open();
+
+    (document.querySelector('input[name="theme-base"][value="idol"]') as HTMLInputElement).checked = true;
+    (document.querySelector('input[name="theme-mode"][value="dark"]') as HTMLInputElement).checked = true;
+    (document.querySelector('#theme-apply') as HTMLElement).click();
+
+    expect(theme.base).toBe('idol');
+    expect(theme.mode).toBe('dark');
   });
 
   it('re-renders on open to reflect current theme state', () => {

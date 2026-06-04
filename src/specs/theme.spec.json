@@ -2,14 +2,14 @@
   "name": "Theme Manager",
   "file": "src/renderer/theme.ts",
 
-  "description": "Theme singleton managing CSS custom property application for dark/light modes and palette sets (default, monokai). Maintains _base and _mode state. Sets 7 CSS custom properties (--bg, --surface, --panel, --primary, --secondary, --tertiary, --border) on document.documentElement. Supports legacy theme name parsing (dark, light, monokai). Auto-applies default dark theme on import.",
+  "description": "Theme singleton managing CSS custom property application for dark/light modes and palette sets (default, monokai, idol). Maintains _base and _mode state. Sets 9 CSS custom properties (--bg, --surface, --panel, --primary, --secondary, --tertiary, --border, --accent, --accent2) on document.documentElement. Supports legacy theme name parsing (dark, light, monokai). Auto-applies default dark theme on import.",
 
   "type": "logic",
   "layer": "foundation",
 
   "singleton": true,
 
-  "exports": ["ThemeColors", "defaultDarkTheme", "defaultLightTheme", "monokaiDarkTheme", "monokaiLightTheme", "theme"],
+  "exports": ["ThemeColors", "defaultDarkTheme", "defaultLightTheme", "monokaiDarkTheme", "monokaiLightTheme", "idolDarkTheme", "idolLightTheme", "theme"],
 
   "dependencies": [],
 
@@ -27,7 +27,7 @@
       {
         "name": "get base",
         "signature": "get base(): string",
-        "description": "Returns current palette base name ('default' | 'monokai')"
+        "description": "Returns current palette base name ('default' | 'monokai' | 'idol')"
       },
       {
         "name": "get mode",
@@ -77,7 +77,7 @@
       {
         "name": "apply",
         "signature": "() => void",
-        "description": "Reads current ThemeColors and sets --bg, --surface, --panel, --primary, --secondary, --tertiary, --border CSS custom properties on document.documentElement"
+        "description": "Reads current ThemeColors and sets --bg, --surface, --panel, --primary, --secondary, --tertiary, --border, --accent, --accent2 CSS custom properties on document.documentElement"
       }
     ],
     "properties": []

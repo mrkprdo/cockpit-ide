@@ -1,7 +1,7 @@
 {
   "name": "Theme Modal",
   "file": "src/renderer/components/ThemeModal.ts",
-  "description": "Theme picker modal dialog. Shows two radio button groups: THEMES (Default, Monokai) and LIGHT/DARK (Dark, Light). Radio buttons are pre-checked to match current theme singleton state (theme.base, theme.mode). Cancel button dismisses without applying. Apply button reads checked radio values, calls theme.setTheme(base, mode), and closes. Escape key and overlay click dismiss. Accepts optional onClose callback. Re-renders fresh on each open() to sync radio state with current theme. Imported as singleton — only one instance exists in App.",
+  "description": "Theme picker modal dialog. Shows two radio button groups: THEMES (Default, Monokai, Idol) and LIGHT/DARK (Dark, Light). Radio buttons are pre-checked to match current theme singleton state (theme.base, theme.mode). Cancel button dismisses without applying. Apply button reads checked radio values, calls theme.setTheme(base, mode), and closes. Escape key and overlay click dismiss. Accepts optional onClose callback. Re-renders fresh on each open() to sync radio state with current theme. Imported as singleton — only one instance exists in App.",
   "type": "ui",
   "layer": "modal",
   "singleton": true,

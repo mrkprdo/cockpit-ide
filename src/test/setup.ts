@@ -246,6 +246,7 @@ if (isDOM) {
   rootStyle.setProperty('--border', '#2A3A4A');
   rootStyle.setProperty('--font', '"Space Mono", "Courier New", monospace');
   rootStyle.setProperty('--accent', '#00E5FF');
+  rootStyle.setProperty('--accent2', '#B388FF');
 
   // DOM scaffolding for App
   const canvas = document.createElement('div');

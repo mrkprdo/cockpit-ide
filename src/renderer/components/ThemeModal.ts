@@ -3,6 +3,7 @@ import { theme } from '../theme';
 const baseOptions = [
   { value: 'default', label: 'Default' },
   { value: 'monokai', label: 'Monokai' },
+  { value: 'idol', label: 'Idol' },
 ];
 
 const modeOptions = [
