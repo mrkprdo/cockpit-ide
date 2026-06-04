@@ -9,10 +9,8 @@
 
 ---
 
-<div align="center">
-  [![Nightly Build](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml/badge.svg)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml)
-  [![Test](https://github.com/mrkprdo/cockpit-ide/actions/workflows/test.yml/badge.svg?branch=dev)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/test.yml)
-</div>
+[![Nightly Build](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml/badge.svg)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/main.yml)
+[![Test](https://github.com/mrkprdo/cockpit-ide/actions/workflows/test.yml/badge.svg?branch=dev)](https://github.com/mrkprdo/cockpit-ide/actions/workflows/test.yml)
 
 ---
 
