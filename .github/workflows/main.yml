@@ -28,6 +28,9 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
+            - name: Generate specgen hash
+              run: node scripts/gen-specgen-hash.js
+
             - name: Generate changelog
               shell: pwsh
               run: |
