@@ -1,4 +1,5 @@
 import { ContextMenu } from './ContextMenu';
+import { theme } from '../theme';
 
 interface Tab { filePath: string; name: string; originalPath: string; }
 
@@ -382,8 +383,7 @@ export class MonacoEditorPlugin {
   }
 
   private isLight(): boolean {
-    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
-    return bg === '#f8f8f8' || bg === '#ffffff';
+    return !theme.isDark;
   }
 
   private cssVar(name: string): string {

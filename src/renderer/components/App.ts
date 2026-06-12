@@ -78,7 +78,7 @@ export class App {
       },
       onThemeToggle: async () => {
         this.canvas.refresh();
-        this.canvas.getActiveExplorerPlugin()?.updateTheme();
+        this.canvas.updateAllThemes();
         const prefs = (await window.electronAPI?.prefs.load()) || {};
         prefs.themeName = theme.themeName;
         prefs.baseTheme = theme.base;
@@ -108,7 +108,7 @@ export class App {
         this.themeModal.open(async () => {
           this.canvas.locked = false;
           this.canvas.refresh();
-          this.canvas.getActiveExplorerPlugin()?.updateTheme();
+          this.canvas.updateAllThemes();
           const prefs = (await window.electronAPI?.prefs.load()) || {};
           prefs.themeName = theme.themeName;
           prefs.baseTheme = theme.base;

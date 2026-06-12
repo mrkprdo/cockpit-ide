@@ -25,15 +25,11 @@ export class TerminalPlugin {
     const api = (window as any).electronAPI;
     if (!api) return;
 
+    const termTheme = TerminalPlugin.readTheme();
     const term = new Terminal({
       fontSize: BASE_FONT_SIZE,
       fontFamily: '"Cascadia Code", "Fira Code", monospace',
-      theme: {
-        background: '#161C24',
-        foreground: '#C8D6E5',
-        cursor: '#00E5FF',
-        selectionBackground: 'rgba(0,229,255,0.2)',
-      },
+      theme: termTheme,
       cursorBlink: true,
       allowProposedApi: true,
     });
@@ -97,6 +93,19 @@ export class TerminalPlugin {
     });
 
     api.terminal.create(uuid, cwd)?.catch(() => {});
+  }
+
+  static readTheme(): { background: string; foreground: string; cursor: string; selectionBackground: string } {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#161C24';
+    const fg = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#C8D6E5';
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00E5FF';
+    const selBg = accent + '33';
+    return { background: bg, foreground: fg, cursor: accent, selectionBackground: selBg };
+  }
+
+  updateTheme(): void {
+    if (!this.xterm) return;
+    this.xterm.options.theme = TerminalPlugin.readTheme();
   }
 
   fit(): void {

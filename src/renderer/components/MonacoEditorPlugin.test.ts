@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 import { mockElectronAPI } from '../../test/setup';
 
@@ -225,6 +225,41 @@ describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
   it('file change listener is registered via electronAPI.fs.onChanged', () => {
     new MonacoEditorPlugin(container);
     expect(mockElectronAPI.fs.onChanged).toHaveBeenCalledWith(expect.any(Function));
+  });
+});
+
+describe('MonacoEditorPlugin — updateTheme', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (window as any).monaco = undefined;
+  });
+
+  afterEach(() => {
+    (window as any).monaco = undefined;
+  });
+
+  it('does nothing when monaco is not loaded', () => {
+    const editor = new MonacoEditorPlugin(container);
+    expect(() => editor.updateTheme()).not.toThrow();
+  });
+
+  it('does nothing when editor instance is null even if monaco exists', () => {
+    const editor = new MonacoEditorPlugin(container);
+    (window as any).monaco = { editor: { setTheme: vi.fn() } };
+    expect(() => editor.updateTheme()).not.toThrow();
+  });
+
+  it('calls monaco.editor.setTheme with cockpit-dark when theme is dark', () => {
+    const setTheme = vi.fn();
+    const editor = new MonacoEditorPlugin(container);
+    (window as any).monaco = { editor: { setTheme } };
+    (editor as any).editor = {};
+    editor.updateTheme();
+    expect(setTheme).toHaveBeenCalledWith('cockpit-dark');
   });
 });
 

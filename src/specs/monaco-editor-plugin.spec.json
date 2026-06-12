@@ -9,8 +9,13 @@
                     "MonacoEditorPlugin"
                 ],
     "dependencies":  [
-
-                     ],
+                          {
+                              "file":  "src/renderer/theme.ts",
+                              "usage":  [
+                                            "theme"
+                                        ]
+                          }
+                      ],
     "referenced_by":  [
                           {
                               "file":  "src/renderer/components/CanvasArea.ts",
@@ -34,10 +39,10 @@
                       "constructor":  "constructor(card: PluginCard, initialPath?: string, onStateChange?: () =\u003e void)",
                       "methods":  [
                                       "openFile(path: string): Promise\u003cvoid\u003e",
-                                      "getState(): EditorState[]",
-                                      "restoreState(state: EditorState[]): void",
+                                      "getState(): EditorState | null",
+                                      "restoreState(state: EditorState): Promise\u003cvoid\u003e",
                                       "reloadIfOpen(path: string): Promise\u003cvoid\u003e",
-                                      "setTheme(theme: string): void",
+                                      "updateTheme(): void",
                                       "destroy(): void"
                                   ],
                       "properties":  [

@@ -29,14 +29,19 @@
                 "clipboard:readText"
             ],
     "interface":  {
-                      "constructor":  "constructor(card: PluginCard, cwd?: string, onExit?: (id: string) =\u003e void)",
+                      "constructor":  "constructor(container: HTMLElement, uuid: string, cwd?: string)",
                       "methods":  [
                                       "destroy(): void",
-                                      "fit(): void"
+                                      "fit(): void",
+                                      "updateTheme(): void"
                                   ],
+                      "static_methods":  [
+                                             "readTheme(): { background: string; foreground: string; cursor: string; selectionBackground: string }"
+                                         ],
                       "properties":  [
-                                         "terminal: Terminal",
-                                         "id: string"
+                                         "uuid: string",
+                                         "element: HTMLDivElement",
+                                         "onExit: (() =\u003e void) | null"
                                      ]
                   }
 }

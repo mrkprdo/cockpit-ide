@@ -29,9 +29,10 @@
                          },
                          {
                              "file":  "src/renderer/theme.ts",
-                             "usage":  [
-                                           "theme"
-                                       ]
+              "usage":  [
+                            "theme",
+                            "theme.isDark"
+                        ]
                          }
                      ],
     "referenced_by":  [

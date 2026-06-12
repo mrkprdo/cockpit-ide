@@ -93,3 +93,62 @@ describe('TerminalPlugin', () => {
     expect(onExit).not.toHaveBeenCalled();
   });
 });
+
+describe('TerminalPlugin — theme support', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    vi.clearAllMocks();
+  });
+
+  it('readTheme returns object with background, foreground, cursor, selectionBackground', () => {
+    const theme = TerminalPlugin.readTheme();
+    expect(theme).toHaveProperty('background');
+    expect(theme).toHaveProperty('foreground');
+    expect(theme).toHaveProperty('cursor');
+    expect(theme).toHaveProperty('selectionBackground');
+  });
+
+  it('readTheme reads CSS --bg, --primary, --accent', () => {
+    document.documentElement.style.setProperty('--bg', '#ff0000');
+    document.documentElement.style.setProperty('--primary', '#00ff00');
+    document.documentElement.style.setProperty('--accent', '#0000ff');
+    const theme = TerminalPlugin.readTheme();
+    expect(theme.background).toBe('#ff0000');
+    expect(theme.foreground).toBe('#00ff00');
+    expect(theme.cursor).toBe('#0000ff');
+  });
+
+  it('readTheme builds selectionBackground from accent with 33 alpha suffix', () => {
+    document.documentElement.style.setProperty('--accent', '#abcdef');
+    const theme = TerminalPlugin.readTheme();
+    expect(theme.selectionBackground).toBe('#abcdef33');
+  });
+
+  it('readTheme falls back to dark defaults when CSS vars are not set', () => {
+    document.documentElement.style.removeProperty('--bg');
+    document.documentElement.style.removeProperty('--primary');
+    document.documentElement.style.removeProperty('--accent');
+    const theme = TerminalPlugin.readTheme();
+    expect(theme.background).toBe('#161C24');
+    expect(theme.foreground).toBe('#C8D6E5');
+    expect(theme.cursor).toBe('#00E5FF');
+  });
+
+  it('updateTheme sets options.theme on xterm instance', () => {
+    const term = new TerminalPlugin(container, 'test-uuid');
+    const xterm = (term as any).xterm;
+    expect(xterm).toBeTruthy();
+    const expectedTheme = TerminalPlugin.readTheme();
+    term.updateTheme();
+    expect(xterm.options.theme).toEqual(expectedTheme);
+  });
+
+  it('updateTheme does not throw when xterm is null', () => {
+    const term = new TerminalPlugin(container, 'test-uuid');
+    (term as any).xterm = null;
+    expect(() => term.updateTheme()).not.toThrow();
+  });
+});

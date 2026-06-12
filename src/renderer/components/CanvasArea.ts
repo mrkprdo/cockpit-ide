@@ -674,6 +674,17 @@ export class CanvasArea {
     return null;
   }
 
+  updateAllThemes(): void {
+    for (const cs of this.cards) {
+      if (cs.terminalPlugin) {
+        cs.terminalPlugin.updateTheme();
+      }
+      if (cs.explorerPlugin) {
+        cs.explorerPlugin.updateTheme();
+      }
+    }
+  }
+
   private createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onMinimize?: () => void; onFitViewport?: () => void; onTerminate?: () => void }): CardState {
     const card = new PluginCard(this.el, {
       title: p.title, subtitle: '', x: 0, y: 0, width: p.width, height: p.height,

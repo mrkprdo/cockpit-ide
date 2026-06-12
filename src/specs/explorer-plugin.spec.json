@@ -17,11 +17,14 @@
   "interface": {
     "constructor": "constructor(card: PluginCard, workspacePath: string, onStateChange?: () => void)",
     "methods": [
-      "getEditorState(): EditorState[]",
-      "restoreEditorState(state: EditorState[]): void",
-      "setMarkdownOpeners(fn: (path: string) => void): void",
-      "updateTheme(theme: string): void",
-      "destroy(): void"
+      "openFile(filePath: string): void",
+      "closeActiveTab(): void",
+      "openFileSearch(): void",
+      "revealFile(filePath: string): void",
+      "getEditorState(): EditorState | null",
+      "restoreEditorState(state: EditorState | null): Promise<void>",
+      "setMarkdownOpeners(labels: string[], callback: (filePath: string, label: string) => void): void",
+      "updateTheme(): void"
     ],
     "properties": ["fileExplorer: FileExplorerPlugin", "editor: MonacoEditorPlugin"]
   }

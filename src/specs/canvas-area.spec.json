@@ -105,6 +105,7 @@
                                       "focusPlugin(id: string): void",
                                       "getState(): EditorState[]",
                                       "restoreState(state: EditorState[]): void",
+                                      "updateAllThemes(): void",
                                       "destroy(): void"
                                   ],
                       "properties":  [

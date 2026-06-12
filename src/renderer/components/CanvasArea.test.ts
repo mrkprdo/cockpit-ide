@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CanvasArea } from './CanvasArea';
+import { TerminalPlugin } from './TerminalPlugin';
+import { ExplorerPlugin } from './ExplorerPlugin';
 
 function makeCanvasEl(): HTMLElement {
   const el = document.createElement('div');
@@ -1021,6 +1023,43 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 50));
       const labels = (canvas as any).getMarkdownLabels();
       expect(labels).toEqual(['Markdown']);
+    });
+
+    it('updateAllThemes calls updateTheme on terminal plugins', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const termSpy = vi.spyOn(TerminalPlugin.prototype, 'updateTheme');
+      (canvas as any).updateAllThemes();
+      expect(termSpy).toHaveBeenCalledTimes(2);
+      termSpy.mockRestore();
+    });
+
+    it('updateAllThemes calls updateTheme on explorer plugins', async () => {
+      canvas.addExplorer('/test');
+      await new Promise(r => setTimeout(r, 50));
+      const explorerSpy = vi.spyOn(ExplorerPlugin.prototype, 'updateTheme');
+      (canvas as any).updateAllThemes();
+      expect(explorerSpy).toHaveBeenCalledTimes(1);
+      explorerSpy.mockRestore();
+    });
+
+    it('updateAllThemes calls updateTheme on both terminals and explorers', async () => {
+      canvas.addTerminal();
+      canvas.addExplorer('/test');
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const termSpy = vi.spyOn(TerminalPlugin.prototype, 'updateTheme');
+      const explorerSpy = vi.spyOn(ExplorerPlugin.prototype, 'updateTheme');
+      (canvas as any).updateAllThemes();
+      expect(termSpy).toHaveBeenCalledTimes(2);
+      expect(explorerSpy).toHaveBeenCalledTimes(1);
+      termSpy.mockRestore();
+      explorerSpy.mockRestore();
+    });
+
+    it('updateAllThemes does not throw when no cards exist', () => {
+      expect(() => (canvas as any).updateAllThemes()).not.toThrow();
     });
   });
 
