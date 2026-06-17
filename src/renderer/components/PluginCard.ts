@@ -61,7 +61,7 @@ export class PluginCard {
               <path d="M2 5V3a1 1 0 0 1 1-1h2M2 11v2a1 1 0 0 0 1 1h2M14 5V3a1 1 0 0 0-1-1h-2M14 11v2a1 1 0 0 1-1 1h-2"/>
             </svg>
           </button>
-          <button class="card-btn card-btn-terminate" title="Terminate">
+          <button class="card-btn card-btn-terminate" title="Close">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
               <line x1="4" y1="4" x2="12" y2="12"/>
               <line x1="12" y1="4" x2="4" y2="12"/>
@@ -83,6 +83,7 @@ export class PluginCard {
     this.header = this.el.querySelector('.card-header')!;
     this.body = this.el.querySelector('.card-body')!;
     this.headerCanvas = this.el.querySelector('.card-title-canvas')!;
+    this.header.setAttribute('aria-label', opts.title);
 
     this.renderTitle();
     this.renderBody();
@@ -166,7 +167,37 @@ export class PluginCard {
     return Math.round(v / SNAP) * SNAP;
   }
 
+  private dragHandlers: { mousemove: (e: MouseEvent) => void; mouseup: () => void } | null = null;
+
   private initDrag(): void {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!this.isDragging) return;
+      const t = this.getTransform();
+      const worldRawX = this.startWorldX + (e.clientX - this.dragOffsetX - t.panX + this.startPanX) / t.scale;
+      const worldRawY = this.startWorldY + (e.clientY - this.dragOffsetY - t.panY + this.startPanY) / t.scale;
+      const snappedWorldX = Math.round(worldRawX / SNAP) * SNAP;
+      const snappedWorldY = Math.round(worldRawY / SNAP) * SNAP;
+      this.el.style.left = `${snappedWorldX * t.scale + t.panX}px`;
+      this.el.style.top = `${snappedWorldY * t.scale + t.panY}px`;
+      this.opts.onDragMove?.(e.clientX, e.clientY);
+    };
+
+    const onMouseUp = () => {
+      if (this.isDragging) {
+        this.isDragging = false;
+        this.el.style.transition = '';
+        const t = this.getTransform();
+        const left = parseFloat(this.el.style.left);
+        const top = parseFloat(this.el.style.top);
+        this.opts.onDragEnd?.(
+          (left - t.panX) / t.scale,
+          (top - t.panY) / t.scale,
+        );
+      }
+    };
+
+    this.dragHandlers = { mousemove: onMouseMove, mouseup: onMouseUp };
+
     this.header.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
       const target = e.target as HTMLElement;
@@ -184,32 +215,11 @@ export class PluginCard {
       this.opts.onDragStart?.(e.clientX, e.clientY);
     });
 
-    document.addEventListener('mousemove', (e) => {
-      if (!this.isDragging) return;
-      const t = this.getTransform();
-      const worldRawX = this.startWorldX + (e.clientX - this.dragOffsetX - t.panX + this.startPanX) / t.scale;
-      const worldRawY = this.startWorldY + (e.clientY - this.dragOffsetY - t.panY + this.startPanY) / t.scale;
-      const snappedWorldX = Math.round(worldRawX / SNAP) * SNAP;
-      const snappedWorldY = Math.round(worldRawY / SNAP) * SNAP;
-      this.el.style.left = `${snappedWorldX * t.scale + t.panX}px`;
-      this.el.style.top = `${snappedWorldY * t.scale + t.panY}px`;
-      this.opts.onDragMove?.(e.clientX, e.clientY);
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (this.isDragging) {
-        this.isDragging = false;
-        this.el.style.transition = '';
-        const t = this.getTransform();
-        const left = parseFloat(this.el.style.left);
-        const top = parseFloat(this.el.style.top);
-        this.opts.onDragEnd?.(
-          (left - t.panX) / t.scale,
-          (top - t.panY) / t.scale,
-        );
-      }
-    });
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
   }
+
+  private resizeHandlers: { mousemove: (e: MouseEvent) => void; mouseup: () => void } | null = null;
 
   private initResize(): void {
     type Dir = 'e' | 's' | 'se';
@@ -237,7 +247,7 @@ export class PluginCard {
       });
     }
 
-    document.addEventListener('mousemove', (e) => {
+    const onMouseMove = (e: MouseEvent) => {
       if (!resizing) return;
       const t = this.getTransform();
       const dw = (e.clientX - startX) / t.scale;
@@ -254,17 +264,32 @@ export class PluginCard {
       this.opts.height = newH;
       this.el.style.width = `${newW}px`;
       this.el.style.height = `${newH}px`;
-    });
+    };
 
-    document.addEventListener('mouseup', () => {
+    const onMouseUp = () => {
       if (resizing) {
         resizing = false;
         this.opts.onResizeEnd?.(this.opts.width, this.opts.height);
       }
-    });
+    };
+
+    this.resizeHandlers = { mousemove: onMouseMove, mouseup: onMouseUp };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
   }
 
   remove(): void {
+    if (this.dragHandlers) {
+      document.removeEventListener('mousemove', this.dragHandlers.mousemove);
+      document.removeEventListener('mouseup', this.dragHandlers.mouseup);
+      this.dragHandlers = null;
+    }
+    if (this.resizeHandlers) {
+      document.removeEventListener('mousemove', this.resizeHandlers.mousemove);
+      document.removeEventListener('mouseup', this.resizeHandlers.mouseup);
+      this.resizeHandlers = null;
+    }
     this.onDestroy?.();
     this.el.remove();
   }

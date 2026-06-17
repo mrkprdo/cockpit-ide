@@ -8,6 +8,11 @@ export interface ThemeColors {
   border: string;
   accent: string;
   accent2: string;
+  green: string;
+  amber: string;
+  red: string;
+  onAccent: string;
+  scrim: string;
 }
 
 export const defaultDarkTheme: ThemeColors = {
@@ -16,10 +21,15 @@ export const defaultDarkTheme: ThemeColors = {
   panel: '#243248',
   primary: '#C8D6E5',
   secondary: '#78909C',
-  tertiary: '#546E7A',
+  tertiary: '#6E8A99',
   border: '#2A3A4A',
   accent: '#4B9EB5',
   accent2: '#7B6FA0',
+  green: '#4C9A6E',
+  amber: '#C68B00',
+  red: '#D44F4F',
+  onAccent: 'oklch(97% 0.006 20)',
+  scrim: 'rgba(8,14,22,0.72)',
 };
 
 export const defaultLightTheme: ThemeColors = {
@@ -27,11 +37,16 @@ export const defaultLightTheme: ThemeColors = {
   surface: '#eeeeee',
   panel: '#e0e0e0',
   primary: '#1a1a1a',
-  secondary: '#2a2a2a',
+  secondary: '#3a3a3a',
   tertiary: '#6a6a6a',
-  border: '#1a1a1a',
+  border: '#bbbbbb',
   accent: '#2A7A8C',
   accent2: '#5A4F7A',
+  green: '#3A7A56',
+  amber: '#9A6B00',
+  red: '#C04040',
+  onAccent: '#ffffff',
+  scrim: 'rgba(0,0,0,0.35)',
 };
 
 export const monokaiDarkTheme: ThemeColors = {
@@ -44,6 +59,11 @@ export const monokaiDarkTheme: ThemeColors = {
   border: '#49483e',
   accent: '#A6E22E',
   accent2: '#F92672',
+  green: '#86C020',
+  amber: '#E6DB74',
+  red: '#F92672',
+  onAccent: '#272822',
+  scrim: 'rgba(0,0,0,0.55)',
 };
 
 export const monokaiLightTheme: ThemeColors = {
@@ -56,6 +76,11 @@ export const monokaiLightTheme: ThemeColors = {
   border: '#9c9988',
   accent: '#66A622',
   accent2: '#C8145A',
+  green: '#5A8A30',
+  amber: '#B8990A',
+  red: '#C8145A',
+  onAccent: '#ffffff',
+  scrim: 'rgba(0,0,0,0.3)',
 };
 
 export const idolDarkTheme: ThemeColors = {
@@ -64,10 +89,15 @@ export const idolDarkTheme: ThemeColors = {
   panel: '#101418',
   primary: '#d0d0d0',
   secondary: '#a0a0b8',
-  tertiary: '#008855',
+  tertiary: '#5A6A6A',
   border: '#5a4a3a',
   accent: '#e86a6a',
   accent2: '#e870b0',
+  green: '#4C9A6E',
+  amber: '#D4A000',
+  red: '#e86a6a',
+  onAccent: '#ffffff',
+  scrim: 'rgba(0,0,0,0.6)',
 };
 
 export const idolLightTheme: ThemeColors = {
@@ -76,10 +106,15 @@ export const idolLightTheme: ThemeColors = {
   panel: '#e4e8e8',
   primary: '#2a2a2a',
   secondary: '#3a3a4a',
-  tertiary: '#5a9a7a',
+  tertiary: '#6A8A7A',
   border: '#b8a088',
   accent: '#e85a5a',
   accent2: '#e060a0',
+  green: '#3A7A56',
+  amber: '#9A6B00',
+  red: '#e85a5a',
+  onAccent: '#ffffff',
+  scrim: 'rgba(0,0,0,0.3)',
 };
 
 const palettes: Record<string, Record<string, ThemeColors>> = {
@@ -160,6 +195,11 @@ class Theme {
     root.style.setProperty('--border', c.border);
     root.style.setProperty('--accent', c.accent);
     root.style.setProperty('--accent2', c.accent2);
+    root.style.setProperty('--green', c.green);
+    root.style.setProperty('--amber', c.amber);
+    root.style.setProperty('--red', c.red);
+    root.style.setProperty('--onAccent', c.onAccent);
+    root.style.setProperty('--scrim', c.scrim);
   }
 }
 

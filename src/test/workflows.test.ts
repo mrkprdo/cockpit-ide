@@ -497,7 +497,7 @@ describe('Theme persistence workflow', () => {
     expect(root.style.getPropertyValue('--surface')).toBe('#1C2538');
     expect(root.style.getPropertyValue('--panel')).toBe('#243248');
     expect(root.style.getPropertyValue('--secondary')).toBe('#78909C');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#546E7A');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#6E8A99');
     expect(root.style.getPropertyValue('--border')).toBe('#2A3A4A');
 
     theme.setDark(false);

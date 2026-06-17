@@ -120,34 +120,30 @@ describe('theme', () => {
     expect(root.style.getPropertyValue('--border')).toBe('#9c9988');
   });
 
+  const allKeys: (keyof typeof defaultDarkTheme)[] = ['bg', 'surface', 'panel', 'primary', 'secondary', 'tertiary', 'border', 'accent', 'accent2', 'green', 'amber', 'red', 'onAccent', 'scrim'];
+
   it('defaultDarkTheme has all required color keys', () => {
-    const keys: (keyof typeof defaultDarkTheme)[] = ['bg', 'surface', 'panel', 'primary', 'secondary', 'tertiary', 'border', 'accent', 'accent2'];
-    for (const k of keys) expect(defaultDarkTheme[k]).toBeDefined();
+    for (const k of allKeys) expect(defaultDarkTheme[k]).toBeDefined();
   });
 
   it('defaultLightTheme has all required color keys', () => {
-    const keys: (keyof typeof defaultLightTheme)[] = ['bg', 'surface', 'panel', 'primary', 'secondary', 'tertiary', 'border', 'accent', 'accent2'];
-    for (const k of keys) expect(defaultLightTheme[k]).toBeDefined();
+    for (const k of allKeys) expect(defaultLightTheme[k]).toBeDefined();
   });
 
   it('monokaiDarkTheme has all required color keys', () => {
-    const keys: (keyof typeof monokaiDarkTheme)[] = ['bg', 'surface', 'panel', 'primary', 'secondary', 'tertiary', 'border', 'accent', 'accent2'];
-    for (const k of keys) expect(monokaiDarkTheme[k]).toBeDefined();
+    for (const k of allKeys) expect(monokaiDarkTheme[k]).toBeDefined();
   });
 
   it('monokaiLightTheme has all required color keys', () => {
-    const keys: (keyof typeof monokaiLightTheme)[] = ['bg', 'surface', 'panel', 'primary', 'secondary', 'tertiary', 'border', 'accent', 'accent2'];
-    for (const k of keys) expect(monokaiLightTheme[k]).toBeDefined();
+    for (const k of allKeys) expect(monokaiLightTheme[k]).toBeDefined();
   });
 
   it('idolDarkTheme has all required color keys', () => {
-    const keys: (keyof typeof idolDarkTheme)[] = ['bg', 'surface', 'panel', 'primary', 'secondary', 'tertiary', 'border', 'accent', 'accent2'];
-    for (const k of keys) expect(idolDarkTheme[k]).toBeDefined();
+    for (const k of allKeys) expect(idolDarkTheme[k]).toBeDefined();
   });
 
   it('idolLightTheme has all required color keys', () => {
-    const keys: (keyof typeof idolLightTheme)[] = ['bg', 'surface', 'panel', 'primary', 'secondary', 'tertiary', 'border', 'accent', 'accent2'];
-    for (const k of keys) expect(idolLightTheme[k]).toBeDefined();
+    for (const k of allKeys) expect(idolLightTheme[k]).toBeDefined();
   });
 
   it('apply sets idol-dark CSS properties', () => {
@@ -156,7 +152,7 @@ describe('theme', () => {
     expect(root.style.getPropertyValue('--bg')).toBe('#040408');
     expect(root.style.getPropertyValue('--primary')).toBe('#d0d0d0');
     expect(root.style.getPropertyValue('--secondary')).toBe('#a0a0b8');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#008855');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#5A6A6A');
     expect(root.style.getPropertyValue('--border')).toBe('#5a4a3a');
     expect(root.style.getPropertyValue('--accent')).toBe('#e86a6a');
     expect(root.style.getPropertyValue('--accent2')).toBe('#e870b0');
@@ -168,7 +164,7 @@ describe('theme', () => {
     expect(root.style.getPropertyValue('--bg')).toBe('#f0fcfc');
     expect(root.style.getPropertyValue('--primary')).toBe('#2a2a2a');
     expect(root.style.getPropertyValue('--secondary')).toBe('#3a3a4a');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#5a9a7a');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#6A8A7A');
     expect(root.style.getPropertyValue('--border')).toBe('#b8a088');
     expect(root.style.getPropertyValue('--accent')).toBe('#e85a5a');
     expect(root.style.getPropertyValue('--accent2')).toBe('#e060a0');
@@ -194,6 +190,24 @@ describe('theme', () => {
     expect(theme.base).toBe('idol');
     expect(theme.mode).toBe('light');
     expect(theme.colors).toBe(idolLightTheme);
+  });
+
+  it('apply sets green, amber, red, onAccent, scrim CSS custom properties', () => {
+    theme.setDark(true);
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--green')).toBe('#4C9A6E');
+    expect(root.style.getPropertyValue('--amber')).toBe('#C68B00');
+    expect(root.style.getPropertyValue('--red')).toBe('#D44F4F');
+    expect(root.style.getPropertyValue('--onAccent')).toBeTruthy();
+    expect(root.style.getPropertyValue('--scrim')).toBeTruthy();
+  });
+
+  it('default-light border differs from primary', () => {
+    expect(defaultLightTheme.border).not.toBe(defaultLightTheme.primary);
+  });
+
+  it('idol-dark tertiary is a muted neutral, not saturated green', () => {
+    expect(idolDarkTheme.tertiary).toBe('#5A6A6A');
   });
 
   it('all six palettes are distinct', () => {

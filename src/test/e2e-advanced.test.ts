@@ -663,7 +663,7 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
     await flushRaf();
     expect(onDev).toHaveBeenCalled();
 
-    clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Terminate');
+    clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Close');
     await flushRaf();
 
     const state = canvas.getSaveState();
@@ -678,7 +678,7 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
     await flushRaf();
     expect(canvas.getMarkdownLabels().length).toBe(1);
 
-    clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Terminate');
+    clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Close');
     await flushRaf();
 
     expect(canvas.getMarkdownLabels().length).toBe(0);
@@ -1245,7 +1245,7 @@ describe('E2E Advanced: Terminal Exit Flow', () => {
 
     expect(canvas.getSaveState().plugins.length).toBe(1);
 
-    clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Terminate');
+    clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Close');
     await flushRaf();
 
     // terminal.kill should NOT be called for non-terminal cards

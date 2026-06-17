@@ -95,40 +95,62 @@ export class CanvasArea {
   }
 
   constructor(private el: HTMLElement) {
-    // Plugin list panel (lower-left hover zone)
-    const zone = document.createElement('div');
+    // Plugin list panel (lower-left hover zone) — keyboard accessible
+    const zone = document.createElement('button');
     zone.className = 'pli-zone';
+    zone.setAttribute('aria-label', 'Plugin list');
+    zone.tabIndex = 0;
     const icon = document.createElement('span');
     icon.className = 'pli-icon';
     icon.textContent = '◣';
+    icon.setAttribute('aria-hidden', 'true');
     zone.appendChild(icon);
 
     this.pluginListPanel = document.createElement('div');
     this.pluginListPanel.className = 'plugin-list-panel';
+    this.pluginListPanel.style.display = 'none';
 
     zone.appendChild(this.pluginListPanel);
     this.el.appendChild(zone);
 
-    zone.addEventListener('mouseenter', () => this.showPluginList());
-    zone.addEventListener('mouseleave', () => {
+    const showPL = () => { if (!this.pluginListPanel.style.display || this.pluginListPanel.style.display === 'none') this.showPluginList(); };
+    const hidePL = () => {
       setTimeout(() => {
-        if (!this.contextMenuOpen && !zone.matches(':hover') && !this.pluginListPanel.matches(':hover')) {
+        if (!this.contextMenuOpen && !zone.matches(':hover') && !this.pluginListPanel.matches(':hover') && document.activeElement !== zone) {
           this.pluginListPanel.style.display = 'none';
         }
       }, 200);
+    };
+
+    zone.addEventListener('mouseenter', showPL);
+    zone.addEventListener('mouseleave', hidePL);
+    zone.addEventListener('focus', showPL);
+    zone.addEventListener('blur', hidePL);
+    zone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (this.pluginListPanel.style.display !== 'none') {
+          this.pluginListPanel.style.display = 'none';
+        } else {
+          showPL();
+        }
+      }
     });
     this.pluginListPanel.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
     this.pluginListPanel.addEventListener('mouseenter', () => { this.pluginListPanel.style.display = 'block'; });
     this.pluginListPanel.addEventListener('mouseleave', () => {
-      if (!this.contextMenuOpen && !zone.matches(':hover')) this.pluginListPanel.style.display = 'none';
+      if (!this.contextMenuOpen && !zone.matches(':hover') && document.activeElement !== zone) this.pluginListPanel.style.display = 'none';
     });
 
-    // Arrange panel (lower-right hover zone)
-    const arrZone = document.createElement('div');
+    // Arrange panel (lower-right hover zone) — keyboard accessible
+    const arrZone = document.createElement('button');
     arrZone.className = 'prr-zone';
+    arrZone.setAttribute('aria-label', 'Arrange panel');
+    arrZone.tabIndex = 0;
     const arrIcon = document.createElement('span');
     arrIcon.className = 'prr-icon';
     arrIcon.textContent = '◢';
+    arrIcon.setAttribute('aria-hidden', 'true');
     arrZone.appendChild(arrIcon);
 
     this.arrPanel = document.createElement('div');
@@ -138,18 +160,33 @@ export class CanvasArea {
     arrZone.appendChild(this.arrPanel);
     this.el.appendChild(arrZone);
 
-    arrZone.addEventListener('mouseenter', () => this.showArrPanel());
-    arrZone.addEventListener('mouseleave', () => {
+    const showAP = () => { if (!this.arrPanel.style.display || this.arrPanel.style.display === 'none') this.showArrPanel(); };
+    const hideAP = () => {
       setTimeout(() => {
-        if (!this.arrPanel.matches(':hover')) {
+        if (!this.arrPanel.matches(':hover') && document.activeElement !== arrZone) {
           this.arrPanel.style.display = 'none';
         }
       }, 200);
+    };
+
+    arrZone.addEventListener('mouseenter', showAP);
+    arrZone.addEventListener('mouseleave', hideAP);
+    arrZone.addEventListener('focus', showAP);
+    arrZone.addEventListener('blur', hideAP);
+    arrZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (this.arrPanel.style.display !== 'none') {
+          this.arrPanel.style.display = 'none';
+        } else {
+          showAP();
+        }
+      }
     });
     this.arrPanel.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
     this.arrPanel.addEventListener('mouseenter', () => { this.arrPanel.style.display = 'block'; });
     this.arrPanel.addEventListener('mouseleave', () => {
-      if (!arrZone.matches(':hover')) this.arrPanel.style.display = 'none';
+      if (!arrZone.matches(':hover') && document.activeElement !== arrZone) this.arrPanel.style.display = 'none';
     });
 
     this.originDot = document.createElement('div');
@@ -193,7 +230,7 @@ export class CanvasArea {
               else this.reopenCard(cs);
             }},
             { separator: true },
-            { label: 'Terminate', action: () => this.terminateCard(cs) },
+            { label: cs.savedTitle.startsWith('Terminal') ? 'Terminate' : 'Close', action: () => this.terminateCard(cs) },
           ], e.clientX, e.clientY);
           menu.onClose = () => { this.contextMenuOpen = false; };
         });
@@ -456,7 +493,7 @@ export class CanvasArea {
             this.notifyMarkdownChanged();
             this.onStateChange?.();
           }}] : []),
-          { label: 'Terminate', action: () => this.terminateCard(cs) },
+          { label: title.startsWith('Terminal') ? 'Terminate' : 'Close', action: () => this.terminateCard(cs) },
         ], e.clientX, e.clientY);
         menu.onClose = () => { this.contextMenuOpen = false; };
       },
@@ -736,7 +773,7 @@ export class CanvasArea {
             this.notifyMarkdownChanged();
             this.onStateChange?.();
           }}] : []),
-          { label: 'Terminate', action: () => this.terminateCard(cs) },
+          { label: cs.savedTitle.startsWith('Terminal') ? 'Terminate' : 'Close', action: () => this.terminateCard(cs) },
         ], e.clientX, e.clientY);
         menu.onClose = () => { this.contextMenuOpen = false; };
       },

@@ -1188,12 +1188,68 @@ describe('auto arrange', () => {
       const item = document.querySelector('.pli-item') as HTMLElement;
       item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 }));
 
-      expect((canvas as any).contextMenuOpen).toBe(true);
-      const ctxItems = document.querySelectorAll('.ctx-item');
-      ctxItems[1].click();
+      const menu = document.querySelector('.ctx-menu') as HTMLElement;
+      const closeBtn = menu.querySelector('.ctx-item') as HTMLElement;
+      closeBtn.click();
+      await new Promise(r => setTimeout(r, 50));
       expect((canvas as any).contextMenuOpen).toBe(false);
     });
+
+    it('corner zone is a button element with tabIndex and aria-label', () => {
+      const pliZone = document.querySelector('.pli-zone') as HTMLElement;
+      expect(pliZone.tagName).toBe('BUTTON');
+      expect(pliZone.getAttribute('aria-label')).toBe('Plugin list');
+      expect(pliZone.tabIndex).toBe(0);
+
+      const prrZone = document.querySelector('.prr-zone') as HTMLElement;
+      expect(prrZone.tagName).toBe('BUTTON');
+      expect(prrZone.getAttribute('aria-label')).toBe('Arrange panel');
+      expect(prrZone.tabIndex).toBe(0);
+    });
+
+    it('prr-zone opens on Space keydown', () => {
+      const prrZone = document.querySelector('.prr-zone') as HTMLElement;
+      prrZone.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+      const panel = document.querySelector('.arr-panel') as HTMLElement;
+      expect(panel.style.display).toBe('block');
+    });
+
+    it('pli-zone opens on Space keydown', () => {
+      const pliZone = document.querySelector('.pli-zone') as HTMLElement;
+      pliZone.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+      const panel = document.querySelector('.plugin-list-panel') as HTMLElement;
+      expect(panel.style.display).toBe('block');
+    });
+
+    it('context menu shows "Close" for non-terminal cards', async () => {
+      canvas.addExplorer('/test');
+      await new Promise(r => setTimeout(r, 50));
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const item = document.querySelector('.pli-item') as HTMLElement;
+      item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 }));
+
+      const ctxItems = document.querySelectorAll('.ctx-item');
+      const labels = Array.from(ctxItems).map(el => el.textContent);
+      expect(labels).toContain('Close');
+      expect(labels).not.toContain('Terminate');
+    });
+
+    it('context menu shows "Terminate" for terminal cards', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const zone = document.querySelector('.pli-zone') as HTMLElement;
+      zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      const item = document.querySelector('.pli-item') as HTMLElement;
+      item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 }));
+
+      const ctxItems = document.querySelectorAll('.ctx-item');
+      const labels = Array.from(ctxItems).map(el => el.textContent);
+      expect(labels).toContain('Terminate');
+    });
   });
+
+
 
   describe('zoom lock', () => {
     it('locked = true allows pan initiation (pan works even when locked)', () => {

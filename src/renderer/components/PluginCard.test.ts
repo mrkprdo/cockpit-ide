@@ -460,4 +460,54 @@ describe('PluginCard — resize interaction', () => {
 
     expect(onResizeEnd).toHaveBeenCalled();
   });
+
+  it('sets aria-label on card header with card title', () => {
+    const card = new PluginCard(makeParent(), {
+      title: 'Aria Test', x: 0, y: 0, width: 200, height: 200,
+    }, getTransform);
+    const header = card.el.querySelector('.card-header')!;
+    expect(header.getAttribute('aria-label')).toBe('Aria Test');
+  });
+
+  it('terminate button has title "Close"', () => {
+    const card = new PluginCard(makeParent(), {
+      title: 'Btn Test', x: 0, y: 0, width: 200, height: 200,
+    }, getTransform);
+    const btn = card.el.querySelector('.card-btn-terminate') as HTMLElement;
+    expect(btn.getAttribute('title')).toBe('Close');
+  });
+
+  it('remove() detaches drag document listeners', () => {
+    const card = new PluginCard(makeParent(), {
+      title: 'Cleanup', x: 0, y: 0, width: 200, height: 200,
+    }, getTransform);
+    const removeSpy = vi.spyOn(document, 'removeEventListener');
+    card.remove();
+    expect(removeSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
+    expect(removeSpy).toHaveBeenCalledWith('mouseup', expect.any(Function));
+    removeSpy.mockRestore();
+  });
+
+  it('remove() detaches resize document listeners', () => {
+    const card = new PluginCard(makeParent(), {
+      title: 'Cleanup2', x: 0, y: 0, width: 200, height: 200,
+    }, getTransform);
+    const removeSpy = vi.spyOn(document, 'removeEventListener');
+    card.remove();
+    const calls = removeSpy.mock.calls.filter(c => c[0] === 'mousemove' || c[0] === 'mouseup');
+    expect(calls.length).toBe(4); // drag(2) + resize(2)
+    removeSpy.mockRestore();
+  });
+
+  it('calls onDestroy before removing element', () => {
+    const onDestroy = vi.fn();
+    const card = new PluginCard(makeParent(), {
+      title: 'Destroy', x: 0, y: 0, width: 200, height: 200,
+    }, getTransform);
+    card.onDestroy = onDestroy;
+    const parent = card.el.parentElement;
+    card.remove();
+    expect(onDestroy).toHaveBeenCalledOnce();
+    expect(parent?.contains(card.el)).toBe(false);
+  });
 });

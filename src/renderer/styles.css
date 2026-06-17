@@ -5,13 +5,15 @@
   --panel: #243248;
   --primary: #C8D6E5;
   --secondary: #78909C;
-  --tertiary: #546E7A;
+  --tertiary: #6E8A99;
   --border: #2A3A4A;
   --accent: #4B9EB5;
   --accent2: #7B6FA0;
   --green: #4C9A6E;
   --amber: #C68B00;
   --red: #D44F4F;
+  --onAccent: oklch(97% 0.006 20);
+  --scrim: rgba(8,14,22,0.72);
 
   --font: 'Space Mono', 'Courier New', monospace;
 
@@ -49,6 +51,13 @@
   --z-tutorial:         600;
   --z-tutorial-ring:    610;
   --z-tutorial-tooltip: 620;
+  --z-dropdown:         1100;
+  --z-dropdown-nested:  1101;
+  --z-corner-zone:      1000;
+  --z-corner-panel:     1001;
+  --z-layout-overlay:   9999;
+  --z-canvas:           1;
+  --z-statusbar-center: 1;
 }
 
 *, *::before, *::after {
@@ -163,7 +172,7 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 4px;
-  z-index: 1100;
+  z-index: var(--z-dropdown);
 }
 .menu-item.open .menu-dropdown { display: block; }
 .menu-item.open { border-bottom: 2px solid var(--accent); }
@@ -196,7 +205,7 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 4px;
-  z-index: 1101;
+  z-index: var(--z-dropdown-nested);
 }
 .menu-item-nested {
   position: relative;
@@ -231,14 +240,14 @@ html, body {
   transition: background 0.1s, color 0.1s;
 }
 .tb-btn:hover { background: var(--panel); color: var(--accent); }
-.tb-close:hover { background: #e81123; color: #fff; }
+.tb-close:hover { background: var(--red); color: var(--onAccent); }
 
 /* ===== Canvas ===== */
 #canvas {
   flex: 1;
   position: relative;
   overflow: hidden;
-  z-index: 1;
+  z-index: var(--z-canvas);
 }
 
 .origin-dot {
@@ -258,15 +267,20 @@ html, body {
   bottom: 2px;
   width: 32px;
   height: 28px;
-  z-index: 1000;
+  z-index: var(--z-corner-zone);
   cursor: pointer;
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
   opacity: 0.6;
   transition: opacity 0.15s;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
 }
-.pli-zone:hover { opacity: 1; }
+.pli-zone:hover, .pli-zone:focus-visible { opacity: 1; outline: 1px solid var(--accent); outline-offset: 2px; }
 .pli-icon {
   font-size: var(--text-xl);
   color: var(--secondary);
@@ -287,7 +301,7 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px;
-  z-index: 1001;
+  z-index: var(--z-corner-panel);
 }
 .pli-item {
   padding: 6px 12px;
@@ -314,15 +328,20 @@ html, body {
   bottom: 2px;
   width: 32px;
   height: 28px;
-  z-index: 1000;
+  z-index: var(--z-corner-zone);
   cursor: pointer;
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
   opacity: 0.6;
   transition: opacity 0.15s;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
 }
-.prr-zone:hover { opacity: 1; }
+.prr-zone:hover, .prr-zone:focus-visible { opacity: 1; outline: 1px solid var(--accent); outline-offset: 2px; }
 .prr-icon {
   font-size: var(--text-xl);
   color: var(--secondary);
@@ -341,7 +360,7 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px;
-  z-index: 1001;
+  z-index: var(--z-corner-panel);
 }
 .arr-item {
   padding: 6px 12px;
@@ -467,6 +486,9 @@ html, body {
 .card-arranging {
   transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease !important;
 }
+@media (prefers-reduced-motion: reduce) {
+  .card-arranging { transition: none !important; }
+}
 
 .card-header {
   height: 30px;
@@ -513,9 +535,11 @@ html, body {
 }
 .card-btn svg, .card-btn svg * { pointer-events: none; width: 100%; height: 100%; }
 .card:hover .card-btn { opacity: 1; }
-.card-btn-minimize:hover { background: var(--amber); color: oklch(97% 0.006 20); }
-.card-btn-fitview:hover   { background: var(--accent); color: oklch(97% 0.006 20); }
-.card-btn-terminate:hover { background: var(--red); color: oklch(97% 0.006 20); }
+.card:focus-within .card-btn,
+.card-btn:focus-visible { opacity: 1; }
+.card-btn-minimize:hover { background: var(--amber); color: var(--onAccent); }
+.card-btn-fitview:hover   { background: var(--accent); color: var(--onAccent); }
+.card-btn-terminate:hover { background: var(--red); color: var(--onAccent); }
 
 .card-body {
   flex: 1;
@@ -596,7 +620,7 @@ html, body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(8,14,22,0.72);
+  background: var(--scrim);
   z-index: var(--z-modal);
   display: none;
   align-items: center;
@@ -669,7 +693,7 @@ html, body {
 }
 .btn-ok-destructive {
   background: var(--red);
-  color: oklch(97% 0.006 20);
+  color: var(--onAccent);
 }
 .btn-ok-destructive:hover { background: var(--red); }
 @media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
@@ -1015,7 +1039,7 @@ html, body {
 .tutorial-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: var(--scrim);
   z-index: var(--z-tutorial);
   display: none;
   align-items: center;
@@ -1098,14 +1122,14 @@ html, body {
 }
 .tutorial-btn-next, .tutorial-btn-done {
   background: var(--accent);
-  color: oklch(97% 0.006 20);
+  color: var(--onAccent);
   border-color: var(--accent);
 }
 .tutorial-btn-next:hover, .tutorial-btn-done:hover {
   opacity: 0.85;
   background: var(--accent);
   border-color: var(--accent);
-  color: oklch(97% 0.006 20);
+  color: var(--onAccent);
 }
 .tutorial-ring {
   position: fixed;
@@ -1113,7 +1137,7 @@ html, body {
   z-index: var(--z-tutorial-ring);
   border: 2px solid var(--accent);
   border-radius: 4px;
-  box-shadow: 0 0 24px rgba(75,158,181,0.4), inset 0 0 12px rgba(75,158,181,0.15);
+  box-shadow: 0 0 24px color-mix(in oklab, var(--accent) 40%, transparent), inset 0 0 12px color-mix(in oklab, var(--accent) 15%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
   .tutorial-tooltip { animation: none; }
@@ -1124,7 +1148,7 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: var(--z-palette);
-  background: rgba(0,0,0,0.3);
+  background: color-mix(in oklab, var(--scrim) 50%, transparent);
   display: none;
   align-items: flex-start;
   justify-content: center;
@@ -1227,7 +1251,7 @@ html, body {
 /* ===== Layout Overlays ===== */
 .layout-overlay {
   position: absolute;
-  z-index: 9999;
+  z-index: var(--z-layout-overlay);
   width: 48px;
   height: 36px;
   background: color-mix(in oklab, var(--surface) 85%, transparent);
@@ -1348,7 +1372,7 @@ html, body {
   background: transparent;
   color: var(--primary);
   font-family: var(--font);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   padding: 4px 8px;
   cursor: pointer;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
@@ -1601,8 +1625,8 @@ html, body {
   min-height: 1.2em;
   line-height: 1.5;
 }
-.git-diff-line.diff-add { background: rgba(76, 154, 110, 0.15); color: var(--green); }
-.git-diff-line.diff-remove { background: rgba(212, 79, 79, 0.15); color: var(--red); }
+.git-diff-line.diff-add { background: color-mix(in oklab, var(--green) 15%, transparent); color: var(--green); }
+.git-diff-line.diff-remove { background: color-mix(in oklab, var(--red) 15%, transparent); color: var(--red); }
 .git-diff-line.diff-hunk { color: var(--accent); font-weight: 700; }
 .git-diff-line.diff-meta { color: var(--tertiary); }
 
@@ -1689,9 +1713,9 @@ html, body {
   font-size: var(--text-xs);
   line-height: 1.5;
 }
-.git-sbs-row.diff-add { background: rgba(76, 154, 110, 0.15); }
-.git-sbs-row.diff-remove { background: rgba(212, 79, 79, 0.15); }
-.git-sbs-row.diff-replace { background: rgba(212, 79, 79, 0.08); }
+.git-sbs-row.diff-add { background: color-mix(in oklab, var(--green) 15%, transparent); }
+.git-sbs-row.diff-remove { background: color-mix(in oklab, var(--red) 15%, transparent); }
+.git-sbs-row.diff-replace { background: color-mix(in oklab, var(--red) 8%, transparent); }
 .git-sbs-cell {
   flex: 1;
   min-width: 0;
@@ -1748,6 +1772,13 @@ html, body {
 }
 .menu-dropdown-item.is-closed {
   opacity: 0.45;
+}
+.menu-shortcut {
+  margin-left: auto;
+  padding-left: 16px;
+  color: var(--tertiary);
+  font-size: var(--text-2xs);
+  opacity: 0.7;
 }
 
 /* ===== Tutorial Extra Content ===== */
@@ -1811,7 +1842,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1;
+  z-index: var(--z-statusbar-center);
 }
 
 
