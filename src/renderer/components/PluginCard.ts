@@ -1,6 +1,3 @@
-import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
-import { TextRenderer } from './TextRenderer';
-
 export interface CardOptions {
   onDestroy?: () => void;
   title: string;
@@ -30,7 +27,7 @@ export class PluginCard {
   onDestroy: (() => void) | null = null;
   private header: HTMLElement;
   private body: HTMLElement;
-  private headerCanvas: HTMLCanvasElement;
+  private titleEl: HTMLElement;
   private isDragging = false;
   private dragOffsetX = 0;
   private dragOffsetY = 0;
@@ -48,7 +45,7 @@ export class PluginCard {
     this.el.innerHTML = `
       <div class="card-header">
         <div class="card-title-area">
-          <canvas class="card-title-canvas" height="28"></canvas>
+          <div class="card-title-text"></div>
         </div>
         <div class="card-controls">
           <button class="card-btn card-btn-minimize" title="Minimize">
@@ -82,7 +79,7 @@ export class PluginCard {
 
     this.header = this.el.querySelector('.card-header')!;
     this.body = this.el.querySelector('.card-body')!;
-    this.headerCanvas = this.el.querySelector('.card-title-canvas')!;
+    this.titleEl = this.el.querySelector('.card-title-text')!;
     this.header.setAttribute('aria-label', opts.title);
 
     this.renderTitle();
@@ -124,29 +121,8 @@ export class PluginCard {
   }
 
   renderTitle(): void {
-    const dpr = window.devicePixelRatio || 1;
-    const w = this.opts.width - 100;
-    const h = 18;
-    this.headerCanvas.width = w * dpr;
-    this.headerCanvas.height = h * dpr;
-    this.headerCanvas.style.width = `${w}px`;
-    this.headerCanvas.style.height = `${h}px`;
-
-    const ctx = this.headerCanvas.getContext('2d')!;
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, w, h);
-
-    const font = '700 13px "Space Mono", "Courier New", monospace';
-    const prepared = prepareWithSegments(this.opts.title, font);
-    const { lines } = layoutWithLines(prepared, w, 18);
-
-    ctx.font = font;
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-    ctx.textBaseline = 'middle';
-    const y = h / 2;
-
-    for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i].text, 0, y + (i - (lines.length - 1) / 2) * 18);
+    if (this.titleEl.textContent !== this.opts.title) {
+      this.titleEl.textContent = this.opts.title;
     }
   }
 
@@ -155,12 +131,10 @@ export class PluginCard {
 
   setContent(html: string): void {
     this.body.innerHTML = '';
-    const canvas = TextRenderer.createCanvas(html, this.opts.width - 40, this.opts.height - 70, {
-      font: '400 13px "Space Mono", "Courier New", monospace',
-      color: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
-      lineHeight: 20,
-    });
-    this.body.appendChild(canvas);
+    const content = document.createElement('div');
+    content.className = 'card-content-text';
+    content.innerHTML = html;
+    this.body.appendChild(content);
   }
 
   private snap(v: number): number {

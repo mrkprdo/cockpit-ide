@@ -1400,19 +1400,20 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     expect(onFocus).toHaveBeenCalled();
   });
 
-  it('renders title inside header canvas', () => {
+  it('renders title inside header as DOM text', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
     const card = new PluginCard(parent, {
-      title: 'Canvas Title', x: 0, y: 0, width: 200, height: 100,
+      title: 'DOM Title', x: 0, y: 0, width: 200, height: 100,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
-    const canvas = card.el.querySelector('canvas');
-    expect(canvas).toBeTruthy();
+    const titleEl = card.el.querySelector('.card-header .card-title-text');
+    expect(titleEl).toBeTruthy();
+    expect(titleEl?.textContent).toBe('DOM Title');
   });
 
-  it('setContent replaces body with a canvas element', () => {
+  it('setContent replaces body with a DOM text element', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
@@ -1421,8 +1422,9 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
     card.setContent('Hello');
-    const canvas = card.el.querySelector('.card-body canvas');
-    expect(canvas).toBeTruthy();
+    const content = card.el.querySelector('.card-body .card-content-text');
+    expect(content).toBeTruthy();
+    expect(content?.textContent).toBe('Hello');
   });
 
   it('has edge resize handles (card-edge classes)', () => {

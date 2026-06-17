@@ -140,16 +140,16 @@ describe('PluginCard', () => {
     expect(parent.contains(el)).toBe(false);
   });
 
-  it('renders a canvas title element', () => {
+  it('renders a DOM title element with the title text', () => {
     const parent = makeParent();
     const card = new PluginCard(parent, {
-      title: 'Canvas Title',
+      title: 'DOM Title',
       x: 0, y: 0, width: 400, height: 300,
     }, getTransform);
 
-    const canvas = card.el.querySelector('.card-title-canvas') as HTMLCanvasElement;
-    expect(canvas).toBeTruthy();
-    expect(canvas.tagName).toBe('CANVAS');
+    const titleEl = card.el.querySelector('.card-title-text') as HTMLElement;
+    expect(titleEl).toBeTruthy();
+    expect(titleEl.textContent).toBe('DOM Title');
   });
 
   it('stores width/height from constructor opts', () => {
@@ -166,7 +166,7 @@ describe('PluginCard', () => {
     expect(card.opts.height).toBe(300);
   });
 
-  it('supports setContent with HTML (creates canvas)', () => {
+  it('supports setContent with HTML (renders DOM text)', () => {
     const parent = makeParent();
     const card = new PluginCard(parent, {
       title: 'Content Test',
@@ -175,7 +175,9 @@ describe('PluginCard', () => {
 
     card.setContent('<b>Hello</b>');
     const body = card.el.querySelector('.card-body') as HTMLElement;
-    expect(body.querySelector('canvas')).toBeTruthy();
+    const content = body.querySelector('.card-content-text') as HTMLElement;
+    expect(content).toBeTruthy();
+    expect(content.querySelector('b')?.textContent).toBe('Hello');
   });
 
   it('double-click on header fires onFitViewport', () => {

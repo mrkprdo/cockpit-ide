@@ -284,10 +284,10 @@ describe('PluginCard edge cases', () => {
       x: 0, y: 0, width: 400, height: 300,
     }, getTransform);
     // Should not crash during renderTitle
-    expect(card.el.querySelector('.card-title-canvas')).toBeTruthy();
+    expect(card.el.querySelector('.card-title-text')).toBeTruthy();
   });
 
-  it('setContent with empty string creates canvas', () => {
+  it('setContent with empty string renders DOM text container', () => {
     const parent = makeParent();
     const card = new PluginCard(parent, {
       title: 'Empty Content',
@@ -296,7 +296,7 @@ describe('PluginCard edge cases', () => {
 
     card.setContent('');
     const body = card.el.querySelector('.card-body') as HTMLElement;
-    expect(body.querySelector('canvas')).toBeTruthy();
+    expect(body.querySelector('.card-content-text')).toBeTruthy();
   });
 
   it('double-remove does not throw', () => {
