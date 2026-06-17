@@ -849,6 +849,75 @@ describe('main.ts IPC handlers', () => {
     });
   });
 
+  describe('zoom controls (Ctrl +/-/0)', () => {
+    // Spin up a fresh window and grab its before-input-event handler + webContents.
+    async function freshZoom() {
+      const { BrowserWindow } = await import('electron');
+      const fs = await import('fs');
+      vi.mocked(fs.readFileSync).mockReturnValue(''); // readZoom → NaN → starts at 0
+      (BrowserWindow as any).mockClear();
+      await handleMap.get('window:new')!({});
+      const wc = (BrowserWindow as any).mock.instances[0].webContents;
+      const call = wc.on.mock.calls.find((c: any[]) => c[0] === 'before-input-event');
+      return { wc, onInput: call[1] as (e: any, input: any) => void };
+    }
+    const keyDown = (key: string) => ({ type: 'keyDown', control: true, key });
+
+    it('pins visual zoom and installs the key handler', async () => {
+      const { wc } = await freshZoom();
+      expect(wc.setVisualZoomLevelLimits).toHaveBeenCalledWith(1, 1);
+      expect(wc.on.mock.calls.some((c: any[]) => c[0] === 'before-input-event')).toBe(true);
+    });
+
+    it('Ctrl+= and Ctrl++ zoom in one step', async () => {
+      for (const key of ['=', '+']) {
+        const { wc, onInput } = await freshZoom();
+        const e = { preventDefault: vi.fn() };
+        onInput(e, keyDown(key));
+        expect(e.preventDefault).toHaveBeenCalled();
+        expect(wc.setZoomLevel).toHaveBeenLastCalledWith(0.5);
+      }
+    });
+
+    it('Ctrl+- zooms out one step', async () => {
+      const { wc, onInput } = await freshZoom();
+      onInput({ preventDefault: vi.fn() }, keyDown('-'));
+      expect(wc.setZoomLevel).toHaveBeenLastCalledWith(-0.5);
+    });
+
+    it('Ctrl+0 resets to 0', async () => {
+      const { wc, onInput } = await freshZoom();
+      onInput({ preventDefault: vi.fn() }, keyDown('='));
+      onInput({ preventDefault: vi.fn() }, keyDown('0'));
+      expect(wc.setZoomLevel).toHaveBeenLastCalledWith(0);
+    });
+
+    it('clamps at the max (4) and min (-2)', async () => {
+      const hi = await freshZoom();
+      for (let i = 0; i < 12; i++) hi.onInput({ preventDefault: vi.fn() }, keyDown('='));
+      expect(hi.wc.setZoomLevel).toHaveBeenLastCalledWith(4);
+      const lo = await freshZoom();
+      for (let i = 0; i < 12; i++) lo.onInput({ preventDefault: vi.fn() }, keyDown('-'));
+      expect(lo.wc.setZoomLevel).toHaveBeenLastCalledWith(-2);
+    });
+
+    it('persists the level to zoom-level.txt', async () => {
+      const fs = await import('fs');
+      const { onInput } = await freshZoom();
+      vi.mocked(fs.writeFileSync).mockClear();
+      onInput({ preventDefault: vi.fn() }, keyDown('='));
+      expect(fs.writeFileSync).toHaveBeenCalledWith(expect.stringContaining('zoom-level.txt'), '0.5');
+    });
+
+    it('ignores key-up and non-Ctrl presses', async () => {
+      const { wc, onInput } = await freshZoom();
+      const before = wc.setZoomLevel.mock.calls.length;
+      onInput({ preventDefault: vi.fn() }, { type: 'keyUp', control: true, key: '=' });
+      onInput({ preventDefault: vi.fn() }, { type: 'keyDown', control: false, key: '=' });
+      expect(wc.setZoomLevel.mock.calls.length).toBe(before);
+    });
+  });
+
   describe('git handler registration', () => {
     const gitChannels = [
       'git:remotes', 'git:branches', 'git:checkout', 'git:log',

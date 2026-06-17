@@ -24,7 +24,7 @@
   "architecture": {
     "process_model": "3-process Electron (main/Node → preload/bridge → renderer/Chromium). Main handles filesystem, PTY terminals, window management, and git CLI. Preload exposes contextBridge API. Renderer runs all UI components (canvas, editor, terminal, modals). Optional IDE context server runs alongside main process.",
     "ipc_or_api_pattern": "ipcRenderer.invoke / ipcMain.handle (async request/response) for most operations. ipcRenderer.send / webContents.send (push) for terminal:data, terminal:exit, fs:onChanged. contextBridge.exposeInMainWorld exposes all channels as window.electronAPI namespaces.",
-    "state_persistence": "Canvas state (card positions, sizes, plugin configs) serialized as EditorState[] to .cockpit/window.json via workspace:save/load IPC. Auto-saves on state change (debounced 500ms). Recent workspaces in recent-workspaces.json. Last workspace in last-workspace.txt.",
+    "state_persistence": "Canvas state (card positions, sizes, plugin configs) serialized as EditorState[] to .cockpit/window.json via workspace:save/load IPC. Auto-saves on state change (debounced 500ms). Recent workspaces in recent-workspaces.json. Last workspace in last-workspace.txt. Renderer zoom level in zoom-level.txt.",
     "concurrency_model": "Single-threaded async I/O per process. node-pty spawns child processes per terminal session. chokidar file watcher (debounced 100ms) emits change events via IPC push."
   },
   "features": {
@@ -119,7 +119,10 @@
     { "key": "Ctrl+P", "scope": "app", "action": "Open Command Palette file finder" },
     { "key": "Ctrl+S", "scope": "editor", "action": "Save currently active editor tab" },
     { "key": "Ctrl+V", "scope": "terminal", "action": "Paste clipboard content into terminal" },
-    { "key": "Ctrl+Shift+V", "scope": "terminal", "action": "Paste clipboard content into terminal (alt)" }
+    { "key": "Ctrl+Shift+V", "scope": "terminal", "action": "Paste clipboard content into terminal (alt)" },
+    { "key": "Ctrl+=/+", "scope": "app", "action": "Zoom whole renderer in one step (webContents.setZoomLevel, +0.5, max 4)" },
+    { "key": "Ctrl+-", "scope": "app", "action": "Zoom whole renderer out one step (-0.5, min -2)" },
+    { "key": "Ctrl+0", "scope": "app", "action": "Reset renderer zoom to default. Level persisted to zoom-level.txt, handled in main via before-input-event" }
   ],
   "api_endpoints": [],
   "test_coverage": {

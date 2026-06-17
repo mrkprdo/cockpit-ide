@@ -169,6 +169,41 @@ if (process.platform === 'win32') app.setAppUserModelId('com.cockpit.ide');
 
 let lastWsFile: string;
 let recentWsFile: string;
+let zoomFile: string;
+
+// Renderer zoom (Ctrl +/-/0). Electron zoom level is logarithmic: factor = 1.2 ^ level.
+const ZOOM_STEP = 0.5;
+const ZOOM_MIN = -2;
+const ZOOM_MAX = 4;
+
+function readZoom(): number {
+  try {
+    const n = parseFloat(fs.readFileSync(zoomFile, 'utf-8'));
+    return Number.isFinite(n) ? Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, n)) : 0;
+  } catch { return 0; }
+}
+function writeZoom(level: number): void {
+  try { fs.writeFileSync(zoomFile, String(level)); } catch {}
+}
+
+// Ctrl +/-/0 zoom the whole renderer uniformly (chrome, editors, terminals, file tree).
+// Handled here because before-input-event preventDefault stops the keydown from ever
+// reaching the page, so renderer-side key handling for these is impossible.
+function installZoomControls(wc: Electron.WebContents): void {
+  let level = readZoom();
+  wc.setVisualZoomLevelLimits(1, 1);
+  const apply = (): void => { wc.setZoomLevel(level); writeZoom(level); };
+  // Zoom level resets on each load; reapply once the page is ready.
+  wc.on('did-finish-load', () => wc.setZoomLevel(level));
+  apply();
+  wc.on('before-input-event', (e, input) => {
+    if (input.type !== 'keyDown' || !input.control) return;
+    const k = input.key;
+    if (k === '=' || k === '+') { e.preventDefault(); level = Math.min(ZOOM_MAX, level + ZOOM_STEP); apply(); }
+    else if (k === '-' || k === '_') { e.preventDefault(); level = Math.max(ZOOM_MIN, level - ZOOM_STEP); apply(); }
+    else if (k === '0') { e.preventDefault(); level = 0; apply(); }
+  });
+}
 function saveLastWorkspace(p: string): void {
   try { fs.writeFileSync(lastWsFile, p, 'utf-8'); } catch {}
 }
@@ -222,13 +257,7 @@ function createWindow(): void {
 
   mainWindow.webContents.on('will-navigate', (event) => { event.preventDefault(); });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  mainWindow.webContents.setZoomLevel(0);
-  mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
-  mainWindow.webContents.on('before-input-event', (_e, input) => {
-    if (input.control && (input.key === '-' || input.key === '=' || input.key === '+' || input.key === '0')) {
-      _e.preventDefault();
-    }
-  });
+  installZoomControls(mainWindow.webContents);
 
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
@@ -284,13 +313,7 @@ function createNewWindow(): void {
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   win.webContents.on('will-navigate', (event) => { event.preventDefault(); });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.setZoomLevel(0);
-  win.webContents.setVisualZoomLevelLimits(1, 1);
-  win.webContents.on('before-input-event', (_e, input) => {
-    if (input.control && (input.key === '-' || input.key === '=' || input.key === '+' || input.key === '0')) {
-      _e.preventDefault();
-    }
-  });
+  installZoomControls(win.webContents);
   if (process.argv.includes('--dev')) {
     win.webContents.openDevTools();
   }
@@ -301,6 +324,7 @@ app.whenReady().then(async () => {
   // Initialize storage paths
   lastWsFile = path.join(app.getPath('userData'), 'last-workspace.txt');
   recentWsFile = path.join(app.getPath('userData'), 'recent-workspaces.json');
+  zoomFile = path.join(app.getPath('userData'), 'zoom-level.txt');
 
   // CLI workspace path takes precedence over saved state
   const cliPath = resolveCliWorkspace();
