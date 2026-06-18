@@ -1,21 +1,35 @@
 {
   "name": "Context Menu",
   "file": "src/renderer/components/ContextMenu.ts",
-  "description": "Right-click floating context menu. Singleton menu with items (labels + actions), separators, disabled items. Positions at click coordinates. Closes on outside click or item selection. Tracks all open menus and closes previous before opening new one.",
+  "description": "Floating right-click context menu singleton. Creates a positioned .ctx-menu div with .ctx-item children and .ctx-sep separators. Supports disabled items. Closes previous open menus before creating new one (static openMenus tracking). Closes on outside click (document-level listener added via setTimeout(0) to avoid immediate self-close). Fires optional onClose callback on removal.",
   "type": "ui",
-  "layer": "core",
-  "singleton": true,
-  "exports": ["ContextMenu", "ContextMenuItem"],
+  "layer": "overlay",
+  "singleton": false,
+  "exports": [
+    "ContextMenuItem",
+    "ContextMenu"
+  ],
   "dependencies": [],
   "referenced_by": [
-    { "file": "src/renderer/components/FileExplorerPlugin.ts", "usage": ["ContextMenu"] }
+    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" },
+    { "feature": "File Explorer Plugin", "file": "src/renderer/components/FileExplorerPlugin.ts" },
+    { "feature": "Monaco Editor Plugin", "file": "src/renderer/components/MonacoEditorPlugin.ts" },
+    { "feature": "Markdown Plugin", "file": "src/renderer/components/MarkdownPlugin.ts" }
   ],
-  "ipc": [],
   "interface": {
+    "constructor": "new ContextMenu(items: ContextMenuItem[], x: number, y: number)",
     "methods": [
-      "open(items: ContextMenuItem[], x: number, y: number): void",
-      "close(): void"
+      { "name": "remove", "signature": "() => void", "description": "Remove DOM element, fire onClose, clean up static tracking" }
     ],
-    "properties": ["element: HTMLElement"]
-  }
+    "properties": [
+      { "name": "onClose", "type": "(() => void) | null", "description": "Optional callback fired on menu removal" }
+    ]
+  },
+  "ui": { "spec": "context-menu-ui.spec.json" },
+  "lifecycle": {
+    "created_by": "Component right-click event handlers",
+    "destroyed_by": "Outside click or item selection fires remove()",
+    "singleton": false
+  },
+  "test": "src/renderer/components/ContextMenu.test.ts"
 }

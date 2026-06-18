@@ -1,42 +1,41 @@
 {
   "name": "Context Menu UI",
-  "parent": "ContextMenu",
-  "description": "Floating right-click context menu singleton. Items with labels and actions, separators, disabled items.",
+  "parent": "context-menu",
+  "description": "Floating right-click context menu. Positioned at mouse coordinates. Items with labels and click actions, separators, and disabled items. Singleton behavior: opening a new menu closes any existing ones. Closes on outside click.",
   "dom": {
-    "root": ".ctx-menu (position: fixed, z-index: 10001, background: var(--surface), border: 1px solid var(--border), border-radius: 8px, padding: 4px 0, min-width: 160px, box-shadow: 0 4px 16px rgba(0,0,0,0.3))",
+    "root": ".ctx-menu (position: fixed, left: x px, top: y px, z-index: 10001, background: var(--surface), border: 1px solid var(--border), border-radius: 8px, padding: 4px 0, min-width: 160px, box-shadow: 0 4px 16px rgba(0,0,0,0.3))",
     "container": "document.body",
-    "children": [
-      ".ctx-item (padding: 6px 16px, cursor: pointer, font-size: 13px, display: flex, align-items: center, gap: 8px)",
-      ".ctx-item:hover (background: var(--accent), color: var(--bg))",
-      ".ctx-item.disabled (opacity: 0.4, cursor: not-allowed)",
-      ".ctx-separator (height: 1px, background: var(--border), margin: 4px 8px)"
-    ]
+    "elements": {
+      "ctx-item": ".ctx-item (padding: 6px 16px, cursor: pointer, font-size: 13px, color: var(--primary), font-family: 'Space Mono', 'Courier New', monospace; hover: background var(--panel))",
+      "ctx-disabled": ".ctx-item.ctx-disabled (opacity: 0.4, cursor: default, no click handler)",
+      "ctx-sep": ".ctx-sep (height: 1px, background: var(--border), margin: 4px 8px)"
+    }
   },
   "interactions": [
     {
       "name": "select_item",
-      "trigger": "click on .ctx-item:not(.disabled)",
-      "action": "Execute item.action callback → Remove menu from DOM → Fire onClose (if set)",
-      "result": "Menu removed, action executed"
+      "trigger": "click on .ctx-item:not(.ctx-disabled)",
+      "action": "Execute item.action callback → Call this.remove()",
+      "result": "Menu removed from DOM, action executed, onClose fired"
     },
     {
       "name": "close_outside",
-      "trigger": "click outside .ctx-menu",
-      "action": "Remove menu from DOM → Fire onClose (if set)",
-      "propagation": "Stop propagation on menu clicks to prevent immediate close"
+      "trigger": "click anywhere outside .ctx-menu (on document)",
+      "action": "this.remove() → Remove document click listener → Fire onClose",
+      "propagation": "document click listener added via setTimeout(0) to avoid immediate self-close from the triggering click"
     },
     {
       "name": "close_existing",
-      "trigger": "open() called while another menu exists",
-      "action": "Remove all existing .ctx-menu elements from DOM before creating new one",
+      "trigger": "ContextMenu constructor called while another menu exists",
+      "action": "Loop ContextMenu.openMenus → call remove() on each → Clear array before creating new menu",
       "result": "Only one context menu visible at a time"
     }
   ],
   "states": {
-    "open": "Menu visible at (x, y) coordinates, items rendered with labels and separators",
-    "closed": "No .ctx-menu in DOM"
+    "open": "Menu visible at (x, y), items rendered with labels and separators, document click listener active",
+    "closed": "Menu removed from DOM, static openMenus tracking cleaned, onClose fired"
   },
   "dynamic_content": {
-    "items": "Each item is rendered as .ctx-item with label text. Separator items render .ctx-separator (no click handler). Disabled items add .disabled class."
+    "items": "Each ContextMenuItem renders as .ctx-item with label textContent and optional click handler. separator:true renders .ctx-sep with no click handler. disabled:true adds .ctx-disabled class and skips click binding."
   }
 }

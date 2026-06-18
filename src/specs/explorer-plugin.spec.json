@@ -1,31 +1,42 @@
 {
-  "name": "Explorer Split-Pane Plugin",
+  "name": "Explorer Plugin",
   "file": "src/renderer/components/ExplorerPlugin.ts",
-  "description": "Combined split-pane plugin. FileExplorerPlugin (left, 260px default, resizable 120-600px) + MonacoEditorPlugin (right) in horizontal flex layout with drag handle. Bridges markdown openers and theme updates between child panes.",
+  "description": "Combined split-pane explorer plugin. Horizontal flex layout: FileExplorerPlugin (left, 260px default, resizable 120-600px via drag handle) + MonacoEditorPlugin (right, flex:1, hidden when no tabs). Drag handle with hover accent color and cursor:col-resize. Bridges file explorer clicks to editor openFile(). Lazily creates CommandPalette on first Ctrl+P (openFileSearch). Delegates markdown opener configuration to FileExplorerPlugin (setMarkdownOpeners). Exposes getEditorState/restoreEditorState for workspace persistence. Editor column visibility toggles based on tab count. Auto-retries file explorer refresh after 1s for DOM readiness.",
   "type": "ui",
   "layer": "plugin",
   "singleton": false,
   "exports": ["ExplorerPlugin"],
   "dependencies": [
-    { "file": "src/renderer/components/FileExplorerPlugin.ts", "usage": ["FileExplorerPlugin"] },
-    { "file": "src/renderer/components/MonacoEditorPlugin.ts", "usage": ["MonacoEditorPlugin"] }
+    { "feature": "File Explorer Plugin", "file": "src/renderer/components/FileExplorerPlugin.ts", "usage": "File tree browser in left panel" },
+    { "feature": "Monaco Editor Plugin", "file": "src/renderer/components/MonacoEditorPlugin.ts", "usage": "Code editor in right panel" },
+    { "feature": "Command Palette", "file": "src/renderer/components/CommandPalette.ts", "usage": "Lazy-created file search overlay (Ctrl+P)" }
   ],
   "referenced_by": [
-    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["ExplorerPlugin"] }
+    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
-  "ipc": [],
+  "ipc": ["fs:readDir", "fs:readFile", "fs:writeFile", "file:changed"],
   "interface": {
-    "constructor": "constructor(card: PluginCard, workspacePath: string, onStateChange?: () => void)",
+    "constructor": "new ExplorerPlugin(container: HTMLElement, wsPath: string)",
     "methods": [
-      "openFile(filePath: string): void",
-      "closeActiveTab(): void",
-      "openFileSearch(): void",
-      "revealFile(filePath: string): void",
-      "getEditorState(): EditorState | null",
-      "restoreEditorState(state: EditorState | null): Promise<void>",
-      "setMarkdownOpeners(labels: string[], callback: (filePath: string, label: string) => void): void",
-      "updateTheme(): void"
+      { "name": "openFile", "signature": "(filePath: string) => void", "description": "Open file in editor and reveal in tree" },
+      { "name": "revealFile", "signature": "(filePath: string) => void", "description": "Highlight file in tree without opening" },
+      { "name": "closeActiveTab", "signature": "() => void", "description": "Close currently active editor tab" },
+      { "name": "openFileSearch", "signature": "() => void", "description": "Open CommandPalette (lazy creation)" },
+      { "name": "setMarkdownOpeners", "signature": "(labels: string[], callback: (filePath: string, label: string) => void) => void", "description": "Configure markdown openers on file explorer" },
+      { "name": "updateTheme", "signature": "() => void", "description": "Propagate theme update to editor" },
+      { "name": "getEditorState", "signature": "() => EditorState | null", "description": "Serialize editor tabs, active file, cursors, and explorer width" },
+      { "name": "restoreEditorState", "signature": "(state: EditorState | null) => Promise<void>", "description": "Restore editor tabs, cursors, and explorer panel width" }
     ],
-    "properties": ["fileExplorer: FileExplorerPlugin", "editor: MonacoEditorPlugin"]
-  }
+    "properties": [
+      { "name": "editor", "type": "MonacoEditorPlugin", "description": "Monaco editor instance" },
+      { "name": "palette", "type": "CommandPalette | null", "description": "Lazy-created file search palette" },
+      { "name": "onStateChange", "type": "(() => void) | null", "description": "Callback for state persistence" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea.addExplorer() / restorePlugins()",
+    "destroyed_by": "Card close",
+    "singleton": false
+  },
+  "test": "src/renderer/components/ExplorerPlugin.test.ts"
 }

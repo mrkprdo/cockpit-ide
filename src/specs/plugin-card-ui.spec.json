@@ -1,78 +1,102 @@
 {
   "name": "Plugin Card Widget UI",
-  "parent": "PluginCard",
+  "parent": "plugin-card",
   "description": "DOM structure, drag/resize interactions, and visual states of the draggable/resizable card that hosts all plugins.",
   "dom": {
-    "root": ".card (position: absolute, border-radius: 8px, border: 1px dashed var(--border), background: var(--surface))",
+    "root": ".card (position: absolute, border: 1px dashed var(--border), border-radius: 8px, background: var(--surface), box-shadow: var(--shadow), overflow: hidden, display: flex, flex-direction: column)",
     "container": "#canvas",
-    "children": [
-      ".card-header (height: 32px, cursor: grab, display: flex, align-items: center, padding: 0 8px)",
-      ".card-title (canvas element, pointer-events: none, user-select: none, text-overflow: ellipsis)",
-      ".card-close (position: absolute, top: 4px, right: 4px, width: 20px, height: 20px, opacity: 0 on idle, opacity: 1 on hover)",
-      ".card-body (flex: 1, overflow: hidden, padding: 8px)",
-      ".resize-handle-e (position: absolute, right: 0, top: 0, width: 4px, height: 100%, cursor: ew-resize)",
-      ".resize-handle-s (position: absolute, bottom: 0, left: 0, height: 4px, width: 100%, cursor: ns-resize)",
-      ".resize-handle-se (position: absolute, right: 0, bottom: 0, width: 12px, height: 12px, cursor: nwse-resize)"
-    ]
+    "elements": {
+      "card-header": ".card-header (height: 32px, cursor: grab, display: flex, align-items: center, justify-content: space-between, padding: 0 8px, flex-shrink: 0, border-bottom: 1px solid var(--border))",
+      "card-title-area": ".card-title-area (flex: 1, min-width: 0, overflow: hidden)",
+      "card-title-text": ".card-title-text (font-size: 13px, font-weight: 700, color: var(--primary), white-space: nowrap, overflow: hidden, text-overflow: ellipsis, font-family: 'Space Mono', 'Courier New', monospace)",
+      "card-controls": ".card-controls (display: flex, gap: 2px, flex-shrink: 0)",
+      "card-btn-minimize": "button.card-btn.card-btn-minimize (width: 24px, height: 24px, background: transparent, border: none, cursor: pointer, color: var(--tertiary), contains SVG with line for minimize)",
+      "card-btn-fitview": "button.card-btn.card-btn-fitview (width: 24px, height: 24px, background: transparent, border: none, cursor: pointer, color: var(--tertiary), contains SVG with corners for fit-viewport)",
+      "card-btn-terminate": "button.card-btn.card-btn-terminate (width: 24px, height: 24px, background: transparent, border: none, cursor: pointer, color: var(--tertiary), contains SVG with X for close/terminate)",
+      "card-body": ".card-body (flex: 1, overflow: hidden)",
+      "card-edge-e": ".card-edge.card-edge-e (position: absolute, right: 0, top: 0, width: 4px, height: 100%, cursor: ew-resize)",
+      "card-edge-s": ".card-edge.card-edge-s (position: absolute, bottom: 0, left: 0, height: 4px, width: 100%, cursor: ns-resize)",
+      "card-edge-se": ".card-edge.card-edge-se (position: absolute, right: 0, bottom: 0, width: 12px, height: 12px, cursor: nwse-resize)"
+    }
   },
   "interactions": [
     {
       "name": "drag_start",
-      "trigger": "mousedown on .card-header",
-      "gesture": "mousedown → mousemove (multiple) → mouseup",
-      "action": "Record offset from pointer to card top-left → Add mousemove/mouseup listeners on document → Set cursor: grabbing",
-      "propagation": "Stop on header only (not body)",
-      "timing": "N/A (continuous)",
-      "result": "Card position follows pointer, snapped to 28px grid on release",
-      "cursor": "grab → grabbing during drag"
+      "trigger": "mousedown on .card-header (button=0, excluding .card-controls clicks)",
+      "gesture": "mousedown → document mousemove → document mouseup",
+      "action": "Set isDragging=true, compute startWorld from element offsetLeft/offsetTop via inverse transform → on mousemove compute snappedWorld = round((rawWorld) / 28) * 28, set el.style.left/top = snappedWorld * scale + panX/Y → on mouseup compute final world coords from left/top via inverse transform, fire onDragEnd(worldX, worldY)",
+      "propagation": "stopPropagation on header mousedown; mousemove/mouseup on document",
+      "timing": "continuous during drag, snap to 28px grid",
+      "result": "Card repositioned at snapped world coordinates, onDragEnd fired",
+      "cursor": "no explicit cursor change"
     },
     {
       "name": "resize_east",
-      "trigger": "mousedown on .resize-handle-e",
-      "gesture": "mousedown → mousemove → mouseup",
-      "action": "Adjust card width = clamp(pointer.x - card.left, 120, container.width - card.left)",
-      "result": "Card width updated with minimum 120px"
+      "trigger": "mousedown on .card-edge-e",
+      "gesture": "mousedown → document mousemove → document mouseup",
+      "action": "Compute dw = (clientX - startX) / scale, newW = max(280, round((startW + dw) / 28) * 28), update opts.width and el.style.width",
+      "result": "Card width updated, onResizeEnd fired",
+      "cursor": "ew-resize"
     },
     {
       "name": "resize_south",
-      "trigger": "mousedown on .resize-handle-s",
-      "gesture": "mousedown → mousemove → mouseup",
-      "action": "Adjust card height = clamp(pointer.y - card.top, 80, container.height - card.top)",
-      "result": "Card height updated with minimum 80px"
+      "trigger": "mousedown on .card-edge-s",
+      "gesture": "mousedown → document mousemove → document mouseup",
+      "action": "Compute dh = (clientY - startY) / scale, newH = max(280, round((startH + dh) / 28) * 28), update opts.height and el.style.height",
+      "result": "Card height updated, onResizeEnd fired",
+      "cursor": "ns-resize"
     },
     {
       "name": "resize_southeast",
-      "trigger": "mousedown on .resize-handle-se",
-      "gesture": "mousedown → mousemove → mouseup",
-      "action": "Adjust both width and height simultaneously",
-      "result": "Width and height updated"
+      "trigger": "mousedown on .card-edge-se",
+      "gesture": "mousedown → document mousemove → document mouseup",
+      "action": "Adjust both width and height simultaneously (snapped to 28px grid, min 280px)",
+      "result": "Card width and height updated, onResizeEnd fired",
+      "cursor": "nwse-resize"
     },
     {
-      "name": "close",
-      "trigger": "click on .card-close",
-      "action": "Fire onClose callback with card id → Card calls remove() → DOM removed",
-      "result": "Card element removed from DOM, onRemove fired on parent CanvasArea"
+      "name": "minimize",
+      "trigger": "click on .card-btn-minimize",
+      "action": "Fire opts.onMinimize callback",
+      "result": "Card hidden (display:none) and marked isOpen=false by CanvasArea"
+    },
+    {
+      "name": "fit_viewport",
+      "trigger": "click on .card-btn-fitview OR dblclick on .card-header (excluding .card-controls)",
+      "action": "Fire opts.onFitViewport callback",
+      "result": "Canvas pans to center card in viewport"
+    },
+    {
+      "name": "terminate",
+      "trigger": "click on .card-btn-terminate",
+      "action": "Fire opts.onTerminate callback",
+      "result": "CanvasArea terminates card and removes from DOM"
     },
     {
       "name": "focus",
-      "trigger": "mousedown on .card (anywhere)",
-      "action": "Fire onFocus callback with card id → z-index raised to top of stack",
-      "result": "Card visually on top, receives keyboard events"
+      "trigger": "mousedown on .card (anywhere, useCapture=true)",
+      "action": "Fire opts.onFocus callback",
+      "result": "Card z-index raised to top of stack"
+    },
+    {
+      "name": "header_context_menu",
+      "trigger": "contextmenu on .card-header",
+      "action": "preventDefault + stopPropagation → Fire opts.onHeaderContextMenu with MouseEvent",
+      "result": "ContextMenu appears with Fit Viewport, Snap to Corner, Minimize, Close/Terminate options"
     }
   ],
   "states": {
-    "idle": "Default appearance: dashed border, surface background, title rendered on canvas, close button hidden",
-    "hover": "Border color changes to var(--accent), close button fades in (opacity 0→1, transition 150ms)",
-    "active": "z-index at top of stack, box-shadow elevated, border becomes solid var(--accent)",
-    "dragging": "box-shadow: 0 8px 32px rgba(0,0,0,0.3), cursor: grabbing, z-index: 9999, opacity: 0.95, border: 1px solid var(--accent)",
-    "resizing": "Resize handles change color (var(--accent)), cursor matches resize direction"
+    "idle": "Default appearance: dashed border, surface background, title text displayed, control buttons at default opacity",
+    "active": "z-index at top of stack (highest z-index among cards), focused by canvas",
+    "dragging": "opts width/height immutable during drag; title-only display in lower-left zone",
+    "minimized": "el.style.display = 'none', isOpen = false, card still in cards array for reopen",
+    "closed": "Card DOM element removed, drag/resize listeners cleaned up, onDestroy fired"
   },
   "rendering": {
-    "card-title": "Canvas text rendered via @chenglou/pretext createCanvas2(), 13px Space Mono, color var(--text). Width clamped to card.width - 40px.",
-    "close button": "Two CSS pseudoelement lines forming an X, color var(--text-muted). Appears on .card:hover .card-close."
+    "card-title-text": "Plain textContent set to opts.title on construction; re-rendered via renderTitle() when title changes. Font: 13px Space Mono, white-space: nowrap, text-overflow: ellipsis.",
+    "card-controls": "Three SVG inline-button pairs: minimize (horizontal line), fit-viewport (4 corners), and terminate (X). All have class card-btn. Colors: var(--tertiary) default, --accent on hover."
   },
   "accessibility": {
-    "keyboard": ["Tab to focus card", "Enter/Space to activate", "Escape to close"],
-    "aria": ["role='application'", "aria-label='Plugin card: {title}'"]
+    "aria": ["aria-label on .card-header set to opts.title"]
   }
 }

@@ -1,50 +1,50 @@
 {
   "name": "Theme Modal UI",
-  "parent": "ThemeModal",
-  "description": "Theme selection dialog with base style and dark/light mode picker, preview swatches.",
+  "parent": "theme-modal",
+  "description": "Theme palette picker dialog. Radio button groups for base theme (Default/Monokai/Idol) and mode (Dark/Light). Apply commits to theme singleton and closes. Preselected to current theme state.",
   "dom": {
-    "root": ".theme-overlay (position: fixed, inset: 0, background: rgba(0,0,0,0.6), display: flex, align-items: center, justify-content: center, z-index: 10000)",
+    "root": ".modal-overlay (position: fixed, display: flex/none, inset: 0, background: var(--scrim), align-items: center, justify-content: center, z-index: 10000)",
     "container": "document.body",
-    "children": [
-      ".theme-modal (background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, padding: 32px, min-width: 400px)",
-      ".theme-modal h2 (text: 'Choose Theme')",
-      ".theme-base-section (label: 'Base Style', radio/button group: default / monokai / idol)",
-      ".theme-mode-section (label: 'Mode', toggle: dark / light)",
-      ".theme-preview (canvas or div showing sample colors)",
-      ".theme-actions (display: flex, justify-content: flex-end, gap: 8px)",
-      ".theme-apply (button: 'Apply')",
-      ".theme-cancel (button: 'Cancel')"
-    ]
+    "elements": {
+      "modal": ".modal (role=dialog, aria-modal=true, background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, padding: 24px, min-width: 340px)",
+      "modal-header": ".modal-header (font-size: 12px, font-weight: 700, letter-spacing: 3px, color: var(--tertiary), text-align: center, margin-bottom: 16px, text: 'THEME')",
+      "modal-body": ".modal-body (display: flex, flex-direction: column, gap: 0)",
+      "modal-section": ".modal-section (margin-bottom: 16px)",
+      "modal-label": ".modal-label (font-size: 9px, font-weight: 700, letter-spacing: 1px, color: var(--tertiary), margin-bottom: 8px, text: 'THEMES' or 'LIGHT / DARK')",
+      "modal-radio": "label.modal-radio (display: flex, align-items: center, gap: 8px, padding: 6px 0, cursor: pointer, font-size: 13px, color: var(--primary), font-family: 'Space Mono', 'Courier New', monospace) containing input[type=radio]",
+      "modal-actions": ".modal-actions (display: flex, justify-content: flex-end, gap: 8px, margin-top: 8px)",
+      "theme-cancel": "button.btn-ghost#theme-cancel (text: 'Cancel')",
+      "theme-apply": "button.btn-primary#theme-apply (text: 'Apply')"
+    }
   },
   "interactions": [
     {
       "name": "select_base",
-      "trigger": "click on theme base option",
-      "action": "Highlight selected option, update preview swatch",
-      "result": "Base selection stored"
+      "trigger": "click on input[name='theme-base'] radio",
+      "action": "Update checked state for radio group (default/monokai/idol)",
+      "result": "Base selection stored in DOM, no preview"
     },
     {
-      "name": "toggle_mode",
-      "trigger": "click on mode toggle",
-      "action": "Switch preview between dark/light variant",
-      "result": "Mode selection stored"
+      "name": "select_mode",
+      "trigger": "click on input[name='theme-mode'] radio",
+      "action": "Update checked state for radio group (dark/light)",
+      "result": "Mode selection stored in DOM, no preview"
     },
     {
       "name": "apply",
-      "trigger": "click on .theme-apply",
-      "action": "Resolve promise with {base, mode} → Remove overlay → Apply via theme.setDark() + theme.apply()",
-      "result": "Theme applied, promise resolved with selection"
+      "trigger": "click on #theme-apply",
+      "action": "Read checked radio values → theme.setTheme(base, mode) → close() → Fire onCloseCb",
+      "result": "Theme applied globally via CSS custom properties, modal closed"
     },
     {
       "name": "cancel",
-      "trigger": "click on .theme-cancel or overlay background",
-      "action": "Resolve promise with null → Remove overlay",
-      "result": "No theme change, promise resolved null"
+      "trigger": "click on #theme-cancel OR click on .modal-overlay (target === overlay) OR Escape key",
+      "action": "close() → Hide overlay → Remove Escape listener → Fire onCloseCb",
+      "result": "No theme change, modal closed"
     }
   ],
   "states": {
-    "open": "Overlay visible, current theme pre-selected, swatch showing preview",
-    "previewing": "Selection changed but not applied — preview swatch shows hypothetical result",
-    "closed": "Overlay removed from DOM"
+    "open": "Overlay display:flex, radios preselected to current theme.base and theme.mode, Escape handler active. Re-rendered on each open() to reflect current state.",
+    "closed": "Overlay display:none, onClose callback fired and cleared"
   }
 }

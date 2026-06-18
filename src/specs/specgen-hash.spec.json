@@ -1,15 +1,25 @@
 {
-  "name": "Specgen Hash Auto-Generated",
+  "name": "Specgen Hash",
   "file": "src/renderer/specgen-hash.ts",
-  "description": "Auto-generated file by build-renderer.js. Exports SPECGEN_HASH (SHA-256 of app version + SPECGEN.md content) and SPECGEN_VERSION. Used to verify workspace copies haven't drifted from the bundled template.",
-  "type": "config",
+  "description": "Auto-generated constants for SPECGEN version and hash of SPECGEN.md content. Regenerated on every build by scripts/gen-specgen-hash.js. Used by SpecsMapPlugin to verify spec format consistency.",
+  "type": "utility",
   "layer": "foundation",
-  "singleton": true,
+  "singleton": false,
   "exports": ["SPECGEN_HASH", "SPECGEN_VERSION"],
   "dependencies": [],
-  "referenced_by": [],
-  "ipc": [],
+  "referenced_by": [
+    { "feature": "Specs Map Plugin", "file": "src/renderer/components/SpecsMapPlugin.ts" }
+  ],
   "interface": {
-    "methods": []
-  }
+    "types": [
+      { "name": "SPECGEN_HASH", "type": "string", "description": "SHA-256 hash of SPECGEN.md content" },
+      { "name": "SPECGEN_VERSION", "type": "string", "description": "App version stamp for hash invalidation" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "Build script (scripts/gen-specgen-hash.js)",
+    "destroyed_by": "N/A",
+    "singleton": false
+  },
+  "test": "N/A"
 }

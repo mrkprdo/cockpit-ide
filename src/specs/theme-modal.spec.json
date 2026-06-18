@@ -1,18 +1,28 @@
 {
   "name": "Theme Modal",
   "file": "src/renderer/components/ThemeModal.ts",
-  "description": "Theme selection dialog allowing users to choose base theme (default/monokai/idol) and mode (dark/light). Provides preview swatches. Updates theme singleton on selection.",
+  "description": "Theme palette picker dialog. Displays two radio groups: THEMES (Default, Monokai, Idol) and LIGHT/DARK mode. Preselected to current theme state. Apply button calls theme.setTheme(base, mode) and closes. Cancel button discards changes. Overlay click = close. Escape key = close. Rerenders on each open() to reflect current state.",
   "type": "ui",
-  "layer": "core",
-  "singleton": false,
+  "layer": "modal",
+  "singleton": true,
   "exports": ["ThemeModal"],
   "dependencies": [
-    { "file": "src/renderer/theme.ts", "usage": ["theme", "themeConfigs"] }
+    { "feature": "Theme", "file": "src/renderer/theme.ts", "usage": "theme.setTheme() on Apply" }
   ],
-  "referenced_by": [],
-  "ipc": [],
+  "referenced_by": [
+    { "feature": "App", "file": "src/renderer/components/App.ts" }
+  ],
   "interface": {
-    "methods": ["open(): Promise<{base: string, mode: string} | null>", "close(): void"],
-    "properties": ["overlay: HTMLElement", "modal: HTMLElement"]
-  }
+    "constructor": "new ThemeModal()",
+    "methods": [
+      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Rerender with current theme state, show modal, register close callback" }
+    ]
+  },
+  "ui": { "spec": "theme-modal-ui.spec.json" },
+  "lifecycle": {
+    "created_by": "App constructor (new ThemeModal())",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "test": "src/renderer/components/ThemeModal.test.ts"
 }

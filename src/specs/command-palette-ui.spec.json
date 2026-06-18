@@ -1,59 +1,66 @@
 {
   "name": "Command Palette UI",
-  "parent": "CommandPalette",
-  "description": "Ctrl+P fuzzy file finder overlay with input, progress indicator, filtered file results, and recent file tracking.",
+  "parent": "command-palette",
+  "description": "Ctrl+P fuzzy file finder overlay. Shows search input, progress bar during initial file walk, filtered results with file name and directory path, and recent files section when input is empty.",
   "dom": {
-    "root": ".palette-overlay (position: fixed, inset: 0, background: rgba(0,0,0,0.5), display: flex, justify-content: center, padding-top: 15vh, z-index: 9999)",
+    "root": ".palette-overlay (position: fixed, inset: 0, background: var(--scrim), display: none → flex when .open class added, z-index: 9999, role=dialog, aria-modal=true, justify-content: center, padding-top: 15vh)",
     "container": "document.body",
-    "children": [
-      ".palette-modal (background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, width: 500px, max-height: 400px, display: flex, flex-direction: column, box-shadow: 0 8px 32px rgba(0,0,0,0.4))",
-      ".palette-input-wrapper (padding: 12px, border-bottom: 1px solid var(--border))",
-      ".palette-input (width: 100%, background: transparent, border: none, outline: none, color: var(--text), font: 14px Space Mono, placeholder: 'Search files...')",
-      ".palette-progress (height: 2px, background: var(--accent), transition: width 200ms, hidden when idle)",
-      ".palette-results (flex: 1, overflow-y: auto, padding: 4px 0)",
-      ".palette-item (padding: 8px 12px, cursor: pointer, display: flex, justify-content: space-between, align-items: center)",
-      ".palette-item:hover, .palette-item.active (background: var(--accent), color: var(--bg))",
-      ".palette-empty (padding: 24px, text-align: center, color: var(--text-muted))"
-    ]
+    "elements": {
+      "palette": ".palette (width: 560px, max-height: 420px, background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, box-shadow: 0 8px 32px rgba(0,0,0,0.4), display: flex, flex-direction: column, overflow: hidden)",
+      "palette-input": "input.palette-input (width: 100%, padding: 14px 18px, background: transparent, border: none, border-bottom: 1px solid var(--border), outline: none, color: var(--primary), font: 14px 'Space Mono', 'Courier New', monospace, placeholder: 'Search files by name...', aria-label/autocomplete/spellcheck set, autofocus on open)",
+      "palette-progress": ".palette-progress (display: none, height: 2px, overflow: hidden; contains .palette-progress-bar)",
+      "palette-results": ".palette-results (flex: 1, overflow-y: auto, padding: 0)",
+      "palette-item": ".palette-item (display: flex, gap: 8px, padding: 8px 16px, cursor: pointer, align-items: baseline; &.is-selected: background var(--accent), color white)",
+      "palette-item-name": ".palette-item-name (font-weight: 600, color: var(--primary), flex-shrink: 0)",
+      "palette-item-dir": ".palette-item-dir (font-size: 11px, color: var(--tertiary), overflow: hidden, text-overflow: ellipsis, white-space: nowrap)",
+      "palette-section-header": ".palette-section-header (padding: 8px 16px 4px, font-size: 9px, font-weight: 700, letter-spacing: 1px, color: var(--tertiary), text: 'RECENT FILES')",
+      "palette-empty": ".palette-empty (padding: 32px, text-align: center, font-size: 12px, color: var(--tertiary))"
+    }
   },
   "interactions": [
     {
       "name": "search",
       "trigger": "input on .palette-input",
-      "action": "Filter file index against input text using substring/fuzzy match → Re-render .palette-results with matches",
-      "timing": "Throttled 100ms",
-      "result": "Results list updates to show matching files"
+      "action": "Clear searchTimer → If empty: show recent files → If non-empty: set 150ms timeout → On timeout: if files not yet loaded, show progress bar and start recursive dir walk via fs:readDir (skip .git, node_modules, .cockpit) → Filter results by substring match on name and path (case-insensitive) → Limit 50 → Render results",
+      "timing": "throttled 150ms debounce, initial index walk is async",
+      "result": "Results list renders matching files with name + relative directory"
     },
     {
       "name": "navigate_down",
       "trigger": "ArrowDown keydown on .palette-input",
-      "action": "Move .active class to next .palette-item, scroll into view if needed",
+      "action": "Move .is-selected class to next .palette-item → scrollIntoView block:nearest",
       "result": "Next item highlighted"
     },
     {
       "name": "navigate_up",
       "trigger": "ArrowUp keydown on .palette-input",
-      "action": "Move .active class to previous .palette-item, scroll into view if needed",
+      "action": "Move .is-selected class to previous .palette-item → scrollIntoView block:nearest",
       "result": "Previous item highlighted"
     },
     {
+      "name": "mouse_hover",
+      "trigger": "mouseenter on .palette-item",
+      "action": "Find index of item in parent → Update selectedIndex → Update .is-selected across all sibling items",
+      "result": "Hovered item highlighted, keyboard selection synced"
+    },
+    {
       "name": "select",
-      "trigger": "Enter keydown or click on .palette-item",
-      "action": "Fire onOpenFile callback with selected path → Close palette",
-      "result": "File opened in editor, palette closed"
+      "trigger": "Enter keydown on .palette-input OR mousedown on .palette-item",
+      "action": "confirmSelection(): if input empty and recent files exist, select recent index; otherwise select results[selectedIndex] → selectFile adds to recent localStorage → close → onSelectFile callback",
+      "result": "File opened in editor, palette hidden, recent cache updated"
     },
     {
       "name": "close",
-      "trigger": "Escape keydown or click on .palette-overlay background",
-      "action": "Remove overlay from DOM",
-      "result": "Palette closed"
+      "trigger": "Escape keydown OR click on .palette-overlay (target === overlay)",
+      "action": "close() → Remove .open class → Clear searchTimer",
+      "result": "Palette hidden"
     }
   ],
   "states": {
-    "idle": "Overlay visible, input focused, progress bar hidden, results show recent files or all files",
-    "indexing": "Progress bar visible and animating while file tree is being walked via IPC fs:readDir",
-    "results": "Filtered results displayed, keyboard navigation active",
-    "empty": "No files match the search query — 'No files found' message shown",
-    "closed": "Overlay removed from DOM"
+    "idle": "Overlay with .open class, input focused after 50ms setTimeout, results show recent files section or 'No recent files' message",
+    "indexing": ".palette-progress visible, input disabled for typing, results show 'Searching files...'",
+    "results": "Filtered results displayed, keyboard+mouse navigation active, selectedIndex tracks current item",
+    "empty": "No files match query — 'No matching files' message shown in .palette-empty",
+    "closed": "Overlay without .open class (display:none via CSS), timers cleared"
   }
 }

@@ -1,20 +1,29 @@
 {
-  "name": "Canvas Grid Utility",
+  "name": "Canvas Grid",
   "file": "src/renderer/components/canvas-grid.ts",
-  "description": "GridStyle type definition and pattern generation. Exports grid pattern CSS background-image strings for dot, grid, and none styles. applyGridStyle() applies the pattern to an element.",
+  "description": "Canvas grid pattern generation utility. Renders dot or grid patterns to a canvas element and exposes data URL for CSS background-image. Resolves CSS --tertiary variable for color. applyGridToElement sets background-image, repeat, size, and position to create an infinite panning grid. Supports three styles: none, dots (2px radius circles), grid (1px L-shaped lines).",
   "type": "utility",
-  "layer": "utility",
+  "layer": "widget",
   "singleton": false,
-  "exports": ["GridStyle", "defaultGridStyle", "applyGridStyle", "getGridPattern"],
+  "exports": [
+    "GridStyle",
+    "generateGridPattern",
+    "applyGridToElement"
+  ],
   "dependencies": [],
   "referenced_by": [
-    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["GridStyle", "applyGridStyle"] }
+    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
-  "ipc": [],
   "interface": {
-    "methods": [
-      "applyGridStyle(el: HTMLElement, style: GridStyle, zoom: number): void",
-      "getGridPattern(style: GridStyle, zoom: number): string"
+    "functions": [
+      { "name": "generateGridPattern", "signature": "(style: GridStyle, patternSize: number) => string", "description": "Generate canvas data URL for dots or grid pattern" },
+      { "name": "applyGridToElement", "signature": "(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number, scale: number, panX: number, panY: number) => void", "description": "Apply grid background to element with transform-aware position/size" }
     ]
-  }
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea constructor and setGridStyle",
+    "destroyed_by": "N/A",
+    "singleton": false
+  },
+  "test": "src/renderer/components/CanvasArea.test.ts (indirect)"
 }

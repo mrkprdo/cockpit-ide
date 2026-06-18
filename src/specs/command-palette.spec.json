@@ -1,30 +1,29 @@
 {
-    "name":  "Command Palette",
-    "file":  "src/renderer/components/CommandPalette.ts",
-    "description":  "Ctrl+P fuzzy file finder overlay. Overlay with input, progress indicator, file index (throttled directory walk), filtered results, recent-file tracking, arrow-key navigation, Enter to open in editor. Debounced refresh on workspace change.",
-    "type":  "ui",
-    "layer":  "plugin",
-    "singleton":  false,
-    "exports":  [
-                    "CommandPalette"
-                ],
-    "dependencies":  [
-
-                     ],
-    "referenced_by":  [
-
-                      ],
-    "ipc":  "fs:readDir",
-    "interface":  {
-                      "constructor":  "constructor(onOpenFile: (path: string) =\u003e void)",
-                      "methods":  [
-                                      "open(): void",
-                                      "close(): void",
-                                      "refresh(): Promise\u003cvoid\u003e"
-                                  ],
-                      "properties":  [
-                                         "overlay: HTMLElement",
-                                         "input: HTMLInputElement"
-                                     ]
-                  }
+  "name": "Command Palette",
+  "file": "src/renderer/components/CommandPalette.ts",
+  "description": "Ctrl+P fuzzy file finder overlay. Recursive directory walk (skips .git, node_modules, .cockpit) to build file index on first search. Throttled 150ms search with substring matching on file name and path, limited to 50 results. Shows recent files (from localStorage) when input is empty. Arrow key navigation, Enter to open, Escape to close. Mouse hover updates selection. Opens file in editor via onSelectFile callback. Recent files persist to localStorage (max 10). Loading state shows progress indicator during initial file walk.",
+  "type": "ui",
+  "layer": "overlay",
+  "singleton": false,
+  "exports": ["CommandPalette"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "Explorer Plugin", "file": "src/renderer/components/ExplorerPlugin.ts" }
+  ],
+  "ipc": ["fs:readDir"],
+  "interface": {
+    "constructor": "new CommandPalette(wsPath: string, onSelect: (filePath: string) => void)",
+    "methods": [
+      { "name": "open", "signature": "() => void", "description": "Show palette overlay, clear input, focus input" },
+      { "name": "close", "signature": "() => void", "description": "Hide palette, clear search timer" },
+      { "name": "destroy", "signature": "() => void", "description": "Remove DOM element" }
+    ]
+  },
+  "ui": { "spec": "command-palette-ui.spec.json" },
+  "lifecycle": {
+    "created_by": "ExplorerPlugin.openFileSearch() (lazy instantiation)",
+    "destroyed_by": "ExplorerPlugin card close or window close",
+    "singleton": false
+  },
+  "test": "src/renderer/components/CommandPalette.test.ts"
 }

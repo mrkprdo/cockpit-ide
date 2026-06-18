@@ -1,61 +1,47 @@
 {
-    "name":  "App Orchestrator",
-    "file":  "src/renderer/components/App.ts",
-    "description":  "Root orchestrator that creates CanvasArea and TopBar. Manages keyboard shortcuts (Ctrl+Shift+N new window, Ctrl+W prevention, Ctrl+Tab card cycling). Handles workspace lifecycle: checks CLI path, shows WelcomeModal if none, auto-saves on state change (debounced 500ms JSON diff), restores user prefs.",
-    "type":  "ui",
-    "layer":  "core",
-    "singleton":  true,
-    "exports":  [
-                    "App"
-                ],
-    "dependencies":  [
-                         {
-                             "file":  "src/renderer/components/CanvasArea.ts",
-                             "usage":  [
-                                           "CanvasArea"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/components/TopBar.ts",
-                             "usage":  [
-                                           "TopBar"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/components/WelcomeModal.ts",
-                             "usage":  [
-                                           "WelcomeModal"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/theme.ts",
-              "usage":  [
-                            "theme",
-                            "theme.isDark"
-                        ]
-                         }
-                     ],
-    "referenced_by":  [
-                          {
-                              "file":  "src/renderer/index.ts",
-                              "usage":  [
-                                            "App"
-                                        ]
-                          }
-                      ],
-    "ipc":  [
-                "workspace:setPath",
-                "workspace:getPath",
-                "workspace:load",
-                "workspace:save",
-                "workspace:recentWorkspaces",
-                "window:new",
-                "app:getVersion",
-                "dialog:selectDirectory"
-            ],
-    "interface":  {
-                      "methods":  [
-
-                                  ]
-                  }
+  "name": "App Orchestrator",
+  "file": "src/renderer/components/App.ts",
+  "description": "Root application orchestrator. Creates CanvasArea, TopBar, and all modals (Welcome, About, Theme, Tutorial). Handles keyboard shortcuts (Ctrl+Shift+N new window, Ctrl+W close tab, Ctrl+Tab card cycling, Ctrl+P file search, Ctrl+J new terminal). Manages workspace lifecycle: checks CLI path, shows WelcomeModal if none, loads/saves state to .cockpit/window.json, restores grid style/zoom lock preferences. Debounced auto-save on state change via JSON diff comparison. Bridges TopBar menu actions to CanvasArea operations.",
+  "type": "ui",
+  "layer": "core",
+  "singleton": true,
+  "exports": ["App"],
+  "dependencies": [
+    { "feature": "Top Bar", "file": "src/renderer/components/TopBar.ts", "usage": "Menu bar with File/View/Tools/Help menus and plugin submenus" },
+    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts", "usage": "Bounded canvas engine for card management" },
+    { "feature": "Welcome Modal", "file": "src/renderer/components/WelcomeModal.ts", "usage": "First-launch workspace picker" },
+    { "feature": "About Modal", "file": "src/renderer/components/AboutModal.ts", "usage": "Version/credits dialog" },
+    { "feature": "Theme Modal", "file": "src/renderer/components/ThemeModal.ts", "usage": "Palette picker dialog" },
+    { "feature": "Tutorial", "file": "src/renderer/components/Tutorial.ts", "usage": "Interactive guided tour" },
+    { "feature": "Theme", "file": "src/renderer/theme.ts", "usage": "Theme singleton for persisting preferences" }
+  ],
+  "referenced_by": [
+    { "feature": "Renderer Entry", "file": "src/renderer/index.ts" }
+  ],
+  "interface": {
+    "constructor": "new App()",
+    "methods": [
+      { "name": "loadWorkspace", "signature": "(path: string) => Promise<void>", "description": "Set workspace path, load saved state, restore plugins" },
+      { "name": "openWorkspace", "signature": "() => Promise<void>", "description": "Save current state, open native dir picker, load new workspace" },
+      { "name": "promptWorkspace", "signature": "() => Promise<void>", "description": "Check CLI path or show WelcomeModal" },
+      { "name": "startTutorial", "signature": "() => Promise<void>", "description": "Launch interactive tutorial, save preference on close" },
+      { "name": "trySave", "signature": "() => void", "description": "Debounced save — compare JSON state to lastSaved, skip if unchanged" }
+    ],
+    "properties": [
+      { "name": "canvas", "type": "CanvasArea", "description": "Main canvas engine instance" },
+      { "name": "topBar", "type": "TopBar", "description": "Menu bar instance" },
+      { "name": "wsPath", "type": "string", "description": "Current workspace absolute path" },
+      { "name": "lastSaved", "type": "string", "description": "JSON snapshot of last saved state for diff" }
+    ]
+  },
+  "ipc": [
+    "window:new", "workspace:getPath", "workspace:setPath", "workspace:load", "workspace:save",
+    "workspace:select", "prefs:load", "prefs:save"
+  ],
+  "lifecycle": {
+    "created_by": "index.ts (new App())",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "test": "src/renderer/components/App.test.ts"
 }

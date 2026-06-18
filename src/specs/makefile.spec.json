@@ -1,0 +1,29 @@
+{
+  "name": "Makefile",
+  "entry": "Makefile",
+  "description": "GNU Make build automation for Cockpit IDE. Targets: build, dev, prod, package, install, clean, test.",
+  "type": "entry",
+  "layer": "foundation",
+  "singleton": true,
+  "exports": [],
+  "dependencies": [],
+  "referenced_by": [],
+  "scripts": {
+    "build": "Full build (renderer bundle + tsc + asset copy)",
+    "dev": "Development build + launch",
+    "prod": "Production build + launch",
+    "package": "Electron packager + NSIS",
+    "install": "npm install",
+    "clean": "Remove dist/, release/, out/",
+    "test": "vitest run"
+  },
+  "build": {
+    "all": "make build"
+  },
+  "interface": {},
+  "lifecycle": {
+    "created_by": "GNU Make",
+    "destroyed_by": "N/A",
+    "singleton": true
+  }
+}

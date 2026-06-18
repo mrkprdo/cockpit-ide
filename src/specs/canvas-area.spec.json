@@ -1,119 +1,95 @@
 {
-    "name":  "Canvas Area Engine",
-    "file":  "src/renderer/components/CanvasArea.ts",
-    "description":  "Core bounded canvas engine. World-to-screen coordinate transform. Pan (left/middle-click drag), zoom (wheel, cursor-centered, 0.1x-5x). Grid rendering (dots/grid/none) via CSS background-image. Card management (add/remove/terminate/reopen/focus with z-order stacking). Snap-to-grid (28px). Plugin lifecycle (Terminal/Explorer/Markdown/Git/SpecsMap). Arrange panel (Auto Arrange, Tile Plugins with custom WxH). Status bar integration (zoom/pan/workspace/origin, View All button). Animated pan (ease-out cubic 300ms). State serialization.",
-    "type":  "ui",
-    "layer":  "core",
-    "singleton":  true,
-    "exports":  [
-                    "CanvasArea"
-                ],
-    "dependencies":  [
-                         {
-                             "file":  "src/renderer/components/PluginCard.ts",
-                             "usage":  [
-                                           "PluginCard"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/components/canvas-grid.ts",
-                             "usage":  [
-                                           "GridStyle",
-                                           "applyGridStyle"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/components/canvas-statusbar.ts",
-                             "usage":  [
-                                           "StatusBar"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/components/TerminalPlugin.ts",
-                             "usage":  [
-                                           "TerminalPlugin"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/components/ExplorerPlugin.ts",
-                             "usage":  [
-                                           "ExplorerPlugin"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/components/MarkdownPlugin.ts",
-                             "usage":  [
-                                           "MarkdownPlugin"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/components/GitPlugin.ts",
-                             "usage":  [
-                                           "GitPlugin"
-                                       ]
-                         },
-                         {
-                             "file":  "src/renderer/components/SpecsMapPlugin.ts",
-                             "usage":  [
-                                           "SpecsMapPlugin"
-                                       ]
-                         }
-                     ],
-    "referenced_by":  [
-                          {
-                              "file":  "src/renderer/components/App.ts",
-                              "usage":  [
-                                            "CanvasArea"
-                                        ]
-                          }
-                      ],
-    "ipc":  [
-                "fs:readDir",
-                "fs:readFile",
-                "fs:writeFile",
-                "fs:delete",
-                "fs:rename",
-                "fs:mkdir",
-                "fs:stat",
-                "fs:exists",
-                "fs:copy",
-                "fs:onChanged",
-                "clipboard:readText",
-                "clipboard:writeText",
-                "terminal:create",
-                "terminal:write",
-                "terminal:resize",
-                "terminal:kill",
-                "terminal:data",
-                "terminal:exit",
-                "git:log",
-                "git:status",
-                "git:diff",
-                "specsmap:getSpecData",
-                "workspace:save"
-            ],
-    "interface":  {
-                      "constructor":  "constructor(container: HTMLElement, onChange?: (state: EditorState[]) =\u003e void)",
-                      "methods":  [
-                                      "setView(panX: number, panY: number, scale: number): void",
-                                      "resetView(): void",
-                                      "fitAll(): void",
-                                      "autoArrange(): void",
-                                      "tilePlugins(perRow: number, cardW: number, cardH: number): void",
-                                      "addPlugin(type: string, ...args: any[]): string",
-                                      "removePlugin(id: string): void",
-                                      "focusPlugin(id: string): void",
-                                      "getState(): EditorState[]",
-                                      "restoreState(state: EditorState[]): void",
-                                      "updateAllThemes(): void",
-                                      "destroy(): void"
-                                  ],
-                      "properties":  [
-                                         "container: HTMLElement",
-                                         "cards: Map\u003cstring, PluginCard\u003e",
-                                         "scale: number",
-                                         "panX: number",
-                                         "panY: number"
-                                     ]
-                  }
+  "name": "Canvas Area",
+  "file": "src/renderer/components/CanvasArea.ts",
+  "description": "Core bounded canvas engine (~1300 lines). Manages world-to-screen coordinate transform (screenX = worldX * scale + panX). Supports: left-click pan (except over cards), scroll wheel zoom (cursor-centered, 0.1x-5x range), grid rendering (dots/grid/none via canvas-grid utility, 28px pattern), snap-to-grid (28px for position and size). Card management: add/remove/minimize/terminate/reopen/focus with z-order stacking (auto-rebalance at 9998). Plugin lifecycle: Terminal (multi-instance, numbered), Explorer (singleton, split-pane), Markdown (singleton, tabbed viewer), Git (singleton), SpecsMap (singleton). Plugin list panel (lower-left hover zone) shows all cards sorted, with focus/reopen/terminate context menu. Arrange panel (lower-right hover zone): Auto Arrange (flow-layout), Tile Plugins (custom WxH grid units), Snap Origin. Layout zone overlays (9-zone grid) for snap-to-corner drag targets when locked at 1x. State serialization via getSaveState() → SaveState { plugins[], zOrder[], zoom, panX, panY, locked }. Restore handles legacy 'Dev'/'Explorer N' → 'Explorer' title normalization and deduplication. Animated pan via card-arranging CSS class. Status bar integration via StatusBar class. World coordinate clamping (±50000px bounds).",
+  "type": "ui",
+  "layer": "core",
+  "singleton": true,
+  "exports": [
+    "EditorState",
+    "PluginEntry",
+    "SaveState",
+    "CanvasArea"
+  ],
+  "dependencies": [
+    { "feature": "Canvas Grid", "file": "src/renderer/components/canvas-grid.ts", "usage": "Grid pattern generation and background application" },
+    { "feature": "Canvas Statusbar", "file": "src/renderer/components/canvas-statusbar.ts", "usage": "Status bar zoom/pan/workspace display" },
+    { "feature": "Plugin Card", "file": "src/renderer/components/PluginCard.ts", "usage": "Card widget creation and lifecycle" },
+    { "feature": "Terminal Plugin", "file": "src/renderer/components/TerminalPlugin.ts", "usage": "xterm.js PTY terminal instances in cards" },
+    { "feature": "Monaco Editor Plugin", "file": "src/renderer/components/MonacoEditorPlugin.ts", "usage": "Code editor instance (legacy addEditor)" },
+    { "feature": "Explorer Plugin", "file": "src/renderer/components/ExplorerPlugin.ts", "usage": "Split-pane file explorer+editor" },
+    { "feature": "Git Plugin", "file": "src/renderer/components/GitPlugin.ts", "usage": "Git client with branch/commit/diff views" },
+    { "feature": "Context Menu", "file": "src/renderer/components/ContextMenu.ts", "usage": "Card header and plugin list context menus" },
+    { "feature": "Markdown Plugin", "file": "src/renderer/components/MarkdownPlugin.ts", "usage": "Tabbed markdown viewer" },
+    { "feature": "Specs Map Plugin", "file": "src/renderer/components/SpecsMapPlugin.ts", "usage": "Specs dependency graph visualizer" }
+  ],
+  "referenced_by": [
+    { "feature": "App", "file": "src/renderer/components/App.ts" }
+  ],
+  "interface": {
+    "constructor": "new CanvasArea(el: HTMLElement)",
+    "methods": [
+      { "name": "getSaveState", "signature": "() => SaveState", "description": "Serialize all card states, z-order, zoom/pan to SaveState object" },
+      { "name": "restorePlugins", "signature": "(state: SaveState, wsPath: string) => void", "description": "Rebuild all cards from saved state" },
+      { "name": "setView", "signature": "(view: { zoom: number; panX: number; panY: number }) => void", "description": "Apply saved zoom/pan" },
+      { "name": "addTerminal", "signature": "(cwd?: string) => void", "description": "Create numbered Terminal card with PTY" },
+      { "name": "addExplorer", "signature": "(wsPath: string) => void", "description": "Create Explorer split-pane card (singleton)" },
+      { "name": "addGit", "signature": "(wsPath: string) => void", "description": "Create Git client card (singleton)" },
+      { "name": "addMarkdown", "signature": "() => Promise<MarkdownPlugin | null>", "description": "Create Markdown viewer card (singleton)" },
+      { "name": "addSpecsmap", "signature": "(wsPath: string) => void", "description": "Create SpecsMap graph card (singleton)" },
+      { "name": "getActiveExplorerPlugin", "signature": "() => ExplorerPlugin | null", "description": "Get topmost open Explorer plugin" },
+      { "name": "updateAllThemes", "signature": "() => void", "description": "Propagate theme update to all terminal and explorer plugins" },
+      { "name": "setGridStyle", "signature": "(style: GridStyle) => void", "description": "Change grid pattern and re-apply" },
+      { "name": "fitAll", "signature": "() => void", "description": "Zoom/pan to fit all open cards in viewport" },
+      { "name": "fitViewport", "signature": "(cs: CardState) => void", "description": "Pan to center a specific card" },
+      { "name": "autoArrange", "signature": "() => void", "description": "Flow-layout open cards in a grid" },
+      { "name": "tilePlugins", "signature": "() => void", "description": "Tile cards in grid with custom cell size" },
+      { "name": "focusCard", "signature": "(title: string) => void", "description": "Bring card to front by title" },
+      { "name": "cycleCard", "signature": "(direction: 1 | -1) => void", "description": "Cycle focus through open cards" },
+      { "name": "refresh", "signature": "() => void", "description": "Reapply grid and reposition cards" },
+      { "name": "centerView", "signature": "() => void", "description": "Center viewport origin" },
+      { "name": "focusTerminal", "signature": "(uuid: string) => void", "description": "Focus and pan to terminal card by UUID" },
+      { "name": "focusExplorer", "signature": "(uuid: string) => void", "description": "Focus and pan to explorer card by UUID" },
+      { "name": "focusGit", "signature": "(uuid: string) => void", "description": "Focus and pan to git card by UUID" },
+      { "name": "focusMarkdown", "signature": "(uuid: string) => void", "description": "Focus and pan to markdown card by UUID" },
+      { "name": "focusSpecsmap", "signature": "(uuid: string) => void", "description": "Focus and pan to specsmap card by UUID" },
+      { "name": "reopenTerminal", "signature": "(uuid: string) => void", "description": "Restore minimized terminal to saved position" },
+      { "name": "reopenExplorer", "signature": "(uuid: string) => void", "description": "Restore minimized explorer to saved position" },
+      { "name": "reopenGit", "signature": "(uuid: string) => void", "description": "Restore minimized git card to saved position" },
+      { "name": "reopenMarkdown", "signature": "(uuid: string) => void", "description": "Restore minimized markdown card to saved position" },
+      { "name": "reopenSpecsmap", "signature": "(uuid: string) => void", "description": "Restore minimized specsmap card to saved position" },
+      { "name": "zoomIn", "signature": "() => void", "description": "Increase canvas scale by factor" },
+      { "name": "zoomOut", "signature": "() => void", "description": "Decrease canvas scale by factor" },
+      { "name": "resetView", "signature": "() => void", "description": "Reset zoom to 1x and re-center" }
+    ],
+    "properties": [
+      { "name": "locked", "type": "boolean", "description": "Lock zoom/pan, enable layout zone overlays" },
+      { "name": "workspaceName", "type": "string", "description": "Current workspace display name for status bar" },
+      { "name": "onStateChange", "type": "(() => void) | null", "description": "Callback for state persistence trigger" },
+      { "name": "onTerminalsChanged", "type": "callback", "description": "Notify TopBar of terminal instance changes" },
+      { "name": "onExplorersChanged", "type": "callback", "description": "Notify TopBar of explorer instance changes" },
+      { "name": "onGitChanged", "type": "callback", "description": "Notify TopBar of git instance changes" },
+      { "name": "onMarkdownChanged", "type": "callback", "description": "Notify TopBar of markdown instance changes" },
+      { "name": "onSpecsmapChanged", "type": "callback", "description": "Notify TopBar of specsmap instance changes" },
+      { "name": "onLockToggle", "type": "(() => void) | null", "description": "Callback when lock state toggles" }
+    ]
+  },
+  "state": {
+    "schema": "SaveState",
+    "description": "Serialized to .cockpit/window.json on every change (debounced JSON diff)",
+    "fields": [
+      { "name": "plugins", "type": "PluginEntry[]", "description": "Array of plugin card states with position, size, open/closed, and plugin-specific state" },
+      { "name": "zOrder", "type": "string[]", "description": "UUIDs in bottom-to-top stacking order" },
+      { "name": "zoom", "type": "number", "description": "Canvas zoom level (0.1-5)" },
+      { "name": "panX", "type": "number", "description": "Horizontal pan offset in pixels" },
+      { "name": "panY", "type": "number", "description": "Vertical pan offset in pixels" },
+      { "name": "locked", "type": "boolean", "description": "Whether zoom/pan is locked" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "App constructor (new CanvasArea())",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "test": "src/renderer/components/CanvasArea.test.ts"
 }

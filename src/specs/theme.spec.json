@@ -1,18 +1,49 @@
 {
-  "name": "Theme System",
+  "name": "Theme",
   "file": "src/renderer/theme.ts",
-  "description": "Theme singleton managing six theme definitions (default/monokai/idol × dark/light) with full CSS custom property application. Defines ThemeColors interface with 70+ palette fields. Exports theme configs for light and dark variants. apply() sets 7 CSS custom properties on document.documentElement. Auto-applies on import.",
+  "description": "Theme singleton managing CSS custom property application for dark/light modes across 3 palettes (default, monokai, idol). Each palette defines 14 color tokens (bg, surface, panel, primary, secondary, tertiary, border, accent, accent2, green, amber, red, onAccent, scrim). Supports legacy theme name migration ('dark'/'light'/'monokai' → base+mode). Applies colors to document.documentElement via style.setProperty on every change.",
   "type": "logic",
   "layer": "core",
   "singleton": true,
-  "exports": ["theme", "ThemeColors", "darkTheme", "lightTheme", "ThemeConfig", "darkThemeConfigs", "lightThemeConfigs"],
+  "exports": [
+    "ThemeColors",
+    "defaultDarkTheme",
+    "defaultLightTheme",
+    "monokaiDarkTheme",
+    "monokaiLightTheme",
+    "idolDarkTheme",
+    "idolLightTheme",
+    "theme"
+  ],
   "dependencies": [],
   "referenced_by": [
-    { "file": "src/renderer/components/App.ts", "usage": ["theme"] }
+    { "feature": "App", "file": "src/renderer/components/App.ts" },
+    { "feature": "Top Bar", "file": "src/renderer/components/TopBar.ts" },
+    { "feature": "Theme Modal", "file": "src/renderer/components/ThemeModal.ts" },
+    { "feature": "Monaco Editor Plugin", "file": "src/renderer/components/MonacoEditorPlugin.ts" }
   ],
-  "ipc": [],
   "interface": {
-    "methods": ["setDark(isDark: boolean): void", "toggle(): void", "apply(): void"],
-    "properties": ["isDark: boolean", "current: ThemeColors"]
-  }
+    "constructor": "new Theme() — instantiated once as 'theme' singleton",
+    "methods": [
+      { "name": "setBase", "signature": "(base: string) => void", "description": "Set palette base (default/monokai/idol) and apply" },
+      { "name": "setMode", "signature": "(mode: string) => void", "description": "Set dark/light mode and apply" },
+      { "name": "setTheme", "signature": "(base: string, mode?: string) => void", "description": "Set both base and mode, with legacy name fallback" },
+      { "name": "setDark", "signature": "(dark: boolean) => void", "description": "Set default palette to dark or light" },
+      { "name": "toggle", "signature": "() => void", "description": "Toggle between dark and light mode" },
+      { "name": "apply", "signature": "() => void", "description": "Write all 14 CSS custom properties to documentElement" }
+    ],
+    "properties": [
+      { "name": "base", "type": "string", "description": "Current palette base name" },
+      { "name": "mode", "type": "string", "description": "Current mode (dark/light)" },
+      { "name": "themeName", "type": "string", "description": "Full theme identifier (base-mode)" },
+      { "name": "isDark", "type": "boolean", "description": "True when mode is 'dark'" },
+      { "name": "colors", "type": "ThemeColors", "description": "Current applied palette" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "Module import (auto-instantiated, apply called on import)",
+    "destroyed_by": "Window close (never explicitly destroyed)",
+    "singleton": true
+  },
+  "test": "src/renderer/theme.test.ts"
 }

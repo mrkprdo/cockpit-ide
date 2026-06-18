@@ -1,25 +1,37 @@
 {
   "name": "Global Type Declarations",
   "file": "src/global.d.ts",
-  "description": "Ambient type declarations for Window.electronAPI, EditorState, WorkspaceState, and DirEntry. Defines the IPC contract shape between preload and renderer — every namespace and method the renderer can invoke.",
-  "type": "config",
+  "description": "Global type declarations for the renderer process. Defines Window.electronAPI interface with all IPC namespaces (window, clipboard, terminal, workspace, shell, prefs, git, fs, ide), plus EditorState, WorkspaceState, DirEntry, and EditorSelectionState interfaces.",
+  "type": "model",
   "layer": "foundation",
-  "singleton": true,
+  "singleton": false,
   "exports": [
-    "EditorState", "WorkspaceState", "DirEntry", "Window.electronAPI"
+    "EditorState",
+    "WorkspaceState",
+    "DirEntry",
+    "EditorSelectionState"
   ],
   "dependencies": [],
   "referenced_by": [
-    { "file": "src/preload/preload.ts", "usage": ["Window.electronAPI"] },
-    { "file": "src/main/main.ts", "usage": ["EditorState", "WorkspaceState"] },
-    { "file": "src/renderer/components/App.ts", "usage": ["EditorState", "WorkspaceState"] },
-    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["EditorState"] },
-    { "file": "src/renderer/components/MonacoEditorPlugin.ts", "usage": ["EditorState"] },
-    { "file": "src/renderer/components/ExplorerPlugin.ts", "usage": ["EditorState"] },
-    { "file": "src/renderer/components/FileExplorerPlugin.ts", "usage": ["DirEntry"] }
+    { "feature": "Preload", "file": "src/preload/preload.ts" },
+    { "feature": "Electron Main Process", "file": "src/main/main.ts" },
+    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" },
+    { "feature": "Explorer Plugin", "file": "src/renderer/components/ExplorerPlugin.ts" },
+    { "feature": "Monaco Editor Plugin", "file": "src/renderer/components/MonacoEditorPlugin.ts" },
+    { "feature": "App", "file": "src/renderer/components/App.ts" }
   ],
-  "ipc": [],
   "interface": {
-    "methods": []
-  }
+    "types": [
+      { "name": "EditorState", "description": "Editor tab state: openFiles, activeFile, explorerWidth, cursors per file" },
+      { "name": "WorkspaceState", "description": "Serialized workspace: plugins[], zOrder[], zoom, panX, panY, locked" },
+      { "name": "DirEntry", "description": "Filesystem entry: name + isDirectory" },
+      { "name": "EditorSelectionState", "description": "IDE context selection: filePath, text, selection range" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "TypeScript compiler (ambient declaration)",
+    "destroyed_by": "N/A",
+    "singleton": false
+  },
+  "test": "src/global.d.ts (no dedicated test; types tested via consumer tests)"
 }

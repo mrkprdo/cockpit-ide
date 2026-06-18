@@ -1,31 +1,27 @@
 {
-    "name":  "About Modal",
-    "file":  "src/renderer/components/AboutModal.ts",
-    "description":  "Version/credits dialog showing app version (0.0.1), Electron/Node runtime versions, clickable \u0027design.md\u0027 link. Optional onClose callback.",
-    "type":  "ui",
-    "layer":  "core",
-    "singleton":  false,
-    "exports":  [
-                    "AboutModal"
-                ],
-    "dependencies":  [
-
-                     ],
-    "referenced_by":  [
-
-                      ],
-    "ipc":  [
-                "app:getVersion",
-                "shell:openExternal"
-            ],
-    "interface":  {
-                      "methods":  [
-                                      "open(onClose?: () =\u003e void): void",
-                                      "close(): void"
-                                  ],
-                      "properties":  [
-                                         "overlay: HTMLElement",
-                                         "modal: HTMLElement"
-                                     ]
-                  }
+  "name": "About Modal",
+  "file": "src/renderer/components/AboutModal.ts",
+  "description": "Version and credits dialog. Displays app version, Electron version, Node version, and a clickable 'UseDesign.md' design system link (opens in browser via shell.openExternal). Shows 'The IDE for developers who think spatially' tagline. Closes via 'Close' button, overlay click, or Escape key. Accepts optional onClose callback.",
+  "type": "ui",
+  "layer": "modal",
+  "singleton": true,
+  "exports": ["AboutModal"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "App", "file": "src/renderer/components/App.ts" }
+  ],
+  "ipc": ["shell:openExternal"],
+  "interface": {
+    "constructor": "new AboutModal()",
+    "methods": [
+      { "name": "open", "signature": "(onClose?: () => void) => void", "description": "Show modal, register optional close callback" }
+    ]
+  },
+  "ui": { "spec": "about-modal-ui.spec.json" },
+  "lifecycle": {
+    "created_by": "App constructor (new AboutModal())",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "test": "src/renderer/components/AboutModal.test.ts"
 }

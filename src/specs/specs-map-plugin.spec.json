@@ -1,0 +1,34 @@
+{
+  "name": "Specs Map Plugin",
+  "file": "src/renderer/components/SpecsMapPlugin.ts",
+  "description": "Interactive dependency graph visualizer for SPECGEN spec files. Reads all .spec.json files from src/specs/ (or discovered collections via recursive walk), constructs a directed graph of feature nodes (colored by layer: green=foundation, blue=core, purple=widget, amber=modal, red=overlay, gray=plugin) with UI sub-spec child nodes. Pan/zoom canvas with cursor-centered zoom (0.1x-3x range). Hover nodes to highlight incoming/outgoing edges (animated dash flow). Click nodes to open side panel with full spec details (name, layer, source file, dependencies, referenced_by, IPC channels, description). Edge rendering with SVG cubic bezier curves and arrow markers. Supports: Ctrl+F search (find nodes by name), cycle detection and isolation mode (highlight strongly-connected components), multi-collection tab switching (if multiple specs dirs found), snapshot caching (.cockpit/specsmap-*.json), validation badge (parsed vs total spec files), refresh button (rebuild from files), and settings panel. Layer headers rendered left of each row. Empty state with guidance when no specs found. ResizeObserver auto-fit on viewport resize.",
+  "type": "ui",
+  "layer": "plugin",
+  "singleton": false,
+  "exports": ["SpecsMapPlugin"],
+  "dependencies": [
+    { "feature": "Specgen Hash", "file": "src/renderer/specgen-hash.ts", "usage": "SPECGEN_HASH and SPECGEN_VERSION constants" },
+    { "feature": "SPECGEN Template", "file": "SPECGEN.md", "usage": "Imported as text via esbuild loader:.md=text for spec format reference" }
+  ],
+  "referenced_by": [
+    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
+  ],
+  "ipc": ["fs:readDir", "fs:readFile", "fs:mkdir", "fs:writeFile"],
+  "interface": {
+    "constructor": "new SpecsMapPlugin(container: HTMLElement, wsPath: string)",
+    "methods": [
+      { "name": "refresh", "signature": "() => Promise<void>", "description": "Rediscover collections, rebuild graph from files, spin button" },
+      { "name": "fitGraph", "signature": "() => void", "description": "Auto-fit all nodes in viewport" },
+      { "name": "destroy", "signature": "() => void", "description": "Clean up event listeners" }
+    ],
+    "properties": [
+      { "name": "onFileOpen", "type": "((filePath: string) => void) | null", "description": "Callback to open source file in editor from panel" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea.addSpecsmap() / restorePlugins()",
+    "destroyed_by": "Card close (destroy called)",
+    "singleton": false
+  },
+  "test": "src/renderer/components/SpecsMapPlugin.test.ts"
+}

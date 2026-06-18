@@ -1,41 +1,57 @@
 {
   "name": "Welcome Modal UI",
-  "parent": "WelcomeModal",
-  "description": "Startup workspace picker modal with overlay, open button, and recent workspaces list.",
+  "parent": "welcome-modal",
+  "description": "Startup workspace picker modal with branding, recent workspaces list, Open Workspace and Close buttons.",
   "dom": {
-    "root": ".welcome-overlay (position: fixed, inset: 0, background: rgba(0,0,0,0.6), display: flex, align-items: center, justify-content: center, z-index: 10000)",
+    "root": ".modal-overlay (position: fixed, display: flex/none, inset: 0, background: var(--scrim), align-items: center, justify-content: center, z-index: 10000)",
     "container": "document.body",
-    "children": [
-      ".welcome-modal (background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, padding: 32px, min-width: 400px, max-width: 500px)",
-      ".welcome-modal h2 (text: 'Welcome to Cockpit IDE', font: Space Mono, margin-bottom: 24px)",
-      ".welcome-modal .open-btn (text: 'Open Workspace', button styling per DESIGN.md, margin-bottom: 16px)",
-      ".welcome-modal .recent-list (unordered list of recent workspace paths, each clickable)",
-      ".welcome-modal .recent-item (block: path text, overflow: hidden, text-overflow: ellipsis, cursor: pointer, padding: 4px 0)",
-      ".welcome-modal .close-btn (text: 'Close', position: absolute, top: 8px, right: 8px)"
-    ]
+    "elements": {
+      "welcome-modal": ".welcome-modal (role=dialog, aria-modal=true, background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, padding: 32px, min-width: 420px, max-width: 500px)",
+      "welcome-head": ".welcome-head (text-align: center)",
+      "welcome-name": ".welcome-name (font: 24px Space Mono, font-weight: 700, color: var(--primary), letter-spacing: 4px, id=welcome-title, aria-labelledby target)",
+      "welcome-sub": ".welcome-sub (font-size: 12px, color: var(--tertiary), margin-top: 4px, text: 'Select a workspace')",
+      "welcome-sep": ".welcome-sep (height: 1px, background: var(--border), margin: 16px 0)",
+      "welcome-recent": ".welcome-recent (id=welcome-recent, display: block/none based on recent items)",
+      "welcome-recent-title": ".welcome-recent-title (font-size: 10px, font-weight: 700, letter-spacing: 1px, color: var(--tertiary), text: 'Recent')",
+      "welcome-recent-item": ".welcome-recent-item (display: flex, justify-content: space-between, padding: 6px 8px, cursor: pointer, border-radius: 4px, hover bg: var(--panel))",
+      "welcome-recent-item-path": ".welcome-recent-item-path (font-size: 12px, color: var(--primary), overflow: hidden, text-overflow: ellipsis, white-space: nowrap); .welcome-recent-item-missing adds opacity:0.4",
+      "welcome-recent-item-remove": "button.welcome-recent-item-remove (text: ×, aria-label: 'Remove {path} from recent', background: none, border: none, cursor: pointer, color: var(--tertiary))",
+      "welcome-actions": ".welcome-actions (display: flex, justify-content: space-between, gap: 8px, margin-top: 16px)",
+      "welcome-close": "button.welcome-btn-secondary (text: 'Close', id=welcome-close)",
+      "welcome-open": "button.welcome-btn (text: 'Open Workspace', id=welcome-open, primary/accent styled)"
+    }
   },
   "interactions": [
     {
       "name": "open_workspace",
-      "trigger": "click on .open-btn",
-      "action": "IPC workspace:select (native directory picker) → If path selected, resolve promise with path → Close modal",
+      "trigger": "click on #welcome-open",
+      "action": "IPC workspace:select (native directory picker) → If path selected, resolve promise with path",
       "result": "Promise resolves with workspace path string"
     },
     {
       "name": "select_recent",
-      "trigger": "click on .recent-item",
-      "action": "Read data-path attribute → Resolve promise with that path → Close modal",
+      "trigger": "click on .welcome-recent-item (not the remove button)",
+      "action": "Validate path exists via fs:readDir → If exists, resolve promise with path",
       "result": "Promise resolves with recent workspace path"
     },
     {
+      "name": "remove_recent",
+      "trigger": "click on .welcome-recent-item-remove",
+      "action": "IPC workspace:removeRecent → Remove item from DOM → If no items remain, hide container and separator",
+      "result": "Recent item removed, storage updated"
+    },
+    {
       "name": "close",
-      "trigger": "click on .close-btn or overlay background",
-      "action": "Resolve promise with null → Remove overlay from DOM",
-      "result": "Promise resolves with null (no workspace selected)"
+      "trigger": "click on #welcome-close OR Escape key",
+      "action": "Resolve promise with null → Hide overlay → Remove Escape listener",
+      "result": "Promise resolves null"
     }
   ],
   "states": {
-    "open": "Overlay visible (display: flex), modal centered, recent list populated from IPC workspace:recentWorkspaces",
-    "closed": "Overlay removed from DOM"
+    "open": "Overlay display:flex, recent list populated async from IPC workspace:getRecent. Missing paths show as faded (welcome-recent-item-missing). No recent items: container + separator hidden.",
+    "closed": "Overlay display:none, Escape listener removed, promise resolved"
+  },
+  "props": {
+    "open": "() => Promise<string | null> — shows modal, load recents, returns path or null"
   }
 }

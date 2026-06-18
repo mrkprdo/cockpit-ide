@@ -1,39 +1,64 @@
 {
   "name": "Electron Main Process",
   "file": "src/main/main.ts",
-  "description": "Electron main process entry. Creates frameless BrowserWindows (1440x900), manages PTY terminal sessions via node-pty, provides IPC handlers for filesystem operations, directory picker, window controls, workspace persistence (last-workspace.txt, recent-workspaces.json, .cockpit/window.json), clipboard, user preferences, shell open, git CLI operations, and spec graph data serving. Multi-window support via single-window-lock topWindow tracking. Path security validation (no symlink escapes).",
+  "description": "Electron main process entry. Creates frameless BrowserWindows (1440x900, maximized) with contextIsolation+preload. Handles all IPC: filesystem operations (readDir/readFile/writeFile/delete/copy/rename with workspace path sandboxing), node-pty terminal sessions (multi-session, platform-aware shell), chokidar file watching (debounced 100ms, ignores .git/node_modules), workspace persistence (last-workspace.txt, recent-workspaces.json, .cockpit/window.json), window controls, clipboard, user preferences, git CLI operations (18 handlers via child_process), IDE context server integration, and renderer zoom controls (Ctrl +/-/0). Test helpers exportable for test reachability.",
   "type": "process",
   "layer": "foundation",
   "singleton": true,
-  "exports": [],
-  "dependencies": [],
+  "exports": [
+    "_testSetWorkspacePath",
+    "_testIsPathSafe"
+  ],
+  "dependencies": [
+    { "feature": "IDE Context Server", "file": "src/main/ide-server.ts", "usage": "Starts/stops IDE WebSocket server on workspace load/switch" }
+  ],
   "referenced_by": [
-    { "file": "src/main/ide-server.ts", "usage": "main process reference via require" }
+    { "feature": "Preload", "file": "src/preload/preload.ts" }
   ],
   "ipc": [
-    "app:getVersion", "window:new", "window:minimize", "window:maximize",
-    "window:close", "window:isMaximized", "clipboard:readText", "clipboard:writeText",
-    "terminal:create", "terminal:write", "terminal:resize", "terminal:kill",
-    "terminal:data", "terminal:exit",
-    "workspace:select", "workspace:setPath", "workspace:getPath", "workspace:load",
-    "workspace:save", "workspace:recentWorkspaces",
-    "fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete",
-    "fs:rename", "fs:exists", "fs:stat", "fs:copy", "fs:onChanged", "fs:onSelected",
-    "shell:openPath", "shell:openExternal",
-    "dialog:openFile", "dialog:saveFile", "dialog:selectDirectory",
-    "git:log", "git:branches", "git:remotes", "git:diff", "git:stage", "git:unstage",
-    "git:commit", "git:push", "git:pull", "git:status", "git:stash",
-    "specsmap:getSpecData",
-    "prefs:load", "prefs:save", "app:getVersion"
+    "app:version", "window:new", "window:minimize", "window:maximize", "window:close", "window:isMaximized",
+    "clipboard:readText", "clipboard:writeText",
+    "terminal:create", "terminal:write", "terminal:resize", "terminal:kill", "terminal:data", "terminal:exit",
+    "workspace:select", "workspace:setPath", "workspace:getPath", "workspace:load", "workspace:save",
+    "workspace:getRecent", "workspace:addRecent", "workspace:removeRecent",
+    "fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete", "fs:copy", "fs:rename",
+    "file:watch", "file:unwatch", "file:changed",
+    "shell:openExternal",
+    "git:remotes", "git:branches", "git:checkout", "git:log", "git:showTree", "git:diff",
+    "git:currentBranch", "git:stagedFiles", "git:unstagedFiles", "git:stagedDiff", "git:unstagedDiff",
+    "git:commitBody", "git:stage", "git:unstage", "git:commit", "git:push", "git:checkAhead",
+    "ide:editorState", "ide:status",
+    "prefs:load", "prefs:save"
   ],
   "interface": {
-    "methods": []
+    "functions": [
+      { "name": "resolveCliWorkspace", "signature": "() => string | null", "description": "Parse CLI args for workspace path" },
+      { "name": "isPathSafe", "signature": "(targetPath: string, event?: IpcMainInvokeEvent) => boolean", "description": "Validate path is within workspace + no symlink escape" },
+      { "name": "filterEnv", "signature": "() => Record<string, string>", "description": "Filter process.env to allowed keys for PTY" },
+      { "name": "createWindow", "signature": "() => void", "description": "Create main BrowserWindow with all config" },
+      { "name": "createNewWindow", "signature": "() => void", "description": "Spawn additional BrowserWindow" },
+      { "name": "startWatching", "signature": "(dir: string) => Promise<void>", "description": "Start chokidar file watcher" },
+      { "name": "stopWatching", "signature": "() => Promise<void>", "description": "Stop file watcher" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "app.whenReady()",
+    "destroyed_by": "app window-all-closed event",
+    "singleton": true
   },
   "security": {
-    "path_traversal": "All file I/O validates resolved paths against workspace root. Symbolic link targets within workspace are allowed; outside are rejected.",
-    "pty_isolation": "Each PTY session has isolated cwd. Session IDs are UUIDs. Kill by owner session only."
+    "path_traversal": "isPathSafe validates all file I/O against workspace root, including realpath/symlink resolution",
+    "pty_isolation": "Each PTY session has isolated cwd, filtered env, UUID-keyed in Maps",
+    "sandbox": "BrowserWindow sandbox:true, contextIsolation:true, nodeIntegration:false"
   },
-  "bridge": {
-    "preload": "contextBridge.exposeInMainWorld exposes all IPC as window.electronAPI via invoke/send wrappers"
-  }
+  "handlers": {
+    "window": ["new (invoke)", "minimize (on)", "maximize (on)", "close (on)", "isMaximized (invoke)"],
+    "terminal": ["create (invoke)", "write (on)", "resize (on)", "kill (on)"],
+    "workspace": ["select (invoke)", "setPath (invoke)", "getPath (invoke)", "load (invoke)", "save (invoke)", "getRecent (invoke)", "addRecent (invoke)", "removeRecent (invoke)"],
+    "fs": ["readDir (invoke)", "readFile (invoke)", "writeFile (invoke)", "mkdir (invoke)", "delete (invoke)", "copy (invoke)", "rename (invoke)"],
+    "git": ["remotes (invoke)", "branches (invoke)", "checkout (invoke)", "log (invoke)", "showTree (invoke)", "diff (invoke)", "currentBranch (invoke)", "stagedFiles (invoke)", "unstagedFiles (invoke)", "stagedDiff (invoke)", "unstagedDiff (invoke)", "commitBody (invoke)", "stage (invoke)", "unstage (invoke)", "commit (invoke)", "push (invoke)", "checkAhead (invoke)"],
+    "events": ["terminal:data (send)", "terminal:exit (send)", "file:changed (send)"]
+  },
+  "external_deps": ["electron", "fs", "path", "child_process", "node-pty", "chokidar"],
+  "test": "src/main/main.test.ts"
 }

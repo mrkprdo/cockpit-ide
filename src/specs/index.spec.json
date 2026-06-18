@@ -1,17 +1,22 @@
 {
   "name": "Renderer Entry",
   "file": "src/renderer/index.ts",
-  "description": "Renderer entry point. Instantiates the App class when DOM is ready. Has a legacy theme-toggle click listener (deprecated — TopBar handles toggling).",
-  "type": "entry",
-  "layer": "foundation",
+  "description": "Renderer process entry point. Instantiates the App class (root orchestrator) and wires the legacy theme-toggle button click handler to toggle documentElement's .light class.",
+  "type": "process",
+  "layer": "core",
   "singleton": true,
   "exports": [],
   "dependencies": [
-    { "file": "src/renderer/components/App.ts", "usage": ["App"] }
+    { "feature": "App", "file": "src/renderer/components/App.ts", "usage": "Instantiated as root orchestrator (new App())" }
   ],
   "referenced_by": [],
-  "ipc": [],
   "interface": {
-    "methods": []
-  }
+    "functions": []
+  },
+  "lifecycle": {
+    "created_by": "index.html script tag loads dist/renderer/index.js",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "test": "src/renderer/App.test.ts (indirect)"
 }

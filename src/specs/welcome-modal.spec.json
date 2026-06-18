@@ -1,36 +1,27 @@
 {
-    "name":  "Welcome Modal",
-    "file":  "src/renderer/components/WelcomeModal.ts",
-    "description":  "Startup workspace picker modal. Shows modal overlay with \u0027Open Workspace\u0027 button (native dir picker via IPC), recent workspaces list with click-to-open, and Close button. Returns Promise\u003cstring | null\u003e.",
-    "type":  "ui",
-    "layer":  "core",
-    "singleton":  false,
-    "exports":  [
-                    "WelcomeModal"
-                ],
-    "dependencies":  [
-
-                     ],
-    "referenced_by":  [
-                          {
-                              "file":  "src/renderer/components/App.ts",
-                              "usage":  [
-                                            "WelcomeModal"
-                                        ]
-                          }
-                      ],
-    "ipc":  [
-                "workspace:recentWorkspaces",
-                "dialog:selectDirectory"
-            ],
-    "interface":  {
-                      "methods":  [
-                                      "open(): Promise\u003cstring | null\u003e",
-                                      "close(): void"
-                                  ],
-                      "properties":  [
-                                         "overlay: HTMLElement",
-                                         "modal: HTMLElement"
-                                     ]
-                  }
+  "name": "Welcome Modal",
+  "file": "src/renderer/components/WelcomeModal.ts",
+  "description": "Startup workspace picker modal. Shows 'COCKPIT IDE' branding, recent workspaces list (with remove buttons), and 'Open Workspace' button (triggers native directory picker via IPC). 'Close' button resolves with null (closes window). Each recent workspace path is validated for existence; missing paths are highlighted. Returns Promise<string | null>. Escape key dismisses.",
+  "type": "ui",
+  "layer": "modal",
+  "singleton": false,
+  "exports": ["WelcomeModal"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "App", "file": "src/renderer/components/App.ts" }
+  ],
+  "ipc": ["workspace:select", "workspace:getRecent", "workspace:removeRecent", "fs:readDir"],
+  "interface": {
+    "constructor": "new WelcomeModal()",
+    "methods": [
+      { "name": "open", "signature": "() => Promise<string | null>", "description": "Show modal overlay, load recent workspaces, resolve with selected path or null" }
+    ]
+  },
+  "ui": { "spec": "welcome-modal-ui.spec.json" },
+  "lifecycle": {
+    "created_by": "App.promptWorkspace()",
+    "destroyed_by": "Promise resolution (overlay hidden, element stays in DOM)",
+    "singleton": false
+  },
+  "test": "src/renderer/components/WelcomeModal.test.ts"
 }

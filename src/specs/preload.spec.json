@@ -1,17 +1,39 @@
 {
   "name": "Preload Bridge",
   "file": "src/preload/preload.ts",
-  "description": "Electron preload script using contextBridge.exposeInMainWorld to expose window.electronAPI to the renderer process. Wires ipcRenderer.invoke (request/response) and ipcRenderer.send (fire-and-forget) for every channel. Registers event listeners for terminal:data, terminal:exit, file:changed — returns unsubscribe functions.",
+  "description": "Electron preload script. Uses contextBridge.exposeInMainWorld to expose window.electronAPI with full IPC surface. Bridges ipcRenderer.invoke (request/response channels) and ipcRenderer.send (fire-and-forget). Registers listeners for terminal:data, terminal:exit, file:changed push events — returns unsubscribe functions. Exposes platform and runtime versions (Node, Chrome, Electron, app).",
   "type": "process",
   "layer": "foundation",
   "singleton": true,
   "exports": [],
   "dependencies": [],
   "referenced_by": [
-    { "file": "src/global.d.ts", "usage": ["Window.electronAPI interface"] }
+    { "feature": "Electron Main Process", "file": "src/main/main.ts" }
   ],
-  "ipc": [],
-  "interface": {
-    "methods": []
-  }
+  "ipc": [
+    "app:version", "window:new", "window:minimize", "window:maximize", "window:close", "window:isMaximized",
+    "clipboard:readText", "clipboard:writeText",
+    "terminal:create", "terminal:write", "terminal:resize", "terminal:kill", "terminal:data", "terminal:exit",
+    "workspace:select", "workspace:setPath", "workspace:getPath", "workspace:load", "workspace:save",
+    "workspace:getRecent", "workspace:addRecent", "workspace:removeRecent",
+    "shell:openExternal",
+    "prefs:load", "prefs:save",
+    "git:remotes", "git:branches", "git:checkout", "git:log", "git:showTree", "git:diff",
+    "git:currentBranch", "git:stagedFiles", "git:unstagedFiles", "git:stagedDiff", "git:unstagedDiff",
+    "git:commitBody", "git:stage", "git:unstage", "git:commit", "git:push", "git:checkAhead",
+    "fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete", "fs:copy", "fs:rename",
+    "file:watch", "file:unwatch", "file:changed",
+    "ide:editorState", "ide:status"
+  ],
+  "bridge": {
+    "window.electronAPI": "contextBridge.exposeInMainWorld exposes all IPC as namespaced API surface"
+  },
+  "interface": {},
+  "lifecycle": {
+    "created_by": "BrowserWindow.preload option on window creation",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "external_deps": ["electron"],
+  "test": "src/preload/preload.test.ts"
 }

@@ -1,26 +1,26 @@
 {
-  "name": "Canvas Status Bar",
+  "name": "Canvas Statusbar",
   "file": "src/renderer/components/canvas-statusbar.ts",
-  "description": "Status bar UI showing zoom level, pan lock state, workspace path, and refresh/arrange controls. Provides interactive elements for zoom slider, lock toggle, and View All button.",
+  "description": "Status bar UI component rendered in the #statusbar element. Displays zoom percentage with lock/unlock toggle icon, workspace name, and a 'view all' (fitAll) button. Shows a reset-zoom refresh icon when zoom is not 100% and not locked. Supports callbacks for lock toggle, fitAll, and resetZoom.",
   "type": "ui",
-  "layer": "core",
-  "singleton": false,
+  "layer": "widget",
+  "singleton": true,
   "exports": ["StatusBar"],
   "dependencies": [],
   "referenced_by": [
-    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["StatusBar"] }
+    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
-  "ipc": [],
   "interface": {
-    "constructor": "constructor(container: HTMLElement)",
+    "constructor": "new StatusBar()",
     "methods": [
-      "setZoom(zoom: number): void",
-      "setWorkspace(path: string): void",
-      "setLocked(locked: boolean): void",
-      "onArrange(cb: () => void): void",
-      "onViewAll(cb: () => void): void",
-      "destroy(): void"
-    ],
-    "properties": ["element: HTMLElement"]
-  }
+      { "name": "init", "signature": "() => void", "description": "Build DOM structure in #statusbar (idempotent)" },
+      { "name": "update", "signature": "(locked: boolean, scale: number, workspaceName: string, onLockToggle: (() => void) | null, fitAll: () => void, resetZoom?: (() => void) | null) => void", "description": "Update all status bar displays" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "CanvasArea constructor (new StatusBar())",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "test": "src/renderer/components/CanvasArea.test.ts (indirect)"
 }

@@ -1,51 +1,34 @@
 {
-    "name":  "File Explorer Plugin",
-    "file":  "src/renderer/components/FileExplorerPlugin.ts",
-    "description":  "Recursive file tree browser with expand/collapse (arrow indicators), directories sorted first. Right-click context menus (files: Copy/Paste/Delete, .md files: \u0027Open to Markdown\u0027; dirs: New File/Folder/Copy/Paste/Delete). Inline input for instant creation (Enter commit, Escape cancel). Copy/paste with _copy_N auto-naming. Delete confirmation via ConfirmModal. External change watching with 500ms debounced refresh.",
-    "type":  "ui",
-    "layer":  "plugin",
-    "singleton":  false,
-    "exports":  [
-                    "FileExplorerPlugin"
-                ],
-    "dependencies":  [
-                         {
-                             "file":  "src/renderer/components/ConfirmModal.ts",
-                             "usage":  [
-                                           "confirm"
-                                       ]
-                         }
-                     ],
-    "referenced_by":  [
-                          {
-                              "file":  "src/renderer/components/ExplorerPlugin.ts",
-                              "usage":  [
-                                            "FileExplorerPlugin"
-                                        ]
-                          }
-                      ],
-    "ipc":  [
-                "fs:readDir",
-                "fs:mkdir",
-                "fs:writeFile",
-                "fs:delete",
-                "fs:rename",
-                "fs:copy",
-                "fs:exists",
-                "fs:onChanged",
-                "clipboard:readText",
-                "clipboard:writeText",
-                "shell:openPath"
-            ],
-    "interface":  {
-                      "constructor":  "constructor(card: PluginCard, workspacePath: string, onOpenFile?: (path: string) =\u003e void, onOpenMarkdown?: (path: string) =\u003e void)",
-                      "methods":  [
-                                      "destroy(): void",
-                                      "refresh(): Promise\u003cvoid\u003e"
-                                  ],
-                      "properties":  [
-                                         "tree: DirEntry[]",
-                                         "workspacePath: string"
-                                     ]
-                  }
+  "name": "File Explorer Plugin",
+  "file": "src/renderer/components/FileExplorerPlugin.ts",
+  "description": "Recursive file tree browser. Reads directory via fs:readDir IPC, sorts directories first. Expand/collapse with arrow indicators (▸/▾). Color-coded file icons by extension: blue for TS/JS, purple for CSS, amber for JSON/YAML, green for MD. Right-click context menus: directories (New File, New Folder, Copy, Paste, Rename, Delete), files (Copy, Paste, Rename, Delete, plus 'Open to Markdown' for .md files). Inline input for instant file/folder creation and rename (Enter commits, Escape cancels, blur commits). Copy/paste with _copy_N auto-naming (prevents overwrites). Delete confirmation via ConfirmModal. External file change watching via fs:onChanged (500ms debounced refresh). Wheel event stopPropagation to prevent canvas zoom. Tracks selected path for visual highlight.",
+  "type": "ui",
+  "layer": "plugin",
+  "singleton": false,
+  "exports": ["FileExplorerPlugin"],
+  "dependencies": [
+    { "feature": "Context Menu", "file": "src/renderer/components/ContextMenu.ts", "usage": "Right-click context menus on files and directories" },
+    { "feature": "Confirm Modal", "file": "src/renderer/components/ConfirmModal.ts", "usage": "Delete confirmation dialog" }
+  ],
+  "referenced_by": [
+    { "feature": "Explorer Plugin", "file": "src/renderer/components/ExplorerPlugin.ts" }
+  ],
+  "ipc": ["fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete", "fs:copy", "fs:rename", "file:changed"],
+  "interface": {
+    "constructor": "new FileExplorerPlugin(container: HTMLElement, rootPath: string, onFileOpen: (path: string) => void)",
+    "methods": [
+      { "name": "setMarkdownOpeners", "signature": "(labels: string[], callback: (filePath: string, label: string) => void) => void", "description": "Register markdown plugin labels for .md file context menu" },
+      { "name": "selectFile", "signature": "(filePath: string) => Promise<void>", "description": "Expand parents and highlight file in tree" },
+      { "name": "refresh", "signature": "() => Promise<void>", "description": "Full tree reload (clears expanded set)" }
+    ],
+    "properties": [
+      { "name": "selectedPath", "type": "string | null", "description": "Currently highlighted file path" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "ExplorerPlugin constructor (new FileExplorerPlugin())",
+    "destroyed_by": "Card close",
+    "singleton": false
+  },
+  "test": "src/renderer/components/FileExplorerPlugin.test.ts"
 }

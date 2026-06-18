@@ -1,0 +1,31 @@
+{
+  "name": "Top Bar",
+  "file": "src/renderer/components/TopBar.ts",
+  "description": "Custom menu bar with dropdown menus (File, View, Tools, Help) and a theme toggle button. File: Open Workspace, Exit. View: Terminal submenu (New + instance list with focus/reopen), Explorer, Git, Markdown, Canvas grid submenu (Dots/Grid/None), Zoom submenu (In/Out/Reset/Lock). Tools: SpecsMap, Theme. Help: Tutorial, About. Supports keyboard navigation (Arrow keys, Enter, Escape) and hover-to-open behavior with 300ms close delay. Dynamically patches Terminal, Git, and SpecsMap instance submenus via setTerminalItems/setGitItems/setSpecsmapItems.",
+  "type": "ui",
+  "layer": "core",
+  "singleton": true,
+  "exports": ["TopBar"],
+  "dependencies": [
+    { "feature": "Theme", "file": "src/renderer/theme.ts", "usage": "theme.toggle() on theme button click" }
+  ],
+  "referenced_by": [
+    { "feature": "App", "file": "src/renderer/components/App.ts" }
+  ],
+  "interface": {
+    "constructor": "new TopBar(el: HTMLElement, callbacks: TopBarCallbacks)",
+    "methods": [
+      { "name": "setTerminalItems", "signature": "(items: TermItem[]) => void", "description": "Update Terminal submenu instance list" },
+      { "name": "setGitItems", "signature": "(items: TermItem[]) => void", "description": "Update Git submenu instance list" },
+      { "name": "setSpecsmapItems", "signature": "(items: TermItem[]) => void", "description": "Update SpecsMap submenu instance list" },
+      { "name": "setGridStyle", "signature": "(style: GridStyle) => void", "description": "Update grid style checkmark and re-render" },
+      { "name": "setZoomLocked", "signature": "(locked: boolean) => void", "description": "Update zoom lock checkmark and re-render" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "App constructor (new TopBar())",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "test": "src/renderer/components/TopBar.test.ts"
+}

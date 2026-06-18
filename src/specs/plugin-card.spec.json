@@ -1,28 +1,37 @@
 {
-  "name": "Plugin Card Widget",
+  "name": "Plugin Card",
   "file": "src/renderer/components/PluginCard.ts",
-  "description": "Draggable/resizable card widget. DOM card with header (canvas-rendered title via @chenglou/pretext), close button (hover-reveal), body, edge resize handles (east/south/southeast). Drag by header (snaps to 28px grid). Resize with minimum snap. UUID via crypto.randomUUID().",
+  "description": "Draggable, resizable card widget that wraps plugin content. DOM: .card > .card-header (.card-title-area > .card-title-text, .card-controls with minimize/fitview/terminate buttons) + .card-body + .card-edge (east/south/southeast resize handles). Drag snaps to 28px grid via transform-aware world→screen coordinate conversion. Resize enforces 280px minimum (10 grid units). Header double-click triggers fitViewport. Right-click header opens context menu. UUID generated via crypto.randomUUID(). Drag/resize handlers registered on document mousemove/mouseup with cleanup on remove().",
   "type": "ui",
-  "layer": "core",
+  "layer": "widget",
   "singleton": false,
-  "exports": ["PluginCard"],
-  "dependencies": [
-    { "file": "src/renderer/components/TextRenderer.ts", "usage": ["measure", "createCanvas", "createCanvas2"] }
+  "exports": [
+    "CardOptions",
+    "PluginCard"
   ],
+  "dependencies": [],
   "referenced_by": [
-    { "file": "src/renderer/components/CanvasArea.ts", "usage": ["PluginCard"] }
+    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
-  "ipc": [],
   "interface": {
-    "constructor": "constructor(id: string, title: string, container: HTMLElement)",
+    "constructor": "new PluginCard(parent: HTMLElement, opts: CardOptions, getTransform: () => { scale: number; panX: number; panY: number })",
     "methods": [
-      "setContent(element: HTMLElement): void",
-      "setTitle(title: string): void",
-      "focus(): void",
-      "remove(): void",
-      "getState(): { id: string, title: string, x: number, y: number, w: number, h: number }",
-      "restoreState(state: ...): void"
+      { "name": "renderTitle", "signature": "() => void", "description": "Update title text in card header" },
+      { "name": "setContent", "signature": "(html: string) => void", "description": "Replace body content with HTML string" },
+      { "name": "remove", "signature": "() => void", "description": "Clean up document-level event listeners, fire onDestroy, remove DOM element" }
     ],
-    "properties": ["id: string", "element: HTMLElement", "title: string", "x: number", "y: number", "w: number", "h: number"]
-  }
+    "properties": [
+      { "name": "el", "type": "HTMLDivElement", "description": "Root card DOM element" },
+      { "name": "opts", "type": "CardOptions", "description": "Configuration options including all event callbacks" },
+      { "name": "uuid", "type": "string", "description": "Unique identifier (crypto.randomUUID())" },
+      { "name": "onDestroy", "type": "(() => void) | null", "description": "Callback fired during remove() before DOM cleanup" }
+    ]
+  },
+  "ui": { "spec": "plugin-card-ui.spec.json" },
+  "lifecycle": {
+    "created_by": "CanvasArea.addCard() / createCardFromDef()",
+    "destroyed_by": "CanvasArea.terminateCard() or card.remove()",
+    "singleton": false
+  },
+  "test": "src/renderer/components/PluginCard.test.ts"
 }

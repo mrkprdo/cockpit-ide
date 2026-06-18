@@ -1,37 +1,35 @@
 {
-    "name":  "IDE Context Server",
-    "file":  "src/main/ide-server.ts",
-    "description":  "HTTP/WebSocket server providing MCP-style agent integration. Exposes editor state (tabs, cursor, selections), file tree, and git status to external AI agents via JSON messages over WebSocket. Runs on localhost with configurable port.",
-    "type":  "service",
-    "layer":  "service",
-    "singleton":  true,
-    "exports":  [
-                    "IDEContextServer"
-                ],
-    "dependencies":  [
-                         {
-                             "file":  "src/main/main.ts",
-                             "usage":  [
-                                           "ipcMain",
-                                           "BrowserWindow"
-                                       ]
-                         }
-                     ],
-    "referenced_by":  [
-
-                      ],
-    "ipc":  "ide-server:state",
-    "interface":  {
-                      "constructor":  "constructor(private port: number)",
-                      "methods":  [
-                                      "start(): Promise\u003cvoid\u003e",
-                                      "stop(): void",
-                                      "broadcast(data: object): void"
-                                  ],
-                      "properties":  [
-                                         "port: number",
-                                         "wss: WebSocketServer",
-                                         "connections: Set\u003cWebSocket\u003e"
-                                     ]
-                  }
+  "name": "IDE Context Server",
+  "file": "src/main/ide-server.ts",
+  "description": "WebSocket-based IDE context server. Creates an HTTP server on a random 127.0.0.1 port with a WebSocket server overlay. Implements JSON-RPC 2.0 'initialize' handshake (protocolVersion 2025-11-25). Broadcasts 'selection_changed' events to all connected clients when editor state changes. Writes lock files to .cockpit/ide.lock, %USERPROFILE%/.claude/ide/{port}.lock, and {xdgData}/opencode/ide/{port}.lock for IDE protocol discovery by AI agents. Singleton exported as 'ideServer'.",
+  "type": "process",
+  "layer": "foundation",
+  "singleton": true,
+  "exports": [
+    "EditorSelectionState",
+    "IdeServer",
+    "ideServer"
+  ],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "Electron Main Process", "file": "src/main/main.ts" }
+  ],
+  "ipc": ["ide:editorState", "ide:status"],
+  "interface": {
+    "constructor": "new IdeServer()",
+    "methods": [
+      { "name": "start", "signature": "(wsPath: string) => Promise<void>", "description": "Start HTTP+WS server on random port, write lock files" },
+      { "name": "stop", "signature": "() => void", "description": "Close all WS clients, shut down server, remove lock files" },
+      { "name": "updateEditorState", "signature": "(state: EditorSelectionState | null) => void", "description": "Broadcast selection_changed to all connected clients" },
+      { "name": "getPort", "signature": "() => number", "description": "Return current server port (0 if not running)" },
+      { "name": "getLockPaths", "signature": "() => string[]", "description": "Return paths of all written lock files" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "main.ts app.whenReady() on workspace load/switch",
+    "destroyed_by": "main.ts app window-all-closed or workspace switch stop()",
+    "singleton": true
+  },
+  "external_deps": ["http", "fs", "path", "ws"],
+  "test": "src/main/ide-server.test.ts"
 }

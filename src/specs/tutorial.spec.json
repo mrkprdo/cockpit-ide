@@ -1,17 +1,32 @@
 {
-  "name": "Tutorial Overlay",
+  "name": "Tutorial",
   "file": "src/renderer/components/Tutorial.ts",
-  "description": "Interactive guided tutorial overlay. Step-based walkthrough with title, description, optional target element highlighting, extra content renderer, and lifecycle hooks. Dark overlay with tooltip-style step cards. Provides skip/finish/next/prev navigation.",
+  "description": "Interactive guided tutorial overlay with 15 steps covering Cockpit IDE features. Each step has title, description, optional target element (highlighted with ring), overflow hidden for canvas step, and lifecycle hooks (onEnter/onLeave). Navigation: ArrowRight/Enter for next, ArrowLeft for back, Escape to close. Renders step dots, Back/Next/Done buttons. Last step includes 'Do not show again' checkbox. External links on 'Stay Connected' step open in browser via shell.openExternal. Tooltip auto-positions (above/below/left/right) relative to target element.",
   "type": "ui",
-  "layer": "core",
-  "singleton": false,
-  "exports": ["Tutorial", "TutorialStep"],
+  "layer": "overlay",
+  "singleton": true,
+  "exports": ["Tutorial"],
   "dependencies": [],
-  "referenced_by": [],
-  "ipc": [],
+  "referenced_by": [
+    { "feature": "App", "file": "src/renderer/components/App.ts" }
+  ],
+  "ipc": ["shell:openExternal"],
   "interface": {
-    "constructor": "constructor(steps: TutorialStep[], onFinish?: () => void)",
-    "methods": ["start(): void", "next(): void", "prev(): void", "skip(): void", "destroy(): void"],
-    "properties": ["currentStep: number", "overlay: HTMLElement"]
-  }
+    "constructor": "new Tutorial()",
+    "methods": [
+      { "name": "start", "signature": "(onClose?: () => void) => void", "description": "Show overlay, start at step 0, register close callback" },
+      { "name": "getShowOnLaunch", "signature": "() => boolean", "description": "Return whether user wants tutorial shown on launch" },
+      { "name": "destroy", "signature": "() => void", "description": "Remove keydown listener and DOM elements" }
+    ]
+  },
+  "state": {
+    "schema": "showOnLaunch boolean",
+    "description": "Saved to user preferences under showTutorial key"
+  },
+  "lifecycle": {
+    "created_by": "App constructor (new Tutorial())",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "test": "src/renderer/components/Tutorial.test.ts"
 }

@@ -1,40 +1,49 @@
 {
   "name": "Confirm Modal UI",
-  "parent": "ConfirmModal",
-  "description": "Generic confirmation dialog with message, Cancel, and confirm button.",
+  "parent": "confirm-modal",
+  "description": "Generic confirmation dialog with sanitized message, Cancel button, and configurable confirm button (default destructive 'Delete'). Returns Promise<boolean>. Overlay click = cancel.",
   "dom": {
-    "root": ".confirm-overlay (position: fixed, inset: 0, background: rgba(0,0,0,0.6), display: flex, align-items: center, justify-content: center, z-index: 10000)",
+    "root": ".modal-overlay.confirm (position: fixed, display: flex, inset: 0, background: var(--scrim), align-items: center, justify-content: center, z-index: 10000)",
     "container": "document.body",
-    "children": [
-      ".confirm-modal (background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, padding: 24px, min-width: 300px, max-width: 450px)",
-      ".confirm-message (margin-bottom: 20px, font-size: 14px, line-height: 1.5, allows HTML content via innerHTML)",
-      ".confirm-actions (display: flex, justify-content: flex-end, gap: 8px)",
-      ".confirm-cancel (button: 'Cancel', secondary styling)",
-      ".confirm-ok (button: default 'Delete' or custom label, primary/danger styling)"
-    ]
+    "elements": {
+      "modal": ".modal (role=dialog, aria-modal=true, background: var(--surface), border: 1px dashed var(--border), border-radius: 8px, padding: 24px, min-width: 320px, max-width: 450px)",
+      "modal-body": ".modal-body (display: flex, flex-direction: column, gap: 20px)",
+      "confirm-msg": ".confirm-modal-msg (font-size: 14px, color: var(--primary), line-height: 1.5, word-break: break-word — HTML sanitized: strips script/img/iframe/embed/object/link/style tags and on* event handlers)",
+      "modal-actions": ".modal-actions (display: flex, justify-content: flex-end, gap: 8px)",
+      "confirm-cancel": "button.btn-ghost#confirm-cancel (text: 'Cancel')",
+      "confirm-ok": "button#confirm-ok (class: btn-primary or btn-primary.btn-ok-destructive if destructive=true, text: configurable confirmLabel, default 'Delete')"
+    }
   },
   "interactions": [
     {
       "name": "confirm",
-      "trigger": "click on .confirm-ok",
-      "action": "Resolve promise with true → Remove overlay from DOM",
-      "result": "Promise resolves true"
+      "trigger": "click on #confirm-ok",
+      "action": "done(true) → Remove Escape listener → Remove overlay from DOM → Resolve promise with true",
+      "result": "Promise resolves true, overlay element removed"
     },
     {
       "name": "cancel",
-      "trigger": "click on .confirm-cancel",
-      "action": "Resolve promise with false → Remove overlay from DOM",
+      "trigger": "click on #confirm-cancel",
+      "action": "done(false) → Remove Escape listener → Remove overlay from DOM → Resolve promise with false",
       "result": "Promise resolves false"
     },
     {
       "name": "dismiss",
-      "trigger": "click on .confirm-overlay (background)",
-      "action": "Resolve promise with false → Remove overlay from DOM",
+      "trigger": "click on .modal-overlay (background, e.target === overlay) OR Escape key",
+      "action": "done(false) → Remove Escape listener → Remove overlay from DOM → Resolve promise with false",
       "result": "Promise resolves false"
     }
   ],
   "states": {
-    "open": "Overlay visible, message displayed, Cancel and confirm buttons rendered",
-    "closed": "Overlay removed from DOM"
+    "open": "Overlay display:flex, Cancel button auto-focused, Escape handler registered",
+    "closed": "Overlay removed from DOM entirely (not just hidden), promise resolved"
+  },
+  "props": {
+    "message": "string (HTML, sanitized — script/img/iframe tags and on* handlers stripped)",
+    "confirmLabel": "string (default 'Delete')",
+    "destructive": "boolean (default true, adds btn-ok-destructive class)"
+  },
+  "security": {
+    "html_sanitization": "message.replace() regex strips <script>, <img>, <iframe>, <embed>, <object>, <link>, <style> tags (self-closing and paired), plus on* event handler attributes"
   }
 }
