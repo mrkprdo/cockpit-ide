@@ -32,3 +32,4 @@ src/renderer/specgen-hash.ts
 
 # Impeccable skill cache (critiques, snapshots)
 .impeccable/
+test_output.txt

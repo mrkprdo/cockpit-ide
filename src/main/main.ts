@@ -757,6 +757,26 @@ app.whenReady().then(async () => {
     windowWorkspaces.set(mainWindow.id, cliPath);
   }
 
+  // Hot reload: dev.js writes this sentinel after renderer-only rebuilds
+  if (process.argv.includes('--dev')) {
+    const distDir = path.join(app.getAppPath(), 'dist');
+    const sentinelName = '.dev-reload';
+    let lastReloadTime = 0;
+    try {
+      fs.watch(distDir, (_, filename) => {
+        if (filename !== sentinelName) return;
+        const now = Date.now();
+        if (now - lastReloadTime < 500) return;
+        lastReloadTime = now;
+        setTimeout(() => {
+          for (const win of BrowserWindow.getAllWindows()) {
+            if (!win.isDestroyed()) win.webContents.reload();
+          }
+        }, 100);
+      });
+    } catch {}
+  }
+
   app.on('window-all-closed', () => {
     ideServer.stop();
     stopWatching().then(() => {
