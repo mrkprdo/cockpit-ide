@@ -1,0 +1,32 @@
+{
+  "name": "AI Drawer",
+  "file": "src/renderer/components/AiDrawer.ts",
+  "description": "Left-side sliding drawer panel implementing the LLMLOOP iterative code refinement strategy. Chat-style interface where users paste code and get refinement suggestions driven by five feedback loops: compilation fixes, test validation, static analysis, test generation, and mutation analysis. Connects to OpenAI-compatible LLM APIs. Settings stored in user preferences.",
+  "type": "ui",
+  "layer": "modal",
+  "singleton": true,
+  "exports": ["AiDrawer"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "App", "file": "src/renderer/components/App.ts" },
+    { "feature": "Top Bar", "file": "src/renderer/components/TopBar.ts" }
+  ],
+  "ipc": [
+    { "channel": "prefs:load", "direction": "invoke", "description": "Load API key, model, endpoint from preferences" },
+    { "channel": "prefs:save", "direction": "invoke", "description": "Save AI settings to preferences" }
+  ],
+  "interface": {
+    "constructor": "new AiDrawer()",
+    "methods": [
+      { "name": "toggle", "signature": "() => void", "description": "Toggle drawer open/closed" },
+      { "name": "open", "signature": "() => void", "description": "Open the drawer with configured width" },
+      { "name": "close", "signature": "() => void", "description": "Close the drawer" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "App constructor (new AiDrawer())",
+    "destroyed_by": "Window close",
+    "singleton": true
+  },
+  "test": "src/renderer/components/AiDrawer.test.ts"
+}

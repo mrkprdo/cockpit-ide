@@ -3,6 +3,7 @@ import { CanvasArea, SaveState } from './CanvasArea';
 import { WelcomeModal } from './WelcomeModal';
 import { AboutModal } from './AboutModal';
 import { ThemeModal } from './ThemeModal';
+import { AiDrawer } from './AiDrawer';
 import { Tutorial } from './Tutorial';
 import { theme } from '../theme';
 
@@ -11,6 +12,7 @@ export class App {
   private topBar: TopBar;
   private about: AboutModal;
   private themeModal: ThemeModal;
+  private aiDrawer: AiDrawer;
   private tutorial: Tutorial;
   private lastSaved = '';
   private wsPath = '';
@@ -67,6 +69,7 @@ export class App {
 
     this.about = new AboutModal();
     this.themeModal = new ThemeModal();
+    this.aiDrawer = new AiDrawer();
     this.tutorial = new Tutorial();
 
     this.topBar = new TopBar(document.getElementById('menu-bar')!, {
@@ -115,6 +118,9 @@ export class App {
           prefs.themeMode = theme.mode;
           window.electronAPI?.prefs.save(prefs);
         });
+      },
+      onAi: () => {
+        this.aiDrawer.toggle();
       },
       onTutorial: () => {
         this.startTutorial();
@@ -194,8 +200,38 @@ export class App {
     if (path) await this.loadWorkspace(path);
   }
 
+  private registerCockpitGlobal(): void {
+    (window as any).__cockpit = {
+      getCanvasState: () => this.canvas.getSaveState(),
+      getWorkspacePath: () => this.wsPath,
+      openFile: (p: string) => this.canvas.getActiveExplorerPlugin()?.openFile(p),
+      addPlugin: (type: string) => {
+        switch (type) {
+          case 'terminal': this.canvas.addTerminal(this.wsPath); break;
+          case 'explorer': this.canvas.addExplorer(this.wsPath); break;
+          case 'git': this.canvas.addGit(this.wsPath); break;
+          case 'markdown': this.canvas.addMarkdown(); break;
+          case 'specsmap': this.canvas.addSpecsmap(this.wsPath); break;
+        }
+      },
+      focusCard: (title: string) => this.canvas.focusCard(title),
+      closeCard: (title: string) => this.canvas.closeCard(title),
+      minimizeCard: (title: string) => this.canvas.minimizeCard(title),
+      moveCard: (title: string, x: number, y: number) => this.canvas.offsetCard(title, x, y),
+      resizeCard: (title: string, w: number, h: number) => this.canvas.resizeCard(title, w, h),
+      autoArrange: () => this.canvas.autoArrange(),
+      writeToTerminal: (uuid: string, command: string) => {
+        window.electronAPI?.terminal.write(uuid, command + '\r');
+      },
+      insertInEditor: (text: string) => {
+        this.canvas.getActiveExplorerPlugin()?.insertText(text);
+      },
+    };
+  }
+
   private async loadWorkspace(path: string): Promise<void> {
     this.wsPath = path;
+    this.registerCockpitGlobal();
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
 

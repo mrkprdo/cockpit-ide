@@ -1340,6 +1340,43 @@ export class CanvasArea {
     this.panToCard(cs);
   }
 
+  closeCard(title: string): boolean {
+    const cs = this.cards.find(c => c.savedTitle === title);
+    if (!cs) return false;
+    this.terminateCard(cs);
+    return true;
+  }
+
+  minimizeCard(title: string): boolean {
+    const cs = this.cards.find(c => c.savedTitle === title && c.isOpen);
+    if (!cs) return false;
+    cs.isOpen = false;
+    cs.card.el.style.display = 'none';
+    this.notifyTerminalsChanged();
+    this.notifyExplorersChanged();
+    this.notifyGitChanged();
+    this.notifySpecsmapChanged();
+    this.notifyMarkdownChanged();
+    this.onStateChange?.();
+    return true;
+  }
+
+  resizeCard(title: string, width: number, height: number): boolean {
+    const cs = this.cards.find(c => c.savedTitle === title);
+    if (!cs) return false;
+    const w = this.snapSize(Math.max(280, width));
+    const h = this.snapSize(Math.max(280, height));
+    cs.savedWidth = w;
+    cs.savedHeight = h;
+    cs.card.opts.width = w;
+    cs.card.opts.height = h;
+    cs.card.el.style.width = `${w}px`;
+    cs.card.el.style.height = `${h}px`;
+    cs.onCardResize?.();
+    this.onStateChange?.();
+    return true;
+  }
+
   terminateCard(cs: CardState): void {
     const idx = this.cards.indexOf(cs);
     if (idx === -1) return;

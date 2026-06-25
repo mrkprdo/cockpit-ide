@@ -90,6 +90,10 @@ export class ExplorerPlugin {
     this.explorer.selectFile(filePath);
   }
 
+  insertText(text: string): void {
+    this.editor.insertText(text);
+  }
+
   openFile(filePath: string): void {
     this.editor.openFile(filePath);
     this.revealFile(filePath);

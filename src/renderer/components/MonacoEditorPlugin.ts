@@ -335,6 +335,14 @@ export class MonacoEditorPlugin {
   getCurrentFile(): string { return this.activeTab || ''; }
   getContent(): string { return this.editor?.getValue() || ''; }
 
+  insertText(text: string): void {
+    if (!this.editor) return;
+    const sel = this.editor.getSelection();
+    if (!sel) return;
+    this.editor.executeEdits('ai-agent', [{ range: sel, text, forceMoveMarkers: true }]);
+    this.editor.focus();
+  }
+
   private getActiveOriginalPath(): string | null {
     if (!this.activeTab) return null;
     const tab = this.tabs.find(t => t.filePath === this.activeTab);
