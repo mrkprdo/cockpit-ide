@@ -1,53 +1,53 @@
 {
   "name": "Monaco Editor Plugin",
   "file": "src/renderer/components/MonacoEditorPlugin.ts",
-  "description": "Monaco code editor with multi-tab editing. Dynamically bootstraps Monaco via AMD require() — shared across instances (monacoReady singleton). Defines custom themes: cockpit-dark (deep noir #0A0E14 bg) and cockpit-light (clean #f8f8f8 bg). Multi-tab support: drag-and-drop reorder, middle-click close, right-click context menu (Close/Close Others/Close All/Copy Path), dirty indicator (unsaved dot). 30+ languages detected from file extension. Auto-save: debounced 1.5s after content change. Ctrl+S action registered via editor.addAction. External file change detection via fs:onChanged — auto-reloads content preserving cursor if unchanged by user. IDE context server integration: debounced 150ms selection_changed events. State serialization: openFiles[], activeFile, cursors (lineNumber, column, scrollTop). Theme-aware: re-applies cockpit-dark/cockpit-light on updateTheme().",
+  "description": "Multi-tab code editor based on Monaco Editor (AMD-loaded). Manages a list of open file tabs with drag-and-drop reordering, close buttons, middle-click close, right-click context menu (Close/Close Others/Close All/Copy Path), dirty indicators, and language detection by extension (30+ languages mapped). Persists cursor positions and scroll positions per tab. Saves file contents on tab switch and auto-saves on external file changes. Exposes editor state (tabs, active file, cursors) for session persistence and AI agent access.",
   "type": "ui",
-  "layer": "plugin",
+  "layer": "widget",
   "singleton": false,
   "exports": ["MonacoEditorPlugin"],
   "dependencies": [
-    { "feature": "Context Menu", "file": "src/renderer/components/ContextMenu.ts", "usage": "Tab right-click context menu" },
-    { "feature": "Theme", "file": "src/renderer/theme.ts", "usage": "isDark check for theme selection" }
+    {
+      "feature": "context-menu",
+      "file": "src/renderer/components/ContextMenu.ts",
+      "usage": "Opens right-click context menu on tabs with close/reorder/copy-path actions"
+    },
+    {
+      "feature": "theme",
+      "file": "src/renderer/theme.ts",
+      "usage": "Reads theme colors (unused directly in this file but imported for potential editor theme integration)"
+    }
   ],
   "referenced_by": [
-    { "feature": "Explorer Plugin", "file": "src/renderer/components/ExplorerPlugin.ts" },
-    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
+    { "feature": "explorer-plugin", "file": "src/renderer/components/ExplorerPlugin.ts" },
+    { "feature": "canvas-area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
-  "ipc": ["fs:readFile", "fs:writeFile", "file:changed", "clipboard:writeText", "ide:editorState"],
+  "ipc": ["ide:editorState"],
   "interface": {
-    "constructor": "new MonacoEditorPlugin(container: HTMLElement)",
-    "methods": [
-      { "name": "openFile", "signature": "(filePath: string) => Promise<void>", "description": "Read file, add tab, switch to it" },
-      { "name": "switchTab", "signature": "(filePath: string) => void", "description": "Save current cursor, load target tab content" },
-      { "name": "closeActiveTab", "signature": "() => void", "description": "Close currently active tab" },
-      { "name": "saveCurrentFile", "signature": "() => void", "description": "Write editor content to disk, clear dirty flag" },
-      { "name": "getState", "signature": "() => EditorState | null", "description": "Serialize open tabs, active file, cursor positions" },
-      { "name": "restoreState", "signature": "(state: EditorState) => Promise<void>", "description": "Reopen all tabs and restore active+cursors" },
-      { "name": "updateTheme", "signature": "() => void", "description": "Re-apply cockpit-dark or cockpit-light theme" },
-      { "name": "reloadIfOpen", "signature": "(filePath: string) => Promise<void>", "description": "Reload file content if it's open in a tab" }
-    ],
     "properties": [
-      { "name": "tabs", "type": "Tab[]", "description": "Open tab metadata (filePath, name, originalPath)" },
-      { "name": "activeTab", "type": "string | null", "description": "Currently active tab's normalized path" },
-      { "name": "onStateChange", "type": "(() => void) | null", "description": "Callback for state persistence" }
-    ]
-  },
-  "state": {
-    "schema": "EditorState",
-    "description": "Serialized as part of PluginEntry.editorState in window.json",
-    "fields": [
-      { "name": "openFiles", "type": "string[]", "description": "Absolute paths of open editor tabs" },
-      { "name": "activeFile", "type": "string", "description": "Currently active file path" },
-      { "name": "explorerWidth", "type": "number", "description": "File explorer panel width in pixels" },
-      { "name": "cursors", "type": "Record<string, { lineNumber, column, scrollTop }>", "description": "Per-file cursor and scroll positions" }
+      { "name": "tabs", "type": "Tab[]", "description": "Array of open file tabs with filePath, name, and originalPath" },
+      { "name": "activeTab", "type": "string | null", "description": "Lowercased file path of the active tab" },
+      { "name": "onStateChange", "type": "(() => void) | null", "description": "Callback when tabs or active file change" }
+    ],
+    "methods": [
+      { "name": "constructor", "signature": "(container: HTMLElement)", "description": "Builds tab bar, editor area, inits Monaco with AMD loader, wires file change listener" },
+      { "name": "openFile", "signature": "(filePath: string): Promise<void>", "description": "Opens file in a new tab or switches to existing tab; reads content from disk" },
+      { "name": "switchTab", "signature": "(filePath: string): void", "description": "Saves current cursor/scroll, loads new tab content, restores cursor" },
+      { "name": "closeActiveTab", "signature": "(): void", "description": "Closes the currently active tab" },
+      { "name": "getContent", "signature": "(): string", "description": "Returns current editor content" },
+      { "name": "insertText", "signature": "(text: string): void", "description": "Replaces current selection with text" },
+      { "name": "getSelectionText", "signature": "(): string", "description": "Returns selected text" },
+      { "name": "setContent", "signature": "(content: string): void", "description": "Replaces editor content (for AI agent)" },
+      { "name": "goToLine", "signature": "(line: number, col?: number): void", "description": "Moves cursor to line/col" },
+      { "name": "getState", "signature": "(): { openFiles: string[]; activeFile: string; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null", "description": "Serializable editor state for persistence" },
+      { "name": "restoreState", "signature": "(state: ...): Promise<void>", "description": "Restores open tabs and cursor positions from saved state" },
+      { "name": "reloadIfOpen", "signature": "(filePath: string): Promise<void>", "description": "Reloads file content from disk if tab is open (triggered by external file changes)" }
     ]
   },
   "lifecycle": {
-    "created_by": "ExplorerPlugin constructor (new MonacoEditorPlugin())",
-    "destroyed_by": "Card close or ExplorerPlugin replacement",
+    "created_by": "ExplorerPlugin constructor",
+    "destroyed_by": "Card removal via CanvasArea",
     "singleton": false
   },
-  "external_deps": ["monaco-editor"],
-  "test": "src/renderer/components/MonacoEditorPlugin.test.ts"
+  "external_deps": ["monaco-editor (AMD-loaded from vs/)"]
 }

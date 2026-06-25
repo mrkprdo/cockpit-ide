@@ -1,32 +1,26 @@
 {
-  "name": "Tutorial",
+  "name": "Tutorial Overlay",
   "file": "src/renderer/components/Tutorial.ts",
-  "description": "Interactive guided tutorial overlay with 15 steps covering Cockpit IDE features. Each step has title, description, optional target element (highlighted with ring), overflow hidden for canvas step, and lifecycle hooks (onEnter/onLeave). Navigation: ArrowRight/Enter for next, ArrowLeft for back, Escape to close. Renders step dots, Back/Next/Done buttons. Last step includes 'Do not show again' checkbox. External links on 'Stay Connected' step open in browser via shell.openExternal. Tooltip auto-positions (above/below/left/right) relative to target element.",
+  "description": "Step-by-step interactive tutorial overlay displayed on first launch (or via Help > Tutorial). Shows 15 steps covering: canvas pan/zoom, menu bar, terminal, explorer, file search, markdown viewer, SpecsMap, theme, plugin cards, plugin list, arrange panel, keyboard shortcuts, and links to GitHub repo. Each step renders a tooltip positioned relative to a target element (with ring highlight), or centered for general steps. Supports keyboard navigation (Arrow Left/Right/Escape/Enter), prev/next/done buttons, and a 'Do not show again' checkbox on the final step.",
   "type": "ui",
   "layer": "overlay",
   "singleton": true,
   "exports": ["Tutorial"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "App", "file": "src/renderer/components/App.ts" }
+    { "feature": "app", "file": "src/renderer/components/App.ts" }
   ],
-  "ipc": ["shell:openExternal"],
+  "ipc": [],
   "interface": {
-    "constructor": "new Tutorial()",
     "methods": [
-      { "name": "start", "signature": "(onClose?: () => void) => void", "description": "Show overlay, start at step 0, register close callback" },
-      { "name": "getShowOnLaunch", "signature": "() => boolean", "description": "Return whether user wants tutorial shown on launch" },
-      { "name": "destroy", "signature": "() => void", "description": "Remove keydown listener and DOM elements" }
+      { "name": "constructor", "signature": "()", "description": "Builds overlay, tooltip, and ring highlight elements; wires keyboard listener" },
+      { "name": "start", "signature": "(onClose?: () => void): void", "description": "Shows tutorial at step 0 with optional close callback" },
+      { "name": "getShowOnLaunch", "signature": "(): boolean", "description": "Returns whether 'Do not show again' was checked" }
     ]
   },
-  "state": {
-    "schema": "showOnLaunch boolean",
-    "description": "Saved to user preferences under showTutorial key"
-  },
   "lifecycle": {
-    "created_by": "App constructor (new Tutorial())",
-    "destroyed_by": "Window close",
+    "created_by": "App constructor",
+    "destroyed_by": "Page unload",
     "singleton": true
-  },
-  "test": "src/renderer/components/Tutorial.test.ts"
+  }
 }

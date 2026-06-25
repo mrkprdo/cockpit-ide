@@ -1,27 +1,28 @@
 {
   "name": "Welcome Modal",
   "file": "src/renderer/components/WelcomeModal.ts",
-  "description": "Startup workspace picker modal. Shows 'COCKPIT IDE' branding, recent workspaces list (with remove buttons), and 'Open Workspace' button (triggers native directory picker via IPC). 'Close' button resolves with null (closes window). Each recent workspace path is validated for existence; missing paths are highlighted. Returns Promise<string | null>. Escape key dismisses.",
+  "description": "Startup workspace selection dialog. Displays 'COCKPIT IDE' branding with a 'Select a workspace' prompt, a recent workspaces list (clickable, with X remove buttons, missing-directory dimming), and Open Workspace / Close buttons. Uses workspace.select() to open the native folder picker. Returns a promise with the selected path or null on close. Escape key dismisses.",
   "type": "ui",
   "layer": "modal",
-  "singleton": false,
+  "singleton": true,
   "exports": ["WelcomeModal"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "App", "file": "src/renderer/components/App.ts" }
+    { "feature": "app", "file": "src/renderer/components/App.ts" }
   ],
   "ipc": ["workspace:select", "workspace:getRecent", "workspace:removeRecent", "fs:readDir"],
+  "ui": {
+    "spec": "welcome-modal-ui.spec.json"
+  },
   "interface": {
-    "constructor": "new WelcomeModal()",
     "methods": [
-      { "name": "open", "signature": "() => Promise<string | null>", "description": "Show modal overlay, load recent workspaces, resolve with selected path or null" }
+      { "name": "constructor", "signature": "()", "description": "Builds modal overlay with branding, recent list container, and action buttons" },
+      { "name": "open", "signature": "(): Promise<string | null>", "description": "Displays modal, loads recent workspaces, returns selected path on dismiss" }
     ]
   },
-  "ui": { "spec": "welcome-modal-ui.spec.json" },
   "lifecycle": {
-    "created_by": "App.promptWorkspace()",
-    "destroyed_by": "Promise resolution (overlay hidden, element stays in DOM)",
-    "singleton": false
-  },
-  "test": "src/renderer/components/WelcomeModal.test.ts"
+    "created_by": "App constructor",
+    "destroyed_by": "Page unload (persists across workspace sessions)",
+    "singleton": true
+  }
 }

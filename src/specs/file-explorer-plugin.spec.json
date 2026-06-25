@@ -1,34 +1,44 @@
 {
   "name": "File Explorer Plugin",
   "file": "src/renderer/components/FileExplorerPlugin.ts",
-  "description": "Recursive file tree browser. Reads directory via fs:readDir IPC, sorts directories first. Expand/collapse with arrow indicators (▸/▾). Color-coded file icons by extension: blue for TS/JS, purple for CSS, amber for JSON/YAML, green for MD. Right-click context menus: directories (New File, New Folder, Copy, Paste, Rename, Delete), files (Copy, Paste, Rename, Delete, plus 'Open to Markdown' for .md files). Inline input for instant file/folder creation and rename (Enter commits, Escape cancels, blur commits). Copy/paste with _copy_N auto-naming (prevents overwrites). Delete confirmation via ConfirmModal. External file change watching via fs:onChanged (500ms debounced refresh). Wheel event stopPropagation to prevent canvas zoom. Tracks selected path for visual highlight.",
+  "description": "Recursive file tree browser displayed in the left split pane of ExplorerPlugin. Renders a nested directory tree with color-coded file names by extension, expandable/collapsible directories, inline file/folder creation via input field, inline rename, delete with ConfirmModal, copy-paste across directories, and context menus on files and empty areas. Watches for external file changes to auto-refresh the tree. Supports selecting a file and revealing it in the tree via selectFile().",
   "type": "ui",
-  "layer": "plugin",
+  "layer": "widget",
   "singleton": false,
   "exports": ["FileExplorerPlugin"],
   "dependencies": [
-    { "feature": "Context Menu", "file": "src/renderer/components/ContextMenu.ts", "usage": "Right-click context menus on files and directories" },
-    { "feature": "Confirm Modal", "file": "src/renderer/components/ConfirmModal.ts", "usage": "Delete confirmation dialog" }
+    {
+      "feature": "context-menu",
+      "file": "src/renderer/components/ContextMenu.ts",
+      "usage": "Opens right-click context menus on files (open/rename/delete/copy path/open in markdown) and empty area (new file/folder/paste)"
+    },
+    {
+      "feature": "confirm-modal",
+      "file": "src/renderer/components/ConfirmModal.ts",
+      "usage": "Prompts confirmation before deleting files or directories"
+    }
   ],
   "referenced_by": [
-    { "feature": "Explorer Plugin", "file": "src/renderer/components/ExplorerPlugin.ts" }
+    { "feature": "explorer-plugin", "file": "src/renderer/components/ExplorerPlugin.ts" }
   ],
   "ipc": ["fs:readDir", "fs:readFile", "fs:writeFile", "fs:mkdir", "fs:delete", "fs:copy", "fs:rename", "file:changed"],
+  "ui": {
+    "spec": "file-explorer-plugin-ui.spec.json"
+  },
   "interface": {
-    "constructor": "new FileExplorerPlugin(container: HTMLElement, rootPath: string, onFileOpen: (path: string) => void)",
-    "methods": [
-      { "name": "setMarkdownOpeners", "signature": "(labels: string[], callback: (filePath: string, label: string) => void) => void", "description": "Register markdown plugin labels for .md file context menu" },
-      { "name": "selectFile", "signature": "(filePath: string) => Promise<void>", "description": "Expand parents and highlight file in tree" },
-      { "name": "refresh", "signature": "() => Promise<void>", "description": "Full tree reload (clears expanded set)" }
-    ],
     "properties": [
-      { "name": "selectedPath", "type": "string | null", "description": "Currently highlighted file path" }
+      { "name": "selectedPath", "type": "string | null", "description": "Currently selected/highlighted file path" }
+    ],
+    "methods": [
+      { "name": "constructor", "signature": "(container: HTMLElement, rootPath: string, onFileOpen: (path: string) => void)", "description": "Builds tree header and scrollable container, loads root directory, watches file changes" },
+      { "name": "selectFile", "signature": "(filePath: string): Promise<void>", "description": "Expands parent directories and highlights the given file" },
+      { "name": "refresh", "signature": "(): Promise<void>", "description": "Clears and reloads the entire file tree from disk" },
+      { "name": "setMarkdownOpeners", "signature": "(labels: string[], callback: (filePath: string, label: string) => void): void", "description": "Registers right-click 'Open in Markdown' menu items" }
     ]
   },
   "lifecycle": {
-    "created_by": "ExplorerPlugin constructor (new FileExplorerPlugin())",
-    "destroyed_by": "Card close",
+    "created_by": "ExplorerPlugin constructor",
+    "destroyed_by": "Card removal (via CanvasArea)",
     "singleton": false
-  },
-  "test": "src/renderer/components/FileExplorerPlugin.test.ts"
+  }
 }

@@ -1,55 +1,36 @@
 {
   "name": "Git Plugin",
   "file": "src/renderer/components/GitPlugin.ts",
-  "description": "Full-featured Git client plugin (~1050 lines). Left panel: Branch/Remote selectors, staged/unstaged changes sections (expandable headers with counts, per-file stage/unstage buttons), commit message input + Commit/Push buttons, commits list (clickable, shows hash+message+author+date). Right panel (split-pane with horizontal divider): commit info header (hash, author, date, subject, description), changed files tree (from git diff-tree), and diff viewer. Diff viewer supports unified and side-by-side modes (dropdown toggle). Unified mode renders git diff output with syntax-colored lines (diff-meta, diff-hunk, diff-add, diff-remove). Side-by-side mode pairs old/new lines from unified diff, including replace detection (adjacent -/+ pairs). Resizable: left panel width (120-600px) and top/bottom panel height (40px min). Debounced auto-refresh on file changes (1s). State serialization: selectedCommitHash, selectedFilePath, diffViewMode, leftColWidth, topPanelHeight, changesExpanded. Supports applyLayout for instant splitter size restore, then async restoreState for data.",
+  "description": "Git version control UI plugin. Displays branch selector with remote dropdown, staged/unstaged file lists with collapsible sections, commit message input with Commit/Push buttons, commits history list with file tree on select, unified or side-by-side diff view, and split-pane layout with draggable left column and top/bottom panel resize. Auto-refreshes changes on file system changes. Supports session state restore (selected commit, file, diff mode, panel sizes, collapsible expansion).",
   "type": "ui",
   "layer": "plugin",
   "singleton": false,
-  "exports": [
-    "GitState",
-    "GitPlugin"
-  ],
+  "exports": ["GitPlugin", "GitState"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
+    { "feature": "canvas-area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
-  "ipc": [
-    "git:remotes", "git:branches", "git:checkout", "git:log", "git:showTree", "git:diff",
-    "git:currentBranch", "git:stagedFiles", "git:unstagedFiles", "git:stagedDiff", "git:unstagedDiff",
-    "git:commitBody", "git:stage", "git:unstage", "git:commit", "git:push", "git:checkAhead",
-    "file:changed"
-  ],
-  "interface": {
-    "constructor": "new GitPlugin(container: HTMLElement, wsPath: string)",
-    "methods": [
-      { "name": "refresh", "signature": "() => Promise<void>", "description": "Full reload: remotes, branches, commits, staged/unstaged files" },
-      { "name": "refreshChanges", "signature": "() => Promise<void>", "description": "Lightweight refresh: only reload staged/unstaged files, preserve commit state" },
-      { "name": "getState", "signature": "() => GitState", "description": "Serialize selection, view mode, and splitter sizes" },
-      { "name": "applyLayout", "signature": "(state: GitState) => void", "description": "Apply saved splitter sizes immediately (sync)" },
-      { "name": "restoreState", "signature": "(state: GitState) => Promise<void>", "description": "Restore view mode, layout, changes expanded state, and reselect commit/file" },
-      { "name": "destroy", "signature": "() => void", "description": "Unsubscribe file change listener" }
-    ],
-    "properties": [
-      { "name": "onStateChange", "type": "(() => void) | null", "description": "Callback for state persistence" },
-      { "name": "onFileOpen", "type": "((filePath: string) => void) | null", "description": "Callback to open file in editor when clicking changes/commits" }
-    ]
+  "ipc": ["git:remotes", "git:branches", "git:checkout", "git:log", "git:showTree", "git:diff", "git:currentBranch", "git:stagedFiles", "git:unstagedFiles", "git:stagedDiff", "git:unstagedDiff", "git:commitBody", "git:stage", "git:unstage", "git:commit", "git:push", "git:checkAhead"],
+  "ui": {
+    "spec": "git-plugin-ui.spec.json"
   },
-  "state": {
-    "schema": "GitState",
-    "description": "Serialized as part of PluginEntry.gitState in window.json",
-    "fields": [
-      { "name": "selectedCommitHash", "type": "string | null", "description": "Currently selected commit hash" },
-      { "name": "selectedFilePath", "type": "string | null", "description": "Currently selected changed file path" },
-      { "name": "diffViewMode", "type": "'unified' | 'side-by-side'", "description": "Current diff viewing mode" },
-      { "name": "leftColWidth", "type": "number", "description": "Left panel width in pixels" },
-      { "name": "topPanelHeight", "type": "number", "description": "Top panel height in pixels" },
-      { "name": "changesExpanded", "type": "{ staged: boolean; unstaged: boolean }", "description": "Which changes sections are expanded" }
+  "interface": {
+    "properties": [
+      { "name": "onStateChange", "type": "(() => void) | null", "description": "Callback fired when internal state changes" },
+      { "name": "onFileOpen", "type": "((filePath: string) => void) | null", "description": "Callback to open a file in the editor from diff view" }
+    ],
+    "methods": [
+      { "name": "constructor", "signature": "(container: HTMLElement, wsPath: string)", "description": "Builds left/right split UI with branch select, changes, commits, diff view" },
+      { "name": "refresh", "signature": "(): Promise<void>", "description": "Fetches remotes, branches, commits, staged/unstaged files from main process" },
+      { "name": "getState", "signature": "(): GitState", "description": "Returns serializable state (selected commit, file, diff mode, panel sizes)" },
+      { "name": "restoreState", "signature": "(state: GitState): Promise<void>", "description": "Restores layout, selected commit, file, and diff mode from saved state" },
+      { "name": "applyLayout", "signature": "(state: GitState): void", "description": "Sync applies splitter sizes without delay" },
+      { "name": "destroy", "signature": "(): void", "description": "Cleans up file change watcher" }
     ]
   },
   "lifecycle": {
-    "created_by": "CanvasArea.addGit() / restorePlugins()",
-    "destroyed_by": "Card close (destroy called)",
+    "created_by": "CanvasArea.addGit()",
+    "destroyed_by": "CanvasArea.terminateCard()",
     "singleton": false
-  },
-  "test": "src/renderer/components/GitPlugin.test.ts (indirect via CanvasArea.test.ts)"
+  }
 }

@@ -1,48 +1,42 @@
 {
   "name": "Markdown Plugin",
   "file": "src/renderer/components/MarkdownPlugin.ts",
-  "description": "Tabbed markdown preview viewer. Renders .md files via marked.parse() with custom Renderer: sanitizes HTML (escape < > in raw HTML blocks), blocks javascript: links, and supports breaks:true. Multi-tab with per-tab scroll position tracking. External file change detection via fs:onChanged — auto-reloads preview preserving scroll position. Drag-and-drop tab reorder. Tab context menu: Close, Close Others, Close All, Copy File Path. Middle-click tab close. Handles empty files ('Empty file'), deleted files ('File deleted'), and render errors gracefully. State serialization: openFiles[], activeFile, scrollTops. Supports legacy single-file format restore (loadedFile + scrollTop).",
+  "description": "Tabbed Markdown preview viewer. Loads .md files via electronAPI.fs.readFile, renders them to styled HTML using the 'marked' library with a custom Renderer that escapes raw HTML and prevents javascript: links. Supports multiple tabs with drag-and-drop reorder, close buttons, middle-click close, right-click context menu (Close/Close Others/Close All/Copy Path), external file change auto-reload preserving scroll position, and serializable state (open files, active file, per-tab scroll positions) for session persistence.",
   "type": "ui",
-  "layer": "plugin",
+  "layer": "widget",
   "singleton": false,
-  "exports": [
-    "MarkdownState",
-    "MarkdownPlugin"
-  ],
+  "exports": ["MarkdownPlugin", "MarkdownState"],
   "dependencies": [
-    { "feature": "Context Menu", "file": "src/renderer/components/ContextMenu.ts", "usage": "Tab right-click context menu" }
+    {
+      "feature": "context-menu",
+      "file": "src/renderer/components/ContextMenu.ts",
+      "usage": "Opens right-click context menu on tabs with close/reorder/copy-path actions"
+    }
   ],
   "referenced_by": [
-    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
+    { "feature": "canvas-area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
-  "ipc": ["fs:readFile", "file:changed", "clipboard:writeText"],
-  "interface": {
-    "constructor": "new MarkdownPlugin(container: HTMLElement)",
-    "methods": [
-      { "name": "loadFile", "signature": "(filePath: string) => Promise<void>", "description": "Read .md file, add tab, switch to preview" },
-      { "name": "getState", "signature": "() => MarkdownState", "description": "Serialize tabs, active file, and scroll positions" },
-      { "name": "restoreState", "signature": "(state: MarkdownState) => Promise<void>", "description": "Restore all tabs and active preview (handles legacy format)" },
-      { "name": "destroy", "signature": "() => void", "description": "Unsubscribe file change listener" }
-    ],
-    "properties": [
-      { "name": "title", "type": "string", "description": "Plugin display title (set externally)" },
-      { "name": "onDestroy", "type": "(() => void) | null", "description": "Callback for cleanup" }
-    ]
+  "ipc": ["fs:readFile", "file:changed"],
+  "ui": {
+    "spec": "markdown-plugin-ui.spec.json"
   },
-  "state": {
-    "schema": "MarkdownState",
-    "description": "Serialized as part of PluginEntry.markdownState in window.json",
-    "fields": [
-      { "name": "openFiles", "type": "string[]", "description": "Absolute paths of open markdown tabs" },
-      { "name": "activeFile", "type": "string", "description": "Currently active file path" },
-      { "name": "scrollTops", "type": "Record<string, number>", "description": "Per-file scroll position" }
+  "interface": {
+    "properties": [
+      { "name": "title", "type": "string", "description": "Card title (set by CanvasArea)" },
+      { "name": "onDestroy", "type": "(() => void) | null", "description": "Cleanup callback" }
+    ],
+    "methods": [
+      { "name": "constructor", "signature": "(container: HTMLElement)", "description": "Builds tab bar, preview area, wires file change listener" },
+      { "name": "loadFile", "signature": "(filePath: string): Promise<void>", "description": "Loads a .md file, creates a tab, switches to it, renders preview" },
+      { "name": "getState", "signature": "(): MarkdownState", "description": "Returns serializable state: open files, active file, per-tab scroll positions" },
+      { "name": "restoreState", "signature": "(state: MarkdownState): Promise<void>", "description": "Restores tabs and scroll positions from saved state, includes legacy single-file format support" },
+      { "name": "destroy", "signature": "(): void", "description": "Cleans up file change listener" }
     ]
   },
   "lifecycle": {
-    "created_by": "CanvasArea.addMarkdown() / restorePlugins()",
-    "destroyed_by": "Card close (destroy called, then removed from markdownPlugins array)",
+    "created_by": "CanvasArea.addMarkdown()",
+    "destroyed_by": "CanvasArea.terminateCard()",
     "singleton": false
   },
-  "external_deps": ["marked"],
-  "test": "src/renderer/components/MarkdownPlugin.test.ts"
+  "external_deps": ["marked"]
 }

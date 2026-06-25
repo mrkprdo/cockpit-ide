@@ -1,26 +1,25 @@
 {
-  "name": "Canvas Statusbar",
+  "name": "Canvas Status Bar",
   "file": "src/renderer/components/canvas-statusbar.ts",
-  "description": "Status bar UI component rendered in the #statusbar element. Displays zoom percentage with lock/unlock toggle icon, workspace name, and a 'view all' (fitAll) button. Shows a reset-zoom refresh icon when zoom is not 100% and not locked. Supports callbacks for lock toggle, fitAll, and resetZoom.",
+  "description": "Bottom status bar displaying zoom percentage with lock/unlock lock icon (clickable to toggle), workspace name, and a 'view all' button. Shows a reset-zoom icon when zoom is not 100% and unlocked. Updates via the update() method called by CanvasArea on zoom, lock, or workspace name changes.",
   "type": "ui",
   "layer": "widget",
   "singleton": true,
   "exports": ["StatusBar"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
+    { "feature": "canvas-area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
+  "ipc": [],
   "interface": {
-    "constructor": "new StatusBar()",
     "methods": [
-      { "name": "init", "signature": "() => void", "description": "Build DOM structure in #statusbar (idempotent)" },
-      { "name": "update", "signature": "(locked: boolean, scale: number, workspaceName: string, onLockToggle: (() => void) | null, fitAll: () => void, resetZoom?: (() => void) | null) => void", "description": "Update all status bar displays" }
+      { "name": "init", "signature": "(): void", "description": "Creates status bar DOM elements (zoom, locked, workspace, view all) inside #statusbar" },
+      { "name": "update", "signature": "(locked: boolean, scale: number, workspaceName: string, onLockToggle: () => void, fitAll: () => void, resetZoom?: () => void): void", "description": "Updates zoom percentage, lock icon SVG, workspace name text, visibility of reset-zoom icon" }
     ]
   },
   "lifecycle": {
-    "created_by": "CanvasArea constructor (new StatusBar())",
-    "destroyed_by": "Window close",
+    "created_by": "CanvasArea constructor calls init()",
+    "destroyed_by": "Page unload",
     "singleton": true
-  },
-  "test": "src/renderer/components/CanvasArea.test.ts (indirect)"
+  }
 }

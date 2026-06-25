@@ -1,29 +1,25 @@
 {
-  "name": "Canvas Grid",
+  "name": "Canvas Grid Pattern",
   "file": "src/renderer/components/canvas-grid.ts",
-  "description": "Canvas grid pattern generation utility. Renders dot or grid patterns to a canvas element and exposes data URL for CSS background-image. Resolves CSS --tertiary variable for color. applyGridToElement sets background-image, repeat, size, and position to create an infinite panning grid. Supports three styles: none, dots (2px radius circles), grid (1px L-shaped lines).",
+  "description": "Utility module for generating and applying canvas background patterns. Generates a dot grid (filled circles at origin with 65% alpha) or line grid (right/bottom strokes at 30% alpha) as a canvas-rendered data URL. applyGridToElement() sets the pattern as a CSS background-image with size and position aligned to canvas zoom/pan transforms. Pattern color is read from the --tertiary CSS variable for theme consistency.",
   "type": "utility",
-  "layer": "widget",
+  "layer": "utility",
   "singleton": false,
-  "exports": [
-    "GridStyle",
-    "generateGridPattern",
-    "applyGridToElement"
-  ],
+  "exports": ["GridStyle", "generateGridPattern", "applyGridToElement"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
+    { "feature": "canvas-area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
+  "ipc": [],
   "interface": {
     "functions": [
-      { "name": "generateGridPattern", "signature": "(style: GridStyle, patternSize: number) => string", "description": "Generate canvas data URL for dots or grid pattern" },
-      { "name": "applyGridToElement", "signature": "(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number, scale: number, panX: number, panY: number) => void", "description": "Apply grid background to element with transform-aware position/size" }
+      { "name": "generateGridPattern", "signature": "(style: GridStyle, patternSize: number): string", "description": "Returns a data URL for the grid pattern image (dots or grid lines)" },
+      { "name": "applyGridToElement", "signature": "(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number, scale: number, panX: number, panY: number): void", "description": "Applies the pattern as CSS background with proper scaling and positioning" }
     ]
   },
   "lifecycle": {
-    "created_by": "CanvasArea constructor and setGridStyle",
-    "destroyed_by": "N/A",
+    "created_by": "Imported by CanvasArea and called on init and on style/zoom/pan changes",
+    "destroyed_by": "N/A (stateless utilities)",
     "singleton": false
-  },
-  "test": "src/renderer/components/CanvasArea.test.ts (indirect)"
+  }
 }

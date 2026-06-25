@@ -1,0 +1,81 @@
+{
+  "name": "File Explorer Plugin UI",
+  "file": "src/renderer/components/FileExplorerPlugin.ts",
+  "description": "UI sub-spec for the recursive file tree browser: DOM structure, tree rendering, inline editing, context menus, and drag-drop interactions.",
+  "type": "ui",
+  "layer": "widget",
+  "singleton": false,
+  "exports": [],
+  "dependencies": [],
+  "referenced_by": [],
+  "ipc": [],
+  "dom": {
+    "root": ".file-explorer (flex column)",
+    "structure": {
+      "header": "Root directory name uppercase, accent color, border-bottom",
+      "tree": ".tree (flex:1, overflow:auto) containing recursive .dir-entry and .file-entry elements",
+      "entry": {
+        "structure": "display:flex, padding-left indented by depth*16px",
+        "file_colors": {
+          ".ts/.tsx/.js/.jsx/.mjs/.cjs": "var(--accent)",
+          ".css/.scss/.sass/.less": "var(--accent2)",
+          ".json/.yaml/.yml/.toml/.env": "var(--amber)",
+          ".md/.txt/.rst/.mdx": "var(--green)",
+          "other": "var(--secondary)"
+        }
+      }
+    }
+  },
+  "interactions": [
+    {
+      "trigger": "click on .dir-entry",
+      "behavior": "Toggles expansion of directory children; adds/removes from this.expanded Set"
+    },
+    {
+      "trigger": "click on .file-entry",
+      "behavior": "Calls onFileOpen(path); highlights file with .is-file-selected class"
+    },
+    {
+      "trigger": "right-click on file",
+      "behavior": "Opens ContextMenu with: Open, Rename, Delete, Copy Path, and optional Markdown openers"
+    },
+    {
+      "trigger": "right-click on empty area",
+      "behavior": "Opens ContextMenu with: New File, New Folder, Paste (if copiedPath is set)"
+    },
+    {
+      "trigger": "Enter on inline rename input",
+      "behavior": "Commits rename via fs.rename, reloads tree"
+    },
+    {
+      "trigger": "Enter on inline create input",
+      "behavior": "Creates file/folder via fs.writeFile/fs.mkdir, reloads tree"
+    },
+    {
+      "trigger": "Escape on inline input",
+      "behavior": "Cancels inline edit, removes input row, restores original element display"
+    }
+  ],
+  "states": [
+    {
+      "name": "loading",
+      "description": "Tree shows 'Loading...' placeholder while fs.readDir resolves"
+    },
+    {
+      "name": "empty-workspace",
+      "description": "Shows 'No workspace' when rootPath is empty"
+    },
+    {
+      "name": "error",
+      "description": "Shows 'Unable to read directory' when fs.readDir returns null"
+    },
+    {
+      "name": "renaming",
+      "description": "Original element hidden, inline input shown for rename"
+    },
+    {
+      "name": "creating",
+      "description": "Inline input shown at insertion point for new file/folder"
+    }
+  ]
+}

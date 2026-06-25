@@ -1,27 +1,25 @@
 {
   "name": "Confirm Modal",
   "file": "src/renderer/components/ConfirmModal.ts",
-  "description": "Generic confirmation dialog. Displays a message (HTML, sanitized via regex to strip script/img/iframe/embed/object/link/style tags and event handlers), Cancel button, and configurable confirm button (default 'Delete', destructive red styling). Returns Promise<boolean> — true for confirm, false for cancel. Overlay click = cancel. Escape key = cancel. DOM element is removed on resolution (not just hidden).",
+  "description": "Generic confirmation dialog used for destructive actions (file delete). Renders a message (with HTML sanitization: strips script/img/iframe/embed/object/link/style tags and on* attributes), Cancel and OK/Delete buttons. Pressing Escape triggers Cancel. Returns a Promise<boolean> via open(). Used by FileExplorerPlugin for delete confirmation.",
   "type": "ui",
   "layer": "modal",
   "singleton": false,
   "exports": ["ConfirmModal"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "File Explorer Plugin", "file": "src/renderer/components/FileExplorerPlugin.ts" }
+    { "feature": "file-explorer-plugin", "file": "src/renderer/components/FileExplorerPlugin.ts" }
   ],
+  "ipc": [],
   "interface": {
-    "constructor": "new ConfirmModal(message: string, confirmLabel?: string, destructive?: boolean)",
     "methods": [
-      { "name": "open", "signature": "() => Promise<boolean>", "description": "Show modal, set up Escape handler, focus cancel button, resolve on action" }
-    ],
-    "properties": []
+      { "name": "constructor", "signature": "(message: string, confirmLabel?: string, destructive?: boolean)", "description": "Builds modal overlay with sanitized message, Cancel and OK buttons" },
+      { "name": "open", "signature": "(): Promise<boolean>", "description": "Displays modal, focuses Cancel, returns true if OK clicked, false on Cancel/Escape/overlay-click" }
+    ]
   },
-  "ui": { "spec": "confirm-modal-ui.spec.json" },
   "lifecycle": {
-    "created_by": "FileExplorerPlugin for delete confirmation",
-    "destroyed_by": "done() removes overlay from DOM",
+    "created_by": "FileExplorerPlugin.deletePath()",
+    "destroyed_by": "Promise resolution via done(true/false)",
     "singleton": false
-  },
-  "test": "src/renderer/components/ConfirmModal.test.ts"
+  }
 }

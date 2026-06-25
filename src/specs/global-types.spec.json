@@ -1,0 +1,30 @@
+{
+  "name": "Global Type Declarations",
+  "file": "src/global.d.ts",
+  "description": "Ambient type declarations for the Cockpit IDE renderer context. Defines EditorState (open files, cursors, explorer width), WorkspaceState (plugins array, z-order, zoom, pan, lock), DirEntry, EditorSelectionState, and the full Window.electronAPI interface covering terminal, workspace, git, filesystem, clipboard, shell, prefs, and IDE method signatures.",
+  "type": "model",
+  "layer": "foundation",
+  "singleton": false,
+  "exports": ["EditorState", "WorkspaceState", "DirEntry", "EditorSelectionState", "Window.electronAPI"],
+  "dependencies": [],
+  "referenced_by": [
+    { "feature": "preload", "file": "src/preload/preload.ts" },
+    { "feature": "main-process", "file": "src/main/main.ts" },
+    { "feature": "canvas-area", "file": "src/renderer/components/CanvasArea.ts" },
+    { "feature": "app", "file": "src/renderer/components/App.ts" }
+  ],
+  "ipc": [],
+  "interface": {
+    "types": [
+      { "name": "EditorState", "description": "Describes open editor tabs, active file, explorer splitter width, and per-file cursor/scroll positions" },
+      { "name": "WorkspaceState", "description": "Serializable canvas state: plugin positions/sizes/open-state, z-order, zoom, pan, and optional lock flag" },
+      { "name": "DirEntry", "description": "Directory listing item with name and isDirectory flag" },
+      { "name": "EditorSelectionState", "description": "Current editor selection: file path, selected text, and line/column ranges" }
+    ]
+  },
+  "lifecycle": {
+    "created_by": "TypeScript compiler (ambient declaration)",
+    "destroyed_by": "N/A",
+    "singleton": false
+  }
+}

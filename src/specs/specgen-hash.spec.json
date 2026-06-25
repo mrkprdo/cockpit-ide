@@ -1,25 +1,26 @@
 {
-  "name": "Specgen Hash",
+  "name": "SpecGen Build Hash",
   "file": "src/renderer/specgen-hash.ts",
-  "description": "Auto-generated constants for SPECGEN version and hash of SPECGEN.md content. Regenerated on every build by scripts/gen-specgen-hash.js. Used by SpecsMapPlugin to verify spec format consistency.",
-  "type": "utility",
+  "description": "Auto-generated build artifact containing the SHA-256 hash of SPECGEN.md and a version string. Regenerated on every npm run build by build-renderer.js. Consumed by SpecsMapPlugin to validate spec freshness and by AiDrawer for system context.",
+  "type": "config",
   "layer": "foundation",
   "singleton": false,
   "exports": ["SPECGEN_HASH", "SPECGEN_VERSION"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "Specs Map Plugin", "file": "src/renderer/components/SpecsMapPlugin.ts" }
+    { "feature": "specsmap-plugin", "file": "src/renderer/components/SpecsMapPlugin.ts" },
+    { "feature": "ai-drawer", "file": "src/renderer/components/AiDrawer.ts" }
   ],
+  "ipc": [],
   "interface": {
-    "types": [
-      { "name": "SPECGEN_HASH", "type": "string", "description": "SHA-256 hash of SPECGEN.md content" },
-      { "name": "SPECGEN_VERSION", "type": "string", "description": "App version stamp for hash invalidation" }
+    "constants": [
+      { "name": "SPECGEN_HASH", "type": "string", "description": "SHA-256 hex digest of SPECGEN.md content" },
+      { "name": "SPECGEN_VERSION", "type": "string", "description": "Version string in format '0.0.YYYYMMDD'" }
     ]
   },
   "lifecycle": {
-    "created_by": "Build script (scripts/gen-specgen-hash.js)",
-    "destroyed_by": "N/A",
+    "created_by": "build-renderer.js (regenerated on each build)",
+    "destroyed_by": "N/A (static module)",
     "singleton": false
-  },
-  "test": "N/A"
+  }
 }

@@ -1,35 +1,35 @@
 {
   "name": "Terminal Plugin",
   "file": "src/renderer/components/TerminalPlugin.ts",
-  "description": "xterm.js PTY terminal emulator plugin. Creates a Terminal instance with Cockpit-themed colors (CSS-custom-property-derived background, foreground, cursor, selectionBackground). Uses FitAddon for container-relative sizing via ResizeObserver. Custom key handler: Ctrl+Shift+C copies selection to clipboard, Ctrl+Shift+V pastes from clipboard to PTY (avoids double-paste echo). Connects to node-pty backend via IPC (terminal:create/write/resize/kill). Listens for terminal:data (PTY output → xterm write) and terminal:exit (process death). Theme updates via updateTheme() re-read CSS vars. Scale is handled at PluginCard level (CSS transform) — no fontSize change needed.",
+  "description": "PTY terminal emulator using xterm.js with FitAddon. Creates a terminal instance in a card body, wires IPC to main-process node-pty via terminal:create/write/resize/kill channels. Handles Ctrl+Shift+C for copy selection and Ctrl+Shift+V for paste (write to PTY only to avoid echo double-paste). Reads theme colors from CSS custom properties for terminal background/foreground/cursor. Provides getScreenBuffer() for AI agent access to terminal output.",
   "type": "ui",
-  "layer": "plugin",
+  "layer": "widget",
   "singleton": false,
   "exports": ["TerminalPlugin"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" }
+    { "feature": "canvas-area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
-  "ipc": ["terminal:create", "terminal:write", "terminal:resize", "terminal:kill", "terminal:data", "terminal:exit", "clipboard:readText", "clipboard:writeText"],
+  "ipc": ["terminal:create", "terminal:write", "terminal:resize", "terminal:kill", "terminal:data", "terminal:exit"],
   "interface": {
-    "constructor": "new TerminalPlugin(container: HTMLElement, uuid: string, cwd?: string)",
-    "methods": [
-      { "name": "updateTheme", "signature": "() => void", "description": "Re-read CSS vars and update xterm theme" },
-      { "name": "fit", "signature": "() => void", "description": "Trigger FitAddon resize" },
-      { "name": "setScale", "signature": "(scale: number) => void", "description": "No-op — CSS transform handles canvas zoom" },
-      { "name": "destroy", "signature": "() => void", "description": "Kill PTY, dispose xterm, disconnect ResizeObserver, remove element" }
-    ],
     "properties": [
-      { "name": "uuid", "type": "string", "description": "Card UUID for PTY session identification" },
-      { "name": "element", "type": "HTMLDivElement", "description": "Terminal container div" },
-      { "name": "onExit", "type": "(() => void) | null", "description": "Callback when PTY process exits" }
+      { "name": "uuid", "type": "string", "description": "PTY process UUID matching main process terminal map" },
+      { "name": "element", "type": "HTMLDivElement", "description": "Container element for the xterm terminal" },
+      { "name": "onExit", "type": "(() => void) | null", "description": "Callback invoked when the PTY process exits" }
+    ],
+    "methods": [
+      { "name": "constructor", "signature": "(container: HTMLElement, uuid: string, cwd?: string)", "description": "Creates xterm Terminal with FitAddon, attaches IPC listeners for data/exit, observes resize" },
+      { "name": "static readTheme", "signature": "(): { background: string; foreground: string; cursor: string; selectionBackground: string }", "description": "Reads --bg, --primary, --accent CSS vars for terminal theme" },
+      { "name": "updateTheme", "signature": "(): void", "description": "Applies current CSS theme colors to the xterm instance" },
+      { "name": "getScreenBuffer", "signature": "(maxLines?: number): string", "description": "Returns the last N lines of terminal output as plain text" },
+      { "name": "fit", "signature": "(): void", "description": "Adjusts terminal cols/rows to match container size" },
+      { "name": "destroy", "signature": "(): void", "description": "Kills PTY, detaches IPC listeners, disposes xterm and ResizeObserver" }
     ]
   },
   "lifecycle": {
-    "created_by": "CanvasArea.addTerminal() / restorePlugins()",
-    "destroyed_by": "CanvasArea.terminateCard() or terminal:exit event",
+    "created_by": "CanvasArea.addTerminal()",
+    "destroyed_by": "CanvasArea.terminateCard() or user clicking X",
     "singleton": false
   },
-  "external_deps": ["@xterm/xterm", "@xterm/addon-fit"],
-  "test": "src/renderer/components/TerminalPlugin.test.ts"
+  "external_deps": ["@xterm/xterm", "@xterm/addon-fit"]
 }

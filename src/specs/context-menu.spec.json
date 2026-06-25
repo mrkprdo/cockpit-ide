@@ -1,35 +1,31 @@
 {
   "name": "Context Menu",
   "file": "src/renderer/components/ContextMenu.ts",
-  "description": "Floating right-click context menu singleton. Creates a positioned .ctx-menu div with .ctx-item children and .ctx-sep separators. Supports disabled items. Closes previous open menus before creating new one (static openMenus tracking). Closes on outside click (document-level listener added via setTimeout(0) to avoid immediate self-close). Fires optional onClose callback on removal.",
+  "description": "Floating right-click context menu singleton. Renders a positioned menu at cursor coordinates with items (label + action callback) and optional separators and disabled state. Closes on any click outside the menu. Supports chaining via menu array with separator: true support. Only one context menu can be open at a time — previous menu is closed on new creation.",
   "type": "ui",
-  "layer": "overlay",
+  "layer": "widget",
   "singleton": false,
-  "exports": [
-    "ContextMenuItem",
-    "ContextMenu"
-  ],
+  "exports": ["ContextMenu", "ContextMenuItem"],
   "dependencies": [],
   "referenced_by": [
-    { "feature": "Canvas Area", "file": "src/renderer/components/CanvasArea.ts" },
-    { "feature": "File Explorer Plugin", "file": "src/renderer/components/FileExplorerPlugin.ts" },
-    { "feature": "Monaco Editor Plugin", "file": "src/renderer/components/MonacoEditorPlugin.ts" },
-    { "feature": "Markdown Plugin", "file": "src/renderer/components/MarkdownPlugin.ts" }
+    { "feature": "file-explorer-plugin", "file": "src/renderer/components/FileExplorerPlugin.ts" },
+    { "feature": "monaco-editor-plugin", "file": "src/renderer/components/MonacoEditorPlugin.ts" },
+    { "feature": "markdown-plugin", "file": "src/renderer/components/MarkdownPlugin.ts" },
+    { "feature": "canvas-area", "file": "src/renderer/components/CanvasArea.ts" }
   ],
+  "ipc": [],
   "interface": {
-    "constructor": "new ContextMenu(items: ContextMenuItem[], x: number, y: number)",
-    "methods": [
-      { "name": "remove", "signature": "() => void", "description": "Remove DOM element, fire onClose, clean up static tracking" }
-    ],
     "properties": [
-      { "name": "onClose", "type": "(() => void) | null", "description": "Optional callback fired on menu removal" }
+      { "name": "onClose", "type": "(() => void) | null", "description": "Callback invoked when menu is closed" }
+    ],
+    "methods": [
+      { "name": "constructor", "signature": "(items: ContextMenuItem[], x: number, y: number)", "description": "Creates positioned menu with items, closes any existing context menu" },
+      { "name": "remove", "signature": "(): void", "description": "Removes the menu DOM element and triggers onClose" }
     ]
   },
-  "ui": { "spec": "context-menu-ui.spec.json" },
   "lifecycle": {
-    "created_by": "Component right-click event handlers",
-    "destroyed_by": "Outside click or item selection fires remove()",
+    "created_by": "Right-click event handler in FileExplorerPlugin, MonacoEditorPlugin, MarkdownPlugin, or CanvasArea",
+    "destroyed_by": "Click outside menu, or explicit remove() call",
     "singleton": false
-  },
-  "test": "src/renderer/components/ContextMenu.test.ts"
+  }
 }
