@@ -10,6 +10,15 @@ Cockpit IDE v0.0.1 — spatial/floating-panel IDE built in Electron. Monaco edit
 
 ---
 
+## Spec System
+
+- Spec files live in `src/specs/`, one per source module
+- `src/specs/main.spec.json` is the authoritative index
+- The SpecsMap plugin (Tools → SpecsMap) visualizes the dependency graph
+- When adding or changing source files, update the corresponding spec
+
+---
+
 ## Change Protocol (MANDATORY — applies to every add / fix / update)
 
 Before writing any code, an agent **MUST** complete all three steps below. Skipping any step is not allowed.
@@ -126,8 +135,6 @@ D:\cockpit_ide\
 │       ├── edge-cases.test.ts     # 63 edge case tests across all components (~902 lines)
 │       ├── workflows.test.ts      # 36 integration workflow tests (~1157 lines)
 │       └── e2e-advanced.test.ts   # Advanced E2E integration tests (~1136 lines)
-```
-
 ---
 
 ## File Descriptions
@@ -161,170 +168,4 @@ D:\cockpit_ide\
 | `scripts/generate-installer-assets.js` | Generates installer header (150x57) and sidebar (164x314) BMP files with dot-grid pattern (`#161C24` bg, `#243248` dots). |
 | `scripts/installer.nsi` | NSIS installer script (~115 lines). Build: `makensis /DVERSION="x.y.z" /DOUTDIR="out" /DSRCDIR="out\CockpitIDE-win32-x64" scripts\installer.nsi`. |
 | `scripts/pack.js` | Electron packager + NSIS build orchestrator (~91 lines). Stamps version, runs electron-packager, runs makensis, restores version. |
-| `scripts/version.js` | Version stamp/restore utility (~21 lines). Reads `package.json`, swaps version for build, restores original. |
-| `public/icon.svg` | SVG logo: 4 overlapping circles in gray tones (`#eeeeee`, `#6a6a6a`, `#2a2a2a`, `#4a4a4a`). |
-| `public/cockpit_ide_icon.ico` | Application icon for Electron window and NSIS installer. |
-
-### Source: Type Declarations
-
-| File | Description |
-|------|-------------|
-| `src/global.d.ts` | Global `Window.electronAPI` interface: all IPC namespaces (`window`, `clipboard`, `terminal`, `workspace`, `shell`, `prefs`, `fs`) with method signatures. Also defines `EditorState`, `WorkspaceState`, `DirEntry`. |
-
-### Source: Main Process
-
-| File | Description |
-|------|-------------|
-| `src/main/main.ts` | Electron main process (~395 lines). Creates frameless BrowserWindow (1440x900, maximized) with contextIsolation. Handles all IPC: filesystem (readDir/readFile/writeFile/delete/copy/rename), PTY terminal sessions via node-pty (multi-session, platform-aware shell), chokidar file watching (debounced 100ms, ignores .git/node_modules/.cockpit), workspace persistence (last-workspace.txt, recent-workspaces.json, .cockpit/window.json), window controls (minimize/maximize/close/isMaximized/new), user preferences, native directory picker. Supports multi-window. |
-| `src/main/main.test.ts` | Tests all IPC handlers with mocked electron/fs. Behavioral tests for fs:readDir/readFile/writeFile/delete, window:new, and registration verification for all 20+ IPC channels. |
-
-### Source: Preload Script
-
-| File | Description |
-|------|-------------|
-| `src/preload/preload.ts` | Electron preload (~66 lines). Uses `contextBridge.exposeInMainWorld` to expose `window.electronAPI` with IPC namespaces. Bridges `ipcRenderer.invoke` (request/response) and `ipcRenderer.send` (fire-and-forget). Registers listeners for `terminal:data`, `terminal:exit`, `file:changed` — returns unsubscribe functions. |
-| `src/preload/preload.test.ts` | Verifies exposed API shape (all namespaces and functions) and correct IPC wiring (invoke vs send channels). Tests listener registration and event propagation for terminal/file events. |
-
-### Source: Renderer — Entry Point & Shell
-
-| File | Description |
-|------|-------------|
-| `src/renderer/index.html` | HTML shell (~30 lines). CSP meta tag, Space Mono font from Google Fonts, styles.css + xterm.css. DOM: `#titlebar` (frameless drag region, logo, menu bar, window controls), `#canvas` (bounded canvas), `#statusbar`. Loads `index.js`. |
-| `src/renderer/index.ts` | Renderer entry (~9 lines). Instantiates `App` class. Has a legacy theme-toggle click listener (deprecated — TopBar handles toggling). |
-| `src/renderer/styles.css` | Complete design system (~766 lines). CSS custom properties (--bg/surface/panel/primary/secondary/tertiary/border, --accent/green/amber/red, --font, --radius, --shadow). Styles for: title bar, menu bar with dropdowns, canvas, plugin list panel (lower-left), arrange panel (lower-right), context menu, status bar, cards (with edge resize handles), modals (generic, welcome, about, confirm), markdown content rendering. |
-| `src/renderer/theme.ts` | Theme singleton (~61 lines). Defines `darkTheme` (Noir: `#161C24` bg, `#C8D6E5` text) and `lightTheme` (inverse: `#f8f8f8` bg, `#1a1a1a` text) palettes. Class manages state with `setDark()`, `toggle()`, `apply()` that sets 7 CSS custom properties on `document.documentElement`. Auto-applies on import. |
-| `src/renderer/theme.test.ts` | Verifies dark/light initial state, toggle, palette correctness, CSS property propagation after apply(). |
-
-### Source: Renderer — Components
-
-| File | Description |
-|------|-------------|
-| `src/renderer/components/App.ts` | Root orchestrator (~177 lines). Creates CanvasArea and TopBar. Sets up keyboard shortcuts (Ctrl+Shift+N new window, Ctrl+W prevention, Ctrl+Tab card cycling). Manages workspace lifecycle: checks CLI path, shows WelcomeModal if none, auto-saves on state change (debounced JSON diff), restores user prefs. |
-| `src/renderer/components/App.test.ts` | Tests: title, CanvasArea/TopBar creation, window control bindings, keyboard shortcuts, CLI workspace path loading flow. |
-| `src/renderer/components/CanvasArea.ts` | Core bounded canvas engine (~1073 lines). World-to-screen coordinate transform (`screenX = worldX * scale + panX`). Pan (left/middle-click drag), zoom (wheel, cursor-centered, 0.1x-5x). Grid rendering (dots/grid/none) via CSS background-image. Card management (add/remove/terminate/reopen/focus with z-order stacking). Snap-to-grid (28px). Plugin lifecycle (Terminal/Explorer/Markdown). Arrange panel (Auto Arrange, Tile Plugins with custom WxH). Status bar (zoom/pan/workspace/origin, View All button). Animated pan (ease-out cubic 300ms). State serialization. |
-| `src/renderer/components/CanvasArea.test.ts` | Tests: grid styles, zoom bounds, resetView, setView, save state structure, state change callbacks, fit all / Auto Arrange / Tile Plugins with edge cases. |
-| `src/renderer/components/PluginCard.ts` | Draggable/resizable card widget (~223 lines). DOM card with header (canvas-rendered title via @chenglou/pretext), close button (hover-reveal), body, edge resize handles (east/south/southeast). Drag by header (snaps to 28px grid). Resize with minimum snap. UUID via `crypto.randomUUID()`. |
-| `src/renderer/components/PluginCard.test.ts` | Tests: card structure, positioning, UUID, callbacks (close/focus/destroy), canvas title rendering, drag interaction, resize edge handles. |
-| `src/renderer/components/TextRenderer.ts` | Canvas text utility (~79 lines). Wraps `@chenglou/pretext` for `measure()`, `draw()`, `createCanvas()` (single-style), `createCanvas2()` (multi-style with varied line heights). |
-| `src/renderer/components/TerminalPlugin.ts` | xterm.js terminal emulator (~116 lines). Creates Terminal with Noir custom theme. Connects to node-pty via IPC (create/write/resize/kill). Clipboard paste (Ctrl+Shift+V, Ctrl+V). ResizeObserver-based fit. Keyboard event handling. Process exit detection. |
-| `src/renderer/components/TerminalPlugin.test.ts` | Tests: container creation, UUID storage, terminal.create call with/without cwd, onData/onExit listeners, destroy cleanup, onExit callback. |
-| `src/renderer/components/MonacoEditorPlugin.ts` | Monaco code editor (~388 lines). Dynamically loads Monaco via AMD require() at runtime. Defines custom themes (cockpit-dark, cockpit-light). Multi-tab editing with per-tab cursor/scroll tracking. 30+ language detection (file extension). Auto-save (debounced 1.5s). External file change detection with auto-reload. Ctrl+S save action. Full state serialization/restoration. |
-| `src/renderer/components/MonacoEditorPlugin.test.ts` | Tests: editor structure, initial state, getState null handling, reloadIfOpen (no-op/close/content update), file change listener, 30+ language detection. |
-| `src/renderer/components/FileExplorerPlugin.ts` | File tree browser (~262 lines). Recursive directory listing with expand/collapse (arrow indicators), directories sorted first. Right-click context menus (files: Copy/Paste/Delete, .md files: "Open to Markdown"; dirs: New File/Folder/Copy/Paste/Delete). Inline input for instant creation (Enter commit, Escape cancel). Copy/paste with `_copy_N` auto-naming. Delete confirmation via ConfirmModal. External change watching with 500ms debounced refresh. |
-| `src/renderer/components/FileExplorerPlugin.test.ts` | Tests: tree rendering, .gitkeep filter, directory-first sort, click callback, error state, wheel stopPropagation, expand/collapse (icon, children, cycle, reload preserves state, empty dir, nested). |
-| `src/renderer/components/ExplorerPlugin.ts` | Combined split-pane Explorer plugin (~86 lines). FileExplorerPlugin (left, 260px default, resizable 120-600px) + MonacoEditorPlugin (right) in horizontal flex layout with drag handle. Delegates markdown openers. Bridges editor state changes and theme updates. |
-| `src/renderer/components/ExplorerPlugin.test.ts` | Tests: split layout (flex row, 3 children), MonacoEditorPlugin access, setMarkdownOpeners delegation, updateTheme propagation, getEditorState/restoreEditorState null/empty handling. |
-| `src/renderer/components/MarkdownPlugin.ts` | Markdown preview viewer (~230 lines). Renders .md files via `marked.parse()`. Multi-tab with per-tab scroll tracking. External file change detection with auto-reload (preserves scroll). State serialization/restoration (including legacy single-file format). Handles empty/deleted/error states gracefully. |
-| `src/renderer/components/MarkdownPlugin.test.ts` | Tests: preview pane, title, file loading (tab + render), duplicate prevention, empty file, state get/restore (null/multi-tab/legacy), destroy cleanup. |
-| `src/renderer/components/WelcomeModal.ts` | Startup workspace picker (~64 lines). Modal overlay with "Open Workspace" button (native dir picker via IPC), recent workspaces list, Close button. Returns `Promise<string | null>`. |
-| `src/renderer/components/WelcomeModal.test.ts` | Tests: overlay/modal rendering, Open Workspace resolves path, Close resolves null, recent workspaces display/click resolves path. |
-| `src/renderer/components/AboutModal.ts` | Version/credits dialog (~61 lines). Shows version (0.0.1), Electron/Node runtime versions, clickable "design.md" link. Optional onClose callback. |
-| `src/renderer/components/AboutModal.test.ts` | Tests: open/close visibility, close button and overlay dismissal, design.md link existence, onClose callback and cleanup. |
-| `src/renderer/components/ContextMenu.ts` | Right-click context menu (~54 lines). Floating singleton menu with items (labels + actions), separators, disabled items. Positions at click coordinates. Closes on outside click or item selection. Tracks all open menus and closes previous before opening new one. |
-| `src/renderer/components/ContextMenu.test.ts` | Tests: item creation, positioning, action firing with menu removal, separators, disabled items, outside-click close, onClose, singleton behavior. |
-| `src/renderer/components/CommandPalette.ts` | Ctrl+P fuzzy file finder (~247 lines). Overlay with input, progress indicator, file index (throttled directory walk), filtered results, recent-file tracking, arrow-key navigation, Enter to open in editor. Debounced refresh on workspace change. |
-| `src/renderer/components/ConfirmModal.ts` | Generic confirmation dialog (~56 lines). Shows message (supports HTML) with Cancel and configurable confirm button (default "Delete"). Returns `Promise<boolean>`. Overlay click = cancel. Removes DOM on resolution. |
-| `src/renderer/components/ConfirmModal.test.ts` | Tests: confirm(true)/cancel(false)/overlay(false) resolution, DOM overlay removal, message display, custom confirm label, default label. |
-| `src/renderer/components/TopBar.ts` | Custom menu bar with dropdown menus (File/View/Help). Plugin submenus (Terminal/Explorer/Markdown) for focus/reopen. Buttons: Open Workspace, New Terminal/Explorer/Markdown, Zoom In/Out, Reset View, Theme Toggle, About. |
-| `src/renderer/components/TopBar.test.ts` | Tests: menu rendering, theme toggle, button callbacks, focus/reopen behavior, empty item lists. |
-| `src/renderer/components/Tutorial.ts` | Interactive guided tutorial overlay (~324 lines). Step-based walkthrough with title, description, optional target element highlighting, extra content renderer, and lifecycle hooks. Dark overlay with tooltip-style step cards. |
-| `src/renderer/components/Tutorial.test.ts` | Tests: step rendering, navigation, lifecycle hooks, skip/finish behavior. |
-
-### Source: Test Infrastructure
-
-| File | Description |
-|------|-------------|
-| `src/test/setup.ts` | Global test mocks (~232 lines). Mocks: @chenglou/pretext, @xterm/xterm (lightweight Terminal), crypto.randomUUID() (deterministic), Canvas2D context (all vi.fn()), ResizeObserver, requestAnimationFrame (setTimeout 0), devicePixelRatio (1). Creates mock `window.electronAPI` with all 24 IPC channels. Sets CSS custom properties. Bootstraps DOM scaffolding. Exports `mockElectronAPI`. |
-| `src/test/README.md` | Test infrastructure docs (~117 lines). Vitest + jsdom setup, 22 test files with 755 tests (~10s run time). Test patterns, mock access, known limitations (Monaco AMD loader, node-pty, canvas rendering). |
-| `src/test/edge-cases.test.ts` | 63 edge case tests (~902 lines): Theme (rapid toggles, same-value set), ConfirmModal (empty/long/HTML messages, double-click), ContextMenu (empty/only-separators/error action/extreme coords), WelcomeModal (no electronAPI, long paths), AboutModal (no electronAPI), PluginCard (zero dimensions, long titles, double-remove/click), CanvasArea (zoom bounds, grid cycle, empty save, extreme pan), TopBar (undefined callbacks, empty lists), FileExplorer (empty dir, special chars, paste without copy), Markdown+Monaco+Dev+Terminal edge cases, cross-component chains. |
-| `src/test/workflows.test.ts` | 36 integration workflow tests (~1157 lines): File CRUD (create/read/delete/copy+paste), Editor tab CRUD, Markdown tab CRUD (load/render/switch/close/serialize/restore/empty), Dev Plugin workflows (split layout, state delegation, markdown bridge, theme, restore), Theme persistence, ConfirmModal workflows, E2E file-to-editor/markdown flows, deep nested directory operations, error recovery. |
-| `src/test/e2e-advanced.test.ts` | Advanced E2E integration tests (~1136 lines): PluginCard lifecycle (creation/close/remove/double-remove, mousedown focus, setContent, resize handles), CanvasArea instantiation, SaveState structure & plugin tracking, terminal/dev/markdown create callback chains, canvas viewport management. |
-
-### Spec System
-
-- **Spec files** live in `src/specs/`, one **feature spec** (`<name>.spec.json`) per non-test source module, plus a **UI sub-spec** (`<name>-ui.spec.json`) for any component with 3+ user interactions or complex DOM.
-- `src/specs/main.spec.json` is the **authoritative index**: project manifest, feature catalog (by layer), dependency graph edges, IPC channel catalog, keyboard shortcuts, and test coverage summary.
-- The **SpecsMap plugin** (Tools → SpecsMap) visualizes the dependency graph from these specs.
-- **When adding or changing source files**, update the corresponding spec file(s) — specs are the contract, code is the implementation.
-- The spec schema is defined in `SPECGEN.md`. Every spec must include: `name`, `file`, `description`, `type`, `layer`, `singleton`, `exports`, `dependencies` (with usage), `referenced_by`, `ipc`, `interface`.
-- UI sub-specs are required for: modals, overlays, cards, menus, and plugins with complex DOM — they document DOM structure, interaction catalog (triggers/gestures/results), visual states, and rendering notes.
-
-### Source: Specs Graph
-
-| File | Description |
-|------|-------------|
-| `src/specs/main.spec.json` | Root specs index: project manifest, feature catalog (by layer), IPC channel catalog, dependency graph edges, keyboard shortcuts, test coverage summary. |
-| `src/specs/*.spec.json` | 28 feature specs — one per non-test source file. Each defines: name, description, type/layer taxonomy, dependencies (imports), referenced_by (importers), exports, interface (constructor/methods/properties), state schema (if serialized), IPC channels, lifecycle, test file ref. |
-| `src/specs/*-ui.spec.json` | UI sub-specs — detailed DOM structure, interaction catalog (triggers, gestures, formulas, results), visual states, and rendering notes. Generated for features with complex UI (modals, overlays, cards, menus). |
-
----
-
-## MCP Server
-
-Cockpit IDE runs an MCP (Model Context Protocol) server on `127.0.0.1:49876` (configurable via `COCKPIT_MCP_PORT` env var) using StreamableHTTP transport. This lets AI agents control Cockpit programmatically.
-
-### Tools Exposed
-
-| Tool | Description |
-|------|-------------|
-| `fs_read_dir` | List directory entries |
-| `fs_read_file` | Read file contents |
-| `fs_write_file` | Write content to a file |
-| `fs_mkdir` | Create directory (recursive) |
-| `fs_delete` | Delete file or directory |
-| `fs_copy` | Copy file or directory |
-| `fs_rename` | Rename/move file or directory |
-| `workspace_get_path` | Get current workspace path |
-| `workspace_load_state` | Load `.cockpit/window.json` |
-| `workspace_save_state` | Save state to `.cockpit/window.json` |
-| `workspace_get_recent` | List recent workspaces |
-| `workspace_select` | Open native directory picker |
-| `terminal_list` | List active terminal sessions |
-| `terminal_create` | Create a new PTY terminal |
-| `terminal_write` | Write data to a terminal |
-| `terminal_kill` | Kill a terminal session |
-| `window_new` | Create new Cockpit window |
-| `window_minimize` | Minimize active window |
-| `window_maximize` | Toggle maximize |
-| `window_close` | Close active window |
-| `prefs_load` | Load user preferences |
-| `prefs_save` | Save user preferences |
-| `shell_open_external` | Open URL in browser |
-<!-- CODEGRAPH_START -->
-## CodeGraph
-
-This project has a CodeGraph index (`.codegraph/` directory exists). CodeGraph is a tree-sitter-parsed knowledge graph of every symbol, edge, and file. When `codegraph_*` tools are available, they offer sub-millisecond structural lookups that grep cannot match. However, these tools are **not available in all sessions** — they depend on MCP server configuration in the client (opencode, Claude Desktop, etc.).
-
-### When `codegraph_*` tools ARE available
-
-Use for **structural** questions — what calls what, what would break, where is X defined, what is X's signature. Use native grep/read only for **literal text** queries (string contents, comments, log messages) or after you already have a specific file open.
-
-| Question | Available Tool |
-|---|---|
-| "Where is X defined?" / "Find symbol named X" | `codegraph_search` |
-| "What calls function Y?" | `codegraph_callers` |
-| "What does Y call?" | `codegraph_callees` |
-| "What would break if I changed Z?" | `codegraph_impact` |
-| "Show me Y's signature / source / docstring" | `codegraph_node` |
-| "Give me focused context for a task/area" | `codegraph_context` |
-| "See several related symbols' source at once" | `codegraph_explore` |
-| "What files exist under path/" | `codegraph_files` |
-| "Is the index healthy?" | `codegraph_status` |
-
-### When `codegraph_*` tools are NOT available (fallback)
-
-Use native tools (grep, glob, read, task) instead. For structural questions, the most efficient approach is:
-
-1. **`glob`** to find files by pattern
-2. **`grep`** to find symbol definitions or usages by name
-3. **`task`** with a `general` agent for larger exploration
-
-### Rules of thumb (when tools ARE available)
-
-- **Answer directly — don't delegate exploration.** For "how does X work" / architecture / trace questions, answer with 2-3 codegraph calls: `codegraph_context` first, then ONE `codegraph_explore` for the source of the symbols it surfaces. Codegraph IS the pre-built index, so spawning a separate file-reading sub-task/agent — or running a grep + read loop — repeats work codegraph already did and costs more for the same answer.
-- **Trust codegraph results.** They come from a full AST parse. Do NOT re-verify them with grep — that's slower, less accurate, and wastes context.
-- **Don't grep first** when looking up a symbol by name. `codegraph_search` is faster and returns kind + location + signature in one call.
-- **Don't chain `codegraph_search` + `codegraph_node`** when you just want context — `codegraph_context` is one call.
-- **Don't loop `codegraph_node` over many symbols** — one `codegraph_explore` call returns several symbols' source grouped in a single capped call, while each separate node/Read call re-reads the whole context and costs far more.
-- **Index lag**: the file watcher debounces ~500ms behind writes; don't re-query immediately after editing a file in the same turn.
-<!-- CODEGRAPH_END -->
+| `scripts/version.js` | Version stamp/restore for builds (~21 lines). Reads package.json, writes `src/renderer/specgen-hash.ts`, restores after pack. |
