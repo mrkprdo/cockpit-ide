@@ -1,32 +1,83 @@
 {
   "name": "AI Drawer",
   "file": "src/renderer/components/AiDrawer.ts",
-  "description": "Left-side sliding drawer panel implementing the LLMLOOP iterative code refinement strategy. Chat-style interface where users paste code and get refinement suggestions driven by five feedback loops: compilation fixes, test validation, static analysis, test generation, and mutation analysis. Connects to OpenAI-compatible LLM APIs. Settings stored in user preferences.",
+  "description": "Slide-out AI agent panel opened via Tools > AI or the notch button. Implements a full agentic loop: sends user messages to an OpenAI-compatible LLM, executes tool calls against the __cockpit canvas bridge and electronAPI, and renders results as Markdown. Supports three agent modes (AUTO / PLAN / STEP), abort, prompt queuing, mid-run steering, and persistent per-workspace session storage in {workspace}/.cockpit/ai-sessions.json.",
   "type": "ui",
-  "layer": "modal",
+  "layer": "overlay",
   "singleton": true,
   "exports": ["AiDrawer"],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "feature": "cockpit-bridge",
+      "file": "src/renderer/components/App.ts",
+      "usage": "Reads window.__cockpit for canvas operations: getCanvasState, panToCard, setView, zoomIn, zoomOut, openFile, addPlugin, focusCard, closeCard, moveCard, resizeCard, autoArrange, writeToTerminal, readTerminal, insertInEditor, readEditor, getEditorState, setEditorContent, goToLine, getWorkspacePath, reopenCard, resetView, refreshSpecsMap, regenerateSpecs"
+    }
+  ],
   "referenced_by": [
-    { "feature": "App", "file": "src/renderer/components/App.ts" },
-    { "feature": "Top Bar", "file": "src/renderer/components/TopBar.ts" }
+    { "feature": "app", "file": "src/renderer/components/App.ts", "usage": "Instantiated in App constructor; toggle() called from TopBar AI button; resetSessions() called on workspace load" }
   ],
   "ipc": [
-    { "channel": "prefs:load", "direction": "invoke", "description": "Load API key, model, endpoint from preferences" },
-    { "channel": "prefs:save", "direction": "invoke", "description": "Save AI settings to preferences" }
+    { "channel": "fs:readFile", "direction": "invoke", "usage": "Loads ai-sessions.json on first drawer open" },
+    { "channel": "fs:writeFile", "direction": "invoke", "usage": "Persists sessions after every message (debounced 300ms)" },
+    { "channel": "fs:mkdir", "direction": "invoke", "usage": "Creates .cockpit/ dir before first session write (once per workspace)" },
+    { "channel": "prefs:load", "direction": "invoke", "usage": "Loads aiApiKey, aiModel, aiEndpoint settings on first message send" },
+    { "channel": "prefs:save", "direction": "invoke", "usage": "Saves apiKey, model, endpoint when user clicks Save in settings panel" }
   ],
+  "state": {
+    "agentMode": "'auto' | 'plan' | 'step' — controls agentic loop behavior",
+    "messages": "ChatMessage[] — in-memory conversation history for current session",
+    "sessions": "Session[] — all sessions for current workspace",
+    "currentSessionId": "string — active session ID",
+    "sessionsLoaded": "boolean — guard to ensure loadSessions() runs once per workspace",
+    "cockpitDirEnsured": "boolean — guard to avoid redundant fs.mkdir IPC calls",
+    "isLoading": "boolean — true while agentic loop is running",
+    "abortRequested": "boolean — set by abort button to stop the loop",
+    "fetchController": "AbortController | null — cancels in-flight fetch on abort",
+    "continueResolve": "(() => void) | null — Promise resolver for STEP mode pause",
+    "promptQueue": "string[] — messages queued while agent is running",
+    "steeringMessage": "string | null — next steering injection, set via steer button"
+  },
   "interface": {
-    "constructor": "new AiDrawer()",
     "methods": [
-      { "name": "toggle", "signature": "() => void", "description": "Toggle drawer open/closed" },
-      { "name": "open", "signature": "() => void", "description": "Open the drawer with configured width" },
-      { "name": "close", "signature": "() => void", "description": "Close the drawer" }
+      {
+        "name": "constructor",
+        "signature": "()",
+        "description": "Builds drawer DOM (header with mode bar + sessions/settings buttons, message area, step controls, queue bar, input area with send/abort/steer buttons, settings panel, sessions panel), mounts notch button outside drawer, binds all event listeners, shows welcome message, loads API settings."
+      },
+      {
+        "name": "toggle",
+        "signature": "(): Promise<void>",
+        "description": "Opens or closes the drawer. On open, awaits loadSessions() before showing UI to prevent stale state flash. On close, hides settings and sessions panels."
+      },
+      {
+        "name": "resetSessions",
+        "signature": "(): void",
+        "description": "Clears all session state (sessions, currentSessionId, sessionsLoaded, cockpitDirEnsured, promptQueue, steeringMessage) and shows welcome message. Called by App.loadWorkspace() on workspace change."
+      }
+    ]
+  },
+  "agent_modes": {
+    "auto": "Default — agentic loop runs until model returns a non-tool-call response or abort.",
+    "plan": "Two-phase: first LLM call generates a numbered plan (no tools allowed); user approves or stops; second call uses tool_choice:'required' to force tool execution on the approved plan.",
+    "step": "Pauses before each tool batch via waitForAction() Promise; user can Continue (resume) or Stop (abort). Step controls shown between body and input while paused."
+  },
+  "tools": {
+    "count": 46,
+    "categories": [
+      "File I/O: read_file, write_file, create_directory, list_directory, search_files (grepWorkspace)",
+      "Editor: insert_in_editor, read_editor, set_editor_content, go_to_line, get_editor_state, get_selection_text",
+      "Canvas: get_canvas_state, add_plugin, focus_card, close_card, minimize_card, move_card, resize_card, auto_arrange, reopen_card, reset_view, pan_to_card, set_view, zoom_in, zoom_out",
+      "Terminal: write_to_terminal, read_terminal, kill_terminal",
+      "Git: git_status, git_diff, git_log, git_stage, git_unstage, git_commit, git_checkout, git_branch, git_pull, git_push, git_stash, git_stash_pop",
+      "Specs: open_in_markdown, reveal_file, refresh_specs_map, regenerate_specs",
+      "Agent: ask_user_question"
     ]
   },
   "lifecycle": {
-    "created_by": "App constructor (new AiDrawer())",
-    "destroyed_by": "Window close",
-    "singleton": true
-  },
-  "test": "src/renderer/components/AiDrawer.test.ts"
+    "created_by": "App constructor — one instance per window",
+    "sessions_loaded": "First toggle() open per workspace",
+    "sessions_reset": "App.loadWorkspace() calls resetSessions() on workspace switch",
+    "sessions_saved": "After every message completion (debounced 300ms)",
+    "destroyed_by": "Page unload"
+  }
 }

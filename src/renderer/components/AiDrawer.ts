@@ -1,19 +1,38 @@
 interface ChatMessage {
-  role: 'user' | 'assistant' | 'system' | 'tool';
+  role: 'user' | 'assistant' | 'system' | 'tool' | 'thinking';
   content: string;
   timestamp: number;
   toolName?: string;
   toolResult?: string;
+  isSteer?: boolean;
+}
+
+interface Session {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMessage[];
 }
 
 const AGENT_SYSTEM_PROMPT = `You are Cockpit Agent, an AI assistant embedded in Cockpit IDE — a spatial, canvas-based IDE where plugin cards (Explorer, Terminal, Git, Markdown, SpecsMap) float on an infinite canvas.
 
-You have tools to read/write/list files in the workspace and to inspect and control the canvas. Use them to actually perform tasks. When editing files, read first to understand current content. Prefer multiple small focused reads over reading entire large files.
+## Capabilities
+- **Files**: read_file, write_file, list_directory, create_directory, delete_file, rename_file, copy_file, grep_workspace
+- **Editor**: read_editor, get_editor_state, get_selected_text, set_editor_content, insert_text_in_editor, go_to_line, open_file_in_editor, reveal_file_in_explorer, open_in_markdown
+- **Terminal**: write_to_terminal, read_terminal, kill_terminal (get uuid from get_canvas_state)
+- **Canvas cards**: get_canvas_state, add_plugin, focus_card, close_card, minimize_card, reopen_card, move_card, resize_card, auto_arrange, reset_view, pan_to_card, set_view, zoom_in, zoom_out
+- **Git**: git_status, git_diff, git_log, git_stage, git_unstage, git_commit, git_push, git_branches, git_checkout
+- **System**: open_external, get_clipboard, set_clipboard
+- **SpecsMap**: refresh_specsmap (reload graph from disk), regenerate_specsmap (re-scan src/ and rebuild all spec files)
 
-To run a command in a terminal: call get_canvas_state to get terminal uuids, then write_to_terminal with the target uuid and command.
-To type into the editor: call insert_text_in_editor with the text to insert at the current cursor.
-
-Be concise. After completing a task, give a one-sentence summary of what you did.`;
+## Rules
+- Always use absolute paths for files.
+- git_* tools default repo_path to workspace root — omit it unless targeting a different repo.
+- To run a terminal command: get_canvas_state → write_to_terminal(uuid, command). Read output with read_terminal(uuid).
+- When editing a file: read_file first → write_file with full new content. Or open in editor → set_editor_content.
+- grep_workspace is fast for finding symbols/patterns. Use it before reading many files.
+- Be concise. After completing a task, give a one-sentence summary.`;
 
 const TOOLS = [
   {
@@ -268,12 +287,396 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'read_terminal',
+      description: 'Read the current output buffer of a terminal card (last 200 lines). Use get_canvas_state first to find the terminal uuid.',
+      parameters: {
+        type: 'object',
+        properties: {
+          uuid: { type: 'string', description: 'Terminal card uuid from get_canvas_state' },
+        },
+        required: ['uuid'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_editor',
+      description: 'Read the full content of the currently active editor tab.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  // ── Editor ──────────────────────────────────────────────────────────────────
+  {
+    type: 'function',
+    function: {
+      name: 'get_editor_state',
+      description: 'Get the active editor state: open files, active file path, cursor position, and any selected text.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_selected_text',
+      description: 'Get the text currently selected (highlighted) in the editor.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_editor_content',
+      description: 'Replace the entire content of the active editor buffer. Triggers auto-save.',
+      parameters: {
+        type: 'object',
+        properties: {
+          content: { type: 'string', description: 'New full content for the active file' },
+        },
+        required: ['content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'go_to_line',
+      description: 'Move the editor cursor to a specific line (and optional column) and reveal it.',
+      parameters: {
+        type: 'object',
+        properties: {
+          line: { type: 'number', description: 'Line number (1-based)' },
+          col: { type: 'number', description: 'Column number (1-based, default 1)' },
+        },
+        required: ['line'],
+      },
+    },
+  },
+  // ── Canvas ───────────────────────────────────────────────────────────────────
+  {
+    type: 'function',
+    function: {
+      name: 'reopen_card',
+      description: 'Restore a minimized card back to the canvas.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Card title, e.g. "Terminal 2", "Explorer"' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'reset_view',
+      description: 'Reset canvas zoom to 1x and re-center the view.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'pan_to_card',
+      description: 'Pan and zoom the canvas to focus on a specific card by title (partial match ok). Also brings the card to front.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Card title or partial name (e.g. "Terminal 3", "Explorer")' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_view',
+      description: 'Set canvas pan position and optional zoom level directly. panX/panY are screen-space pixel offsets (the world origin position on screen). zoom is a scale factor (1.0 = 100%).',
+      parameters: {
+        type: 'object',
+        properties: {
+          panX: { type: 'number', description: 'Horizontal pan offset in pixels' },
+          panY: { type: 'number', description: 'Vertical pan offset in pixels' },
+          zoom: { type: 'number', description: 'Zoom scale factor (0.1–5.0). Omit to keep current zoom.' },
+        },
+        required: ['panX', 'panY'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'zoom_in',
+      description: 'Zoom in the canvas view by one step (~30%).',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'zoom_out',
+      description: 'Zoom out the canvas view by one step (~30%).',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'open_in_markdown',
+      description: 'Open a Markdown file in the Markdown preview card.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path to the .md file' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  // ── Navigation ───────────────────────────────────────────────────────────────
+  {
+    type: 'function',
+    function: {
+      name: 'reveal_file_in_explorer',
+      description: 'Select and highlight a file in the Explorer file tree.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path to the file' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'grep_workspace',
+      description: 'Search for a regex pattern across all files in a directory. Returns file path, line number, and matching line text.',
+      parameters: {
+        type: 'object',
+        properties: {
+          pattern: { type: 'string', description: 'Regular expression to search for' },
+          dir: { type: 'string', description: 'Directory to search in (defaults to workspace root)' },
+          glob: { type: 'string', description: 'File extension filter e.g. ".ts" or ".json" (optional)' },
+        },
+        required: ['pattern'],
+      },
+    },
+  },
+  // ── Terminal ─────────────────────────────────────────────────────────────────
+  {
+    type: 'function',
+    function: {
+      name: 'kill_terminal',
+      description: 'Kill a terminal PTY process by uuid.',
+      parameters: {
+        type: 'object',
+        properties: {
+          uuid: { type: 'string', description: 'Terminal card uuid from get_canvas_state' },
+        },
+        required: ['uuid'],
+      },
+    },
+  },
+  // ── Git ──────────────────────────────────────────────────────────────────────
+  {
+    type: 'function',
+    function: {
+      name: 'git_status',
+      description: 'Get current git status: branch, staged files, unstaged files.',
+      parameters: {
+        type: 'object',
+        properties: {
+          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_diff',
+      description: 'Get unstaged diff for the repo or a specific file.',
+      parameters: {
+        type: 'object',
+        properties: {
+          file_path: { type: 'string', description: 'Specific file path (optional, omit for full diff)' },
+          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_log',
+      description: 'Get recent git commit history.',
+      parameters: {
+        type: 'object',
+        properties: {
+          max_count: { type: 'number', description: 'Max commits to return (default 10)' },
+          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_stage',
+      description: 'Stage a file for commit.',
+      parameters: {
+        type: 'object',
+        properties: {
+          file_path: { type: 'string', description: 'Absolute path to the file to stage' },
+          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
+        },
+        required: ['file_path'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_unstage',
+      description: 'Unstage a file (remove from staging area).',
+      parameters: {
+        type: 'object',
+        properties: {
+          file_path: { type: 'string', description: 'Absolute path to the file to unstage' },
+          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
+        },
+        required: ['file_path'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_commit',
+      description: 'Commit staged changes with a message.',
+      parameters: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', description: 'Commit message' },
+          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
+        },
+        required: ['message'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_push',
+      description: 'Push committed changes to the remote.',
+      parameters: {
+        type: 'object',
+        properties: {
+          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_branches',
+      description: 'List all git branches (local and remote).',
+      parameters: {
+        type: 'object',
+        properties: {
+          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_checkout',
+      description: 'Switch to a git branch.',
+      parameters: {
+        type: 'object',
+        properties: {
+          branch: { type: 'string', description: 'Branch name to checkout' },
+          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
+        },
+        required: ['branch'],
+      },
+    },
+  },
+  // ── System ───────────────────────────────────────────────────────────────────
+  {
+    type: 'function',
+    function: {
+      name: 'open_external',
+      description: 'Open a URL in the default system browser.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'URL to open' },
+        },
+        required: ['url'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_clipboard',
+      description: 'Read the current clipboard text content.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_clipboard',
+      description: 'Write text to the clipboard.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'Text to copy to clipboard' },
+        },
+        required: ['text'],
+      },
+    },
+  },
+  // ── SpecsMap ─────────────────────────────────────────────────────────────────
+  {
+    type: 'function',
+    function: {
+      name: 'refresh_specsmap',
+      description: 'Reload the SpecsMap graph from the current spec files on disk.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'regenerate_specsmap',
+      description: 'Re-scan the src/ directory and regenerate all SPECGEN spec files, then reload the SpecsMap.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
 ];
 
 export class AiDrawer {
   private el: HTMLDivElement;
   private wrapper: HTMLDivElement;
-  private notch: HTMLDivElement;
+  private notch: HTMLButtonElement;
   private resizeHandle: HTMLDivElement;
   private escHandler: ((e: KeyboardEvent) => void) | null = null;
   private isDragging = false;
@@ -285,12 +688,38 @@ export class AiDrawer {
   private model = 'deepseek-v4-flash';
   private endpoint = 'https://opencode.ai/zen/go/v1';
 
+  // Agentic control state
+  private agentMode: 'auto' | 'plan' | 'step' = 'auto';
+  private abortRequested = false;
+  private continueResolve: (() => void) | null = null;
+  private fetchController: AbortController | null = null;
+
+  // Session state
+  private sessions: Session[] = [];
+  private currentSessionId = '';
+  private sessionsLoaded = false;
+  private cockpitDirEnsured = false;
+  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Queue + steer state
+  private promptQueue: string[] = [];
+  private steeringMessage: string | null = null;
+
   private bodyEl!: HTMLDivElement;
   private messagesEl!: HTMLDivElement;
   private inputEl!: HTMLTextAreaElement;
   private sendBtn!: HTMLButtonElement;
+  private abortBtn!: HTMLButtonElement;
+  private steerBtn!: HTMLButtonElement;
+  private queueBarEl!: HTMLDivElement;
   private settingsEl!: HTMLDivElement;
+  private sessionsPanelEl!: HTMLDivElement;
+  private sessionsListEl!: HTMLDivElement;
   private loadingEl!: HTMLDivElement;
+  private stepControlsEl!: HTMLDivElement;
+  private stepLabelEl!: HTMLSpanElement;
+  private stepContinueBtn!: HTMLButtonElement;
+  private stepStopBtn!: HTMLButtonElement;
 
   constructor() {
     const canvas = document.getElementById('canvas')!;
@@ -374,24 +803,218 @@ export class AiDrawer {
     }];
   }
 
+  // ── Sessions ────────────────────────────────────────────────────────────────
+
+  private generateId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  private getSessionTitle(session: Session): string {
+    const first = session.messages.find(m => m.role === 'user');
+    if (!first) return 'New session';
+    return first.content.slice(0, 48).replace(/\n/g, ' ');
+  }
+
+  private getSessionsPath(): string | null {
+    const cockpit = (window as any).__cockpit;
+    const wp = cockpit?.getWorkspacePath?.();
+    return wp ? `${wp}/.cockpit/ai-sessions.json` : null;
+  }
+
+  private getCockpitDir(): string | null {
+    const cockpit = (window as any).__cockpit;
+    const wp = cockpit?.getWorkspacePath?.();
+    return wp ? `${wp}/.cockpit` : null;
+  }
+
+  private async loadSessions(): Promise<void> {
+    if (this.sessionsLoaded) return;
+    this.sessionsLoaded = true;
+    const path = this.getSessionsPath();
+    if (!path) { this.initFirstSession(); return; }
+    try {
+      const raw = await window.electronAPI?.fs.readFile(path);
+      if (!raw) { this.initFirstSession(); return; }
+      const data = JSON.parse(raw) as { sessions: Session[]; currentSessionId: string };
+      this.sessions = data.sessions || [];
+      this.currentSessionId = data.currentSessionId || '';
+      if (this.sessions.length === 0) { this.initFirstSession(); return; }
+      const current = this.sessions.find(s => s.id === this.currentSessionId) ?? this.sessions[0];
+      this.currentSessionId = current.id;
+      this.messages = [...current.messages];
+      this.renderMessages();
+    } catch { this.initFirstSession(); }
+  }
+
+  private initFirstSession(): void {
+    const session: Session = {
+      id: this.generateId(),
+      title: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [...this.messages],
+    };
+    this.sessions = [session];
+    this.currentSessionId = session.id;
+  }
+
+  private saveSessions(): void {
+    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
+    this.saveDebounceTimer = setTimeout(() => {
+      this.saveDebounceTimer = null;
+      this.flushSave();
+    }, 300);
+  }
+
+  private flushSave(): void {
+    const path = this.getSessionsPath();
+    const dir = this.getCockpitDir();
+    if (!path || !dir) return;
+    const data = { sessions: this.sessions, currentSessionId: this.currentSessionId };
+    const json = JSON.stringify(data, null, 2);
+    const doWrite = () => window.electronAPI!.fs.writeFile(path, json).catch(() => {});
+    if (this.cockpitDirEnsured) {
+      doWrite();
+    } else {
+      window.electronAPI?.fs.mkdir(dir)
+        .then(() => { this.cockpitDirEnsured = true; return doWrite(); })
+        .catch(() => {});
+    }
+  }
+
+  private updateCurrentSession(): void {
+    if (!this.currentSessionId) return;
+    this.saveSessionById(this.currentSessionId, this.messages);
+  }
+
+  private newSession(): void {
+    this.updateCurrentSession();
+    const session: Session = {
+      id: this.generateId(),
+      title: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [],
+    };
+    this.sessions.unshift(session);
+    this.currentSessionId = session.id;
+    this.showWelcome();
+    this.renderMessages();
+    this.renderSessionsList();
+    this.saveSessions();
+  }
+
+  private switchSession(id: string): void {
+    if (this.isLoading) return;
+    if (id === this.currentSessionId) { this.sessionsPanelEl.classList.remove('is-visible'); return; }
+    this.updateCurrentSession();
+    this.currentSessionId = id;
+    const session = this.sessions.find(s => s.id === id);
+    if (!session) return;
+    this.messages = [...session.messages];
+    this.renderMessages();
+    this.renderSessionsList();
+    this.sessionsPanelEl.classList.remove('is-visible');
+    this.saveSessions();
+  }
+
+  private deleteSession(id: string): void {
+    this.sessions = this.sessions.filter(s => s.id !== id);
+    if (this.sessions.length === 0) {
+      this.initFirstSession();
+      this.showWelcome();
+      this.renderMessages();
+    } else if (id === this.currentSessionId) {
+      this.currentSessionId = this.sessions[0].id;
+      this.messages = [...this.sessions[0].messages];
+      this.renderMessages();
+    }
+    this.renderSessionsList();
+    this.saveSessions();
+  }
+
+  private renderSessionsList(): void {
+    if (!this.sessionsListEl) return;
+    const now = Date.now();
+    if (this.sessions.length === 0) {
+      this.sessionsListEl.innerHTML = '<div class="ai-sessions-empty">No sessions</div>';
+      return;
+    }
+    this.sessionsListEl.innerHTML = this.sessions.map(s => {
+      const title = this.getSessionTitle(s);
+      const age = this.formatAge(s.updatedAt, now);
+      const active = s.id === this.currentSessionId;
+      return `<div class="ai-session-item${active ? ' is-active' : ''}" data-id="${s.id}">
+        <div class="ai-session-info">
+          <span class="ai-session-title">${this.escapeHtml(title)}</span>
+          <span class="ai-session-age">${age}</span>
+        </div>
+        <button class="ai-session-delete" data-id="${s.id}" title="Delete">&times;</button>
+      </div>`;
+    }).join('');
+
+    this.sessionsListEl.querySelectorAll<HTMLElement>('.ai-session-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.ai-session-delete')) return;
+        this.switchSession(item.dataset.id!);
+      });
+    });
+    this.sessionsListEl.querySelectorAll<HTMLButtonElement>('.ai-session-delete').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.deleteSession(btn.dataset.id!);
+      });
+    });
+  }
+
+  private formatAge(ts: number, now: number): string {
+    const d = now - ts;
+    const mins = Math.floor(d / 60000);
+    const hours = Math.floor(d / 3600000);
+    const days = Math.floor(d / 86400000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return new Date(ts).toLocaleDateString();
+  }
+
   private render(): void {
     this.el.innerHTML = `
       <div class="ai-drawer-content">
         <div class="ai-drawer-header">
           <span class="ai-drawer-title">COCKPIT AGENT</span>
-          <button class="ai-drawer-settings-btn" aria-label="Settings" title="Settings">&#x2699;</button>
+          <div class="ai-mode-bar" role="group" aria-label="Agent mode">
+            <button class="ai-mode-btn is-active" data-mode="auto" title="Run all steps automatically">AUTO</button>
+            <button class="ai-mode-btn" data-mode="plan" title="Write a plan first, then execute on approval">PLAN</button>
+            <button class="ai-mode-btn" data-mode="step" title="Pause between each tool step">STEP</button>
+          </div>
+          <div class="ai-header-actions">
+            <button class="ai-sessions-btn" aria-label="Sessions" title="Sessions">&#x25A4;</button>
+            <button class="ai-drawer-settings-btn" aria-label="Settings" title="Settings">&#x2699;</button>
+          </div>
         </div>
         <div class="ai-drawer-body">
-          <div class="ai-chat-messages"></div>
+          <div class="ai-chat-messages" aria-live="polite" aria-label="Conversation"></div>
           <div class="ai-chat-loading" style="display:none">
             <span class="ai-chat-loading-dot"></span>
             <span class="ai-chat-loading-dot"></span>
             <span class="ai-chat-loading-dot"></span>
           </div>
         </div>
+        <div class="ai-step-controls" style="display:none" role="status">
+          <span class="ai-step-label"></span>
+          <div class="ai-step-btns">
+            <button class="ai-step-continue-btn">&#x25B6; Continue</button>
+            <button class="ai-step-stop-btn">&#x2298; Stop</button>
+          </div>
+        </div>
+        <div class="ai-queue-bar" style="display:none"></div>
         <div class="ai-chat-input-area">
           <textarea class="ai-chat-input" placeholder="Ask the agent to do something..." rows="3"></textarea>
           <button class="ai-chat-send-btn" aria-label="Send" title="Send">&#x27A4;</button>
+          <button class="ai-chat-abort-btn" aria-label="Abort" title="Abort agent" style="display:none">&#x2298;</button>
+          <button class="ai-chat-steer-btn" aria-label="Steer agent" title="Inject guidance into active run" style="display:none">&#x21B3;</button>
         </div>
       </div>
       <div class="ai-drawer-settings">
@@ -415,17 +1038,44 @@ export class AiDrawer {
           <button class="ai-settings-save">Save</button>
         </div>
       </div>
+      <div class="ai-sessions-panel">
+        <div class="ai-sessions-header">
+          <span class="ai-sessions-title">Sessions</span>
+          <button class="ai-sessions-new" title="New session">&#x2B; New</button>
+          <button class="ai-sessions-close" aria-label="Close sessions">&times;</button>
+        </div>
+        <div class="ai-sessions-list"></div>
+      </div>
     `;
 
     this.bodyEl = this.el.querySelector('.ai-drawer-body')!;
     this.messagesEl = this.el.querySelector('.ai-chat-messages')!;
     this.inputEl = this.el.querySelector('.ai-chat-input')!;
     this.sendBtn = this.el.querySelector('.ai-chat-send-btn')!;
+    this.abortBtn = this.el.querySelector('.ai-chat-abort-btn')!;
+    this.steerBtn = this.el.querySelector('.ai-chat-steer-btn')!;
+    this.queueBarEl = this.el.querySelector('.ai-queue-bar')!;
     this.settingsEl = this.el.querySelector('.ai-drawer-settings')!;
+    this.sessionsPanelEl = this.el.querySelector('.ai-sessions-panel')!;
+    this.sessionsListEl = this.el.querySelector('.ai-sessions-list')!;
     this.loadingEl = this.el.querySelector('.ai-chat-loading')!;
+    this.stepControlsEl = this.el.querySelector('.ai-step-controls')!;
+    this.stepLabelEl = this.el.querySelector('.ai-step-label')!;
+    this.stepContinueBtn = this.el.querySelector('.ai-step-continue-btn')!;
+    this.stepStopBtn = this.el.querySelector('.ai-step-stop-btn')!;
 
     this.bindEvents();
     this.renderMessages();
+  }
+
+  private formatBody(content: string): string {
+    return content
+      .replace(/```(\w*)\n([\s\S]*?)```/g, (_: string, lang: string, code: string) => {
+        return `<pre class="ai-chat-code"><code class="${lang ? `lang-${lang}` : ''}">${this.escapeHtml(code.trim())}</code></pre>`;
+      })
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n/g, '<br>');
   }
 
   private escapeHtml(str: string): string {
@@ -442,9 +1092,56 @@ export class AiDrawer {
         this.sendMessage();
       }
     });
+    this.steerBtn.addEventListener('click', () => this.submitSteer());
+
+    // Mode selector
+    this.el.querySelectorAll<HTMLButtonElement>('.ai-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.agentMode = btn.dataset.mode as 'auto' | 'plan' | 'step';
+        this.el.querySelectorAll('.ai-mode-btn').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+      });
+    });
+
+    // Step controls
+    this.stepContinueBtn.addEventListener('click', () => {
+      this.stepControlsEl.style.display = 'none';
+      this.continueResolve?.();
+    });
+    this.stepStopBtn.addEventListener('click', () => {
+      this.abortRequested = true;
+      this.fetchController?.abort();
+      this.stepControlsEl.style.display = 'none';
+      this.continueResolve?.();
+    });
+
+    // Abort button
+    this.abortBtn.addEventListener('click', () => {
+      this.abortRequested = true;
+      this.fetchController?.abort();
+      this.stepControlsEl.style.display = 'none';
+      this.continueResolve?.();
+    });
+
+    // Sessions panel
+    const sessionsBtn = this.el.querySelector('.ai-sessions-btn')!;
+    sessionsBtn.addEventListener('click', () => {
+      const opening = !this.sessionsPanelEl.classList.contains('is-visible');
+      this.settingsEl.classList.remove('is-visible');
+      this.sessionsPanelEl.classList.toggle('is-visible');
+      if (opening) this.renderSessionsList();
+    });
+    this.el.querySelector('.ai-sessions-close')!.addEventListener('click', () => {
+      this.sessionsPanelEl.classList.remove('is-visible');
+    });
+    this.el.querySelector('.ai-sessions-new')!.addEventListener('click', () => {
+      this.newSession();
+      this.sessionsPanelEl.classList.remove('is-visible');
+    });
 
     const settingsBtn = this.el.querySelector('.ai-drawer-settings-btn')!;
     settingsBtn.addEventListener('click', () => {
+      this.sessionsPanelEl.classList.remove('is-visible');
       this.settingsEl.classList.toggle('is-visible');
     });
 
@@ -468,18 +1165,18 @@ export class AiDrawer {
   }
 
   private renderMessages(): void {
-    this.messagesEl.innerHTML = this.messages.map((m) => this.renderMessage(m)).join('');
+    this.messagesEl.innerHTML = this.messages.map((m, i) => this.renderMessage(m, i)).join('');
     // Mark only the last message for entrance animation; previous messages render instantly
     const last = this.messagesEl.lastElementChild as HTMLElement | null;
     if (last) last.classList.add('is-new');
     this.bindMessageActions();
     // Defer scroll so browser has painted the new content and scrollHeight is final
     requestAnimationFrame(() => {
-      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+      this.bodyEl.scrollTop = this.bodyEl.scrollHeight;
     });
   }
 
-  private renderMessage(m: ChatMessage): string {
+  private renderMessage(m: ChatMessage, index = 0): string {
     if (m.role === 'tool') {
       const name = m.toolName || '';
       const pending = m.toolResult === undefined;
@@ -489,36 +1186,37 @@ export class AiDrawer {
       return `<div class="ai-chat-msg ai-chat-msg-tool"><details class="ai-tool-details"${pending ? ' open' : ''}><summary class="ai-tool-chip"><span class="ai-tool-icon">⚙</span><span class="ai-tool-name">${this.escapeHtml(name)}</span><span class="ai-tool-args">${this.escapeHtml(m.content)}</span><span class="ai-tool-toggle">▸</span></summary>${resultHtml}</details></div>`;
     }
 
+    if (m.role === 'thinking') {
+      const body = this.formatBody(m.content);
+      return `<div class="ai-chat-msg ai-chat-msg-thinking"><details class="ai-thinking-details" open><summary class="ai-thinking-header"><span class="ai-thinking-icon">◈</span><span class="ai-thinking-label">Agent reasoning</span><span class="ai-thinking-toggle">▸</span></summary><div class="ai-thinking-body">${body}</div></details></div>`;
+    }
+
     const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    let body = m.content
-      .replace(/```(\w*)\n([\s\S]*?)```/g, (_: string, lang: string, code: string) => {
-        return `<pre class="ai-chat-code"><code class="${lang ? `lang-${lang}` : ''}">${this.escapeHtml(code.trim())}</code></pre>`;
-      })
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n/g, '<br>');
+    let body = this.formatBody(m.content);
 
     if (m.role === 'system') {
       return `<div class="ai-chat-msg ai-chat-msg-system"><div class="ai-chat-msg-bubble">${body}</div></div>`;
     }
 
+    const steerBadge = m.isSteer ? '<span class="ai-steer-badge">&#x21B3; steer</span>' : '';
     return `
-      <div class="ai-chat-msg ai-chat-msg-${m.role}">
+      <div class="ai-chat-msg ai-chat-msg-${m.role}${m.isSteer ? ' is-steer' : ''}">
         <div class="ai-chat-msg-bubble">
+          ${steerBadge}
           <div class="ai-chat-msg-text">${body}</div>
           <div class="ai-chat-msg-meta">
             <span class="ai-chat-msg-time">${time}</span>
-            ${m.role === 'assistant' ? '<button class="ai-chat-copy-btn" title="Copy code">&#x2398;</button>' : ''}
+            ${m.role === 'assistant' ? `<button class="ai-chat-copy-btn" data-msg-index="${index}" title="Copy code">&#x2398;</button>` : ''}
           </div>
         </div>
       </div>`;
   }
 
   private bindMessageActions(): void {
-    this.messagesEl.querySelectorAll('.ai-chat-copy-btn').forEach((btn, i) => {
+    this.messagesEl.querySelectorAll<HTMLButtonElement>('.ai-chat-copy-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const assistantMsgs = this.messages.filter((m) => m.role === 'assistant');
-        const msg = assistantMsgs[i];
+        const idx = parseInt(btn.dataset.msgIndex ?? '-1', 10);
+        const msg = idx >= 0 ? this.messages[idx] : undefined;
         if (msg) {
           const codeMatch = msg.content.match(/```\w*\n([\s\S]*?)```/);
           const text = codeMatch ? codeMatch[1].trim() : msg.content;
@@ -528,15 +1226,66 @@ export class AiDrawer {
     });
   }
 
-  private async sendMessage(): Promise<void> {
+  private submitSteer(): void {
     const text = this.inputEl.value.trim();
-    if (!text || this.isLoading) return;
-
-    if (!this.apiKey) {
-      await this.loadSettings();
-    }
-
+    if (!text || !this.isLoading) return;
     this.inputEl.value = '';
+    this.steeringMessage = text;
+    this.messages.push({ role: 'user', content: text, timestamp: Date.now(), isSteer: true });
+    this.renderMessages();
+    requestAnimationFrame(() => { this.bodyEl.scrollTop = this.bodyEl.scrollHeight; });
+  }
+
+  private queueMessage(text: string): void {
+    this.promptQueue.push(text);
+    this.renderQueueBar();
+  }
+
+  private processQueue(): void {
+    if (this.promptQueue.length === 0 || this.isLoading) return;
+    const next = this.promptQueue.shift()!;
+    this.renderQueueBar();
+    this.runMessage(next);
+  }
+
+  private renderQueueBar(): void {
+    if (!this.queueBarEl) return;
+    if (this.promptQueue.length === 0) {
+      this.queueBarEl.style.display = 'none';
+      this.queueBarEl.innerHTML = '';
+      return;
+    }
+    this.queueBarEl.style.display = 'block';
+    this.queueBarEl.innerHTML = `
+      <div class="ai-queue-header">
+        <span class="ai-queue-label">&#x25B8; ${this.promptQueue.length} queued</span>
+        <button class="ai-queue-clear" title="Clear queue">&times; Clear all</button>
+      </div>
+      ${this.promptQueue.map((q, i) => `
+        <div class="ai-queue-item">
+          <span class="ai-queue-text">${this.escapeHtml(q.slice(0, 60))}${q.length > 60 ? '…' : ''}</span>
+          <button class="ai-queue-remove" data-index="${i}">&times;</button>
+        </div>
+      `).join('')}
+    `;
+    this.queueBarEl.querySelector('.ai-queue-clear')!.addEventListener('click', () => {
+      this.promptQueue = [];
+      this.renderQueueBar();
+    });
+    this.queueBarEl.querySelectorAll<HTMLButtonElement>('.ai-queue-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.index!);
+        this.promptQueue.splice(idx, 1);
+        this.renderQueueBar();
+      });
+    });
+  }
+
+  private async runMessage(text: string): Promise<void> {
+    if (!this.apiKey) await this.loadSettings();
+
+    const pinnedSessionId = this.currentSessionId;
+
     this.messages.push({ role: 'user', content: text, timestamp: Date.now() });
     this.renderMessages();
 
@@ -551,14 +1300,9 @@ export class AiDrawer {
     }
 
     this.setLoading(true);
-
     try {
       const response = await this.callLLMWithTools(text);
-      this.messages.push({
-        role: 'assistant',
-        content: response,
-        timestamp: Date.now(),
-      });
+      this.messages.push({ role: 'assistant', content: response, timestamp: Date.now() });
     } catch (err: any) {
       this.messages.push({
         role: 'assistant',
@@ -566,16 +1310,62 @@ export class AiDrawer {
         timestamp: Date.now(),
       });
     }
-
     this.setLoading(false);
     this.renderMessages();
+    this.saveSessionById(pinnedSessionId, this.messages);
+  }
+
+  private saveSessionById(id: string, messages: ChatMessage[]): void {
+    const idx = this.sessions.findIndex(s => s.id === id);
+    if (idx === -1) return;
+    this.sessions[idx].messages = messages.map(m => ({ ...m }));
+    this.sessions[idx].updatedAt = Date.now();
+    this.saveSessions();
+  }
+
+  private async sendMessage(): Promise<void> {
+    const text = this.inputEl.value.trim();
+    if (!text) return;
+
+    // While loading: queue the message instead of running immediately
+    if (this.isLoading) {
+      this.inputEl.value = '';
+      this.queueMessage(text);
+      return;
+    }
+
+    this.inputEl.value = '';
+    this.runMessage(text);
   }
 
   private setLoading(loading: boolean): void {
     this.isLoading = loading;
     this.loadingEl.style.display = loading ? 'flex' : 'none';
-    this.sendBtn.disabled = loading;
-    this.inputEl.disabled = loading;
+    this.sendBtn.style.display = loading ? 'none' : 'flex';
+    this.abortBtn.style.display = loading ? 'flex' : 'none';
+    this.steerBtn.style.display = loading ? 'flex' : 'none';
+    this.inputEl.placeholder = loading
+      ? 'Queue next message (Enter) or steer agent (↳)…'
+      : 'Ask the agent to do something…';
+    if (!loading) {
+      this.abortRequested = false;
+      this.fetchController = null;
+      this.steeringMessage = null;
+      this.stepControlsEl.style.display = 'none';
+      this.renderQueueBar();
+      this.processQueue();
+    }
+  }
+
+  private waitForAction(label: string): Promise<boolean> {
+    return new Promise(resolve => {
+      this.stepLabelEl.textContent = label;
+      this.stepControlsEl.style.display = 'flex';
+      this.continueResolve = () => {
+        this.continueResolve = null;
+        resolve(!this.abortRequested);
+      };
+    });
   }
 
   private async executeTool(name: string, args: Record<string, any>): Promise<string> {
@@ -684,12 +1474,226 @@ export class AiDrawer {
           cockpit.insertInEditor(args.text);
           return `Inserted text in editor`;
         }
+        case 'read_terminal': {
+          if (!cockpit) return 'Canvas not ready';
+          const buf = cockpit.readTerminal(args.uuid);
+          return buf || 'Terminal output is empty';
+        }
+        case 'read_editor': {
+          if (!cockpit) return 'Canvas not ready';
+          const content = cockpit.readEditor();
+          return content || 'Editor is empty or no file open';
+        }
+        // ── Editor ──────────────────────────────────────────────────────────
+        case 'get_editor_state': {
+          if (!cockpit) return 'Canvas not ready';
+          const st = cockpit.getEditorState();
+          return st ? JSON.stringify(st, null, 2) : 'No explorer/editor open';
+        }
+        case 'get_selected_text': {
+          if (!cockpit) return 'Canvas not ready';
+          return cockpit.getSelectionText() || '(no selection)';
+        }
+        case 'set_editor_content': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.setEditorContent(args.content);
+          return 'Editor content replaced';
+        }
+        case 'go_to_line': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.goToLine(args.line, args.col);
+          return `Navigated to line ${args.line}${args.col ? `:${args.col}` : ''}`;
+        }
+        // ── Canvas ──────────────────────────────────────────────────────────
+        case 'reopen_card': {
+          if (!cockpit) return 'Canvas not ready';
+          const ok = cockpit.reopenCard(args.title);
+          return ok ? `Reopened: ${args.title}` : `No minimized card found: "${args.title}"`;
+        }
+        case 'reset_view': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.resetView();
+          return 'View reset to 1x and centered';
+        }
+        case 'pan_to_card': {
+          if (!cockpit) return 'Canvas not ready';
+          const ok = cockpit.panToCard(args.title);
+          return ok ? `Panned to card: "${args.title}"` : `No open card matching "${args.title}"`;
+        }
+        case 'set_view': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.setView(args.panX, args.panY, args.zoom);
+          return `View set: panX=${args.panX}, panY=${args.panY}${args.zoom !== undefined ? `, zoom=${args.zoom}` : ''}`;
+        }
+        case 'zoom_in': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.zoomIn();
+          return 'Zoomed in';
+        }
+        case 'zoom_out': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.zoomOut();
+          return 'Zoomed out';
+        }
+        case 'open_in_markdown': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.openInMarkdown(args.path);
+          return `Opened in Markdown: ${args.path}`;
+        }
+        // ── Navigation ──────────────────────────────────────────────────────
+        case 'reveal_file_in_explorer': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.revealFile(args.path);
+          return `Revealed: ${args.path}`;
+        }
+        case 'grep_workspace': {
+          const dir = args.dir || cockpit?.getWorkspacePath();
+          if (!dir) return 'No directory specified and no workspace loaded';
+          const results = await this.grepWorkspace(dir, args.pattern, args.glob);
+          if (results.length === 0) return 'No matches found';
+          return results.slice(0, 100).map(r => `${r.file}:${r.line}: ${r.text}`).join('\n');
+        }
+        // ── Terminal ────────────────────────────────────────────────────────
+        case 'kill_terminal': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.killTerminal(args.uuid);
+          return `Killed terminal ${args.uuid}`;
+        }
+        // ── Git ─────────────────────────────────────────────────────────────
+        case 'git_status': {
+          const repo = args.repo_path || cockpit?.getWorkspacePath();
+          if (!repo) return 'No repo path';
+          const [branch, staged, unstaged] = await Promise.all([
+            window.electronAPI?.git.currentBranch(repo),
+            window.electronAPI?.git.stagedFiles(repo),
+            window.electronAPI?.git.unstagedFiles(repo),
+          ]);
+          return JSON.stringify({ branch, staged, unstaged }, null, 2);
+        }
+        case 'git_diff': {
+          const repo = args.repo_path || cockpit?.getWorkspacePath();
+          if (!repo) return 'No repo path';
+          if (args.file_path) {
+            const diff = await window.electronAPI?.git.unstagedDiff(repo, args.file_path);
+            return diff || 'No diff';
+          }
+          const unstaged = await window.electronAPI?.git.unstagedFiles(repo);
+          if (!unstaged?.length) return 'No unstaged changes';
+          const diffs = await Promise.all(
+            unstaged.slice(0, 5).map(f => window.electronAPI?.git.unstagedDiff(repo, f.path).then(d => `--- ${f.path} ---\n${d}`))
+          );
+          return diffs.filter(Boolean).join('\n\n').slice(0, 8000) || 'No diff';
+        }
+        case 'git_log': {
+          const repo = args.repo_path || cockpit?.getWorkspacePath();
+          if (!repo) return 'No repo path';
+          const log = await window.electronAPI?.git.log(repo, args.max_count ?? 10);
+          return log ? JSON.stringify(log, null, 2) : 'No log';
+        }
+        case 'git_stage': {
+          const repo = args.repo_path || cockpit?.getWorkspacePath();
+          if (!repo) return 'No repo path';
+          const ok = await window.electronAPI?.git.stage(repo, args.file_path);
+          return ok ? `Staged: ${args.file_path}` : `Failed to stage: ${args.file_path}`;
+        }
+        case 'git_unstage': {
+          const repo = args.repo_path || cockpit?.getWorkspacePath();
+          if (!repo) return 'No repo path';
+          const ok = await window.electronAPI?.git.unstage(repo, args.file_path);
+          return ok ? `Unstaged: ${args.file_path}` : `Failed to unstage: ${args.file_path}`;
+        }
+        case 'git_commit': {
+          const repo = args.repo_path || cockpit?.getWorkspacePath();
+          if (!repo) return 'No repo path';
+          const ok = await window.electronAPI?.git.commit(repo, args.message);
+          return ok ? `Committed: "${args.message}"` : 'Commit failed';
+        }
+        case 'git_push': {
+          const repo = args.repo_path || cockpit?.getWorkspacePath();
+          if (!repo) return 'No repo path';
+          const ok = await window.electronAPI?.git.push(repo);
+          return ok ? 'Pushed successfully' : 'Push failed';
+        }
+        case 'git_branches': {
+          const repo = args.repo_path || cockpit?.getWorkspacePath();
+          if (!repo) return 'No repo path';
+          const branches = await window.electronAPI?.git.branches(repo);
+          return branches ? JSON.stringify(branches, null, 2) : 'No branches';
+        }
+        case 'git_checkout': {
+          const repo = args.repo_path || cockpit?.getWorkspacePath();
+          if (!repo) return 'No repo path';
+          const ok = await window.electronAPI?.git.checkout(repo, args.branch);
+          return ok ? `Checked out: ${args.branch}` : `Failed to checkout: ${args.branch}`;
+        }
+        // ── System ──────────────────────────────────────────────────────────
+        case 'open_external': {
+          const ok = await window.electronAPI?.shell.openExternal(args.url);
+          return ok ? `Opened: ${args.url}` : `Failed to open: ${args.url}`;
+        }
+        case 'get_clipboard': {
+          return window.electronAPI?.clipboard.readText() || '(empty)';
+        }
+        case 'set_clipboard': {
+          await window.electronAPI?.clipboard.writeText(args.text);
+          return 'Clipboard updated';
+        }
+        // ── SpecsMap ────────────────────────────────────────────────────────
+        case 'refresh_specsmap': {
+          if (!cockpit) return 'Canvas not ready';
+          cockpit.refreshSpecsMap();
+          return 'SpecsMap refresh triggered';
+        }
+        case 'regenerate_specsmap': {
+          if (!cockpit) return 'Canvas not ready';
+          await cockpit.regenerateSpecs();
+          return 'SpecsMap regeneration complete';
+        }
         default:
           return `Unknown tool: ${name}`;
       }
     } catch (err: any) {
       return `Error in ${name}: ${err.message || String(err)}`;
     }
+  }
+
+  private async grepWorkspace(dir: string, pattern: string, glob?: string): Promise<{ file: string; line: number; text: string }[]> {
+    const SKIP = new Set(['node_modules', '.git', 'dist', 'out', 'build', '.next', 'coverage']);
+    const TEXT_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.html', '.css', '.txt', '.yaml', '.yml', '.toml', '.py', '.go', '.rs', '.sh', '.env', '.gitignore']);
+    const results: { file: string; line: number; text: string }[] = [];
+    const re = new RegExp(pattern, 'gi');
+    const extFilter = glob?.startsWith('.') ? glob : (glob ? `.${glob}` : null);
+    let fileCount = 0;
+
+    const walk = async (path: string): Promise<void> => {
+      if (results.length >= 100 || fileCount >= 500) return;
+      const entries = await window.electronAPI?.fs.readDir(path);
+      if (!entries) return;
+      for (const entry of entries) {
+        if (results.length >= 100 || fileCount >= 500) return;
+        const full = `${path}/${entry.name}`.replace(/\\/g, '/');
+        if (entry.isDirectory) {
+          if (!SKIP.has(entry.name)) await walk(full);
+        } else {
+          const ext = entry.name.includes('.') ? `.${entry.name.split('.').pop()!.toLowerCase()}` : '';
+          if (extFilter && ext !== extFilter) continue;
+          if (!TEXT_EXT.has(ext)) continue;
+          fileCount++;
+          const content = await window.electronAPI?.fs.readFile(full);
+          if (!content) continue;
+          const lines = content.split('\n');
+          lines.forEach((text, i) => {
+            if (results.length < 100 && re.test(text)) {
+              results.push({ file: full, line: i + 1, text: text.trim().slice(0, 200) });
+            }
+            re.lastIndex = 0;
+          });
+        }
+      }
+    };
+
+    await walk(dir);
+    return results;
   }
 
   private formatToolChip(name: string, args: Record<string, any>): string {
@@ -723,35 +1727,73 @@ export class AiDrawer {
       apiMessages.push({ role: 'user', content: userMessage });
     }
 
-    const MAX_ITER = 10;
-
-    for (let iter = 0; iter < MAX_ITER; iter++) {
+    const fetchJSON = async (body: object) => {
+      this.fetchController = new AbortController();
       const res = await fetch(`${this.endpoint.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
+        signal: this.fetchController.signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
         },
-        body: JSON.stringify({
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '');
+        throw new Error(`API error ${res.status}: ${errBody.slice(0, 200)}`);
+      }
+      return res.json();
+    };
+
+    // PLAN mode: first get a plain text plan, then ask user to confirm before executing
+    let planModeFirstIter = false;
+    if (this.agentMode === 'plan') {
+      const planData = await fetchJSON({
+        model: this.model,
+        messages: [
+          ...apiMessages,
+          { role: 'user', content: 'Before using any tools, write a numbered step-by-step plan of what you will do. Do NOT call any tools yet — only write the plan.' },
+        ],
+        temperature: 0.2,
+        max_tokens: 1024,
+      });
+      const planText = planData.choices?.[0]?.message?.content || 'No plan generated.';
+      this.messages.push({ role: 'thinking', content: `**Plan**\n\n${planText}`, timestamp: Date.now() });
+      this.renderMessages();
+
+      const proceed = await this.waitForAction('Approve plan to execute?');
+      if (!proceed || this.abortRequested) return 'Aborted.';
+
+      planModeFirstIter = true;
+      // Do NOT add plan to apiMessages — execution proceeds on original context
+      // The plan was preview-only; the model will naturally call tools on the original request
+    }
+
+    let firstIter = true;
+    for (;;) {
+      if (this.abortRequested) return 'Aborted.';
+
+      let data: any;
+      try {
+        data = await fetchJSON({
           model: this.model,
           messages: apiMessages,
           tools: TOOLS,
-          tool_choice: 'auto',
+          tool_choice: planModeFirstIter ? 'required' : 'auto',
           temperature: 0.2,
           max_tokens: 4096,
-        }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '');
-        // If tools param rejected, retry without it (some proxies strip tool support)
-        if (res.status === 400 && iter === 0) {
+        });
+        planModeFirstIter = false;
+        firstIter = false;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return 'Aborted.';
+        // If tools param rejected on first call, retry without tools (some proxies strip tool support)
+        if (firstIter && err?.message?.includes('400')) {
           return this.callLLMBasic(apiMessages);
         }
-        throw new Error(`API error ${res.status}: ${errBody.slice(0, 200)}`);
+        throw err;
       }
 
-      const data = await res.json();
       const choice = data.choices?.[0];
       if (!choice) throw new Error('Empty response from model');
 
@@ -761,11 +1803,28 @@ export class AiDrawer {
         return msg.content || 'No response.';
       }
 
+      // Always show a step entry: model reasoning (if any) + which tools are being called
+      const thinkingContent = msg.content?.trim();
+      const toolNames = (msg.tool_calls as any[]).map(tc => tc.function.name).join(', ');
+      const stepContent = thinkingContent
+        ? `${thinkingContent}\n\n→ **${toolNames}**`
+        : `→ **${toolNames}**`;
+      this.messages.push({ role: 'thinking', content: stepContent, timestamp: Date.now() });
+      this.renderMessages();
+
+      // STEP mode: pause before executing this batch
+      if (this.agentMode === 'step') {
+        const proceed = await this.waitForAction(`Step ${iter + 1}: run ${toolNames}?`);
+        if (!proceed || this.abortRequested) return 'Aborted.';
+      }
+
       // Add assistant turn with tool_calls
       apiMessages.push({ role: 'assistant', content: msg.content || null, tool_calls: msg.tool_calls });
 
       // Execute each tool and collect results
       for (const tc of msg.tool_calls) {
+        if (this.abortRequested) return 'Aborted.';
+
         const toolName: string = tc.function.name;
         let toolArgs: Record<string, any> = {};
         try { toolArgs = JSON.parse(tc.function.arguments || '{}'); } catch {}
@@ -791,9 +1850,16 @@ export class AiDrawer {
           content: result,
         });
       }
+
+      // Inject any steering message the user submitted mid-run
+      if (this.steeringMessage) {
+        const steer = this.steeringMessage;
+        this.steeringMessage = null;
+        apiMessages.push({ role: 'user', content: steer });
+      }
     }
 
-    return 'Maximum tool iterations reached.';
+    return 'Aborted.';
   }
 
   private async callLLMBasic(apiMessages: any[]): Promise<string> {
@@ -804,6 +1870,7 @@ export class AiDrawer {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.apiKey}`,
       },
+      signal: this.fetchController?.signal,
       body: JSON.stringify({
         model: this.model,
         messages: msgs,
@@ -819,11 +1886,23 @@ export class AiDrawer {
     return data.choices?.[0]?.message?.content || 'No response from model.';
   }
 
-  toggle(): void {
+  resetSessions(): void {
+    this.sessionsLoaded = false;
+    this.cockpitDirEnsured = false;
+    this.sessions = [];
+    this.currentSessionId = '';
+    this.promptQueue = [];
+    this.steeringMessage = null;
+    this.showWelcome();
+    this.renderMessages();
+  }
+
+  async toggle(): Promise<void> {
     const isOpen = this.el.classList.contains('is-open');
     if (isOpen) {
       this.close();
     } else {
+      await this.loadSessions();
       this.open();
     }
   }
@@ -841,6 +1920,8 @@ export class AiDrawer {
     this.el.classList.remove('is-open');
     this.notch.style.left = '0';
     this.notch.classList.remove('is-open');
+    this.settingsEl?.classList.remove('is-visible');
+    this.sessionsPanelEl?.classList.remove('is-visible');
     if (this.escHandler) {
       document.removeEventListener('keydown', this.escHandler);
       this.escHandler = null;

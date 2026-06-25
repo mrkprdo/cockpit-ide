@@ -226,12 +226,48 @@ export class App {
       insertInEditor: (text: string) => {
         this.canvas.getActiveExplorerPlugin()?.insertText(text);
       },
+      readTerminal: (uuid: string) => {
+        return this.canvas.getTerminalPlugin(uuid)?.getScreenBuffer() ?? 'Terminal not found';
+      },
+      readEditor: () => {
+        return this.canvas.getActiveExplorerPlugin()?.editor.getContent() ?? '';
+      },
+      getEditorState: () => {
+        return this.canvas.getActiveExplorerPlugin()?.getAgentEditorState() ?? null;
+      },
+      getSelectionText: () => {
+        return this.canvas.getActiveExplorerPlugin()?.getSelectionText() ?? '';
+      },
+      setEditorContent: (content: string) => {
+        this.canvas.getActiveExplorerPlugin()?.setEditorContent(content);
+      },
+      goToLine: (line: number, col?: number) => {
+        this.canvas.getActiveExplorerPlugin()?.goToLine(line, col);
+      },
+      reopenCard: (title: string) => {
+        return this.canvas.reopenCardByTitle(title);
+      },
+      resetView: () => this.canvas.resetView(),
+      panToCard: (title: string) => this.canvas.focusCardByTitle(title),
+      setView: (panX: number, panY: number, zoom?: number) => this.canvas.setViewAnimated(panX, panY, zoom),
+      zoomIn: () => this.canvas.zoomIn(),
+      zoomOut: () => this.canvas.zoomOut(),
+      openInMarkdown: (filePath: string) => this.canvas.openInMarkdown(filePath),
+      revealFile: (filePath: string) => {
+        this.canvas.getActiveExplorerPlugin()?.revealFile(filePath);
+      },
+      killTerminal: (uuid: string) => {
+        window.electronAPI?.terminal.kill(uuid);
+      },
+      refreshSpecsMap: () => this.canvas.getActiveSpecsMapPlugin()?.triggerRefresh(),
+      regenerateSpecs: () => this.canvas.getActiveSpecsMapPlugin()?.triggerRegenerate(),
     };
   }
 
   private async loadWorkspace(path: string): Promise<void> {
     this.wsPath = path;
     this.registerCockpitGlobal();
+    this.aiDrawer.resetSessions();
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
 
