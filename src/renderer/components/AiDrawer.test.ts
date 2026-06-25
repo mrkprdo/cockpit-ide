@@ -62,6 +62,11 @@ describe('AiDrawer', () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     delete (window as any).__cockpit;
+    // Cancel any pending saveSessions() debounce so old timers don't fire
+    // into the next test's assertion window (they capture __cockpit at call time).
+    if (drawer?.['saveDebounceTimer']) {
+      clearTimeout(drawer['saveDebounceTimer']);
+    }
   });
 
   function q(sel: string): HTMLElement {

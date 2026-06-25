@@ -200,6 +200,21 @@ describe('GitPlugin', () => {
     expect(mockElectronAPI.git.unstagedFiles).toHaveBeenCalledWith('/test/repo');
   });
 
+  it('refresh clears commit selection before re-rendering', async () => {
+    const git = new GitPlugin(container, '/test/repo');
+    await flush();
+
+    // Select a commit
+    const commitItems = container.querySelectorAll('.git-commit-item');
+    (commitItems[0] as HTMLElement).click();
+    await flush();
+    expect(container.querySelectorAll('.git-commit-item.is-selected').length).toBe(1);
+
+    // Refresh — selection must be cleared in the re-rendered list
+    await git.refresh();
+    expect(container.querySelectorAll('.git-commit-item.is-selected').length).toBe(0);
+  });
+
   it('renders diff content with color classes', async () => {
     new GitPlugin(container, '/test/repo');
     await flush();

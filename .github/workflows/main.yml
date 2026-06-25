@@ -24,6 +24,7 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: 22
+                  cache: npm
 
             - name: Install dependencies
               run: npm ci
@@ -34,7 +35,12 @@ jobs:
             - name: Generate changelog
               shell: pwsh
               run: |
-                  $since = "$((Get-Date).AddDays(-1).ToString('yyyy-MM-dd')) 23:56"; $until = "$(Get-Date -Format 'yyyy-MM-dd') 23:55"; $log = (git log --oneline --no-decorate --since="$since" --until="$until") -join "`n"; if (-not $log) { $log = "No commits in this window" }; $changelog = "### Commits from $since to $until`n`n$log"; echo "CHANGELOG<<EOF" >> $env:GITHUB_ENV; echo $changelog >> $env:GITHUB_ENV; echo "EOF" >> $env:GITHUB_ENV
+                  $since = "$((Get-Date).AddDays(-1).ToString('yyyy-MM-dd')) 23:56"
+                  $until = "$(Get-Date -Format 'yyyy-MM-dd') 23:55"
+                  $log = (git log --oneline --no-decorate --since="$since" --until="$until") -join "`n"
+                  if (-not $log) { $log = "No commits in this window" }
+                  $changelog = "### Commits from $since to $until`n`n$log"
+                  $changelog | Out-File -FilePath "$env:RUNNER_TEMP\changelog.md" -Encoding utf8
 
             - name: Compute version
               shell: pwsh
@@ -57,8 +63,8 @@ jobs:
             - name: Remove old nightly release (so fresh one is created)
               shell: pwsh
               run: |
-                  gh release delete nightly -y 2>$null
-                  git push origin :refs/tags/nightly 2>$null
+                  gh release delete nightly --yes 2>$null; if (-not $?) { Write-Host "No existing nightly release." }
+                  git push origin :refs/tags/nightly 2>$null; if (-not $?) { Write-Host "No existing nightly tag." }
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -67,7 +73,7 @@ jobs:
               with:
                   tag_name: nightly
                   name: ${{ env.VERSION }}-nightly
-                  body: ${{ env.CHANGELOG }}
+                  body_path: ${{ runner.temp }}/changelog.md
                   prerelease: true
                   files: |
                       ${{ env.ARTIFACT_PATH }}

@@ -995,6 +995,11 @@ export class GitPlugin {
   }
 
   async refresh(): Promise<void> {
+    this.fileChanges = [];
+    this.selectedCommitHash = null;
+    this.changesMode = false;
+    this.selectedFilePath = null;
+    this.diffContent = '';
     await Promise.all([
       this.loadRemotes(),
       this.loadBranches(),
@@ -1002,11 +1007,6 @@ export class GitPlugin {
       this.loadStagedFiles(),
       this.loadUnstagedFiles(),
     ]);
-    this.fileChanges = [];
-    this.selectedCommitHash = null;
-    this.changesMode = false;
-    this.selectedFilePath = null;
-    this.diffContent = '';
     if (this.commitInfoEl) this.commitInfoEl.style.display = 'none';
     this.fileTreeContainer.innerHTML = '';
     this.renderDiff();

@@ -544,7 +544,7 @@ app.whenReady().then(async () => {
           const xy = line.substring(0, 2);
           const path = line.substring(3).trim();
           // xy[1] is working-tree status — include if changed or untracked
-          if (xy[1] !== ' ' || xy === '??') {
+          if (xy[1] !== ' ') {
             acc.push({ status: xy.trim() || '?', path });
           }
           return acc;
