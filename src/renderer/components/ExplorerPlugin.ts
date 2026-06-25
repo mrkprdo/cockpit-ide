@@ -90,9 +90,11 @@ export class ExplorerPlugin {
     this.explorer.selectFile(filePath);
   }
 
-  insertText(text: string): void {
-    this.editor.insertText(text);
-  }
+  insertText(text: string): void { this.editor.insertText(text); }
+  getSelectionText(): string { return this.editor.getSelectionText(); }
+  setEditorContent(content: string): void { this.editor.setContent(content); }
+  goToLine(line: number, col?: number): void { this.editor.goToLine(line, col); }
+  getAgentEditorState() { return this.editor.getAgentEditorState(); }
 
   openFile(filePath: string): void {
     this.editor.openFile(filePath);

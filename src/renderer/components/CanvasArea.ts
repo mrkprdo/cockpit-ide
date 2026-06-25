@@ -711,6 +711,21 @@ export class CanvasArea {
     return null;
   }
 
+  getTerminalPlugin(uuid: string): TerminalPlugin | null {
+    return this.cards.find(c => c.card.uuid === uuid)?.terminalPlugin ?? null;
+  }
+
+  reopenCardByTitle(title: string): boolean {
+    const cs = this.cards.find(c => c.savedTitle === title && !c.isOpen);
+    if (!cs) return false;
+    this.reopenCard(cs);
+    return true;
+  }
+
+  getActiveSpecsMapPlugin(): SpecsMapPlugin | null {
+    return this.cards.find(c => c.specsmapPlugin && c.isOpen)?.specsmapPlugin ?? null;
+  }
+
   updateAllThemes(): void {
     for (const cs of this.cards) {
       if (cs.terminalPlugin) {
@@ -1684,6 +1699,19 @@ export class CanvasArea {
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
     this.animatePan(cw / 2 - cx * this.scale, ch / 2 - cy * this.scale);
+  }
+
+  focusCardByTitle(title: string): boolean {
+    const cs = this.cards.find(c => c.isOpen && c.savedTitle.toLowerCase().includes(title.toLowerCase()));
+    if (!cs) return false;
+    this.focusCard(cs.card.opts.title);
+    this.panToCard(cs);
+    return true;
+  }
+
+  setViewAnimated(panX: number, panY: number, zoom?: number): void {
+    if (zoom !== undefined) this.scale = Math.max(0.1, Math.min(5, zoom));
+    this.animatePan(panX, panY);
   }
 
   private panToCard(cs: CardState): void {

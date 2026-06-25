@@ -2934,6 +2934,15 @@ export class SpecsMapPlugin {
     this.nameTextOrigins.clear();
   }
 
+  triggerRefresh(): void {
+    this.refreshBtn?.click();
+  }
+
+  async triggerRegenerate(): Promise<void> {
+    const dummy = document.createElement('button');
+    await this.regenerateSpecs(dummy);
+  }
+
   destroy(): void {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();

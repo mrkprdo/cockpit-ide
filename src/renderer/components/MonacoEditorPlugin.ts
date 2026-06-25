@@ -343,6 +343,42 @@ export class MonacoEditorPlugin {
     this.editor.focus();
   }
 
+  getSelectionText(): string {
+    if (!this.editor) return '';
+    const sel = this.editor.getSelection();
+    if (!sel) return '';
+    const model = this.editor.getModel();
+    if (!model) return '';
+    return model.getValueInRange(sel);
+  }
+
+  setContent(content: string): void {
+    if (!this.editor) return;
+    this.editor.setValue(content);
+    this.editor.focus();
+  }
+
+  goToLine(line: number, col = 1): void {
+    if (!this.editor) return;
+    this.editor.setPosition({ lineNumber: line, column: col });
+    this.editor.revealLineInCenter(line);
+    this.editor.focus();
+  }
+
+  getAgentEditorState(): { activeFile: string; openFiles: string[]; cursorLine: number; cursorCol: number; selectedText: string } {
+    const activeFile = this.activeTab || '';
+    const openFiles = this.tabs.map(t => t.originalPath || t.filePath);
+    let cursorLine = 0;
+    let cursorCol = 0;
+    let selectedText = '';
+    if (this.editor) {
+      const pos = this.editor.getPosition();
+      if (pos) { cursorLine = pos.lineNumber; cursorCol = pos.column; }
+      selectedText = this.getSelectionText();
+    }
+    return { activeFile, openFiles, cursorLine, cursorCol, selectedText };
+  }
+
   private getActiveOriginalPath(): string | null {
     if (!this.activeTab) return null;
     const tab = this.tabs.find(t => t.filePath === this.activeTab);

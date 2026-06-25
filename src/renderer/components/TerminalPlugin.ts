@@ -108,6 +108,18 @@ export class TerminalPlugin {
     this.xterm.options.theme = TerminalPlugin.readTheme();
   }
 
+  getScreenBuffer(maxLines = 200): string {
+    if (!this.xterm) return '';
+    const buffer = this.xterm.buffer.active;
+    const start = Math.max(0, buffer.length - maxLines);
+    const lines: string[] = [];
+    for (let i = start; i < buffer.length; i++) {
+      const line = buffer.getLine(i);
+      if (line) lines.push(line.translateToString(true));
+    }
+    return lines.join('\n').trimEnd();
+  }
+
   fit(): void {
     this.fitAddon?.fit();
   }

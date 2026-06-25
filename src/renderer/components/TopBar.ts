@@ -23,6 +23,7 @@ interface TopBarCallbacks {
   onReopenSpecsmap?: (uuid: string) => void;
   onAbout?: () => void;
   onTheme?: () => void;
+  onAi?: () => void;
   onTutorial?: () => void;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -208,6 +209,8 @@ export class TopBar {
         Tools
         <div class="menu-dropdown" role="menu">
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-specsmap">SpecsMap</div>
+          <div class="menu-dropdown-separator" role="separator"></div>
+          <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-ai">AI</div>
           <div class="menu-dropdown-separator" role="separator"></div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-theme">Theme</div>
         </div>
@@ -417,6 +420,11 @@ export class TopBar {
     document.getElementById('menu-theme')?.addEventListener('click', () => {
       closeAllMenus();
       this.callbacks.onTheme?.();
+    });
+
+    document.getElementById('menu-ai')?.addEventListener('click', () => {
+      closeAllMenus();
+      this.callbacks.onAi?.();
     });
 
     document.getElementById('menu-new-specsmap')?.addEventListener('click', () => {
