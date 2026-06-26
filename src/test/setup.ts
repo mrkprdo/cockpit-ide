@@ -230,6 +230,7 @@ if (isDOM) {
     ide: {
       editorState: vi.fn(),
       status: vi.fn().mockResolvedValue({ running: true, port: 58900, workspace: '/mock/workspace', lockPaths: ['/mock/lock'] }),
+      onOpenFile: vi.fn().mockReturnValue(vi.fn()),
     },
   };
 
