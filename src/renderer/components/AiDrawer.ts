@@ -1012,15 +1012,18 @@ export class AiDrawer {
     this.el.innerHTML = `
       <div class="ai-drawer-content">
         <div class="ai-drawer-header">
-          <span class="ai-drawer-title">COCKPIT AGENT</span>
+          <div class="ai-drawer-header-row">
+            <span class="ai-drawer-title">COCKPIT AGENT</span>
+            <div class="ai-header-actions">
+              <button class="ai-new-session-btn" title="New session">&#x2B; New</button>
+              <button class="ai-sessions-btn" aria-label="Sessions" title="Sessions">&#x25A4;</button>
+              <button class="ai-drawer-settings-btn" aria-label="Settings" title="Settings">&#x2699;</button>
+            </div>
+          </div>
           <div class="ai-mode-bar" role="group" aria-label="Agent mode">
             <button class="ai-mode-btn is-active" data-mode="auto" title="Run all steps automatically">AUTO</button>
             <button class="ai-mode-btn" data-mode="plan" title="Write a plan first, then execute on approval">PLAN</button>
             <button class="ai-mode-btn" data-mode="step" title="Pause between each tool step">STEP</button>
-          </div>
-          <div class="ai-header-actions">
-            <button class="ai-sessions-btn" aria-label="Sessions" title="Sessions">&#x25A4;</button>
-            <button class="ai-drawer-settings-btn" aria-label="Settings" title="Settings">&#x2699;</button>
           </div>
         </div>
         <div class="ai-drawer-body">
@@ -1031,11 +1034,13 @@ export class AiDrawer {
             <span class="ai-chat-loading-dot"></span>
           </div>
         </div>
-        <div class="ai-step-controls" style="display:none" role="status">
-          <span class="ai-step-label"></span>
-          <div class="ai-step-btns">
-            <button class="ai-step-continue-btn">&#x25B6; Continue</button>
-            <button class="ai-step-stop-btn">&#x2298; Stop</button>
+        <div class="ai-step-controls" role="status">
+          <div class="ai-step-controls-inner">
+            <span class="ai-step-label"></span>
+            <div class="ai-step-btns">
+              <button class="ai-step-continue-btn">&#x25B6; Continue</button>
+              <button class="ai-step-stop-btn">&#x2298; Stop</button>
+            </div>
           </div>
         </div>
         <div class="ai-queue-bar" style="display:none"></div>
@@ -1070,7 +1075,6 @@ export class AiDrawer {
       <div class="ai-sessions-panel">
         <div class="ai-sessions-header">
           <span class="ai-sessions-title">Sessions</span>
-          <button class="ai-sessions-new" title="New session">&#x2B; New</button>
           <button class="ai-sessions-close" aria-label="Close sessions">&times;</button>
         </div>
         <div class="ai-sessions-list"></div>
@@ -1134,13 +1138,13 @@ export class AiDrawer {
 
     // Step controls
     this.stepContinueBtn.addEventListener('click', () => {
-      this.stepControlsEl.style.display = 'none';
+      this.stepControlsEl.classList.remove('is-visible');
       this.continueResolve?.();
     });
     this.stepStopBtn.addEventListener('click', () => {
       this.abortRequested = true;
       this.fetchController?.abort();
-      this.stepControlsEl.style.display = 'none';
+      this.stepControlsEl.classList.remove('is-visible');
       this.continueResolve?.();
     });
 
@@ -1148,7 +1152,7 @@ export class AiDrawer {
     this.abortBtn.addEventListener('click', () => {
       this.abortRequested = true;
       this.fetchController?.abort();
-      this.stepControlsEl.style.display = 'none';
+      this.stepControlsEl.classList.remove('is-visible');
       this.continueResolve?.();
     });
 
@@ -1163,7 +1167,7 @@ export class AiDrawer {
     this.el.querySelector('.ai-sessions-close')!.addEventListener('click', () => {
       this.sessionsPanelEl.classList.remove('is-visible');
     });
-    this.el.querySelector('.ai-sessions-new')!.addEventListener('click', () => {
+    this.el.querySelector('.ai-new-session-btn')!.addEventListener('click', () => {
       this.newSession();
       this.sessionsPanelEl.classList.remove('is-visible');
     });
@@ -1280,23 +1284,25 @@ export class AiDrawer {
   private renderQueueBar(): void {
     if (!this.queueBarEl) return;
     if (this.promptQueue.length === 0) {
-      this.queueBarEl.style.display = 'none';
+      this.queueBarEl.classList.remove('is-visible');
       this.queueBarEl.innerHTML = '';
       return;
     }
-    this.queueBarEl.style.display = 'block';
     this.queueBarEl.innerHTML = `
-      <div class="ai-queue-header">
-        <span class="ai-queue-label">&#x25B8; ${this.promptQueue.length} queued</span>
-        <button class="ai-queue-clear" title="Clear queue">&times; Clear all</button>
-      </div>
-      ${this.promptQueue.map((q, i) => `
-        <div class="ai-queue-item">
-          <span class="ai-queue-text">${this.escapeHtml(q.slice(0, 60))}${q.length > 60 ? '…' : ''}</span>
-          <button class="ai-queue-remove" data-index="${i}">&times;</button>
+      <div class="ai-queue-bar-inner">
+        <div class="ai-queue-header">
+          <span class="ai-queue-label">&#x25B8; ${this.promptQueue.length} queued</span>
+          <button class="ai-queue-clear" title="Clear queue">&times; Clear all</button>
         </div>
-      `).join('')}
+        ${this.promptQueue.map((q, i) => `
+          <div class="ai-queue-item">
+            <span class="ai-queue-text">${this.escapeHtml(q.slice(0, 60))}${q.length > 60 ? '…' : ''}</span>
+            <button class="ai-queue-remove" data-index="${i}">&times;</button>
+          </div>
+        `).join('')}
+      </div>
     `;
+    this.queueBarEl.classList.add('is-visible');
     this.queueBarEl.querySelector('.ai-queue-clear')!.addEventListener('click', () => {
       this.promptQueue = [];
       this.renderQueueBar();
@@ -1373,6 +1379,7 @@ export class AiDrawer {
     this.sendBtn.style.display = loading ? 'none' : 'flex';
     this.abortBtn.style.display = loading ? 'flex' : 'none';
     this.steerBtn.style.display = loading ? 'flex' : 'none';
+    this.notch.classList.toggle('is-loading', loading);
     this.inputEl.placeholder = loading
       ? 'Queue next message (Enter) or steer agent (↳)…'
       : 'Ask the agent to do something…';
@@ -1380,7 +1387,7 @@ export class AiDrawer {
       this.abortRequested = false;
       this.fetchController = null;
       this.steeringMessage = null;
-      this.stepControlsEl.style.display = 'none';
+      this.stepControlsEl.classList.remove('is-visible');
       this.renderQueueBar();
       this.processQueue();
     }
@@ -1389,7 +1396,7 @@ export class AiDrawer {
   private waitForAction(label: string): Promise<boolean> {
     return new Promise(resolve => {
       this.stepLabelEl.textContent = label;
-      this.stepControlsEl.style.display = 'flex';
+      this.stepControlsEl.classList.add('is-visible');
       this.continueResolve = () => {
         this.continueResolve = null;
         resolve(!this.abortRequested);
@@ -1806,6 +1813,7 @@ export class AiDrawer {
     }
 
     let firstIter = true;
+    let stepCount = 0;
     for (;;) {
       if (this.abortRequested) return 'Aborted.';
 
@@ -1850,7 +1858,8 @@ export class AiDrawer {
 
       // STEP mode: pause before executing this batch
       if (this.agentMode === 'step') {
-        const proceed = await this.waitForAction(`Step ${iter + 1}: run ${toolNames}?`);
+        stepCount++;
+        const proceed = await this.waitForAction(`Step ${stepCount}: run ${toolNames}?`);
         if (!proceed || this.abortRequested) return 'Aborted.';
       }
 
@@ -1949,7 +1958,15 @@ export class AiDrawer {
     }
   }
 
+  private shiftCanvasPan(delta: number): void {
+    const cockpit = (window as any).__cockpit;
+    if (!cockpit) return;
+    const state = cockpit.getCanvasState();
+    cockpit.setView(state.panX + delta, state.panY, state.zoom);
+  }
+
   private open(): void {
+    this.shiftCanvasPan(this.drawerWidth);
     this.setOpenWidth(this.drawerWidth);
     this.el.classList.add('is-open');
     this.notch.classList.add('is-open');
@@ -1958,6 +1975,7 @@ export class AiDrawer {
   }
 
   private close(): void {
+    this.shiftCanvasPan(-this.drawerWidth);
     this.el.style.width = '0';
     this.el.classList.remove('is-open');
     this.notch.style.left = '0';
@@ -1972,6 +1990,7 @@ export class AiDrawer {
 
   private setOpenWidth(w: number): void {
     this.el.style.width = w + 'px';
+    this.resizeHandle.style.left = w + 'px';
     this.notch.style.left = w + 'px';
   }
 
