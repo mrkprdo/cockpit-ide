@@ -55,6 +55,7 @@ export class CanvasArea {
   private scale = 1;
   private panX = 0;
   private panY = 0;
+  overlayLeft = 0;
   private isPanning = false;
   private panStartX = 0;
   private panStartY = 0;
@@ -400,7 +401,8 @@ export class CanvasArea {
   }
 
   centerView(): void {
-    this.panX = this.el.clientWidth / 2;
+    const avW = this.el.clientWidth - this.overlayLeft;
+    this.panX = this.overlayLeft + avW / 2;
     this.panY = this.el.clientHeight / 2;
     this.scheduleTransform();
   }
@@ -1506,19 +1508,22 @@ export class CanvasArea {
   }
 
   private fitViewport(cs: CardState): void {
-    const w = this.el.clientWidth;
+    const cw = this.el.clientWidth;
     const h = this.el.clientHeight;
-    cs.savedWidth = w;
+    const avW = cw - this.overlayLeft;
+    const avCX = this.overlayLeft + avW / 2;
+
+    cs.savedWidth = avW;
     cs.savedHeight = h;
-    cs.card.opts.width = w;
+    cs.card.opts.width = avW;
     cs.card.opts.height = h;
-    cs.card.el.style.width = `${w}px`;
+    cs.card.el.style.width = `${avW}px`;
     cs.card.el.style.height = `${h}px`;
     cs.onCardResize?.();
 
     if (this._locked) {
       this.moveToNonOverlapping(cs);
-      const targetX = w / 2 - (cs.worldX + cs.savedWidth / 2) * this.scale;
+      const targetX = avCX - (cs.worldX + cs.savedWidth / 2) * this.scale;
       const targetY = h / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;
       this.animatePan(targetX, targetY);
       this.onStateChange?.();
@@ -1549,7 +1554,7 @@ export class CanvasArea {
       }
     }
     this.scale = 1;
-    const targetX = w / 2 - (cs.worldX + cs.savedWidth / 2);
+    const targetX = avCX - (cs.worldX + cs.savedWidth / 2);
     const targetY = h / 2 - (cs.worldY + cs.savedHeight / 2);
     this.animatePan(targetX, targetY);
     this.onStateChange?.();
@@ -1681,24 +1686,26 @@ export class CanvasArea {
 
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
+    const avW = cw - this.overlayLeft;
+    const avCX = this.overlayLeft + avW / 2;
 
     if (this.locked) {
       const cx = (minX + maxX) / 2;
       const cy = (minY + maxY) / 2;
-      this.animatePan(cw / 2 - cx * this.scale, ch / 2 - cy * this.scale);
+      this.animatePan(avCX - cx * this.scale, ch / 2 - cy * this.scale);
       return;
     }
 
     const worldW = maxX - minX;
     const worldH = maxY - minY;
     const margin = 80;
-    const fitX = (cw - margin) / worldW;
+    const fitX = (avW - margin) / worldW;
     const fitY = (ch - margin) / worldH;
     this.scale = Math.max(0.1, Math.min(fitX, fitY, 1));
 
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
-    this.animatePan(cw / 2 - cx * this.scale, ch / 2 - cy * this.scale);
+    this.animatePan(avCX - cx * this.scale, ch / 2 - cy * this.scale);
   }
 
   focusCardByTitle(title: string): boolean {
@@ -1717,22 +1724,23 @@ export class CanvasArea {
   private panToCard(cs: CardState): void {
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
+    const avW = cw - this.overlayLeft;
+    const avCX = this.overlayLeft + avW / 2;
 
     if (this.locked) {
-      // Center on card without changing zoom
-      const targetX = cw / 2 - (cs.worldX + cs.savedWidth / 2) * this.scale;
+      const targetX = avCX - (cs.worldX + cs.savedWidth / 2) * this.scale;
       const targetY = ch / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;
       this.animatePan(targetX, targetY);
       return;
     }
 
     const margin = 80;
-    const fitX = (cw - margin) / cs.savedWidth;
+    const fitX = (avW - margin) / cs.savedWidth;
     const fitY = (ch - margin) / cs.savedHeight;
     const targetScale = Math.min(fitX, fitY, 1);
     this.scale = Math.max(0.1, targetScale);
 
-    const targetX = cw / 2 - (cs.worldX + cs.savedWidth / 2) * this.scale;
+    const targetX = avCX - (cs.worldX + cs.savedWidth / 2) * this.scale;
     const targetY = ch / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;
     this.animatePan(targetX, targetY);
   }

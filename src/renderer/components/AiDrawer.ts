@@ -1965,8 +1965,13 @@ export class AiDrawer {
     cockpit.setView(state.panX + delta, state.panY, state.zoom);
   }
 
+  private setCanvasOverlay(left: number): void {
+    (window as any).__cockpit?.setCanvasOverlay(left);
+  }
+
   private open(): void {
     this.shiftCanvasPan(this.drawerWidth);
+    this.setCanvasOverlay(this.drawerWidth);
     this.setOpenWidth(this.drawerWidth);
     this.el.classList.add('is-open');
     this.notch.classList.add('is-open');
@@ -1976,6 +1981,7 @@ export class AiDrawer {
 
   private close(): void {
     this.shiftCanvasPan(-this.drawerWidth);
+    this.setCanvasOverlay(0);
     this.el.style.width = '0';
     this.el.classList.remove('is-open');
     this.notch.style.left = '0';
@@ -2014,6 +2020,7 @@ export class AiDrawer {
       const w = Math.max(280, Math.min(800, startW + delta));
       this.drawerWidth = w;
       this.setOpenWidth(w);
+      this.setCanvasOverlay(w);
     });
 
     document.addEventListener('mouseup', () => {

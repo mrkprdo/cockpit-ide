@@ -253,6 +253,7 @@ export class App {
       resetView: () => this.canvas.resetView(),
       panToCard: (title: string) => this.canvas.focusCardByTitle(title),
       setView: (panX: number, panY: number, zoom?: number) => this.canvas.setViewAnimated(panX, panY, zoom),
+      setCanvasOverlay: (left: number) => { this.canvas.overlayLeft = left; },
       zoomIn: () => this.canvas.zoomIn(),
       zoomOut: () => this.canvas.zoomOut(),
       openInMarkdown: (filePath: string) => this.canvas.openInMarkdown(filePath),
