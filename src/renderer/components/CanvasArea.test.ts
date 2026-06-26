@@ -447,6 +447,44 @@ describe('CanvasArea', () => {
       // Cards fit comfortably at 1x, should not zoom in
       expect(canvas.getSaveState().zoom).toBe(1);
     });
+
+    it('fitAll uses available width when overlayLeft is set', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards as any[];
+      cs[0].worldX = 0; cs[0].worldY = 0;
+      cs[0].savedWidth = 1000; cs[0].savedHeight = 500;
+
+      // Without overlay: fitX = (1920-80)/1000 = 1.84, fitY = (1080-80)/500 = 2 → clamped to 1
+      callFitAll();
+      await new Promise(r => setTimeout(r, 100));
+      expect(canvas.getSaveState().zoom).toBe(1);
+
+      // With 800px overlay: avW = 1120; fitX = (1120-80)/1000 = 1.04 → clamped to 1 still
+      canvas.overlayLeft = 800;
+      cs[0].savedWidth = 1200;
+      callFitAll();
+      await new Promise(r => setTimeout(r, 100));
+      // fitX = (1120-80)/1200 ≈ 0.867, fitY = (1080-80)/500 = 2 → zoom = 0.867
+      expect(canvas.getSaveState().zoom).toBeCloseTo(0.867, 2);
+      canvas.overlayLeft = 0;
+    });
+
+    it('fitAll centers pan in uncovered area when overlayLeft is set', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards as any[];
+      cs[0].worldX = 0; cs[0].worldY = 0;
+      cs[0].savedWidth = 100; cs[0].savedHeight = 80;
+
+      canvas.overlayLeft = 420;
+      callFitAll();
+      await new Promise(r => setTimeout(r, 100));
+      const state = canvas.getSaveState();
+      // avCX = 420 + (1920-420)/2 = 420 + 750 = 1170; panX should be around avCX
+      expect(state.panX).toBeGreaterThan(420); // must be in the uncovered zone
+      canvas.overlayLeft = 0;
+    });
 });
 
 describe('fitViewport', () => {
@@ -611,6 +649,40 @@ describe('fitViewport', () => {
     // No change — dimensions remain the same
     expect(cs.savedWidth).toBe(1920);
     expect(cs.savedHeight).toBe(1080);
+  });
+
+  it('sizes card to available width when overlayLeft is set', async () => {
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+    canvas.overlayLeft = 420;
+
+    callFitViewport(cs);
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(cs.savedWidth).toBe(1920 - 420);  // avW = 1500
+    expect(cs.savedHeight).toBe(1080);
+    canvas.overlayLeft = 0;
+  });
+
+  it('locked fitViewport centers in available area', async () => {
+    canvas.locked = true;
+    canvas.addTerminal();
+    await new Promise(r => setTimeout(r, 50));
+    const cs = (canvas as any).cards[0];
+    canvas.overlayLeft = 420;
+    const animatePan = vi.fn();
+    (canvas as any).animatePan = animatePan;
+
+    callFitViewport(cs);
+
+    expect(animatePan).toHaveBeenCalled();
+    const [panX] = animatePan.mock.calls[0];
+    // avCX = 420 + (1920-420)/2 = 1170; centered on card at worldX=0 w=1500 → center world=750
+    // targetX = 1170 - 750 * scale
+    expect(panX).toBeGreaterThanOrEqual(420); // must be in uncovered zone
+    canvas.overlayLeft = 0;
+    canvas.locked = false;
   });
 });
 
@@ -1079,6 +1151,16 @@ describe('auto arrange', () => {
       expect(state.panY).toBe(540);
     });
 
+    it('centerView() offsets center right when overlayLeft is set', () => {
+      canvas.overlayLeft = 420;
+      (canvas as any).centerView();
+      const state = canvas.getSaveState();
+      // Available width = 1920 - 420 = 1500; center = 420 + 750 = 1170
+      expect(state.panX).toBe(1170);
+      expect(state.panY).toBe(540);
+      canvas.overlayLeft = 0;
+    });
+
     it('offsetCard() moves card to specified world coordinates', async () => {
       canvas.addTerminal();
       await new Promise(r => setTimeout(r, 50));
@@ -1086,6 +1168,65 @@ describe('auto arrange', () => {
       const state = canvas.getSaveState();
       expect(state.plugins[0].x).toBe(100);
       expect(state.plugins[0].y).toBe(200);
+    });
+  });
+
+  describe('panToCard', () => {
+    it('centers card in viewport at scale ≤ 1', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards[0];
+      cs.worldX = 500; cs.worldY = 200;
+      cs.savedWidth = 800; cs.savedHeight = 600;
+      const animatePan = vi.fn();
+      (canvas as any).animatePan = animatePan;
+
+      (canvas as any).panToCard(cs);
+
+      expect(animatePan).toHaveBeenCalled();
+      const [px, py] = animatePan.mock.calls[0];
+      const scale = canvas.getSaveState().zoom;
+      expect(scale).toBeLessThanOrEqual(1);
+      // targetX = cw/2 - (worldX + w/2) * scale
+      expect(px).toBeCloseTo(960 - (500 + 400) * scale, 1);
+      expect(py).toBeCloseTo(540 - (200 + 300) * scale, 1);
+    });
+
+    it('locked panToCard centers without changing zoom', async () => {
+      canvas.locked = true;
+      (canvas as any).scale = 0.5;
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards[0];
+      cs.worldX = 0; cs.worldY = 0;
+      cs.savedWidth = 400; cs.savedHeight = 300;
+      const animatePan = vi.fn();
+      (canvas as any).animatePan = animatePan;
+
+      (canvas as any).panToCard(cs);
+
+      expect(animatePan).toHaveBeenCalled();
+      expect(canvas.getSaveState().zoom).toBe(0.5); // unchanged
+      canvas.locked = false;
+    });
+
+    it('panToCard respects overlayLeft when centering', async () => {
+      canvas.overlayLeft = 420;
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      const cs = (canvas as any).cards[0];
+      cs.worldX = 0; cs.worldY = 0;
+      cs.savedWidth = 400; cs.savedHeight = 300;
+      const animatePan = vi.fn();
+      (canvas as any).animatePan = animatePan;
+
+      (canvas as any).panToCard(cs);
+
+      const [px] = animatePan.mock.calls[0];
+      // avCX = 420 + (1920-420)/2 = 1170; must pan toward 1170 not 960
+      const scale = canvas.getSaveState().zoom;
+      expect(px).toBeCloseTo(1170 - (0 + 200) * scale, 1);
+      canvas.overlayLeft = 0;
     });
   });
 

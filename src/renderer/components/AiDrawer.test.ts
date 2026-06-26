@@ -48,6 +48,13 @@ describe('AiDrawer', () => {
     originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockResolvedValue(makeTextResponse('Hello from agent.'));
 
+    (window as any).__cockpit = {
+      getWorkspacePath: () => '/ws',
+      getCanvasState: vi.fn().mockReturnValue({ panX: 0, panY: 0, zoom: 1 }),
+      setView: vi.fn(),
+      setCanvasOverlay: vi.fn(),
+    };
+
     const mockAPI = (window as any).electronAPI;
     mockAPI.prefs.load.mockResolvedValue({
       aiApiKey: 'sk-test-key',
@@ -173,6 +180,55 @@ describe('AiDrawer', () => {
       expect(drawer['sessionsPanelEl'].classList.contains('is-visible')).toBe(true);
       drawer['close']();
       expect(drawer['sessionsPanelEl'].classList.contains('is-visible')).toBe(false);
+    });
+
+    it('open() shifts canvas pan by drawerWidth', async () => {
+      const cockpit = (window as any).__cockpit;
+      drawer = await createDrawer();
+      await drawer.toggle();
+      expect(cockpit.setView).toHaveBeenCalledWith(
+        drawer['drawerWidth'],  // panX + drawerWidth (starting at 0)
+        0,
+        1,
+      );
+    });
+
+    it('close() shifts canvas pan back by -drawerWidth', async () => {
+      const cockpit = (window as any).__cockpit;
+      drawer = await createDrawer();
+      await drawer.toggle(); // open
+      cockpit.setView.mockClear();
+      cockpit.getCanvasState.mockReturnValue({ panX: drawer['drawerWidth'], panY: 0, zoom: 1 });
+      drawer['close']();
+      expect(cockpit.setView).toHaveBeenCalledWith(0, 0, 1);
+    });
+
+    it('open() sets canvas overlayLeft to drawerWidth', async () => {
+      const cockpit = (window as any).__cockpit;
+      drawer = await createDrawer();
+      await drawer.toggle();
+      expect(cockpit.setCanvasOverlay).toHaveBeenCalledWith(drawer['drawerWidth']);
+    });
+
+    it('close() resets canvas overlayLeft to 0', async () => {
+      const cockpit = (window as any).__cockpit;
+      drawer = await createDrawer();
+      await drawer.toggle();
+      cockpit.setCanvasOverlay.mockClear();
+      drawer['close']();
+      expect(cockpit.setCanvasOverlay).toHaveBeenCalledWith(0);
+    });
+
+    it('shiftCanvasPan is a no-op when __cockpit is absent', async () => {
+      delete (window as any).__cockpit;
+      drawer = await createDrawer();
+      expect(() => drawer['shiftCanvasPan'](100)).not.toThrow();
+    });
+
+    it('setCanvasOverlay is a no-op when __cockpit is absent', async () => {
+      delete (window as any).__cockpit;
+      drawer = await createDrawer();
+      expect(() => drawer['setCanvasOverlay'](420)).not.toThrow();
     });
   });
 
@@ -432,7 +488,7 @@ describe('AiDrawer', () => {
       drawer['renderQueueBar']();
 
       const queueBar = drawer['el'].querySelector('.ai-queue-bar') as HTMLElement;
-      expect(queueBar.style.display).not.toBe('none');
+      expect(queueBar.classList.contains('is-visible')).toBe(true);
     });
   });
 
@@ -719,7 +775,7 @@ describe('AiDrawer', () => {
 
     it('resetSessions reloads workspace sessions immediately when drawer is open', async () => {
       const mockAPI = (window as any).electronAPI;
-      (window as any).__cockpit = { getWorkspacePath: () => '/ws2' };
+      (window as any).__cockpit = { getWorkspacePath: () => '/ws2', getCanvasState: () => ({ panX: 0, panY: 0, zoom: 1 }), setView: vi.fn(), setCanvasOverlay: vi.fn() };
       const data = {
         sessions: [{ id: 'ws2-s', title: 'WS2', createdAt: 1, updatedAt: 1, messages: [] }],
         currentSessionId: 'ws2-s',
@@ -855,7 +911,9 @@ describe('AiDrawer', () => {
 
       (window as any).__cockpit = {
         getWorkspacePath: () => '/ws',
-        getCanvasState: () => ({ cards: [] }),
+        getCanvasState: () => ({ panX: 0, panY: 0, zoom: 1, cards: [] }),
+        setView: vi.fn(),
+        setCanvasOverlay: vi.fn(),
       };
 
       drawer = await createDrawer();
