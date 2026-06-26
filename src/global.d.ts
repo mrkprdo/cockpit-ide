@@ -106,6 +106,7 @@ interface Window {
     ide: {
       editorState: (state: EditorSelectionState) => void;
       status: () => Promise<{ running: boolean; port: number; workspace: string | null; lockPaths: string[] }>;
+      onOpenFile: (callback: (filePath: string) => void) => () => void;
     };
   };
 }

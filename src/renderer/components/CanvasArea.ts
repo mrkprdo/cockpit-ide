@@ -1716,6 +1716,17 @@ export class CanvasArea {
     return true;
   }
 
+  openFileAndReveal(filePath: string): void {
+    const sorted = [...this.cards].sort((a, b) =>
+      parseInt(b.card.el.style.zIndex || '0') - parseInt(a.card.el.style.zIndex || '0')
+    );
+    const cs = sorted.find(c => c.explorerPlugin && c.isOpen);
+    if (!cs?.explorerPlugin) return;
+    cs.explorerPlugin.openFile(filePath);
+    this.focusCard(cs.card.opts.title);
+    this.panToCard(cs);
+  }
+
   setViewAnimated(panX: number, panY: number, zoom?: number): void {
     if (zoom !== undefined) this.scale = Math.max(0.1, Math.min(5, zoom));
     this.animatePan(panX, panY);

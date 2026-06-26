@@ -94,5 +94,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.send('ide:editorState', state);
     },
     status: () => ipcRenderer.invoke('ide:status'),
+    onOpenFile: (callback: (filePath: string) => void) => {
+      const handler = (_event: any, filePath: string) => callback(filePath);
+      ipcRenderer.on('ide:openFile', handler);
+      return () => ipcRenderer.removeListener('ide:openFile', handler);
+    },
   },
 });

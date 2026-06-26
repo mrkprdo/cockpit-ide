@@ -53,6 +53,10 @@ export class App {
 
     this.canvas = new CanvasArea(document.getElementById('canvas')!);
 
+    window.electronAPI?.ide.onOpenFile((filePath) => {
+      this.canvas.openFileAndReveal(filePath);
+    });
+
     this.canvas.onStateChange = () => this.trySave();
     this.canvas.onTerminalsChanged = (items) => this.topBar.setTerminalItems(items);
 

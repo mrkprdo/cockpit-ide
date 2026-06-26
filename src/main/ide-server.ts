@@ -30,6 +30,8 @@ interface SelectionChangedParams {
 }
 
 export class IdeServer {
+  onOpenFile: ((filePath: string) => void) | null = null;
+
   private server: http.Server | null = null;
   private wss: WebSocketServer | null = null;
   private port = 0;
@@ -69,6 +71,8 @@ export class IdeServer {
                 params: this.currentState,
               }));
             }
+          } else if (msg.method === 'openFile' && msg.params?.filePath) {
+            this.onOpenFile?.(msg.params.filePath);
           }
         } catch { /* ignore malformed messages */ }
       });

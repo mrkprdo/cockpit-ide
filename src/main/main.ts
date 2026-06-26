@@ -733,6 +733,11 @@ app.whenReady().then(async () => {
   // User preferences (saved to userData, not workspace-specific)
   const prefsFile = path.join(app.getPath('userData'), 'preferences.json');
   // IDE context server — receives editor state from renderer, pushes via WebSocket
+  ideServer.onOpenFile = (filePath) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('ide:openFile', filePath);
+    }
+  };
   ipcMain.on('ide:editorState', (_event, state: any) => {
     ideServer.updateEditorState(state);
   });
