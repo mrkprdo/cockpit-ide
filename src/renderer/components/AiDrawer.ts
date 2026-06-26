@@ -1931,6 +1931,12 @@ export class AiDrawer {
     this.steeringMessage = null;
     this.showWelcome();
     this.renderMessages();
+    this.renderSessionsList();
+    // If drawer is already open, load the new workspace's sessions immediately
+    // rather than waiting for the user to close and reopen.
+    if (this.el.classList.contains('is-open')) {
+      this.loadSessions().then(() => this.renderSessionsList());
+    }
   }
 
   async toggle(): Promise<void> {

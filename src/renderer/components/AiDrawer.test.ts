@@ -701,6 +701,40 @@ describe('AiDrawer', () => {
       expect(drawer['currentSessionId']).toBe('');
       expect(drawer['promptQueue']).toHaveLength(0);
     });
+
+    it('resetSessions clears sessions panel list immediately', async () => {
+      drawer = await createDrawer();
+      drawer['sessions'] = [
+        { id: 'a', title: 'Old', createdAt: 1, updatedAt: 1, messages: [] },
+      ];
+      drawer['currentSessionId'] = 'a';
+      drawer['renderSessionsList']();
+      expect(drawer['sessionsListEl'].querySelectorAll('.git-session-item, [data-session-id]').length
+        + drawer['sessionsListEl'].innerHTML.length).toBeGreaterThan(0);
+
+      drawer.resetSessions();
+
+      expect(drawer['sessions']).toHaveLength(0);
+    });
+
+    it('resetSessions reloads workspace sessions immediately when drawer is open', async () => {
+      const mockAPI = (window as any).electronAPI;
+      (window as any).__cockpit = { getWorkspacePath: () => '/ws2' };
+      const data = {
+        sessions: [{ id: 'ws2-s', title: 'WS2', createdAt: 1, updatedAt: 1, messages: [] }],
+        currentSessionId: 'ws2-s',
+      };
+      mockAPI.fs.readFile.mockResolvedValue(JSON.stringify(data));
+
+      drawer = await createDrawer();
+      await drawer.toggle(); // open drawer
+      drawer['sessionsLoaded'] = true;
+
+      drawer.resetSessions();
+      await flush();
+
+      expect(drawer['sessions'].find(s => s.id === 'ws2-s')).toBeTruthy();
+    });
   });
 
   // ─── SETTINGS PANEL ──────────────────────────────────────────────────────────
