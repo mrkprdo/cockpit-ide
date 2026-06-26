@@ -1,134 +1,92 @@
 ---
-name: Top Bar Menu UI
-file: src/renderer/components/TopBar.ts
-type: ui
-layer: widget
-singleton: true
-exports: []
+name: Top Bar UI
+parent: top-bar
 ---
 
-# Top Bar Menu UI
+# Top Bar UI
 
-UI sub-spec detailing the DOM structure, menu hierarchy, dropdown behavior, and interaction model of the custom menu bar.
+DOM structure, menu dropdown interactions, and states for the custom menu bar.
 
 ## DOM Structure
 
-```json
-{
-  "root": ".menu-bar",
-  "structure": {
-    "menus": [
-      {
-        "label": "File",
-        "items": [
-          "Open Workspace (Ctrl+O)",
-          "separator",
-          "Exit"
-        ]
-      },
-      {
-        "label": "View",
-        "submenus": {
-          "Terminal": [
-            "New (Ctrl+J)",
-            "separator",
-            "{dynamic terminal instances}"
-          ],
-          "Explorer": "single item",
-          "Git": "single item",
-          "Markdown": "single item"
-        },
-        "nested": {
-          "Canvas": [
-            "Dot (checkable)",
-            "Grid (checkable)",
-            "None (checkable)"
-          ],
-          "Zoom": [
-            "Zoom In (Ctrl+=)",
-            "Zoom Out (Ctrl+-)",
-            "Reset View",
-            "separator",
-            "Lock (checkable)"
-          ]
-        }
-      },
-      {
-        "label": "Tools",
-        "items": [
-          "SpecsMap",
-          "separator",
-          "AI",
-          "separator",
-          "Theme"
-        ]
-      },
-      {
-        "label": "Help",
-        "items": [
-          "Tutorial",
-          "separator",
-          "About Cockpit IDE"
-        ]
-      }
-    ],
-    "controls": [
-      {
-        "selector": "#theme-toggle",
-        "type": "button",
-        "label": "Toggle theme (◐)"
-      }
-    ]
-  },
-  "dynamic_submenus": {
-    "terminal-submenu": "Populated by setTerminalItems() with instance title + open/minimized status",
-    "git-submenu": "Populated by setGitItems() with instance title + open/minimized status",
-    "specsmap-submenu": "Populated by setSpecsmapItems() with instance title + open/minimized status"
-  }
-}
+```
+#menu-bar (mount point from index.html)
+└── .top-bar | display: flex; height: 32px
+    └── .menu-item[] (one per top-level menu: File, Edit, View, Tools, Help)
+        ├── .menu-label (menu name text)
+        └── .menu-dropdown | position: absolute; display: none
+            └── .menu-action[] (one per menu action)
+                ├── .menu-action-label (action text)
+                ├── .menu-action-shortcut (keyboard shortcut hint, muted)
+                └── .menu-separator (divider between action groups)
 ```
 
 ## Interactions
 
-### hover on .menu-item
+### Menu Open
 
-Opens the dropdown menu; closes all others via closeAllMenus() with 300ms delay on leave
+- **trigger:** Click on `.menu-label`
+- Set `.menu-dropdown` to `display: block` with slide-down animation
+- Highlight `.menu-label` with accent color
+- Close any other open dropdown (only one menu open at a time)
+- **result:** Dropdown menu visible below label
 
-### click on .menu-dropdown-item
+### Menu Close
 
-Executes associated callback (e.g., onNewTerminal, onAbout) and closes all menus
+- **trigger:** Click outside menu, press Escape, or click same label again
+- Hide dropdown with slide-up animation
+- Remove label highlight
+- **result:** Menu closed
 
-### click on .term-instance / .git-instance / .specsmap-instance
+### Hover Menu Switch
 
-Focuses or reopens the corresponding plugin instance by UUID
+- **trigger:** Mouse enter on different `.menu-label` while another menu is open
+- Close previous dropdown, open new dropdown without requiring click
+- **result:** Seamless menu switching on hover
 
-### click on [data-grid] items
+### Action Selection
 
-Calls onGridChange() with the selected style (dots/grid/none) and updates checkmark
+- **trigger:** Click on `.menu-action` item
+- Fire corresponding callback (e.g., `onNewWindow`, `onOpenExplorer`, `onAbout`)
+- Close all dropdowns
+- **result:** Action executed, menus dismissed
 
-### click on .menu-item-nested
+### Keyboard Shortcut Display
 
-Reveals nested dropdown on hover (no click toggle, pure CSS :hover)
+- **trigger:** Menu open (visual only)
+- Each `.menu-action` shows shortcut in muted text (e.g., `Ctrl+N`, `Ctrl+P`, `Ctrl+S`)
+- Shortcuts are display-only hints; actual bindings handled by App keyboard listener
+- **result:** User sees available shortcuts
 
-### click on #menu-zoom-lock
+### Theme Toggle
 
-Toggles zoom lock state, calls onZoomLock()
-
-### click on #theme-toggle
-
-Calls onThemeToggle() callback
+- **trigger:** Click "Theme" action in View menu
+- Call `theme.toggle()` from theme singleton
+- **result:** Dark/light mode toggled, menu closes
 
 ## States
 
-### closed
+### Default (All Closed)
 
-All dropdowns hidden, no menu item has .open class
+All dropdowns hidden, labels at default color, menu bar at rest.
 
-### menu-open
+### Menu Open
 
-One .menu-item has .open class, its .menu-dropdown is visible
+One dropdown visible with slide-down animation, label highlighted, rest of UI dimmed or unresponsive to menu clicks.
 
-### nested-open
+### Hover Transition
 
-A .menu-item-nested is hovered, its .menu-dropdown-nested is visible
+Fast dropdown swap (no animation) when moving between menu labels.
 
+### Disabled Action
+
+Menu action item greyed out, not clickable (e.g., Undo when nothing to undo).
+
+## Accessibility
+
+- **Alt / F10:** Focus first menu
+- **Left/Right arrows:** Navigate between menus
+- **Down arrow:** Open focused menu
+- **Up/Down arrows:** Navigate within open menu
+- **Enter:** Select action
+- **Escape:** Close menu

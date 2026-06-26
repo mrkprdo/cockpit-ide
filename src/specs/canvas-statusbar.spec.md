@@ -3,27 +3,41 @@ name: Canvas Status Bar
 file: src/renderer/components/canvas-statusbar.ts
 type: ui
 layer: widget
-singleton: true
+singleton: false
 exports: [StatusBar]
 ---
 
 # Canvas Status Bar
 
-Bottom status bar displaying zoom percentage with lock/unlock lock icon (clickable to toggle), workspace name, and a 'view all' button. Shows a reset-zoom icon when zoom is not 100% and unlocked. Updates via the update() method called by CanvasArea on zoom, lock, or workspace name changes.
+Floating status bar displayed at the bottom of the canvas area. Shows current zoom level (percentage), canvas dimensions, and a "Reset Zoom" button. Updates reactively when `StatusBar.update()` is called with new scale and dimension values. Creates its DOM element tree programmatically via `document.createElement`.
+
+## Dependencies
+
+None — standalone UI widget.
 
 ## Referenced By
 
-- [[canvas-area.spec.md|canvas-area]] `src/renderer/components/CanvasArea.ts`
+- **canvas-area** `src/renderer/components/CanvasArea.ts` — creates and updates status bar on zoom/canvas changes
+
+## IPC Channels
+
+None.
 
 ## Interface
 
-### Methods
+### Classes
 
-- **init** `(): void` — Creates status bar DOM elements (zoom, locked, workspace, view all) inside #statusbar
-- **update** `(locked: boolean, scale: number, workspaceName: string, onLockToggle: () => void, fitAll: () => void, resetZoom?: () => void): void` — Updates zoom percentage, lock icon SVG, workspace name text, visibility of reset-zoom icon
+- **StatusBar**
+  - **constructor** `(): StatusBar` — creates DOM elements (span for zoom, span for dimensions, reset button with inline SVG)
+  - **update** `(scale: number, worldWidth: number, worldHeight: number): void` — updates displayed zoom percentage and dimensions
+  - **onReset** — callback `() => void` — fired when reset button clicked
+  - **el** `HTMLDivElement` — root DOM element
 
 ## Lifecycle
 
-- **created_by:** CanvasArea constructor calls init()
-- **destroyed_by:** Page unload
+- **created_by:** `CanvasArea` constructor
+- **destroyed_by:** `CanvasArea` destruction (parent element removed)
 
+## Test
+
+Tested via `src/renderer/components/CanvasArea.test.ts`.

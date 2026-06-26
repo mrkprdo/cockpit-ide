@@ -1,86 +1,94 @@
 ---
 name: Command Palette UI
-file: src/renderer/components/CommandPalette.ts
-type: ui
-layer: overlay
-singleton: false
-exports: []
+parent: command-palette
 ---
 
 # Command Palette UI
 
-UI sub-spec for the Ctrl+P file search overlay: search input, results list with keyboard navigation, recent files display, and progress indicator.
+DOM structure, fuzzy search, keyboard navigation, and file selection interactions for the Ctrl+P CommandPalette.
 
 ## DOM Structure
 
-```json
-{
-  "root": ".palette-overlay (fixed fullscreen, flex centered)",
-  "structure": {
-    "palette": ".palette (centered box)",
-    "children": [
-      ".palette-input: search text input with placeholder 'Search files by name...'",
-      ".palette-progress: progress bar (visible during file tree walk)",
-      ".palette-results: scrollable list of .palette-item elements"
-    ],
-    "result_item": ".palette-item containing .palette-item-name (file name) + .palette-item-dir (relative path)"
-  }
-}
+```
+.command-palette-overlay | position: fixed; inset: 0; z-index: 2000
+└── .command-palette | centered top: 20%, max-width: 600px
+    ├── input.command-palette-input (search field, auto-focused)
+    └── .command-palette-results | max-height: 400px; overflow-y: auto
+        └── .palette-item[] (one per matching file)
+            ├── .palette-icon (file type icon)
+            ├── .palette-name (file basename)
+            └── .palette-path (relative directory path, muted)
 ```
 
 ## Interactions
 
-### input in .palette-input
+### Search / Filter
 
-Debounced 150ms search: filters workspace files by name/path substring, shows up to 50 results
+- **trigger:** Typing in `.command-palette-input`
+- Debounce 150ms → fuzzy-match input against indexed file paths
+- Files scored by match quality: exact basename match > path contains > fuzzy match
+- Results limited to 50 items for performance
+- **result:** Filtered results list updated, top item highlighted
 
-### ArrowDown on input
+### Keyboard Navigation
 
-Moves selection highlight down in results list
+- **trigger:** ArrowUp / ArrowDown keys
+- Move `.highlighted` class through `.palette-item` list
+- Scroll results container to keep highlighted item visible
+- **result:** Selection indicator moves through list
 
-### ArrowUp on input
+### Select File (Enter)
 
-Moves selection highlight up in results list
+- **trigger:** Enter key on highlighted `.palette-item`
+- Fire `onSelect(filePath)` callback
+- Close palette overlay
+- **result:** File opens in editor, palette dismissed
 
-### Enter on input
+### Select File (Click)
 
-Confirms current selection: opens file via onSelectFile callback
+- **trigger:** Click on `.palette-item`
+- Same as Enter → `onSelect(filePath)` → close
+- **result:** File opens, palette dismissed
 
-### Escape on input
+### Close (Escape)
 
-Closes palette
+- **trigger:** Escape key
+- Fire `onClose()` callback
+- Remove overlay from DOM
+- **result:** Palette dismissed without selection
 
-### click on .palette-item
+### Close (Overlay Click)
 
-Selects and opens the file
-
-### mouseenter on .palette-item
-
-Updates selection highlight to hovered item
-
-### click on .palette-overlay (background)
-
-Closes palette (if click target is the overlay itself)
+- **trigger:** Click on `.command-palette-overlay` background
+- Same as Escape → dismiss
+- **result:** Palette dismissed
 
 ## States
 
-### empty-input
+### Closed
 
-No search text; shows recent files list with section header 'RECENT FILES'
+Overlay hidden (not in DOM or `display: none`).
 
-### loading
+### Open (Empty Query)
 
-Progress bar visible while loading all workspace files via recursive readDir
+All indexed files displayed (first 50 alphabetically), input focused, blinking cursor.
 
-### results
+### Open (With Results)
 
-Search results visible with selection highlight
+Filtered results list, first item highlighted by default, search query visible in input.
 
-### no-results
+### No Results
 
-Shows 'No matching files' placeholder
+"0 files found" message displayed in results area, input still focused for revising query.
 
-### no-recents
+### Loading (Initial Index)
 
-No recent files and empty input; shows 'No recent files. Start typing to search.'
+If first open for a workspace: "Scanning files..." shown while `fs:readDir` scans recursively.
 
+## Accessibility
+
+- **Ctrl+P:** Toggle palette open/close
+- **Arrow keys:** Navigate results
+- **Enter:** Select highlighted file
+- **Escape:** Close palette
+- **Tab:** No action (input captures all typing)

@@ -1,154 +1,132 @@
 ---
 name: Git Plugin UI
-file: src/renderer/components/GitPlugin.ts
-type: ui
-layer: plugin
-singleton: false
-exports: []
+parent: git-plugin
 ---
 
 # Git Plugin UI
 
-UI sub-spec for the Git version control panel: split-pane layout, branch/remote selects, staged/unstaged file lists, commit input, commits history, file tree diff, and unified/side-by-side diff viewer.
+DOM structure, branch management, staging, commit, and diff interactions for the Git management plugin.
 
 ## DOM Structure
 
-```json
-{
-  "root": ".git-split (flex row)",
-  "structure": {
-    "left_panel": {
-      "width": "default 260px, resizable via drag handle",
-      "sections": [
-        {
-          "label": "Branch",
-          "element": "select.git-select"
-        },
-        {
-          "label": "Remote",
-          "element": "select.git-select"
-        },
-        {
-          "section_separator": true
-        },
-        {
-          "label": "Changes",
-          "children": [
-            {
-              "label": "Staged",
-              "collapsible": true,
-              "arrow": ".git-collapse-arrow",
-              "count": ".git-changes-count",
-              "files": ".git-changes-files"
-            },
-            {
-              "label": "Unstaged",
-              "collapsible": true,
-              "arrow": ".git-collapse-arrow",
-              "count": ".git-changes-count",
-              "files": ".git-changes-files"
-            }
-          ]
-        },
-        {
-          "label": "Commit bar",
-          "elements": [
-            ".git-commit-input",
-            ".git-commit-btn",
-            ".git-push-btn"
-          ]
-        },
-        {
-          "section_separator": true
-        },
-        {
-          "label": "Commits",
-          "element": ".git-commits (scrollable list)"
-        }
-      ]
-    },
-    "right_panel": {
-      "split": "vertical (top/bottom) with draggable horizontal handle",
-      "top": ".git-file-tree (file changes list for selected commit)",
-      "bottom": ".git-diff-container (diff content viewer)"
-    }
-  }
-}
+```
+.card-body (PluginCard body container)
+└── .git-layout | display: flex; flex-direction: column
+    ├── .git-toolbar | flex row
+    │   ├── .git-branch-selector (dropdown: current branch + branch list)
+    │   ├── button.refresh (refresh git state)
+    │   ├── button.stage-all (stage all changes)
+    │   └── button.unstage-all (unstage all changes)
+    ├── .git-panels | display: flex; flex: 1
+    │   ├── .git-changes-panel | flex: 1
+    │   │   ├── .git-section-staged
+    │   │   │   ├── .git-section-header "Staged Changes"
+    │   │   │   └── .git-file-item[] (staged file rows)
+    │   │   └── .git-section-unstaged
+    │   │       ├── .git-section-header "Changes"
+    │   │       └── .git-file-item[] (unstaged file rows)
+    │   └── .git-diff-panel | flex: 1
+    │       └── .git-diff-content (Monaco diff editor or pre block)
+    └── .git-commit-area
+        ├── textarea.git-commit-message (commit message input)
+        └── button.commit (commit button, shows staged count)
 ```
 
 ## Interactions
 
-### change on branch select
+### Branch Switch
 
-Calls gitCheckout to switch branch, then refreshes all data
+- **trigger:** Select branch from `.git-branch-selector` dropdown
+- On change → `git:checkout` IPC with branch name
+- Refresh all panels after checkout
+- **result:** Working directory updates to selected branch, all panels refresh
 
-### click on staged/unstaged header
+### Refresh
 
-Toggles collapsible section; rotates arrow icon (▸ → ▾)
+- **trigger:** Click `.refresh` button or `file:changed` listener
+- `git:stagedFiles` + `git:unstagedFiles` + `git:currentBranch` IPC calls
+- Update file lists and branch display
+- **result:** Git state synchronized with repository
 
-### click on staged/unstaged file
+### Stage File
 
-Calls git:stagedDiff or git:unstagedDiff and displays diff in right panel
+- **trigger:** Click `+` icon or right-click → Stage on unstaged file row
+- `git:stage` IPC with file path
+- File moves from "Changes" to "Staged Changes" list
+- Refresh diff panel to show updated status
+- **result:** File staged for commit
 
-### click on commit in list
+### Unstage File
 
-Fetches commit details (git:showTree) and shows file tree in top-right panel
+- **trigger:** Click `-` icon or right-click → Unstage on staged file row
+- `git:unstage` IPC with file path
+- File moves from "Staged Changes" back to "Changes" list
+- **result:** File unstaged
 
-### click on file in commit tree
+### View Diff
 
-Fetches file diff for that commit via git:diff and displays in bottom-right panel
+- **trigger:** Click on a file row in staged or unstaged section
+- For staged: `git:stagedDiff` IPC with file path
+- For unstaged: `git:unstagedDiff` IPC with file path
+- Render diff in `.git-diff-panel` using Monaco diff editor or syntax-highlighted `<pre>` block
+- **result:** File diff displayed in right panel with +/− line highlighting
 
-### click on commit button
+### Commit
 
-Stages all unstaged changes, creates commit via git:commit with input message
+- **trigger:** Click `.commit` button
+- Commit message from `textarea.git-commit-message`
+- `git:commit` IPC with message
+- Clear commit message textarea
+- Refresh all panels
+- **result:** Staged changes committed, working tree updated
 
-### click on push button
+### Push
 
-Pushes committed changes via git:push
+- **trigger:** Click Push button in toolbar
+- `git:push` IPC
+- Check ahead status via `git:checkAhead`
+- Show success/error notification
+- **result:** Commits pushed to remote
 
-### mouse drag on .git-resize (horizontal)
+### Commit History
 
-Resizes left/right column split
-
-### mouse drag on vertical resize handle
-
-Resizes top/bottom panel split in right column
-
-### click on diff view mode dropdown
-
-Switches between 'unified' and 'side-by-side' diff display
-
-### keydown Enter on commit input
-
-If message not empty and staged files exist, triggers commit
+- **trigger:** Click History tab or button
+- `git:log` IPC (last 50 commits)
+- Render commit list with hash, author, date, message
+- Click commit → `git:showTree` for file tree, `git:diff` for file changes
+- **result:** Full commit browsing with drill-down to file-level diffs
 
 ## States
 
-### loading
+### Loading
 
-First load: fetching branches, remotes, commits, and changes
+Spinner shown while git operations (checkout, commit, push) are in progress.
 
-### commit-selected
+### Clean (No Changes)
 
-A commit is selected; top-right shows file tree, bottom-right shows diff or placeholder
+Both staged and unstaged sections show "Nothing to commit, working tree clean" message.
 
-### change-selected
+### Uncommitted Changes
 
-A staged/unstaged file is selected; bottom-right shows its diff
+Unstaged section populated with changed files, commit button enabled but shows "(0 staged)".
 
-### no-commits
+### Staged Changes
 
-Empty repository or no commits yet
+Staged section populated, commit button enabled showing staged file count, "Commit N files" label.
 
-### no-selection
+### In Operation
 
-Right panel shows 'Select a commit or file to view diff' placeholder
+Branch switch / commit / push in progress — toolbar buttons disabled, spinner visible, status text "Switching branch...".
 
-### changes-expanded
+### Error
 
-Staged or unstaged section is expanded showing file list
+Error message displayed if git operation fails (merge conflict, network error, no remote).
 
-### changes-collapsed
+### Empty Repository
 
-Staged or unstaged section collapsed (arrow pointing right)
+"No commits yet" message in history panel, commit area prompts for initial commit.
 
+## Accessibility
+
+- **Tab order:** Branch selector → staged/unstaged file lists → diff → commit message → commit button
+- **Keyboard:** Enter on file row views diff, Space stages/unstages

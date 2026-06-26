@@ -4,56 +4,83 @@ file: src/renderer/components/CanvasArea.ts
 type: ui
 layer: core
 singleton: true
-exports: [CanvasArea, EditorState, PluginEntry, SaveState]
+exports: [EditorState, PluginEntry, SaveState, CanvasArea]
 ---
 
 # Canvas Area
 
-Infinite 2D canvas surface managing floating PluginCard instances. Handles pan (mouse drag on empty space), zoom (mouse wheel), card creation (terminal/explorer/git/markdown/specsmap), card lifecycle (add/remove/minimize/reopen/focus), state serialization for persistence, auto-arrange/tile layout algorithms, grid snapping at 28px, and the plugin list panel (lower-left hover) and arrange panel (lower-right hover). Maintains z-order, world bounds clamping, and per-card plugin references.
+Infinite zoomable/pannable canvas engine that hosts draggable/resizable plugin cards. Implements CSS transform-based pan (translate) and zoom (scale) with cubic-bezier easing. Manages the full plugin lifecycle: creation (terminal, editor, explorer, markdown, git, SpecsMap), card arrangement (snap-to-28px-grid, layout overlay), focus management (z-index stacking), and state persistence to `SaveState`. Handles pointer events for canvas interaction: middle-mouse panning, scroll-wheel zoom, right-click context menu for card creation, and drag-and-drop card repositioning. Renders a dot-grid background via canvas-grid and a zoom/dimension status bar via canvas-statusbar.
 
 ## Dependencies
 
-- [[canvas-grid.spec.md|canvas-grid]] `src/renderer/components/canvas-grid.ts` — Generates and applies SVG dot/grid pattern as canvas background image with zoom/pan alignment
-- [[canvas-statusbar.spec.md|canvas-statusbar]] `src/renderer/components/canvas-statusbar.ts` — Updates status bar with zoom level, lock state, workspace name, and view-all/reset buttons
-- [[plugin-card.spec.md|plugin-card]] `src/renderer/components/PluginCard.ts` — Creates PluginCard instances for each plugin; manages card DOM, drag, resize, minimize, and terminate
-- [[terminal-plugin.spec.md|terminal-plugin]] `src/renderer/components/TerminalPlugin.ts` — Instantiates TerminalPlugin inside card bodies for PTY terminal emulation
-- [[monaco-editor-plugin.spec.md|monaco-editor-plugin]] `src/renderer/components/MonacoEditorPlugin.ts` — Instantiates MonacoEditorPlugin via ExplorerPlugin for code editing
-- [[explorer-plugin.spec.md|explorer-plugin]] `src/renderer/components/ExplorerPlugin.ts` — Instantiates ExplorerPlugin (file tree + editor split) inside explorer cards
-- [[git-plugin.spec.md|git-plugin]] `src/renderer/components/GitPlugin.ts` — Instantiates GitPlugin inside git cards for version control UI
-- [[context-menu.spec.md|context-menu]] `src/renderer/components/ContextMenu.ts` — Opens context menus for card header right-click and plugin list items
-- [[markdown-plugin.spec.md|markdown-plugin]] `src/renderer/components/MarkdownPlugin.ts` — Instantiates MarkdownPlugin inside markdown cards for .md file preview
-- [[specsmap-plugin.spec.md|specsmap-plugin]] `src/renderer/components/SpecsMapPlugin.ts` — Instantiates SpecsMapPlugin inside specsmap cards for dependency graph visualization
+- **canvas-grid** `./canvas-grid` — generates dot-grid background pattern
+- **canvas-statusbar** `./canvas-statusbar` — floating zoom/dimension status bar
+- **plugin-card** `./PluginCard` — card widget for wrapping plugin content
+- **terminal-plugin** `./TerminalPlugin` — terminal emulator plugin
+- **monaco-editor-plugin** `./MonacoEditorPlugin` — code editor plugin
+- **explorer-plugin** `./ExplorerPlugin` — split-pane file browser + editor
+- **git-plugin** `./GitPlugin` — git management plugin
+- **context-menu** `./ContextMenu` — right-click canvas context menu
+- **markdown-plugin** `./MarkdownPlugin` — markdown preview plugin
+- **specsmap-plugin** `./SpecsMapPlugin` — specs graph visualization plugin
 
 ## Referenced By
 
-- [[app.spec.md|app]] `src/renderer/components/App.ts`
+- **app** `src/renderer/components/App.ts` — creates and owns the CanvasArea instance
+
+## IPC Channels
+
+- `terminal:kill` — terminates PTY when card is closed via `terminateCard()`
 
 ## Interface
 
-### Methods
+### Types
 
-- **addTerminal** `(wsPath: string): string` — Creates a new terminal card, returns its UUID
-- **addExplorer** `(wsPath: string): string` — Creates a new explorer card, returns its UUID
-- **addGit** `(wsPath: string): string` — Creates a new git card, returns its UUID
-- **addMarkdown** `(): string` — Creates a new markdown card, returns its UUID
-- **addSpecsmap** `(wsPath: string): string` — Creates a new specsmap card, returns its UUID
-- **autoArrange** `(): void` — Arranges all open cards in a grid using current tile dimensions
-- **tilePlugins** `(): void` — Tiles all open cards in a non-overlapping grid
-- **getSaveState** `(): SaveState` — Serializes all card positions, sizes, z-order, zoom, and pan for persistence
-- **restorePlugins** `(state: SaveState, path: string): void` — Recreates all plugins from a saved state
-- **setView** `(v: { zoom: number; panX: number; panY: number }): void` — Sets canvas zoom/pan
-- **centerView** `(): void` — Centers the canvas view on origin
-- **resetView** `(): void` — Resets zoom to 1 and recenters
-- **focusCard** `(title: string): void` — Brings card to front by title
-- **closeCard** `(title: string): void` — Terminates and removes a card
-- **minimizeCard** `(title: string): void` — Hides a card without destroying
-- **reopenCardByTitle** `(title: string): boolean` — Restores a minimized card
-- **getTerminalPlugin** `(uuid: string): TerminalPlugin | null` — Finds terminal plugin by UUID
-- **getActiveExplorerPlugin** `(): ExplorerPlugin | null` — Returns the most recently focused explorer plugin
+- **EditorState** — `{ id: string; type: string; x: number; y: number; width: number; height: number; scale: number; state: any; zIndex: number }`
+- **PluginEntry** — `{ type: string; label: string; create: () => any }`
+- **SaveState** — `{ cards: EditorState[]; workspacePath: string }`
+
+### Classes
+
+- **CanvasArea**
+  - **constructor** `(container: HTMLElement): CanvasArea` — initializes canvas, grid, status bar, event listeners
+  - **setWorkspacePath** `(path: string): Promise<void>` — sets workspace root for file-relative paths
+  - **addPlugin** `(type: string, options?: { x?, y?, width?, height? }): PluginCard` — creates and places a plugin card
+  - **removeCard** `(card: PluginCard): void` — removes card and its plugin
+  - **getState** `(): SaveState` — serializes all card positions and plugin states
+  - **restoreState** `(state: SaveState): Promise<void>` — recreates cards from saved state
+  - **arrangeCards** `(): void` — auto-arranges cards in grid layout
+  - **createTerminal** `(): PluginCard` — creates terminal plugin card
+  - **createEditor** `(): PluginCard` — creates editor plugin card
+  - **createExplorer** `(): PluginCard` — creates explorer plugin card
+  - **createFileExplorer** `(): PluginCard` — creates standalone file explorer card
+  - **createGit** `(): PluginCard` — creates git plugin card
+  - **createMarkdownViewer** `(): PluginCard` — creates markdown viewer card
+  - **createSpecsMap** `(): PluginCard` — creates SpecsMap card
+  - **terminateCard** `(card: PluginCard): void` — kills associated processes before removal
+  - **focusCard** `(card: PluginCard): void` — brings card to front
+  - **zoom** `(factor: number, centerX?: number, centerY?: number): void` — applies zoom transform (0.25x–4x range)
+  - **resetZoom** `(): void` — resets to 1x scale
 
 ### Properties
 
-- **locked**: boolean — When true, zoom/pan interaction is disabled
-- **workspaceName**: string — Display name of the currently loaded workspace
-- **onStateChange**: (() => void) | null — Callback fired on any state change that triggers auto-save
+- **scale** `number` — current zoom level
+- **panX** / **panY** `number` — current pan offset
+- **cards** `Map<string, PluginCard>` — active card instances
 
+## State
+
+Full canvas state serialized to `SaveState` on `saveState()`: every card's position, size, z-index, plugin type, and plugin-specific serialized state. Persisted via `workspace:save` IPC.
+
+## Lifecycle
+
+- **created_by:** `App` constructor, attached to `#canvas` element
+- **destroyed_by:** App destruction
+
+## External Dependencies
+
+None beyond IPC bridge.
+
+## Test
+
+`src/renderer/components/CanvasArea.test.ts`

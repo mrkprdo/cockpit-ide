@@ -9,28 +9,42 @@ exports: [WelcomeModal]
 
 # Welcome Modal
 
-Startup workspace selection dialog. Displays 'COCKPIT IDE' branding with a 'Select a workspace' prompt, a recent workspaces list (clickable, with X remove buttons, missing-directory dimming), and Open Workspace / Close buttons. Uses workspace.select() to open the native folder picker. Returns a promise with the selected path or null on close. Escape key dismisses.
+Startup workspace picker dialog shown on first launch or when no workspace is active. Displays a "Select Folder" button that opens the native directory picker via `workspace:select` IPC, a list of recent workspaces loaded via `workspace:getRecent` IPC with click-to-reopen, and a "Remove" button on each recent entry. Manages open/close animation state. Fires `onSelect(path)` callback when a workspace is chosen.
+
+## Dependencies
+
+None — uses only IPC bridge for workspace operations.
 
 ## Referenced By
 
-- [[app.spec.md|app]] `src/renderer/components/App.ts`
+- **app** `src/renderer/components/App.ts` — opens on startup or via File menu
 
 ## IPC Channels
 
-- `workspace:select`
-- `workspace:getRecent`
-- `workspace:removeRecent`
-- `fs:readDir`
+- `workspace:select` — opens native directory picker dialog
+- `workspace:getRecent` — loads recent workspace list
+- `fs:readDir` — validates workspace path exists
+- `workspace:removeRecent` — removes entry from recent list
 
 ## Interface
 
-### Methods
+### Classes
 
-- **constructor** `()` — Builds modal overlay with branding, recent list container, and action buttons
-- **open** `(): Promise<string | null>` — Displays modal, loads recent workspaces, returns selected path on dismiss
+- **WelcomeModal**
+  - **constructor** `(): WelcomeModal` — creates modal DOM with overlay, content, buttons
+  - **open** `(): void` — displays modal with animation
+  - **close** `(): void` — hides modal
+  - **onSelect** — callback `(workspacePath: string) => void` — fires when workspace is chosen
+
+## State
+
+Modal open/closed state, recent workspace list.
 
 ## Lifecycle
 
-- **created_by:** App constructor
-- **destroyed_by:** Page unload (persists across workspace sessions)
+- **created_by:** `App` constructor (singleton)
+- **destroyed_by:** App destruction (rarely destroyed)
 
+## Test
+
+`src/renderer/components/WelcomeModal.test.ts`

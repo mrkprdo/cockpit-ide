@@ -1,25 +1,35 @@
 ---
-name: SpecGen Build Hash
+name: SpecGen Hash
 file: src/renderer/specgen-hash.ts
 type: config
 layer: foundation
-singleton: false
+singleton: true
 exports: [SPECGEN_HASH, SPECGEN_VERSION]
 ---
 
-# SpecGen Build Hash
+# SpecGen Hash
 
-Auto-generated build artifact containing the SHA-256 hash of SPECGEN.md and a version string. Regenerated on every npm run build by build-renderer.js. Consumed by SpecsMapPlugin to validate spec freshness and by AiDrawer for system context.
+Auto-generated version stamp file written by `scripts/version.js` during the build process. Exports two constants: `SPECGEN_HASH` (content hash of bundled files) and `SPECGEN_VERSION` (version string from package.json). Used by SpecsMapPlugin to verify workspace integrity.
+
+## Dependencies
+
+None — auto-generated file with no imports.
 
 ## Referenced By
 
-- [[specsmap-plugin.spec.md|specsmap-plugin]] `src/renderer/components/SpecsMapPlugin.ts`
-- [[ai-drawer.spec.md|ai-drawer]] `src/renderer/components/AiDrawer.ts`
+- **specsmap-plugin** `src/renderer/components/SpecsMapPlugin.ts` — reads hash for integrity verification
+
+## IPC Channels
+
+None.
 
 ## Interface
 
-## Lifecycle
+### Constants
 
-- **created_by:** build-renderer.js (regenerated on each build)
-- **destroyed_by:** N/A (static module)
+- **SPECGEN_HASH** `string` — content hash of build artifacts
+- **SPECGEN_VERSION** `string` — version string matching package.json
 
+## Test
+
+None — auto-generated; not tested directly.

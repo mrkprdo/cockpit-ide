@@ -2,35 +2,52 @@
 name: Context Menu
 file: src/renderer/components/ContextMenu.ts
 type: ui
-layer: widget
-singleton: false
-exports: [ContextMenu, ContextMenuItem]
+layer: overlay
+singleton: true
+exports: [ContextMenuItem, ContextMenu]
 ---
 
 # Context Menu
 
-Floating right-click context menu singleton. Renders a positioned menu at cursor coordinates with items (label + action callback) and optional separators and disabled state. Closes on any click outside the menu. Supports chaining via menu array with separator: true support. Only one context menu can be open at a time — previous menu is closed on new creation.
+Right-click floating context menu that renders a list of items (label + action callback). Positions itself at the click coordinates, constrained to viewport bounds. Auto-dismisses on click-outside, Escape key, or item selection. Supports separators between item groups. Only one instance visible at a time — opening a new menu destroys any existing one.
+
+## Dependencies
+
+None — standalone overlay widget.
 
 ## Referenced By
 
-- [[file-explorer-plugin.spec.md|file-explorer-plugin]] `src/renderer/components/FileExplorerPlugin.ts`
-- [[monaco-editor-plugin.spec.md|monaco-editor-plugin]] `src/renderer/components/MonacoEditorPlugin.ts`
-- [[markdown-plugin.spec.md|markdown-plugin]] `src/renderer/components/MarkdownPlugin.ts`
-- [[canvas-area.spec.md|canvas-area]] `src/renderer/components/CanvasArea.ts`
+- **monaco-editor-plugin** `src/renderer/components/MonacoEditorPlugin.ts` — tab context menu (close, close others, copy path)
+- **file-explorer-plugin** `src/renderer/components/FileExplorerPlugin.ts` — file/folder context menu (new, rename, delete, copy)
+- **markdown-plugin** `src/renderer/components/MarkdownPlugin.ts` — tab context menu (close, copy path)
+- **canvas-area** `src/renderer/components/CanvasArea.ts` — canvas right-click context menu
+
+## IPC Channels
+
+None.
 
 ## Interface
 
-### Methods
+### Types
 
-- **constructor** `(items: ContextMenuItem[], x: number, y: number)` — Creates positioned menu with items, closes any existing context menu
-- **remove** `(): void` — Removes the menu DOM element and triggers onClose
+- **ContextMenuItem** — `{ label: string; action: () => void; separator?: boolean }`
 
-### Properties
+### Classes
 
-- **onClose**: (() => void) | null — Callback invoked when menu is closed
+- **ContextMenu**
+  - **static show** `(items: ContextMenuItem[], x: number, y: number): ContextMenu` — renders menu at position, returns instance
+  - **static hide** `(): void` — dismisses current menu
+  - **close** `(): void` — instance dismiss
+
+## State
+
+Menu item list, position, visibility.
 
 ## Lifecycle
 
-- **created_by:** Right-click event handler in FileExplorerPlugin, MonacoEditorPlugin, MarkdownPlugin, or CanvasArea
-- **destroyed_by:** Click outside menu, or explicit remove() call
+- **created_by:** static `ContextMenu.show()` call
+- **destroyed_by:** click-outside / Escape / item selection
 
+## Test
+
+`src/renderer/components/ContextMenu.test.ts`

@@ -9,37 +9,49 @@ exports: [ThemeColors, defaultDarkTheme, defaultLightTheme, monokaiDarkTheme, mo
 
 # Theme System
 
-Theme singleton managing color palette selection and application. Provides three base themes (Default, Monokai, Idol) each with dark and light variants. Exports typed ThemeColors for each variant. apply() sets 14 CSS custom properties (--bg, --surface, --panel, --primary, --secondary, --tertiary, --border, --accent, --accent2, --green, --amber, --red, --onAccent, --scrim) on document root. Supports setTheme() with legacy name mapping, setDark() toggle, and direct setBase/setMode.
+Dark/light theme manager that sets CSS custom properties on `document.documentElement` at runtime. Maintains current theme state (dark/light) and active palette identifier. Provides six predefined theme palettes: default dark, default light, Monokai dark, Monokai light, Idol dark, Idol light — each defining 20+ color tokens for backgrounds, text, accents, borders, and component surfaces. The `theme` singleton persists preference via `localStorage` and `prefs:save` IPC.
+
+## Dependencies
+
+None — uses only browser `document.documentElement` and `localStorage`.
 
 ## Referenced By
 
-- [[app.spec.md|app]] `src/renderer/components/App.ts`
-- [[top-bar.spec.md|top-bar]] `src/renderer/components/TopBar.ts`
-- [[monaco-editor-plugin.spec.md|monaco-editor-plugin]] `src/renderer/components/MonacoEditorPlugin.ts`
-- [[theme-modal.spec.md|theme-modal]] `src/renderer/components/ThemeModal.ts`
-- [[ai-drawer.spec.md|ai-drawer]] `src/renderer/components/AiDrawer.ts`
+- **app** `src/renderer/components/App.ts` — calls `theme.toggle()` on theme button click
+- **top-bar** `src/renderer/components/TopBar.ts` — calls `theme.toggle()` from View menu
+- **monaco-editor-plugin** `src/renderer/components/MonacoEditorPlugin.ts` — reads `theme.isDark` to set Monaco theme
+- **theme-modal** `src/renderer/components/ThemeModal.ts` — calls `theme.setTheme()` for palette switching
+
+## IPC Channels
+
+- `prefs:save` — persists theme preference across sessions
 
 ## Interface
 
-### Methods
+### Types
 
-- **setBase** `(base: string): void` — Switch base palette preserving current mode
-- **setMode** `(mode: string): void` — Switch dark/light preserving current base
-- **setTheme** `(base: string, mode?: string): void` — Set both base and mode with legacy name fallback mapping
-- **setDark** `(dark: boolean): void` — Toggle to default dark or light
-- **toggle** `(): void` — Flip between dark and light on the current base
-- **apply** `(): void` — Apply all 14 CSS custom properties to document root
+- **ThemeColors** — interface with 24 color slots: `bgPrimary`, `bgSecondary`, `bgTertiary`, `bgOverlay`, `textPrimary`, `textSecondary`, `textMuted`, `accentPrimary`, `accentSecondary`, `borderColor`, `borderRadius`, `fontMono`, `fontSizeSm`, `fontSizeBase`, `fontSizeLg`, `spacingXs`, `spacingSm`, `spacingMd`, `spacingLg`, plus card/modal/terminal/markdown-specific slots
 
-### Properties
+### Classes
 
-- **base**: string — Active base palette name: 'default', 'monokai', or 'idol'
-- **mode**: string — Active mode: 'dark' or 'light'
-- **themeName**: string — Composite name e.g. 'default-dark'
-- **isDark**: boolean — True if current mode is dark
-- **colors**: ThemeColors — Computed color object for the active theme
+- **Theme** — singleton theme manager
+  - **isDark** `boolean` — current dark mode state
+  - **currentPalette** `string` — active palette identifier
+  - **toggle** `(): void` — toggles dark/light
+  - **setTheme** `(paletteName: string): void` — applies named palette
+  - **apply** `(colors: ThemeColors): void` — sets CSS custom properties on `:root`
+  - **savePreference** `(): Promise<void>` — persists via `prefs:save`
+  - **loadPreference** `(): Promise<void>` — restores from localStorage + `prefs:load`
+
+### Instances
+
+- **theme** `Theme` — global singleton
 
 ## Lifecycle
 
-- **created_by:** Module import (singleton instantiates and calls apply() immediately)
-- **destroyed_by:** Page navigation/unload
+- **created_by:** module import (singleton)
+- **destroyed_by:** never (persists for app lifetime)
 
+## Test
+
+`src/renderer/theme.test.ts`

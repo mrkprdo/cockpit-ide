@@ -9,25 +9,39 @@ exports: [ThemeModal]
 
 # Theme Modal
 
-Theme selection dialog opened from Tools > Theme. Presents radio buttons for base palette (Default, Monokai, Idol) and mode (Dark, Light) with Cancel/Apply buttons. On Apply, calls theme.setTheme() with the selected values and triggers canvas refresh/theme update. Reads current theme state from the singleton for default selection. Escape key or clicking overlay dismisses without applying.
+Theme settings dialog that displays available theme palettes as clickable color swatches (default dark, default light, Monokai dark, Monokai light, Idol dark, Idol light). Each swatch previews the palette's primary colors. Clicking a swatch calls `theme.setTheme()`, which updates CSS custom properties and persists the preference. Includes a dark/light mode toggle button at the top.
 
 ## Dependencies
 
-- [[theme.spec.md|theme]] `src/renderer/theme.ts` — Reads theme.base and theme.mode for default radio selection; calls theme.setTheme() on apply
+- **theme** `../theme` — calls `theme.setTheme()` to apply selected palette
 
 ## Referenced By
 
-- [[app.spec.md|app]] `src/renderer/components/App.ts`
+- **app** `src/renderer/components/App.ts` — opens via View → Theme Settings menu
+
+## IPC Channels
+
+None — delegates to theme singleton which uses `prefs:save`.
 
 ## Interface
 
-### Methods
+### Classes
 
-- **constructor** `()` — Builds modal overlay with theme/mode radio groups and Cancel/Apply buttons
-- **open** `(onClose?: () => void): void` — Displays modal with current theme pre-selected and optional on-close callback
+- **ThemeModal**
+  - **constructor** `(): ThemeModal` — creates modal DOM with theme swatch grid
+  - **open** `(): void` — shows modal with current theme highlighted
+  - **close** `(): void` — hides modal
+  - **onClose** — callback `() => void`
+
+## State
+
+Modal visibility only; theme state delegated to `theme` singleton.
 
 ## Lifecycle
 
-- **created_by:** App constructor
-- **destroyed_by:** Page unload
+- **created_by:** `App` constructor (singleton)
+- **destroyed_by:** App destruction
 
+## Test
+
+`src/renderer/components/ThemeModal.test.ts`

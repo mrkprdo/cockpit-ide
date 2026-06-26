@@ -2,49 +2,59 @@
 name: Markdown Plugin
 file: src/renderer/components/MarkdownPlugin.ts
 type: ui
-layer: widget
+layer: plugin
 singleton: false
-exports: [MarkdownPlugin, MarkdownState]
+exports: [MarkdownState, MarkdownPlugin]
 ---
 
 # Markdown Plugin
 
-Tabbed Markdown preview viewer. Loads .md files via electronAPI.fs.readFile, renders them to styled HTML using the 'marked' library with a custom Renderer that escapes raw HTML and prevents javascript: links. Supports multiple tabs with drag-and-drop reorder, close buttons, middle-click close, right-click context menu (Close/Close Others/Close All/Copy Path), external file change auto-reload preserving scroll position, and serializable state (open files, active file, per-tab scroll positions) for session persistence.
+Multi-tab Markdown preview viewer plugin. Renders `.md` files as HTML using the `marked` library with syntax-highlighted code blocks. Manages a tab bar for multiple open markdown files, each tab rendering into a scrollable content area. Supports: opening files via `fs:readFile`, tab switching, tab close with context menu, auto-reload on external file changes via `file:changed` listener, and copy file path from tab context menu.
 
 ## Dependencies
 
-- [[context-menu.spec.md|context-menu]] `src/renderer/components/ContextMenu.ts` — Opens right-click context menu on tabs with close/reorder/copy-path actions
+- **context-menu** `./ContextMenu` — right-click context menu on markdown tabs (close, close others, copy path)
 
 ## Referenced By
 
-- [[canvas-area.spec.md|canvas-area]] `src/renderer/components/CanvasArea.ts`
+- **canvas-area** `src/renderer/components/CanvasArea.ts` — creates markdown viewer cards
 
 ## IPC Channels
 
-- `fs:readFile`
-- `file:changed`
+- `fs:readFile` — loads markdown file content for rendering
+- `file:changed` — listener for auto-reload on external changes
+- `clipboard:writeText` — copies file path from tab context menu
 
 ## Interface
 
-### Methods
+### Types
 
-- **constructor** `(container: HTMLElement)` — Builds tab bar, preview area, wires file change listener
-- **loadFile** `(filePath: string): Promise<void>` — Loads a .md file, creates a tab, switches to it, renders preview
-- **getState** `(): MarkdownState` — Returns serializable state: open files, active file, per-tab scroll positions
-- **restoreState** `(state: MarkdownState): Promise<void>` — Restores tabs and scroll positions from saved state, includes legacy single-file format support
-- **destroy** `(): void` — Cleans up file change listener
+- **MarkdownState** — `{ tabs: { filePath: string; title: string }[]; activeTab: string }`
 
-### Properties
+### Classes
 
-- **title**: string — Card title (set by CanvasArea)
-- **onDestroy**: (() => void) | null — Cleanup callback
+- **MarkdownPlugin**
+  - **constructor** `(container: HTMLElement): MarkdownPlugin` — creates tab bar + content area
+  - **openFile** `(filePath: string): Promise<void>` — loads and renders markdown file
+  - **closeTab** `(filePath: string): void` — closes tab
+  - **getActiveFilePath** `(): string | null`
+  - **destroy** `(): void` — cleans up listeners
+  - **onFocus** — callback `() => void`
+  - **onClose** — callback `() => void`
+
+## State
+
+Serialized as `MarkdownState` with open tabs and active tab index. Restored on workspace load.
 
 ## Lifecycle
 
-- **created_by:** CanvasArea.addMarkdown()
-- **destroyed_by:** CanvasArea.terminateCard()
+- **created_by:** `CanvasArea.createMarkdownViewer()` when opening markdown files
+- **destroyed_by:** card close → remove listeners
 
 ## External Dependencies
 
 - `marked`
 
+## Test
+
+`src/renderer/components/MarkdownPlugin.test.ts`

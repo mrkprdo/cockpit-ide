@@ -13,7 +13,7 @@ Cockpit IDE v0.0.1 — spatial/floating-panel IDE built in Electron. Monaco edit
 ## Spec System
 
 - Spec files live in `src/specs/`, one per source module
-- `src/specs/main.spec.json` is the authoritative index
+- `src/specs/main.spec.md` is the authoritative index
 - The SpecsMap plugin (Tools → SpecsMap) visualizes the dependency graph
 - When adding or changing source files, update the corresponding spec
 
@@ -23,11 +23,11 @@ Cockpit IDE v0.0.1 — spatial/floating-panel IDE built in Electron. Monaco edit
 
 Before writing any code, an agent **MUST** complete all three steps below. Skipping any step is not allowed.
 
-> **Spec format reference:** `SPECGEN.md` defines the full JSON schema for every spec tier (root index, feature spec, UI sub-spec), the type/layer taxonomy, and the generation methodology. Read it when writing or updating any `src/specs/*.spec.json` file.
+> **Spec format reference:** `SPECGEN.md` defines the full Markdown spec format for every spec tier (root index, feature spec, UI sub-spec), the type/layer taxonomy, and the generation methodology. Read it when writing or updating any `src/specs/*.spec.md` file.
 
 ### Step 1 — Read the spec
 
-Find the relevant `src/specs/<feature>.spec.json` (and its `*-ui.spec.json` if it exists). Read it fully. This is the authoritative contract for the feature: public interface, IPC channels, DOM structure, interactions, and states. The spec schema is defined in `SPECGEN.md`.
+Find the relevant `src/specs/<feature>.spec.md` (and its `*-ui.spec.md` if it exists). Read it fully. This is the authoritative contract for the feature: public interface, IPC channels, DOM structure, interactions, and states. The spec schema is defined in `SPECGEN.md`.
 
 ### Step 2 — Traverse neighboring implementations and shared UI
 
@@ -45,7 +45,7 @@ Use the gathered information to make the change. Specifically:
 - **Spec first**: if the spec is wrong or incomplete, fix the spec file **before** (or alongside) the source change — not after.
 - **Consistency**: mirror the structure of peer implementations. If similar features have `open()` / `close()` as public/private methods, follow that pattern exactly. Match CSS class naming, DOM nesting depth, event delegation style.
 - **Ripple check**: after the change, re-read the neighboring feature source to confirm no callsite broke silently. Optional chaining (`?.`) hides many failures at runtime — verify the method actually exists where it's called.
-- **Spec update**: update the affected `src/specs/*.spec.json` to reflect any changed interface, IPC channels, DOM structure, or interaction behavior before considering the task done.
+- **Spec update**: update the affected `src/specs/*.spec.md` to reflect any changed interface, IPC channels, DOM structure, or interaction behavior before considering the task done.
 
 > **Why this matters:** Bugs in this codebase have repeatedly come from changes applied without reading peers — wrong method names called via `?.` (silent failure), sync/async mismatches across the IPC boundary, private methods listed in public interfaces, duplicate initialization blocks. The spec+traverse protocol catches these before they ship.
 
@@ -126,9 +126,9 @@ D:\cockpit_ide\
 │   │       ├── Tutorial.ts        # Interactive guided tutorial overlay (~324 lines)
 │   │       └── Tutorial.test.ts   # Tutorial step navigation tests (~179 lines)
 │   ├── specs/
-│   │   ├── main.spec.json         # Root specs index: features, IPC, shortcuts, dep graph
-│   │   ├── *.spec.json            # 28 feature specs (one per non-test source file)
-│   │   └── *-ui.spec.json         # 7 UI sub-specs (DOM details, interactions, states)
+│   │   ├── main.spec.md           # Root specs index: features, IPC, shortcuts, dep graph
+│   │   ├── *.spec.md              # Feature specs (one per non-test source file)
+│   │   └── *-ui.spec.md           # UI sub-specs (DOM details, interactions, states)
 │   └── test/
 │       ├── README.md              # Test infrastructure docs (23 files, 755 tests)
 │       ├── setup.ts               # Global mocks: IPC, Canvas, xterm, DOM, ResizeObserver

@@ -1,127 +1,138 @@
 ---
 name: SpecsMap Plugin UI
-file: src/renderer/components/SpecsMapPlugin.ts
-type: ui
-layer: plugin
-singleton: false
-exports: []
+parent: specsmap-plugin
 ---
 
 # SpecsMap Plugin UI
 
-UI sub-spec for the SpecsMap dependency graph visualizer: SVG edge rendering, node layout by layer, search/filter, detail panel, cycle analysis, and settings panel.
+DOM structure, graph visualization, spec generation, and snapshot interactions for the SpecsMap plugin.
 
 ## DOM Structure
 
-```json
-{
-  "root": ".sm-container (flex column)",
-  "structure": {
-    "header": {
-      "elements": [
-        ".sm-header-sub (instruction text)",
-        ".sm-header-path (specs dir path)",
-        ".sm-validation-badge (validation status)",
-        ".sm-search-btn (search toggle)",
-        ".sm-cycle-btn (settings gear icon)",
-        ".sm-fit-btn (eye icon - reset view)",
-        ".sm-refresh-btn (refresh icon)"
-      ]
-    },
-    "search_bar": ".sm-search-bar (conditionally visible): input + results count",
-    "viewport": {
-      "type": "overflow:hidden container",
-      "children": [
-        "svg.sm-edges-layer (SVG path elements for dependency edges)",
-        ".sm-nodes-layer (positioned div nodes)"
-      ]
-    },
-    "node": {
-      "structure": ".sm-node with header (layer-colored bar), name, source file, layer badge",
-      "sizes": "280x100 for feature nodes, 230x62 for UI sub-spec nodes",
-      "colors": {
-        "foundation": "var(--green)",
-        "core": "var(--accent)",
-        "widget": "var(--accent2)",
-        "modal": "var(--amber)",
-        "overlay": "var(--red)",
-        "plugin": "var(--secondary)"
-      }
-    },
-    "detail_panel": ".sm-panel (slide-in from right, 320px wide): shows full spec JSON"
-  }
-}
+```
+.card-body (PluginCard body container)
+└── .specsmap-layout | display: flex; flex-direction: column; height: 100%
+    ├── .specsmap-toolbar | flex row
+    │   ├── button.specsmap-load (load specs from workspace)
+    │   ├── button.specsmap-generate (generate/regenerate specs)
+    │   ├── button.specsmap-snapshot (save snapshot)
+    │   ├── button.specsmap-restore (restore from snapshot)
+    │   ├── button.specsmap-verify (verify integrity)
+    │   └── button.specsmap-prompt (copy AI prompt)
+    ├── .specsmap-graph | flex: 1; position: relative
+    │   └── svg.specsmap-svg (force-directed graph)
+    │       ├── circle.specsmap-node[] (feature nodes, colored by type/layer)
+    │       ├── text.specsmap-label[] (feature name labels)
+    │       └── line.specsmap-edge[] (dependency arrows, arrowhead markers)
+    └── .specsmap-status (status bar: file count, generation date, hash)
 ```
 
 ## Interactions
 
-### hover on .sm-node
+### Load Specs
 
-Highlights the node and its dependency edges; dims unrelated nodes
+- **trigger:** Click "Load Specs" button or on mount
+- `fs:readDir` → list `src/specs/*.spec.md` files
+- `fs:readFile` each spec → parse YAML frontmatter + markdown sections
+- Build dependency graph (nodes = features, edges = dependencies/referenced-by)
+- Render force-directed graph via SVG
+- **result:** Visual graph displayed, node count shown in status bar
 
-### click on .sm-node
+### Generate Specs
 
-Opens detail panel with full spec data; shows source file link
+- **trigger:** Click "Generate Specs" button
+- Confirm dialog: "Regenerate all spec files from source code audit?"
+- On confirm:
+  - `fs:readDir` workspace for all source files (non-test)
+  - `fs:readFile` each source file → classify type/layer, extract imports/exports
+  - For each source file: generate feature spec with frontmatter + sections
+  - For qualifying UI components: generate UI sub-spec
+  - `fs:writeFile` each spec to `src/specs/`
+  - Generate `main.spec.md` index
+  - `fs:writeFile` main.spec.md
+- **result:** All spec files regenerated from current source code
 
-### mouse drag on viewport background
+### Save Snapshot
 
-Pans the graph viewport
+- **trigger:** Click "Save Snapshot" button
+- `fs:mkdir` `.cockpit/` directory if needed
+- Read all current spec files + source hash
+- `fs:writeFile` snapshot to `.cockpit/specs-snapshot.json`
+- **result:** Current spec state saved for later comparison/restore
 
-### wheel on viewport
+### Restore Snapshot
 
-Zooms in/out centered on mouse position
+- **trigger:** Click "Restore Snapshot" button
+- `fs:readFile` from `.cockpit/specs-snapshot.json`
+- Confirm dialog: "Restore all spec files from snapshot?"
+- `fs:writeFile` each spec from snapshot data
+- **result:** Spec files restored to snapshotted state
 
-### click on .sm-search-btn
+### Verify Integrity
 
-Toggles search bar; focuses input
+- **trigger:** Click "Verify Integrity" button
+- Read `SPECGEN_HASH` from `specgen-hash.ts`
+- Compare with workspace's SPECGEN.md content hash
+- Read all spec files, validate format (required frontmatter fields, required sections)
+- Check: every `## Dependencies` entry matches an actual `file:` frontmatter field in another spec
+- Report: "All checks passed ✓" or list of integrity violations
+- **result:** Validation report displayed in status area
 
-### input in search bar
+### Copy AI Prompt
 
-Filters nodes by name; highlights matching results with keyboard navigation
+- **trigger:** Click "Copy Prompt" button
+- Build generation prompt from SPECGEN.md template + workspace context
+- `clipboard:writeText` IPC with prompt
+- "Prompt copied!" toast notification
+- **result:** AI-ready spec generation prompt in clipboard
 
-### Enter in search bar
+### Graph Pan/Zoom
 
-Focuses on the first/next search result node
+- **trigger:** Mouse wheel over SVG, or drag on `.specsmap-graph`
+- Standard SVG transform (translate + scale) for pan/zoom
+- Node labels scale inversely to remain readable at all zoom levels
+- **result:** Graph navigable
 
-### click on .sm-refresh-btn
+### Node Click
 
-Reloads all spec files from disk and rebuilds graph
-
-### click on .sm-fit-btn
-
-Fits all nodes into visible viewport
-
-### click on .sm-cycle-btn
-
-Opens settings panel with layer visibility toggles
+- **trigger:** Click on `.specsmap-node` circle
+- Highlight node, highlight connected edges, dim unrelated nodes
+- Show tooltip with feature details: type, layer, exports, dependency count
+- **result:** Feature detail inspection
 
 ## States
 
-### empty
+### Empty (No Specs)
 
-No spec files found; shows empty state message
+"0 spec files found. Click Generate to create specs from source code."
 
-### graph-loaded
+### Loaded
 
-All nodes and edges rendered; interaction enabled
+Graph rendered, node count displayed, toolbar buttons all enabled.
 
-### detail-open
+### Generating
 
-Detail panel visible showing selected node spec data
+Progress indicator: "Scanning files...", "Classifying...", "Writing specs..." with file count.
 
-### search-active
+### Generation Complete
 
-Search bar open with filter results highlighted
+"Generated N spec files" status, graph auto-reloaded with new data.
 
-### cycle-mode
+### Integrity Pass
 
-Cycle analysis active showing dependency layers with colored highlights
+Green checkmark + "All checks passed. N features, M dependencies valid."
 
-### isolated-mode
+### Integrity Fail
 
-Only the selected node and its direct dependencies/dependents visible
+Red × + "N issues found: [list]" with clickable issue details.
 
-### validation-error
+### Snapshot Restored
 
-Validation badge shows count of broken references (dependencies with no matching spec)
+"Restored N spec files from snapshot [date]" status message.
 
+## Accessibility
+
+- **Tab:** Navigate toolbar buttons
+- **Arrow keys:** Pan graph view
+- **+/-:** Zoom graph
+- **Enter:** Activate focused button

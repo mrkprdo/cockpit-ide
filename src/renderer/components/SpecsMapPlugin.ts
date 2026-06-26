@@ -1026,7 +1026,12 @@ export class SpecsMapPlugin {
 
     const sourceToSpec = new Map<string, string>();
     for (const [filename, data] of this.specRawMap) {
-      if (data.file) sourceToSpec.set(data.file.split('/').pop()!, filename);
+      if (data.file) {
+        const base = data.file.split('/').pop()!;
+        sourceToSpec.set(base, filename);
+        const stem = base.replace(/\.[^.]+$/, '');
+        if (stem !== base) sourceToSpec.set(stem, filename);
+      }
     }
 
     const rawNodes: SpecNode[] = [];

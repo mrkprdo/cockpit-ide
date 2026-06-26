@@ -1,87 +1,109 @@
 ---
 name: File Explorer Plugin UI
-file: src/renderer/components/FileExplorerPlugin.ts
-type: ui
-layer: widget
-singleton: false
-exports: []
+parent: file-explorer-plugin
 ---
 
 # File Explorer Plugin UI
 
-UI sub-spec for the recursive file tree browser: DOM structure, tree rendering, inline editing, context menus, and drag-drop interactions.
+DOM structure, tree navigation, context menu interactions, and states for the recursive file tree browser.
 
 ## DOM Structure
 
-```json
-{
-  "root": ".file-explorer (flex column)",
-  "structure": {
-    "header": "Root directory name uppercase, accent color, border-bottom",
-    "tree": ".tree (flex:1, overflow:auto) containing recursive .dir-entry and .file-entry elements",
-    "entry": {
-      "structure": "display:flex, padding-left indented by depth*16px",
-      "file_colors": {
-        ".ts/.tsx/.js/.jsx/.mjs/.cjs": "var(--accent)",
-        ".css/.scss/.sass/.less": "var(--accent2)",
-        ".json/.yaml/.yml/.toml/.env": "var(--amber)",
-        ".md/.txt/.rst/.mdx": "var(--green)",
-        "other": "var(--secondary)"
-      }
-    }
-  }
-}
+```
+.card-body (PluginCard body container)
+└── .file-tree | overflow-y: auto
+    └── .tree-node[] (recursive, one per directory/file)
+        ├── .tree-row
+        │   ├── .tree-toggle (▶/▼ for directories, empty for files)
+        │   ├── .tree-icon (📁 folder / 📄 file emoji or SVG)
+        │   └── .tree-name (file/directory name)
+        └── .tree-children[] (nested child nodes, hidden when collapsed)
 ```
 
 ## Interactions
 
-### click on .dir-entry
+### Directory Expand/Collapse
 
-Toggles expansion of directory children; adds/removes from this.expanded Set
+- **trigger:** Click on `.tree-toggle` (▶/▼) or double-click directory name
+- `▶` → `fs:readDir` IPC to load children → append child nodes → toggle to `▼`
+- `▼` → hide children (CSS `display: none`) → toggle to `▶`
+- **result:** Directory contents revealed or hidden
 
-### click on .file-entry
+### File Select
 
-Calls onFileOpen(path); highlights file with .is-file-selected class
+- **trigger:** Single click on file row
+- Highlight row with `.selected` class
+- Store selected path for context menu target
+- **result:** File visually selected
 
-### right-click on file
+### File Open
 
-Opens ContextMenu with: Open, Rename, Delete, Copy Path, and optional Markdown openers
+- **trigger:** Double-click file row, or Enter key on selected file
+- Fire `onOpenFile(filePath)` callback → parent opens in editor
+- **result:** File opens in MonacoEditorPlugin (standalone or in ExplorerPlugin split)
 
-### right-click on empty area
+### Context Menu (Right-Click)
 
-Opens ContextMenu with: New File, New Folder, Paste (if copiedPath is set)
+- **trigger:** Right-click on `.tree-row`
+- `ContextMenu.show()` with:
+  - New File → `fs:writeFile` IPC with empty content → refresh tree
+  - New Folder → `fs:mkdir` IPC → refresh tree
+  - Rename → inline text input replaces `.tree-name` → `fs:rename` IPC on Enter
+  - Delete → `ConfirmModal.show("Delete X?")` → `fs:delete` IPC on confirm
+  - Copy → store path in clipboard-like buffer → `fs:copy` on paste
+  - Paste → write buffer content to current location
+- **result:** File operation executed, tree refreshed
 
-### Enter on inline rename input
+### Auto-Refresh (External Changes)
 
-Commits rename via fs.rename, reloads tree
+- **trigger:** `file:changed` IPC listener fires
+- Debounce 500ms → `refresh()` re-reads tree root
+- Preserve expanded state
+- **result:** Tree reflects filesystem changes without manual refresh
 
-### Enter on inline create input
+### Keyboard Navigation
 
-Creates file/folder via fs.writeFile/fs.mkdir, reloads tree
-
-### Escape on inline input
-
-Cancels inline edit, removes input row, restores original element display
+- **trigger:** Arrow keys on focused tree
+- Up/Down: move selection highlight
+- Right: expand selected directory
+- Left: collapse selected directory (or move to parent)
+- Enter: open selected file / toggle directory
+- **result:** Full keyboard tree navigation
 
 ## States
 
-### loading
+### Loading
 
-Tree shows 'Loading...' placeholder while fs.readDir resolves
+Tree root shows "Loading..." or spinner while `fs:readDir` resolves.
 
-### empty-workspace
+### Empty Directory
 
-Shows 'No workspace' when rootPath is empty
+Single message node: "(empty directory)" in muted text.
 
-### error
+### Expanded
 
-Shows 'Unable to read directory' when fs.readDir returns null
+Directory shows children indented below, toggle shows `▼`.
 
-### renaming
+### Collapsed
 
-Original element hidden, inline input shown for rename
+Directory children hidden, toggle shows `▶`.
 
-### creating
+### Selected
 
-Inline input shown at insertion point for new file/folder
+Row highlighted with `--accent-primary` background, context menu target.
 
+### Renaming
+
+`.tree-name` replaced by `input[type=text]` for inline rename, Escape cancels, Enter commits.
+
+### Error
+
+Red error message if `fs:readDir` fails (permissions, deleted path).
+
+## Accessibility
+
+- **Tab:** Focus tree container
+- **Arrow keys:** Navigate tree
+- **Enter:** Open/toggle selected node
+- **F2:** Rename selected file
+- **Delete:** Delete selected file (shows ConfirmModal)

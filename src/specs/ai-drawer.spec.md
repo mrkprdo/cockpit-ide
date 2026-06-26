@@ -9,51 +9,73 @@ exports: [AiDrawer]
 
 # AI Drawer
 
-Slide-out AI agent panel opened via Tools > AI or the notch button. Implements a full agentic loop: sends user messages to an OpenAI-compatible LLM, executes tool calls against the __cockpit canvas bridge and electronAPI, and renders results as Markdown. Supports three agent modes (AUTO / PLAN / STEP), abort, prompt queuing, mid-run steering, and persistent per-workspace session storage in {workspace}/.cockpit/ai-sessions.json.
+Slide-out AI assistant panel that provides chat-based interaction with an LLM backend. Reads workspace context (file tree, git status, open files) to provide project-aware responses. Supports: chat message input/output, conversation history, code block rendering, file operation suggestions (create/modify/delete), and preference management for API configuration. Uses `localStorage` for chat history persistence and `fetch` for LLM API calls.
 
 ## Dependencies
 
-- [[app.spec.md|app]] `src/renderer/components/App.ts` — Reads `window.__cockpit` for canvas operations (getCanvasState, panToCard, setView, zoomIn, zoomOut, openFile, addPlugin, focusCard, closeCard, moveCard, resizeCard, autoArrange, writeToTerminal, readTerminal, insertInEditor, readEditor, getEditorState, setEditorContent, goToLine, getWorkspacePath, reopenCard, resetView, refreshSpecsMap, regenerateSpecs)
+None — self-contained with IPC and `fetch`.
 
 ## Referenced By
 
-- [[app.spec.md|app]] `src/renderer/components/App.ts`
+- **app** `src/renderer/components/App.ts` — opens via View → AI Chat menu or toolbar button
 
 ## IPC Channels
 
-- `prefs:load`
-- `prefs:save`
-- `fs:readFile`
-- `fs:writeFile`
-- `fs:readDir`
-- `fs:mkdir`
-- `fs:delete`
-- `fs:rename`
-- `fs:copy`
-- `git:currentBranch`
-- `git:stagedFiles`
-- `git:unstagedFiles`
-- `git:unstagedDiff`
-- `git:log`
-- `git:stage`
-- `git:unstage`
-- `git:commit`
-- `git:push`
-- `git:branches`
-- `git:checkout`
-- `shell:openExternal`
-- `clipboard:readText`
-- `clipboard:writeText`
+- `prefs:load` — loads API key and model preferences
+- `prefs:save` — saves API key and model preferences
+- `fs:readFile` — reads file content for context
+- `fs:writeFile` — writes generated files
+- `fs:readDir` — reads directory structure for context
+- `fs:mkdir` — creates directories
+- `fs:delete` — deletes files
+- `fs:rename` — renames files
+- `fs:copy` — copies files
+- `git:currentBranch` — gets branch name for context
+- `git:stagedFiles` — gets staged files for context
+- `git:unstagedFiles` — gets unstaged files for context
+- `git:unstagedDiff` — gets unstaged diff for context
+- `git:log` — gets commit log for context
+- `git:stage` — stages AI-generated files
+- `git:unstage` — unstages files
+- `git:commit` — commits AI changes
+- `git:push` — pushes commits
+- `git:branches` — lists branches
+- `git:checkout` — switches branches
+- `shell:openExternal` — opens external URLs
+- `clipboard:readText` — reads clipboard for paste
+- `clipboard:writeText` — copies response to clipboard
 
 ## Interface
 
-### Methods
+### Classes
 
-- **constructor** `()` — Builds drawer DOM (header with mode bar + sessions/settings buttons, message area, step controls, queue bar, input area with send/abort/steer buttons, settings panel, sessions panel), mounts notch button outside drawer, binds all event listeners, shows welcome message, loads API settings.
-- **toggle** `(): Promise<void>` — Opens or closes the drawer. On open, awaits loadSessions() before showing UI to prevent stale state flash. On close, hides settings and sessions panels.
-- **resetSessions** `(): void` — Clears all session state (sessions, currentSessionId, sessionsLoaded, cockpitDirEnsured, promptQueue, steeringMessage) and shows welcome message. Called by App.loadWorkspace() on workspace change.
+- **AiDrawer**
+  - **constructor** `(): AiDrawer` — creates panel DOM with chat area, input, tabs
+  - **open** `(): void` — slides panel in from right
+  - **close** `(): void` — slides panel out
+  - **toggle** `(): void` — toggles open/close
+  - **sendMessage** `(message: string): Promise<void>` — sends to LLM, renders response
+  - **clearHistory** `(): void` — clears chat history
+  - **getWorkspaceContext** `(): Promise<object>` — gathers git, fs, editor state for LLM
+
+### Properties
+
+- **isOpen** `boolean`
+
+## State
+
+Chat history (persisted in localStorage), API preferences, panel open/close state.
 
 ## Lifecycle
 
-- **created_by:** App constructor — one instance per window
-- **destroyed_by:** Page unload
+- **created_by:** `App` constructor (singleton)
+- **destroyed_by:** App destruction
+
+## External Dependencies
+
+- `fetch` (browser API)
+- `localStorage` (browser API)
+
+## Test
+
+`src/renderer/components/AiDrawer.test.ts`

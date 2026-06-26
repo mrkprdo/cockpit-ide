@@ -1,5 +1,5 @@
 ---
-name: Tutorial Overlay
+name: Tutorial
 file: src/renderer/components/Tutorial.ts
 type: ui
 layer: overlay
@@ -7,24 +7,44 @@ singleton: true
 exports: [Tutorial]
 ---
 
-# Tutorial Overlay
+# Tutorial
 
-Step-by-step interactive tutorial overlay displayed on first launch (or via Help > Tutorial). Shows 15 steps covering: canvas pan/zoom, menu bar, terminal, explorer, file search, markdown viewer, SpecsMap, theme, plugin cards, plugin list, arrange panel, keyboard shortcuts, and links to GitHub repo. Each step renders a tooltip positioned relative to a target element (with ring highlight), or centered for general steps. Supports keyboard navigation (Arrow Left/Right/Escape/Enter), prev/next/done buttons, and a 'Do not show again' checkbox on the final step.
+Interactive guided tutorial overlay that walks first-time users through Cockpit IDE features in sequential steps. Each step highlights a UI element (card, menu, button) with a positioned tooltip explaining its function. Supports: step navigation (Next/Previous/Skip), auto-positioning tooltips near target elements, progress indicator, and a "Learn More" link that opens documentation via `shell:openExternal` IPC. Tracks completion state in localStorage to avoid re-showing.
+
+## Dependencies
+
+None — standalone overlay with document query selectors for element targeting.
 
 ## Referenced By
 
-- [[app.spec.md|app]] `src/renderer/components/App.ts`
+- **app** `src/renderer/components/App.ts` — opens via Help → Tutorial menu or auto-shows on first run
+
+## IPC Channels
+
+- `shell:openExternal` — opens documentation links in default browser
 
 ## Interface
 
-### Methods
+### Classes
 
-- **constructor** `()` — Builds overlay, tooltip, and ring highlight elements; wires keyboard listener
-- **start** `(onClose?: () => void): void` — Shows tutorial at step 0 with optional close callback
-- **getShowOnLaunch** `(): boolean` — Returns whether 'Do not show again' was checked
+- **Tutorial**
+  - **constructor** `(): Tutorial` — creates overlay DOM with tooltip, navigation buttons
+  - **start** `(): void` — begins tutorial from step 0
+  - **next** `(): void` — advances to next step
+  - **previous** `(): void` — returns to previous step
+  - **skip** `(): void` — dismisses tutorial
+  - **isActive** `(): boolean` — checks if tutorial overlay is visible
+  - **onComplete** — callback `() => void`
+
+## State
+
+Current step index, tooltip position, target element reference, completion flag.
 
 ## Lifecycle
 
-- **created_by:** App constructor
-- **destroyed_by:** Page unload
+- **created_by:** `App` constructor (singleton, may not be shown)
+- **destroyed_by:** App destruction
 
+## Test
+
+`src/renderer/components/Tutorial.test.ts`
