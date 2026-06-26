@@ -14,11 +14,13 @@
 
 ---
 
-Cockpit is a spatial IDE built on Electron. Drag your File Explore, Terminal, and Git anywhere on the canvas — stack them, zoom out to see everything at once, open as many instances as you need if applicable. Layout persist and restore exactly as you left them.
+Cockpit is a spatial IDE built on Electron. Drag your Explorer, Terminal, and Git anywhere on the canvas — stack them, zoom out to see everything at once, open as many instances as you need. Layouts persist and restore exactly as you left them.
 
-Monitor your workspace Markdown files in a tabbed Markdown viewer with live file watching. Edit with VSCode style editor, run commands in a full PTY terminal, and browse files in a split-pane explorer — all on a canvas that bends to your workflow, not the other way around.
+Edit with a Monaco editor, run commands in a full PTY terminal, browse files in a split-pane explorer, and preview Markdown — all on a bounded canvas that bends to your workflow, not the other way around.
 
-Generate your project's code graph, by integrating SPECGEN.md and let your LLM efficiently traverse your codebase and produce codebase specifications. Which then you can visualize in SpecsMap. Use this visualization tool and specs document to let AI fix your app efficiently and effectively.
+**Cockpit Agent** is a built-in AI assistant with a full agentic tool loop. Ask it to open files, write code, run terminal commands, stage commits, or rearrange your canvas — all in natural language. It sees your workspace state and acts on it directly.
+
+Generate your project's code graph with SPECGEN and visualize it in SpecsMap. Use the spec documents to let AI traverse your codebase and fix your app efficiently.
 
 <p align="center" width="100%">
 <video src="https://github.com/user-attachments/assets/6c921410-5c9a-4df5-b0e1-c2cf3da64271" width="80%" controls></video>
@@ -27,10 +29,12 @@ Generate your project's code graph, by integrating SPECGEN.md and let your LLM e
 ---
 
 **Explorer** — Monaco editor + resizable file explorer in one card  
-**Terminal** — Full PTY terminal via node-pty + xterm.js  
+**Terminal** — Full PTY terminal via node-pty + xterm.js, multiple instances  
 **Markdown** — Tabbed markdown viewer with live file watching  
 **Git** — Branch visualization, staging, diffs, and commit tooling  
 **SpecsMap** — Live dependency graph of the spec system  
+**Cockpit Agent** — Built-in AI with canvas, file, editor, terminal, and git control  
+**File Search** — `Ctrl+P` fuzzy file finder across the workspace  
 
 ---
 
