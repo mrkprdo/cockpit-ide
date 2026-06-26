@@ -2,46 +2,109 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SpecsMapPlugin } from './SpecsMapPlugin';
 import { mockElectronAPI } from '../../test/setup';
 
-const MAIN_SPEC = JSON.stringify({
-  features: {
-    core: [
-      { id: 'theme', name: 'Theme', file: 'theme.ts', spec: 'theme.spec.json' },
-      { id: 'canvas-engine', name: 'Canvas Engine', file: 'CanvasArea.ts', spec: 'canvas-engine.spec.json', ui: 'canvas-engine-ui.spec.json' },
-    ],
-    widget: [
-      { id: 'plugin-card', name: 'Plugin Card', file: 'PluginCard.ts', spec: 'plugin-card.spec.json' },
-    ],
-    plugins: [
-      { id: 'terminal-plugin', name: 'Terminal Plugin', file: 'TerminalPlugin.ts', spec: 'terminal-plugin.spec.json' },
-    ],
-  },
+// ── MD spec helpers ──────────────────────────────────────────────────────────
+
+function makeSpecMd(data: {
+  name: string;
+  file?: string;
+  parent?: string;
+  type?: string;
+  layer?: string;
+  singleton?: boolean;
+  exports?: string[];
+  dependencies?: Array<{ feature: string; file: string; usage?: string }>;
+  referenced_by?: Array<{ feature: string; file: string }>;
+  ipc?: string[];
+}): string {
+  let fm = '---\n';
+  if (data.name) fm += `name: ${data.name}\n`;
+  if (data.parent) fm += `parent: ${data.parent}\n`;
+  if (data.file) fm += `file: ${data.file}\n`;
+  if (data.type) fm += `type: ${data.type}\n`;
+  if (data.layer) fm += `layer: ${data.layer}\n`;
+  if (data.singleton !== undefined) fm += `singleton: ${data.singleton}\n`;
+  if (data.exports) fm += `exports: [${data.exports.join(', ')}]\n`;
+  fm += '---\n\n';
+
+  let md = fm + `# ${data.name}\n\n`;
+
+  if (data.dependencies?.length) {
+    md += '## Dependencies\n\n';
+    for (const d of data.dependencies) {
+      md += `- **${d.feature}** \`${d.file}\``;
+      if (d.usage) md += ` — ${d.usage}`;
+      md += '\n';
+    }
+    md += '\n';
+  }
+
+  if (data.referenced_by?.length) {
+    md += '## Referenced By\n\n';
+    for (const r of data.referenced_by) md += `- **${r.feature}** \`${r.file}\`\n`;
+    md += '\n';
+  }
+
+  if (data.ipc?.length) {
+    md += '## IPC Channels\n\n';
+    for (const ch of data.ipc) md += `- \`${ch}\`\n`;
+    md += '\n';
+  }
+
+  return md;
+}
+
+function makeMainMd(features: Record<string, Array<{ id: string; name: string; file: string; spec: string; ui?: string }>>): string {
+  let md = '---\nname: Test Project\n---\n\n# Test Project\n\n## Features\n\n';
+  for (const [layer, items] of Object.entries(features)) {
+    md += `### ${layer}\n\n| id | name | file | spec | ui |\n|----|------|------|------|----|` + '\n';
+    for (const f of items) md += `| ${f.id} | ${f.name} | ${f.file} | ${f.spec} | ${f.ui ?? ''} |\n`;
+    md += '\n';
+  }
+  return md;
+}
+
+// ── Fixture data ─────────────────────────────────────────────────────────────
+
+const MAIN_SPEC = makeMainMd({
+  core: [
+    { id: 'theme', name: 'Theme', file: 'theme.ts', spec: 'theme.spec.md' },
+    { id: 'canvas-engine', name: 'Canvas Engine', file: 'CanvasArea.ts', spec: 'canvas-engine.spec.md', ui: 'canvas-engine-ui.spec.md' },
+  ],
+  widget: [
+    { id: 'plugin-card', name: 'Plugin Card', file: 'PluginCard.ts', spec: 'plugin-card.spec.md' },
+  ],
+  plugins: [
+    { id: 'terminal-plugin', name: 'Terminal Plugin', file: 'TerminalPlugin.ts', spec: 'terminal-plugin.spec.md' },
+  ],
 });
 
 const SPEC_FILES: Record<string, string> = {
-  'theme.spec.json': JSON.stringify({
+  'theme.spec.md': makeSpecMd({
     name: 'Theme', file: 'src/renderer/theme.ts', type: 'logic', layer: 'core',
     dependencies: [],
     referenced_by: [{ feature: 'Canvas Engine', file: 'CanvasArea.ts' }],
   }),
-  'canvas-engine.spec.json': JSON.stringify({
+  'canvas-engine.spec.md': makeSpecMd({
     name: 'Canvas Engine', file: 'src/renderer/components/CanvasArea.ts', type: 'ui', layer: 'core',
     dependencies: [{ feature: 'Theme', file: 'theme.ts', usage: 'Uses theme singleton' }],
     referenced_by: [{ feature: 'Plugin Card', file: 'PluginCard.ts' }],
   }),
-  'canvas-engine-ui.spec.json': JSON.stringify({
-    name: 'Canvas Engine UI', parent: 'canvas-engine', ui: true,
+  'canvas-engine-ui.spec.md': makeSpecMd({
+    name: 'Canvas Engine UI', parent: 'canvas-engine',
   }),
-  'plugin-card.spec.json': JSON.stringify({
+  'plugin-card.spec.md': makeSpecMd({
     name: 'Plugin Card', file: 'src/renderer/components/PluginCard.ts', type: 'ui', layer: 'widget',
     dependencies: [{ feature: 'Canvas Engine', file: 'CanvasArea.ts' }],
     referenced_by: [],
   }),
-  'terminal-plugin.spec.json': JSON.stringify({
+  'terminal-plugin.spec.md': makeSpecMd({
     name: 'Terminal Plugin', file: 'src/renderer/components/TerminalPlugin.ts', type: 'ui', layer: 'plugin',
     dependencies: [],
     referenced_by: [{ feature: 'Canvas Engine', file: 'CanvasArea.ts' }],
   }),
 };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeContainer(): HTMLElement {
   const el = document.createElement('div');
@@ -73,9 +136,9 @@ describe('SpecsMapPlugin', () => {
     );
     (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
       const filename = path.split('/').pop()!;
-      if (filename === 'main.spec.json') return Promise.resolve(MAIN_SPEC);
+      if (filename === 'main.spec.md') return Promise.resolve(MAIN_SPEC);
       if (SPEC_FILES[filename]) return Promise.resolve(SPEC_FILES[filename]);
-      return Promise.resolve('{}');
+      return Promise.resolve(null);
     });
   });
 
@@ -102,11 +165,11 @@ describe('SpecsMapPlugin', () => {
     expect(mockElectronAPI.fs.readFile).toHaveBeenCalled();
   });
 
-  it('reads main.spec.json via fs.readFile', async () => {
+  it('reads main.spec.md via fs.readFile', async () => {
     new SpecsMapPlugin(container, '/test/ws');
     await flushSpecs();
     const calls = (mockElectronAPI.fs.readFile as any).mock.calls as string[][];
-    const mainCall = calls.find((c: string[]) => c[0].includes('main.spec.json'));
+    const mainCall = calls.find((c: string[]) => c[0].includes('main.spec.md'));
     expect(mainCall).toBeTruthy();
   });
 
@@ -244,22 +307,19 @@ describe('SpecsMapPlugin', () => {
 
   it('loads from snapshot cache when .cockpit/specsmap.json is valid', async () => {
     const snapNodes = Object.keys(SPEC_FILES).map(filename => {
-      const raw = JSON.parse(SPEC_FILES[filename]);
       return {
-        id: filename, name: raw.name ?? filename, specFile: filename,
-        sourceFile: raw.file ? raw.file.split('/').pop() : '',
-        layer: raw.layer ?? 'core', isUI: !!raw.parent,
-        deps: [], raw,
+        id: filename, name: filename.replace('.spec.md', ''), specFile: filename,
+        sourceFile: '',
+        layer: 'core', isUI: filename.includes('-ui'),
+        deps: [], raw: {},
       };
     });
     const snapshot = JSON.stringify({ v: 1, ts: new Date().toISOString(), nodes: snapNodes });
 
     (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
       if (path.includes('.cockpit/specsmap-')) return Promise.resolve(snapshot);
-      if (path.includes('main.spec.json')) return Promise.resolve(JSON.stringify({
-        name: 'Test Specs', features: { core: [] }
-      }));
-      return Promise.resolve('{}');
+      if (path.includes('main.spec.md')) return Promise.resolve(makeMainMd({ core: [] }));
+      return Promise.resolve(null);
     });
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([]);
 
@@ -270,7 +330,7 @@ describe('SpecsMapPlugin', () => {
     expect(nodes.length).toBe(Object.keys(SPEC_FILES).length);
     // Individual spec files should NOT be read (graph comes from snapshot)
     const specFileCalls = (mockElectronAPI.fs.readFile as any).mock.calls.filter(
-      (c: string[]) => /\.spec\.json$/.test(c[0]) && !c[0].includes('main.')
+      (c: string[]) => /\.spec\.md$/.test(c[0]) && !c[0].includes('main.')
     );
     expect(specFileCalls.length).toBe(0);
   });
@@ -348,20 +408,16 @@ describe('SpecsMapPlugin', () => {
 
   it('toggle in settings panel detects 2-node cycle (A→B→A)', async () => {
     const cyclicSpecFiles: Record<string, string> = {
-      'main.spec.json': JSON.stringify({
-        features: {
-          core: [
-            { id: 'alpha', name: 'Alpha', file: 'alpha.ts', spec: 'alpha.spec.json' },
-            { id: 'beta', name: 'Beta', file: 'beta.ts', spec: 'beta.spec.json' },
-          ],
-        },
-      }),
-      'alpha.spec.json': JSON.stringify({
+      'main.spec.md': makeMainMd({ core: [
+        { id: 'alpha', name: 'Alpha', file: 'alpha.ts', spec: 'alpha.spec.md' },
+        { id: 'beta', name: 'Beta', file: 'beta.ts', spec: 'beta.spec.md' },
+      ] }),
+      'alpha.spec.md': makeSpecMd({
         name: 'Alpha', file: 'src/alpha.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'Beta', file: 'beta.ts' }],
         referenced_by: [{ feature: 'Beta', file: 'beta.ts' }],
       }),
-      'beta.spec.json': JSON.stringify({
+      'beta.spec.md': makeSpecMd({
         name: 'Beta', file: 'src/beta.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'Alpha', file: 'alpha.ts' }],
         referenced_by: [{ feature: 'Alpha', file: 'alpha.ts' }],
@@ -373,7 +429,7 @@ describe('SpecsMapPlugin', () => {
     );
     (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
       const filename = path.split('/').pop()!;
-      return Promise.resolve(cyclicSpecFiles[filename] ?? '{}');
+      return Promise.resolve(cyclicSpecFiles[filename] ?? null);
     });
 
     const c = makeContainer();
@@ -402,14 +458,10 @@ describe('SpecsMapPlugin', () => {
 
   it('toggle in settings panel shows acyclic for single isolated node', async () => {
     const isolatedSpecFiles: Record<string, string> = {
-      'main.spec.json': JSON.stringify({
-        features: {
-          core: [
-            { id: 'solo', name: 'Solo', file: 'solo.ts', spec: 'solo.spec.json' },
-          ],
-        },
-      }),
-      'solo.spec.json': JSON.stringify({
+      'main.spec.md': makeMainMd({ core: [
+        { id: 'solo', name: 'Solo', file: 'solo.ts', spec: 'solo.spec.md' },
+      ] }),
+      'solo.spec.md': makeSpecMd({
         name: 'Solo', file: 'src/solo.ts', type: 'logic', layer: 'core',
         dependencies: [],
         referenced_by: [],
@@ -421,7 +473,7 @@ describe('SpecsMapPlugin', () => {
     );
     (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
       const filename = path.split('/').pop()!;
-      return Promise.resolve(isolatedSpecFiles[filename] ?? '{}');
+      return Promise.resolve(isolatedSpecFiles[filename] ?? null);
     });
 
     const c = makeContainer();
@@ -439,26 +491,22 @@ describe('SpecsMapPlugin', () => {
 
   it('toggle detects 3-node cycle (A→B→C→A) and shows members in panel', async () => {
     const cyclicSpecFiles: Record<string, string> = {
-      'main.spec.json': JSON.stringify({
-        features: {
-          core: [
-            { id: 'a', name: 'A', file: 'a.ts', spec: 'a.spec.json' },
-            { id: 'b', name: 'B', file: 'b.ts', spec: 'b.spec.json' },
-            { id: 'c', name: 'C', file: 'c.ts', spec: 'c.spec.json' },
-          ],
-        },
-      }),
-      'a.spec.json': JSON.stringify({
+      'main.spec.md': makeMainMd({ core: [
+        { id: 'a', name: 'A', file: 'a.ts', spec: 'a.spec.md' },
+        { id: 'b', name: 'B', file: 'b.ts', spec: 'b.spec.md' },
+        { id: 'c', name: 'C', file: 'c.ts', spec: 'c.spec.md' },
+      ] }),
+      'a.spec.md': makeSpecMd({
         name: 'A', file: 'src/a.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'B', file: 'b.ts' }],
         referenced_by: [{ feature: 'C', file: 'c.ts' }],
       }),
-      'b.spec.json': JSON.stringify({
+      'b.spec.md': makeSpecMd({
         name: 'B', file: 'src/b.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'C', file: 'c.ts' }],
         referenced_by: [{ feature: 'A', file: 'a.ts' }],
       }),
-      'c.spec.json': JSON.stringify({
+      'c.spec.md': makeSpecMd({
         name: 'C', file: 'src/c.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'A', file: 'a.ts' }],
         referenced_by: [{ feature: 'B', file: 'b.ts' }],
@@ -470,7 +518,7 @@ describe('SpecsMapPlugin', () => {
     );
     (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
       const filename = path.split('/').pop()!;
-      return Promise.resolve(cyclicSpecFiles[filename] ?? '{}');
+      return Promise.resolve(cyclicSpecFiles[filename] ?? null);
     });
 
     const c = makeContainer();
@@ -485,27 +533,23 @@ describe('SpecsMapPlugin', () => {
 
     // Panel should show cycle count of 1 and contain all 3 node names
     expect(c.textContent).toContain('CYCLES');
-    expect(c.textContent).toContain('a.spec.json');
-    expect(c.textContent).toContain('b.spec.json');
-    expect(c.textContent).toContain('c.spec.json');
+    expect(c.textContent).toContain('a.spec.md');
+    expect(c.textContent).toContain('b.spec.md');
+    expect(c.textContent).toContain('c.spec.md');
   });
 
   it('clicking near a cycle edge midpoint selects that cycle', async () => {
     const cyclicSpecFiles: Record<string, string> = {
-      'main.spec.json': JSON.stringify({
-        features: {
-          core: [
-            { id: 'x', name: 'X', file: 'x.ts', spec: 'x.spec.json' },
-            { id: 'y', name: 'Y', file: 'y.ts', spec: 'y.spec.json' },
-          ],
-        },
-      }),
-      'x.spec.json': JSON.stringify({
+      'main.spec.md': makeMainMd({ core: [
+        { id: 'x', name: 'X', file: 'x.ts', spec: 'x.spec.md' },
+        { id: 'y', name: 'Y', file: 'y.ts', spec: 'y.spec.md' },
+      ] }),
+      'x.spec.md': makeSpecMd({
         name: 'X', file: 'src/x.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'Y', file: 'y.ts' }],
         referenced_by: [{ feature: 'Y', file: 'y.ts' }],
       }),
-      'y.spec.json': JSON.stringify({
+      'y.spec.md': makeSpecMd({
         name: 'Y', file: 'src/y.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'X', file: 'x.ts' }],
         referenced_by: [{ feature: 'X', file: 'x.ts' }],
@@ -517,7 +561,7 @@ describe('SpecsMapPlugin', () => {
     );
     (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
       const filename = path.split('/').pop()!;
-      return Promise.resolve(cyclicSpecFiles[filename] ?? '{}');
+      return Promise.resolve(cyclicSpecFiles[filename] ?? null);
     });
 
     const c = makeContainer();
@@ -556,20 +600,16 @@ describe('SpecsMapPlugin', () => {
 
   it('toggling cycle detection off clears highlights', async () => {
     const cyclicSpecFiles: Record<string, string> = {
-      'main.spec.json': JSON.stringify({
-        features: {
-          core: [
-            { id: 'a', name: 'A', file: 'a.ts', spec: 'a.spec.json' },
-            { id: 'b', name: 'B', file: 'b.ts', spec: 'b.spec.json' },
-          ],
-        },
-      }),
-      'a.spec.json': JSON.stringify({
+      'main.spec.md': makeMainMd({ core: [
+        { id: 'a', name: 'A', file: 'a.ts', spec: 'a.spec.md' },
+        { id: 'b', name: 'B', file: 'b.ts', spec: 'b.spec.md' },
+      ] }),
+      'a.spec.md': makeSpecMd({
         name: 'A', file: 'src/a.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'B', file: 'b.ts' }],
         referenced_by: [{ feature: 'B', file: 'b.ts' }],
       }),
-      'b.spec.json': JSON.stringify({
+      'b.spec.md': makeSpecMd({
         name: 'B', file: 'src/b.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'A', file: 'a.ts' }],
         referenced_by: [{ feature: 'A', file: 'a.ts' }],
@@ -581,7 +621,7 @@ describe('SpecsMapPlugin', () => {
     );
     (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
       const filename = path.split('/').pop()!;
-      return Promise.resolve(cyclicSpecFiles[filename] ?? '{}');
+      return Promise.resolve(cyclicSpecFiles[filename] ?? null);
     });
 
     const c = makeContainer();
@@ -612,40 +652,35 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('toggling isolated mode highlights nodes with no deps/refs', async () => {
-    // Use a node with no dependencies and no references
-    const specFiles: Record<string, string> = {
-      'main.spec.json': JSON.stringify({
-        features: {
-          core: [
-            { id: 'connected', name: 'Connected', file: 'connected.ts', spec: 'connected.spec.json' },
-            { id: 'orphan', name: 'Orphan', file: 'orphan.ts', spec: 'orphan.spec.json' },
-          ],
-        },
-      }),
-      'connected.spec.json': JSON.stringify({
+    const allFiles: Record<string, string> = {
+      'main.spec.md': makeMainMd({ core: [
+        { id: 'connected', name: 'Connected', file: 'connected.ts', spec: 'connected.spec.md' },
+        { id: 'orphan', name: 'Orphan', file: 'orphan.ts', spec: 'orphan.spec.md' },
+        { id: 'theme', name: 'Theme', file: 'theme.ts', spec: 'theme.spec.md' },
+      ] }),
+      'connected.spec.md': makeSpecMd({
         name: 'Connected', file: 'src/connected.ts', type: 'logic', layer: 'core',
         dependencies: [{ feature: 'Theme', file: 'theme.ts' }],
         referenced_by: [],
       }),
-      'orphan.spec.json': JSON.stringify({
+      'orphan.spec.md': makeSpecMd({
         name: 'Orphan', file: 'src/orphan.ts', type: 'logic', layer: 'core',
         dependencies: [],
         referenced_by: [],
       }),
+      'theme.spec.md': makeSpecMd({
+        name: 'Theme', file: 'src/theme.ts', type: 'logic', layer: 'core',
+        dependencies: [],
+        referenced_by: [{ feature: 'Connected', file: 'connected.ts' }],
+      }),
     };
-
-    const allFiles = { ...specFiles, 'theme.spec.json': JSON.stringify({
-      name: 'Theme', file: 'src/theme.ts', type: 'logic', layer: 'core',
-      dependencies: [],
-      referenced_by: [{ feature: 'Connected', file: 'connected.ts' }],
-    }) };
 
     (mockElectronAPI.fs.readDir as any).mockResolvedValue(
       Object.keys(allFiles).map(name => ({ name, isDirectory: false }))
     );
     (mockElectronAPI.fs.readFile as any).mockImplementation((path: string) => {
       const fn = path.split('/').pop()!;
-      return Promise.resolve(allFiles[fn] ?? '{}');
+      return Promise.resolve(allFiles[fn] ?? null);
     });
 
     const c = makeContainer();

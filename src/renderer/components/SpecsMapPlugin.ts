@@ -172,6 +172,225 @@ export class SpecsMapPlugin {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  private parseSpecMd(raw: string): SpecData {
+    const data: SpecData = {};
+    const lines = raw.split('\n');
+    let i = 0;
+
+    if (lines[0] === '---') {
+      i = 1;
+      while (i < lines.length && lines[i] !== '---') {
+        const kv = lines[i].match(/^([a-zA-Z_][a-zA-Z0-9_]*):\s*(.*)$/);
+        if (kv) {
+          const key = kv[1], val = kv[2].trim();
+          if (val === 'true') (data as any)[key] = true;
+          else if (val === 'false') (data as any)[key] = false;
+          else if (/^\[.*\]$/.test(val)) {
+            const inner = val.slice(1, -1).trim();
+            (data as any)[key] = inner ? inner.split(',').map(s => s.trim()).filter(Boolean) : [];
+          } else (data as any)[key] = val;
+        }
+        i++;
+      }
+      i++;
+    }
+
+    const sections = new Map<string, string[]>();
+    let currentSection: string | null = null;
+    let currentLines: string[] = [];
+    let descLines: string[] = [];
+    let inDesc = false;
+
+    for (; i < lines.length; i++) {
+      const line = lines[i];
+      if (!inDesc && line.startsWith('# ') && !line.startsWith('## ')) { inDesc = true; continue; }
+      if (line.startsWith('## ')) {
+        if (currentSection !== null) sections.set(currentSection, currentLines);
+        else if (inDesc) data.description = descLines.join('\n').trim() || undefined;
+        currentSection = line.slice(3).trim();
+        currentLines = [];
+        inDesc = false;
+      } else if (inDesc) {
+        descLines.push(line);
+      } else if (currentSection !== null) {
+        currentLines.push(line);
+      }
+    }
+    if (currentSection !== null) sections.set(currentSection, currentLines);
+    else if (inDesc && descLines.length) data.description = descLines.join('\n').trim() || undefined;
+
+    const deps: Array<{feature: string; file: string; usage?: string}> = [];
+    for (const line of sections.get('Dependencies') ?? []) {
+      // Handles: [[spec.md|name]] `file` — usage  OR  **name** `file` — usage
+      const m = line.match(/^-\s+(?:\[\[[^\]|]*\|([^\]]+)\]\]|\*\*([^*]+)\*\*)\s+`([^`]+)`(?:\s+[—–-]\s+(.+))?/);
+      if (m) deps.push({ feature: (m[1] ?? m[2] ?? '').trim(), file: m[3].trim(), ...(m[4] ? { usage: m[4].trim() } : {}) });
+    }
+    if (deps.length) data.dependencies = deps;
+
+    const refs: Array<{feature: string; file: string}> = [];
+    for (const line of sections.get('Referenced By') ?? []) {
+      // Handles: [[spec.md|name]] `file`  OR  **name** `file`
+      const m = line.match(/^-\s+(?:\[\[[^\]|]*\|([^\]]+)\]\]|\*\*([^*]+)\*\*)\s+`([^`]+)`/);
+      if (m) refs.push({ feature: (m[1] ?? m[2] ?? '').trim(), file: m[3].trim() });
+    }
+    if (refs.length) data.referenced_by = refs;
+
+    const ipc: string[] = [];
+    for (const line of sections.get('IPC Channels') ?? []) {
+      const m = line.match(/^-\s+`([^`]+)`/);
+      if (m) ipc.push(m[1]);
+    }
+    if (ipc.length) data.ipc = ipc;
+
+    const scripts: Record<string, string> = {};
+    for (const line of sections.get('Scripts') ?? []) {
+      const m = line.match(/^-\s+\*\*([^*]+)\*\*:\s+`([^`]+)`/);
+      if (m) scripts[m[1]] = m[2];
+    }
+    if (Object.keys(scripts).length) data.scripts = scripts;
+
+    const build: Record<string, string> = {};
+    for (const line of sections.get('Build') ?? []) {
+      const m = line.match(/^-\s+\*\*([^*]+)\*\*:\s+`([^`]+)`/);
+      if (m) build[m[1]] = m[2];
+    }
+    if (Object.keys(build).length) data.build = build;
+
+    return data;
+  }
+
+  private parseMainSpecMd(raw: string): Record<string, unknown> {
+    const data: Record<string, unknown> = {};
+    const lines = raw.split('\n');
+    let i = 0;
+
+    if (lines[0] === '---') {
+      i = 1;
+      while (i < lines.length && lines[i] !== '---') {
+        const kv = lines[i].match(/^([a-zA-Z_][a-zA-Z0-9_]*):\s*(.*)$/);
+        if (kv) data[kv[1]] = kv[2].trim();
+        i++;
+      }
+      i++;
+    }
+
+    let inFeatures = false;
+    let currentLayer: string | null = null;
+    let inTable = false;
+    let tableHeaders: string[] = [];
+    const features: Record<string, Record<string, string>[]> = {};
+
+    for (; i < lines.length; i++) {
+      const line = lines[i];
+      if (line === '## Features') { inFeatures = true; continue; }
+      if (inFeatures && line.startsWith('## ') && line !== '## Features') break;
+      if (!inFeatures) continue;
+      if (line.startsWith('### ')) {
+        currentLayer = line.slice(4).trim();
+        inTable = false; tableHeaders = [];
+        features[currentLayer] = [];
+        continue;
+      }
+      if (currentLayer && line.startsWith('|')) {
+        const cells = line.split('|').slice(1, -1).map(s => s.trim());
+        if (cells.every(c => /^[-:\s]+$/.test(c))) continue;
+        if (!inTable) { tableHeaders = cells; inTable = true; continue; }
+        const row: Record<string, string> = {};
+        // Strip [[...]] wiki-link brackets from cell values (Obsidian links → plain filenames)
+        tableHeaders.forEach((h, idx) => { row[h] = (cells[idx] ?? '').replace(/^\[\[(.+)\]\]$/, '$1'); });
+        features[currentLayer].push(row);
+      }
+    }
+
+    if (Object.keys(features).length) data.features = features;
+    return data;
+  }
+
+  private buildSpecMd(spec: Record<string, unknown>): string {
+    const name = String(spec.name ?? '');
+    const fmKeys = ['name', 'parent', 'file', 'entry', 'type', 'layer', 'singleton', 'exports'];
+    let fm = '---\n';
+    for (const k of fmKeys) {
+      if (spec[k] === undefined) continue;
+      const v = spec[k];
+      if (Array.isArray(v)) fm += `${k}: [${(v as unknown[]).join(', ')}]\n`;
+      else fm += `${k}: ${v}\n`;
+    }
+    fm += '---\n\n';
+
+    let md = fm + `# ${name}\n\n`;
+    if (spec.description) md += `${spec.description}\n\n`;
+
+    const deps = Array.isArray(spec.dependencies) ? spec.dependencies as Array<{feature?: string; file?: string; usage?: string}> : [];
+    if (deps.length) {
+      md += '## Dependencies\n\n';
+      for (const d of deps) {
+        const feat = d.feature ?? '';
+        const specLink = feat.toLowerCase().replace(/\s+/g, '-') + '.spec.md';
+        md += `- [[${specLink}|${feat}]] \`${d.file ?? ''}\``;
+        if (d.usage) md += ` — ${d.usage}`;
+        md += '\n';
+      }
+      md += '\n';
+    }
+
+    const refs = Array.isArray(spec.referenced_by) ? spec.referenced_by as Array<{feature?: string; file?: string}> : [];
+    if (refs.length) {
+      md += '## Referenced By\n\n';
+      for (const r of refs) {
+        const feat = r.feature ?? '';
+        const specLink = feat.toLowerCase().replace(/\s+/g, '-') + '.spec.md';
+        md += `- [[${specLink}|${feat}]] \`${r.file ?? ''}\`\n`;
+      }
+      md += '\n';
+    }
+
+    const ipc = Array.isArray(spec.ipc) ? spec.ipc as string[] : [];
+    if (ipc.length) {
+      md += '## IPC Channels\n\n';
+      for (const ch of ipc) md += `- \`${ch}\`\n`;
+      md += '\n';
+    }
+
+    const scripts = spec.scripts && typeof spec.scripts === 'object' && !Array.isArray(spec.scripts)
+      ? spec.scripts as Record<string, string> : null;
+    if (scripts && Object.keys(scripts).length) {
+      md += '## Scripts\n\n';
+      for (const [k, v] of Object.entries(scripts)) md += `- **${k}**: \`${v}\`\n`;
+      md += '\n';
+    }
+
+    const build = spec.build && typeof spec.build === 'object' && !Array.isArray(spec.build)
+      ? spec.build as Record<string, string> : null;
+    if (build && Object.keys(build).length) {
+      md += '## Build\n\n';
+      for (const [k, v] of Object.entries(build)) md += `- **${k}**: \`${v}\`\n`;
+      md += '\n';
+    }
+
+    return md;
+  }
+
+  private buildFeaturesSectionMd(
+    layerMap: Map<string, Array<{id: string; name: string; file: string; spec: string; ui?: string}>>,
+    layerOrder: string[],
+  ): string {
+    let md = '## Features\n\n';
+    const ordered = [...layerOrder.filter(l => layerMap.has(l)), ...([...layerMap.keys()].filter(l => !layerOrder.includes(l)).sort())];
+    for (const layer of ordered) {
+      const entries = layerMap.get(layer);
+      if (!entries?.length) continue;
+      md += `### ${layer}\n\n| id | name | file | spec | ui |\n|----|------|------|------|----|` + '\n';
+      for (const e of entries) {
+        const specLink = `[[${e.spec}]]`;
+        const uiLink = e.ui ? `[[${e.ui}]]` : '';
+        md += `| ${e.id} | ${e.name} | ${e.file} | ${specLink} | ${uiLink} |\n`;
+      }
+      md += '\n';
+    }
+    return md;
+  }
+
   private specFullPath(filename: string): string {
     const base = this.specBaseDir || (this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '') + '/src/specs');
     return base + '/' + filename;
@@ -682,6 +901,8 @@ export class SpecsMapPlugin {
     try {
       const snap = JSON.parse(raw);
       if (snap.v !== 1 || !Array.isArray(snap.nodes) || snap.nodes.length === 0) return false;
+      // Stale snapshot from before MD migration — all IDs end with .spec.json
+      if ((snap.nodes as SnapNode[]).every((n: SnapNode) => n.id.endsWith('.spec.json'))) return false;
 
       this.specRawMap.clear();
       const rawNodes: SpecNode[] = [];
@@ -749,7 +970,7 @@ export class SpecsMapPlugin {
 
     const featuresMap = mainData.features;
     if (Array.isArray(featuresMap)) {
-      console.warn('[SpecsMapPlugin] main.spec.json "features" is an array — expected an object with layer keys (e.g. {"core":[...]}). Treating features as "unknown" layer.');
+      console.warn('[SpecsMapPlugin] main.spec.md "features" is an array — expected an object with layer keys (e.g. ### core table). Treating features as "unknown" layer.');
       for (const feat of featuresMap as unknown[]) {
         if (feat && typeof feat === 'object' && 'spec' in (feat as Record<string, unknown>)) {
           const f = feat as { spec: string; ui?: string };
@@ -783,7 +1004,7 @@ export class SpecsMapPlugin {
 
     const entries = await window.electronAPI?.fs.readDir(base) ?? [];
     const specFiles = entries
-      .filter(e => !e.isDirectory && e.name.endsWith('.spec.json') && e.name !== 'main.spec.json')
+      .filter(e => !e.isDirectory && e.name.endsWith('.spec.md') && e.name !== 'main.spec.md')
       .map(e => e.name);
 
     this.lastSpecFileCount = specFiles.length;
@@ -797,7 +1018,7 @@ export class SpecsMapPlugin {
     for (const filename of specFiles) {
       const raw = await window.electronAPI?.fs.readFile(base + '/' + filename);
       if (raw) {
-        try { this.specRawMap.set(filename, JSON.parse(raw)); } catch (e) {
+        try { this.specRawMap.set(filename, this.parseSpecMd(raw)); } catch (e) {
           console.warn('[SpecsMapPlugin] Skipping invalid spec file ' + filename + ':', e);
         }
       }
@@ -824,7 +1045,7 @@ export class SpecsMapPlugin {
       }
       rawNodes.push({
         id: filename,
-        name: data.name ?? filename.replace('.spec.json', ''),
+        name: data.name ?? filename.replace('.spec.md', ''),
         specFile: filename,
         sourceFile: hasEntry ? entryPath : (data.file ? data.file.split('/').pop()! : ''),
         isEntry: hasEntry,
@@ -854,9 +1075,9 @@ export class SpecsMapPlugin {
 
     // Fast path: check common locations
     const quickPaths = [
-      wsRoot + '/src/specs/main.spec.json',
-      wsRoot + '/specs/main.spec.json',
-      wsRoot + '/.specs/main.spec.json',
+      wsRoot + '/src/specs/main.spec.md',
+      wsRoot + '/specs/main.spec.md',
+      wsRoot + '/.specs/main.spec.md',
     ];
     for (const p of quickPaths) {
       const raw = await window.electronAPI?.fs.readFile(p);
@@ -869,14 +1090,14 @@ export class SpecsMapPlugin {
     const collections: SpecCollection[] = [];
     const seenDirs = new Set<string>();
     for (const p of foundPaths) {
-      const dir = p.replace(/\/main\.spec\.json$/, '');
+      const dir = p.replace(/\/main\.spec\.md$/, '');
       if (seenDirs.has(dir)) continue;
       seenDirs.add(dir);
       const raw = await window.electronAPI?.fs.readFile(p);
       let mainData: Record<string, unknown> | null = null;
       let title = '';
       if (raw) {
-        try { mainData = JSON.parse(raw); } catch { /* skip */ }
+        try { mainData = this.parseMainSpecMd(raw); } catch { /* skip */ }
       }
       if (mainData && typeof mainData === 'object') {
         title = String((mainData as any).title ?? (mainData as any).name ?? '');
@@ -902,9 +1123,9 @@ export class SpecsMapPlugin {
     if (!entries) return;
 
     // Check current dir
-    const mainRaw = await window.electronAPI?.fs.readFile(dir + '/main.spec.json');
+    const mainRaw = await window.electronAPI?.fs.readFile(dir + '/main.spec.md');
     if (mainRaw) {
-      const p = dir + '/main.spec.json';
+      const p = dir + '/main.spec.md';
       if (!out.includes(p)) out.push(p);
     }
 
@@ -1070,7 +1291,7 @@ export class SpecsMapPlugin {
       : 'color-mix(in oklab, var(--amber) 10%, transparent)';
     this.validationBadge.title = ok
       ? `All ${specCount} spec files parsed successfully`
-      : `${specCount - nodeCount} spec file(s) failed to parse — check JSON syntax`;
+      : `${specCount - nodeCount} spec file(s) failed to parse — check Markdown syntax`;
     this.validationBadge.style.display = 'inline';
   }
 
@@ -2047,7 +2268,7 @@ export class SpecsMapPlugin {
     const agentsRaw = await window.electronAPI?.fs.readFile(wsRoot + '/Agents.md') ?? null;
 
     const agentsSection = agentsRaw
-      ? `## Step 0 — Update Agents.md\n\nAdd a "Spec System" section:\n- Spec files live in \`src/specs/\`, one per source module\n- \`src/specs/main.spec.json\` is the authoritative index\n- The SpecsMap plugin (Tools → SpecsMap) visualizes the dependency graph\n- When adding or changing source files, update the corresponding spec\n\n`
+      ? `## Step 0 — Update Agents.md\n\nAdd a "Spec System" section:\n- Spec files live in \`src/specs/\`, one per source module\n- \`src/specs/main.spec.md\` is the authoritative index\n- The SpecsMap plugin (Tools → SpecsMap) visualizes the dependency graph\n- When adding or changing source files, update the corresponding spec\n\n`
       : '';
 
     const isDir = entryPath.endsWith('/');
@@ -2063,11 +2284,11 @@ export class SpecsMapPlugin {
         `Print the full inventory before generating any spec. Do not skip files.`;
 
     const pass2 = isDir
-      ? `For each source file found in Pass 1, write \`src/specs/[feature-name].spec.json\` following SPECGEN.md exactly.\n` +
-        `Required fields: name, file, description, type, layer, singleton, exports, dependencies (with usage), referenced_by, ipc, interface.\n` +
-        `Write a companion \`[feature-name]-ui.spec.json\` for any component with 3 or more user interactions or complex DOM.\n` +
+      ? `For each source file found in Pass 1, write \`src/specs/[feature-name].spec.md\` following SPECGEN.md exactly.\n` +
+        `Required fields in frontmatter: name, file, type, layer, singleton, exports. Required sections: description, Dependencies, Referenced By, IPC Channels.\n` +
+        `Write a companion \`[feature-name]-ui.spec.md\` for any component with 3 or more user interactions or complex DOM.\n` +
         `Keep descriptions specific — no generic phrases like "manages state" or "handles events".`
-      : `For each service/component/module in the inventory, write \`src/specs/[feature-name].spec.json\` following SPECGEN.md.\n` +
+      : `For each service/component/module in the inventory, write \`src/specs/[feature-name].spec.md\` following SPECGEN.md.\n` +
         `Adapt the layer taxonomy to fit the project type. Use "foundation" for base infrastructure, "core" for primary logic, "plugins" for optional extensions.\n` +
         `Keep descriptions specific to what each component actually does.`;
 
@@ -2086,11 +2307,11 @@ export class SpecsMapPlugin {
       `## Pass 1 — Codebase Discovery\n\n${pass1}\n\n` +
       `## Pass 2 — Individual Spec Files\n\n${pass2}\n\n` +
       `## Pass 3 — Index and Validation\n\n` +
-      `Write \`src/specs/main.spec.json\`:\n` +
-      `1. Group all specs under their layer in \`features\`\n` +
-      `2. Build \`dependency_graph.edges\` from actual imports/references (not from spec fields)\n` +
-      `3. Catalog IPC channels, scripts, or API routes observed across specs in \`ipc_channels\`\n` +
-      `4. Validate: every \`dependencies[].file\` in each spec must match another spec's \`file\` field. Fix mismatches.\n\n` +
+      `Write \`src/specs/main.spec.md\`:\n` +
+      `1. Group all specs under their layer in the \`## Features\` section (one \`### layer\` table per layer)\n` +
+      `2. Each table row: \`| id | name | file | spec | ui |\` where spec = the .spec.md filename\n` +
+      `3. Catalog IPC channels in an \`## IPC Channels\` section\n` +
+      `4. Validate: every \`## Dependencies\` entry in each spec must match another spec's \`file:\` frontmatter field. Fix mismatches.\n\n` +
       `Start with Pass 1 now. List every file before writing any spec.\n`;
 
     await window.electronAPI?.clipboard.writeText(prompt);
@@ -2165,7 +2386,7 @@ export class SpecsMapPlugin {
       const relPath = fp.replace(wsRoot + '/', '');
       const fileName = fp.split('/').pop()!;
       const stem = fileName.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '');
-      const specFileName = this.toKebabCase(stem) + '.spec.json';
+      const specFileName = this.toKebabCase(stem) + '.spec.md';
 
       const exportNames = new Set<string>();
       const exportRe = /export\s+(default\s+)?(?:class|function|const|interface|type|enum|let|var)\s+(\w+)/g;
@@ -2255,10 +2476,10 @@ export class SpecsMapPlugin {
       if (info.externalDeps.length > 0) spec.external_deps = info.externalDeps;
       if (testFile) spec.test = testFile;
 
-      await window.electronAPI?.fs.writeFile(specPath, JSON.stringify(spec, null, 2));
+      await window.electronAPI?.fs.writeFile(specPath, this.buildSpecMd(spec));
     }
 
-    btn.textContent = 'Updating main.spec.json…';
+    btn.textContent = 'Updating main.spec.md…';
     await this.buildMainSpec(specDir, fileInfos, wsRoot);
 
     btn.textContent = 'Done — refreshing…';
@@ -2436,32 +2657,25 @@ export class SpecsMapPlugin {
         .filter(Boolean);
     }
 
-    const existingRaw = await window.electronAPI?.fs.readFile(specDir + '/main.spec.json');
-    let mainSpec: Record<string, unknown>;
+    const existingRaw = await window.electronAPI?.fs.readFile(specDir + '/main.spec.md') ?? null;
+    const newFeaturesSection = this.buildFeaturesSectionMd(layerMap, layerOrder);
+
+    let mainMd: string;
     if (existingRaw) {
-      try { mainSpec = JSON.parse(existingRaw); } catch { mainSpec = {}; }
+      const lines = existingRaw.split('\n');
+      let featStart = -1, nextH2 = lines.length;
+      for (let j = 0; j < lines.length; j++) {
+        if (featStart === -1 && lines[j].trimEnd() === '## Features') { featStart = j; continue; }
+        if (featStart !== -1 && j > featStart && lines[j].startsWith('## ') && !lines[j].startsWith('### ')) { nextH2 = j; break; }
+      }
+      const before = featStart === -1 ? existingRaw.trimEnd() : lines.slice(0, featStart).join('\n').trimEnd();
+      const after = nextH2 < lines.length ? '\n' + lines.slice(nextH2).join('\n') : '';
+      mainMd = (before ? before + '\n\n' : '') + newFeaturesSection + after;
     } else {
-      mainSpec = { name: 'Project', version: '0.1.0', description: 'Auto-generated project spec' };
+      mainMd = `---\nname: Project\nversion: 0.1.0\n---\n\n# Project\n\nAuto-generated project spec.\n\n` + newFeaturesSection;
     }
 
-    mainSpec.features = features;
-    mainSpec.dependency_graph = { description: 'Auto-generated dependency edges', edges };
-
-    const testCount = fileInfos.filter(f =>
-      this.findTestFile(new Set(fileInfos.map(i => wsRoot + '/' + i.relativePath)), f.relativePath)
-    ).length;
-
-    mainSpec.test_coverage = {
-      total_test_files: testCount,
-      total_tests: 'auto',
-      run_time: 'N/A',
-      framework: ((mainSpec as any).stack as any)?.testing || 'unknown',
-      specs_with_direct_tests: testCount,
-      specs_with_indirect_tests: 0,
-      specs_without_tests: fileInfos.length - testCount,
-    };
-
-    await window.electronAPI?.fs.writeFile(specDir + '/main.spec.json', JSON.stringify(mainSpec, null, 2));
+    await window.electronAPI?.fs.writeFile(specDir + '/main.spec.md', mainMd);
   }
 
   private findCycles(): Set<string>[] {
