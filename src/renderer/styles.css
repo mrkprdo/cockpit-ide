@@ -1141,7 +1141,6 @@ html, body {
 .ai-drawer-settings-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
-  transform: rotate(30deg);
 }
 .ai-drawer-settings-btn:focus-visible {
   outline: 1px dashed var(--accent);
