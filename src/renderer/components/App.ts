@@ -223,6 +223,9 @@ export class App {
       writeToTerminal: (uuid: string, command: string) => {
         window.electronAPI?.terminal.write(uuid, command + '\r');
       },
+      sendKeyToTerminal: (uuid: string, sequence: string) => {
+        window.electronAPI?.terminal.write(uuid, sequence);
+      },
       insertInEditor: (text: string) => {
         this.canvas.getActiveExplorerPlugin()?.insertText(text);
       },

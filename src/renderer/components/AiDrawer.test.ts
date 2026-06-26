@@ -840,6 +840,40 @@ describe('AiDrawer', () => {
       const result = await drawer['executeTool']('unknown_tool_xyz', {});
       expect(result).toContain('Unknown tool');
     });
+
+    it('send_key_to_terminal sends correct byte sequence', async () => {
+      const sent: string[] = [];
+      (window as any).__cockpit = {
+        getWorkspacePath: () => '/ws',
+        sendKeyToTerminal: (uuid: string, seq: string) => sent.push(seq),
+      };
+      drawer = new AiDrawer();
+
+      const result = await drawer['executeTool']('send_key_to_terminal', { uuid: 'u1', key: 'Ctrl+c' });
+      expect(result).toContain('Ctrl+c');
+      expect(sent).toEqual(['\x03']);
+    });
+
+    it('send_key_to_terminal rejects unknown key with list of valid keys', async () => {
+      (window as any).__cockpit = { getWorkspacePath: () => '/ws', sendKeyToTerminal: vi.fn() };
+      drawer = new AiDrawer();
+
+      const result = await drawer['executeTool']('send_key_to_terminal', { uuid: 'u1', key: 'SuperKey' });
+      expect(result).toContain('Unknown key');
+      expect(result).toContain('Tab');
+    });
+
+    it('send_key_to_terminal sends ArrowUp escape sequence', async () => {
+      const sent: string[] = [];
+      (window as any).__cockpit = {
+        getWorkspacePath: () => '/ws',
+        sendKeyToTerminal: (_uuid: string, seq: string) => sent.push(seq),
+      };
+      drawer = new AiDrawer();
+
+      await drawer['executeTool']('send_key_to_terminal', { uuid: 'u1', key: 'ArrowUp' });
+      expect(sent[0]).toBe('\x1b[A');
+    });
   });
 
   // ─── MARKDOWN RENDERING ──────────────────────────────────────────────────────
