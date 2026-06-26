@@ -8,6 +8,8 @@ interface TutorialStep {
   onLeave?: () => void;
 }
 
+let _tutorialOpenedAiDrawer = false;
+
 const STEPS: TutorialStep[] = [
   {
     title: 'Welcome to Cockpit IDE',
@@ -47,6 +49,31 @@ const STEPS: TutorialStep[] = [
     title: 'SpecsMap',
     description: 'Visual dependency graph. Tools > SpecsMap. See how features connect.',
     target: '.menu-bar',
+  },
+  {
+    title: 'Cockpit Agent',
+    description: 'Built-in AI assistant. Ask it to open files, write code, run terminal commands, or rearrange your canvas — all in natural language.\n\nClick the ▶ notch on the right edge any time to open it.',
+    target: '.ai-drawer',
+    onEnter: () => {
+      const el = document.querySelector('.ai-drawer') as HTMLElement | null;
+      const notch = document.querySelector('.ai-drawer-notch') as HTMLElement | null;
+      if (!el || el.classList.contains('is-open')) return;
+      _tutorialOpenedAiDrawer = true;
+      el.style.transition = 'none';
+      el.style.width = '420px';
+      el.classList.add('is-open');
+      if (notch) { notch.style.transition = 'none'; notch.style.left = '420px'; notch.classList.add('is-open'); }
+      void el.getBoundingClientRect();
+    },
+    onLeave: () => {
+      if (!_tutorialOpenedAiDrawer) return;
+      _tutorialOpenedAiDrawer = false;
+      const el = document.querySelector('.ai-drawer') as HTMLElement | null;
+      const notch = document.querySelector('.ai-drawer-notch') as HTMLElement | null;
+      el?.style.removeProperty('transition');
+      if (el?.classList.contains('is-open')) { el.style.width = '0'; el.classList.remove('is-open'); }
+      if (notch) { notch.style.removeProperty('transition'); notch.style.left = '0'; notch.classList.remove('is-open'); }
+    },
   },
   {
     title: 'Theme',
@@ -189,6 +216,9 @@ export class Tutorial {
     const isFirst = this.stepIdx === 0;
     const isLast = this.stepIdx === STEPS.length - 1;
 
+    if (step.onEnter) step.onEnter();
+    if (step.onLeave) this.prevOnLeave = step.onLeave;
+
     this.tooltip.innerHTML = '';
 
     if (step.target) {
@@ -271,8 +301,6 @@ export class Tutorial {
       this.positionTooltip(step.target);
     }
 
-    if (step.onEnter) step.onEnter();
-    if (step.onLeave) this.prevOnLeave = step.onLeave;
   }
 
   private applyHighlight(selector: string, overflowHidden?: boolean): void {

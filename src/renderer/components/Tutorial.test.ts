@@ -264,11 +264,11 @@ describe('Tutorial', () => {
     expect(document.querySelector('.tutorial-overlay')).toBeFalsy();
   });
 
-  it('15 total steps', () => {
+  it('16 total steps', () => {
     const t = new Tutorial();
     t.start();
     const dots = document.querySelectorAll('.tutorial-dot');
-    expect(dots.length).toBe(15);
+    expect(dots.length).toBe(16);
     t.destroy();
   });
 
@@ -297,11 +297,38 @@ describe('Tutorial', () => {
     t.destroy();
   });
 
+  it('"Cockpit Agent" step opens drawer on enter and closes on leave', () => {
+    const notch = document.createElement('button');
+    notch.className = 'ai-drawer-notch';
+    const drawer = document.createElement('div');
+    drawer.className = 'ai-drawer';
+    document.body.appendChild(notch);
+    document.body.appendChild(drawer);
+
+    const t = new Tutorial();
+    t.start();
+    const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
+    // advance to Cockpit Agent step (index 8)
+    for (let i = 0; i < 8; i++) {
+      tooltip.querySelector('.tutorial-btn-next')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+    expect(tooltip.textContent).toContain('Cockpit Agent');
+    expect(drawer.classList.contains('is-open')).toBe(true);
+
+    // advance past it — onLeave should close
+    tooltip.querySelector('.tutorial-btn-next')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(drawer.classList.contains('is-open')).toBe(false);
+
+    t.destroy();
+    notch.remove();
+    drawer.remove();
+  });
+
   it('"Stay Connected" step renders .tutorial-links and .tutorial-link elements', () => {
     const t = new Tutorial();
     t.start();
     const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
-    for (let i = 0; i < 13; i++) {
+    for (let i = 0; i < 14; i++) {
       const btn = tooltip.querySelector('.tutorial-btn-next');
       if (!btn) break;
       btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
