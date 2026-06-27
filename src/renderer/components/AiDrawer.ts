@@ -1411,10 +1411,12 @@ export class AiDrawer {
         case 'read_file': {
           const content = await window.electronAPI?.fs.readFile(args.path);
           if (content === null || content === undefined) return `Error: file not found or not allowed: "${args.path}"`;
+          cockpit?.openFile(args.path);
           return content.length > 12000 ? content.slice(0, 12000) + '\n[truncated]' : content;
         }
         case 'write_file': {
           const ok = await window.electronAPI?.fs.writeFile(args.path, args.content);
+          if (ok) cockpit?.openFile(args.path);
           return ok ? `Written: ${args.path}` : `Error: could not write "${args.path}"`;
         }
         case 'list_directory': {
@@ -1450,7 +1452,7 @@ export class AiDrawer {
         }
         case 'open_file_in_editor': {
           if (!cockpit) return 'Canvas not ready';
-          cockpit.openFile(args.path);
+          await cockpit.openFile(args.path);
           return `Opened: ${args.path}`;
         }
         case 'add_plugin': {
@@ -1514,7 +1516,7 @@ export class AiDrawer {
         }
         case 'insert_text_in_editor': {
           if (!cockpit) return 'Canvas not ready';
-          cockpit.insertInEditor(args.text);
+          await cockpit.insertInEditor(args.text);
           return `Inserted text in editor`;
         }
         case 'read_terminal': {
@@ -1524,27 +1526,27 @@ export class AiDrawer {
         }
         case 'read_editor': {
           if (!cockpit) return 'Canvas not ready';
-          const content = cockpit.readEditor();
+          const content = await cockpit.readEditor();
           return content || 'Editor is empty or no file open';
         }
         // ── Editor ──────────────────────────────────────────────────────────
         case 'get_editor_state': {
           if (!cockpit) return 'Canvas not ready';
-          const st = cockpit.getEditorState();
+          const st = await cockpit.getEditorState();
           return st ? JSON.stringify(st, null, 2) : 'No explorer/editor open';
         }
         case 'get_selected_text': {
           if (!cockpit) return 'Canvas not ready';
-          return cockpit.getSelectionText() || '(no selection)';
+          return (await cockpit.getSelectionText()) || '(no selection)';
         }
         case 'set_editor_content': {
           if (!cockpit) return 'Canvas not ready';
-          cockpit.setEditorContent(args.content);
+          await cockpit.setEditorContent(args.content);
           return 'Editor content replaced';
         }
         case 'go_to_line': {
           if (!cockpit) return 'Canvas not ready';
-          cockpit.goToLine(args.line, args.col);
+          await cockpit.goToLine(args.line, args.col);
           return `Navigated to line ${args.line}${args.col ? `:${args.col}` : ''}`;
         }
         // ── Canvas ──────────────────────────────────────────────────────────
@@ -1586,7 +1588,7 @@ export class AiDrawer {
         // ── Navigation ──────────────────────────────────────────────────────
         case 'reveal_file_in_explorer': {
           if (!cockpit) return 'Canvas not ready';
-          cockpit.revealFile(args.path);
+          await cockpit.revealFile(args.path);
           return `Revealed: ${args.path}`;
         }
         case 'grep_workspace': {

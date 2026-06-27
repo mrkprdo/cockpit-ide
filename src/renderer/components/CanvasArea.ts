@@ -62,6 +62,7 @@ export class CanvasArea {
   private panStartPanX = 0;
   private panStartPanY = 0;
   private rafId = 0;
+  private panAnimId = 0;
   private originDot: HTMLDivElement;
   private gridStyle: GridStyle = 'dots';
   private terminalCounter = 0;
@@ -1162,6 +1163,9 @@ export class CanvasArea {
     let target: MarkdownPlugin | null | undefined = this.markdownPlugins[0];
     if (!target) {
       target = await this.addMarkdown();
+    } else {
+      const cs = this.cards.find(c => c.savedTitle === 'Markdown');
+      if (cs) { this.bringToFront(cs.card); this.panToCard(cs); }
     }
     target?.loadFile(filePath);
   }
@@ -1658,10 +1662,12 @@ export class CanvasArea {
   }
 
   private animatePan(targetX: number, targetY: number, duration = 300): void {
+    const id = ++this.panAnimId;
     const startX = this.panX;
     const startY = this.panY;
     const startTime = performance.now();
     const animate = (now: number) => {
+      if (id !== this.panAnimId) return;
       const t = Math.min((now - startTime) / duration, 1);
       const ease = 1 - Math.pow(1 - t, 3);
       this.panX = startX + (targetX - startX) * ease;
@@ -1729,15 +1735,52 @@ export class CanvasArea {
     if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
   }
 
+  ensureExplorer(): Promise<ExplorerPlugin> {
+    const existing = this.cards.find(c => c.savedTitle === 'Explorer');
+    if (existing) {
+      existing.isOpen = true;
+      existing.card.el.style.display = '';
+      existing.worldX = existing.savedWX;
+      existing.worldY = existing.savedWY;
+      this.positionCard(existing);
+      const body = existing.card.el.querySelector('.card-body') as HTMLElement;
+      if (body && !body.hasChildNodes()) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const dev = new ExplorerPlugin(body, this.wsPath);
+        dev.onStateChange = () => this.onStateChange?.();
+        existing.explorerPlugin = dev;
+        dev.setMarkdownOpeners(this.getMarkdownLabels(), (fp, l) => this.openInMarkdown(fp, l));
+      }
+      this.bringToFront(existing.card);
+      this.panToCard(existing);
+      this.notifyExplorersChanged();
+      return Promise.resolve(existing.explorerPlugin!);
+    }
+    return new Promise<ExplorerPlugin>(resolve => {
+      const cs = this.addCard('Explorer', '', -400, -250, 800, 500);
+      requestAnimationFrame(() => {
+        const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+        if (body) {
+          body.style.padding = '0';
+          body.style.alignItems = 'stretch';
+          body.style.justifyContent = 'stretch';
+          const dev = new ExplorerPlugin(body, this.wsPath);
+          dev.onStateChange = () => this.onStateChange?.();
+          cs.explorerPlugin = dev;
+          dev.setMarkdownOpeners(this.getMarkdownLabels(), (fp, l) => this.openInMarkdown(fp, l));
+          this.notifyExplorersChanged();
+          this.bringToFront(cs.card);
+          this.panToCard(cs);
+          resolve(dev);
+        }
+      });
+    });
+  }
+
   openFileAndReveal(filePath: string): void {
-    const sorted = [...this.cards].sort((a, b) =>
-      parseInt(b.card.el.style.zIndex || '0') - parseInt(a.card.el.style.zIndex || '0')
-    );
-    const cs = sorted.find(c => c.explorerPlugin && c.isOpen);
-    if (!cs?.explorerPlugin) return;
-    cs.explorerPlugin.openFile(filePath);
-    this.focusCard(cs.card.opts.title);
-    this.panToCard(cs);
+    this.ensureExplorer().then(explorer => explorer.openFile(filePath));
   }
 
   setViewAnimated(panX: number, panY: number, zoom?: number): void {

@@ -208,7 +208,7 @@ export class App {
     (window as any).__cockpit = {
       getCanvasState: () => this.canvas.getSaveState(),
       getWorkspacePath: () => this.wsPath,
-      openFile: (p: string) => this.canvas.openFileAndReveal(p),
+      openFile: async (p: string) => { const e = await this.canvas.ensureExplorer(); e.openFile(p); },
       addPlugin: (type: string) => {
         switch (type) {
           case 'terminal': this.canvas.addTerminal(this.wsPath); break;
@@ -232,30 +232,15 @@ export class App {
         window.electronAPI?.terminal.write(uuid, sequence);
         this.canvas.panToCardByUuid(uuid);
       },
-      insertInEditor: (text: string) => {
-        this.canvas.getActiveExplorerPlugin()?.insertText(text);
-        this.canvas.panToActiveExplorer();
-      },
+      insertInEditor: async (text: string) => { const e = await this.canvas.ensureExplorer(); e.insertText(text); },
       readTerminal: (uuid: string) => {
         return this.canvas.getTerminalPlugin(uuid)?.getScreenBuffer() ?? 'Terminal not found';
       },
-      readEditor: () => {
-        return this.canvas.getActiveExplorerPlugin()?.editor.getContent() ?? '';
-      },
-      getEditorState: () => {
-        return this.canvas.getActiveExplorerPlugin()?.getAgentEditorState() ?? null;
-      },
-      getSelectionText: () => {
-        return this.canvas.getActiveExplorerPlugin()?.getSelectionText() ?? '';
-      },
-      setEditorContent: (content: string) => {
-        this.canvas.getActiveExplorerPlugin()?.setEditorContent(content);
-        this.canvas.panToActiveExplorer();
-      },
-      goToLine: (line: number, col?: number) => {
-        this.canvas.getActiveExplorerPlugin()?.goToLine(line, col);
-        this.canvas.panToActiveExplorer();
-      },
+      readEditor: async () => { const e = await this.canvas.ensureExplorer(); return e.editor.getContent() ?? ''; },
+      getEditorState: async () => { const e = await this.canvas.ensureExplorer(); return e.getAgentEditorState() ?? null; },
+      getSelectionText: async () => { const e = await this.canvas.ensureExplorer(); return e.getSelectionText() ?? ''; },
+      setEditorContent: async (content: string) => { const e = await this.canvas.ensureExplorer(); e.setEditorContent(content); },
+      goToLine: async (line: number, col?: number) => { const e = await this.canvas.ensureExplorer(); e.goToLine(line, col); },
       reopenCard: (title: string) => {
         const ok = this.canvas.reopenCardByTitle(title);
         if (ok) this.canvas.focusCardByTitle(title);
@@ -268,10 +253,7 @@ export class App {
       zoomIn: () => this.canvas.zoomIn(),
       zoomOut: () => this.canvas.zoomOut(),
       openInMarkdown: (filePath: string) => this.canvas.openInMarkdown(filePath),
-      revealFile: (filePath: string) => {
-        this.canvas.getActiveExplorerPlugin()?.revealFile(filePath);
-        this.canvas.panToActiveExplorer();
-      },
+      revealFile: async (filePath: string) => { const e = await this.canvas.ensureExplorer(); e.revealFile(filePath); },
       killTerminal: (uuid: string) => {
         window.electronAPI?.terminal.kill(uuid);
       },
