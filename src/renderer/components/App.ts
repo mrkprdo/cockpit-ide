@@ -208,7 +208,7 @@ export class App {
     (window as any).__cockpit = {
       getCanvasState: () => this.canvas.getSaveState(),
       getWorkspacePath: () => this.wsPath,
-      openFile: (p: string) => this.canvas.getActiveExplorerPlugin()?.openFile(p),
+      openFile: (p: string) => this.canvas.openFileAndReveal(p),
       addPlugin: (type: string) => {
         switch (type) {
           case 'terminal': this.canvas.addTerminal(this.wsPath); break;
@@ -218,7 +218,7 @@ export class App {
           case 'specsmap': this.canvas.addSpecsmap(this.wsPath); break;
         }
       },
-      focusCard: (title: string) => this.canvas.focusCard(title),
+      focusCard: (title: string) => this.canvas.focusCardByTitle(title),
       closeCard: (title: string) => this.canvas.closeCard(title),
       minimizeCard: (title: string) => this.canvas.minimizeCard(title),
       moveCard: (title: string, x: number, y: number) => this.canvas.offsetCard(title, x, y),
@@ -226,12 +226,15 @@ export class App {
       autoArrange: () => this.canvas.autoArrange(),
       writeToTerminal: (uuid: string, command: string) => {
         window.electronAPI?.terminal.write(uuid, command + '\r');
+        this.canvas.panToCardByUuid(uuid);
       },
       sendKeyToTerminal: (uuid: string, sequence: string) => {
         window.electronAPI?.terminal.write(uuid, sequence);
+        this.canvas.panToCardByUuid(uuid);
       },
       insertInEditor: (text: string) => {
         this.canvas.getActiveExplorerPlugin()?.insertText(text);
+        this.canvas.panToActiveExplorer();
       },
       readTerminal: (uuid: string) => {
         return this.canvas.getTerminalPlugin(uuid)?.getScreenBuffer() ?? 'Terminal not found';
@@ -247,12 +250,16 @@ export class App {
       },
       setEditorContent: (content: string) => {
         this.canvas.getActiveExplorerPlugin()?.setEditorContent(content);
+        this.canvas.panToActiveExplorer();
       },
       goToLine: (line: number, col?: number) => {
         this.canvas.getActiveExplorerPlugin()?.goToLine(line, col);
+        this.canvas.panToActiveExplorer();
       },
       reopenCard: (title: string) => {
-        return this.canvas.reopenCardByTitle(title);
+        const ok = this.canvas.reopenCardByTitle(title);
+        if (ok) this.canvas.focusCardByTitle(title);
+        return ok;
       },
       resetView: () => this.canvas.resetView(),
       panToCard: (title: string) => this.canvas.focusCardByTitle(title),
@@ -263,6 +270,7 @@ export class App {
       openInMarkdown: (filePath: string) => this.canvas.openInMarkdown(filePath),
       revealFile: (filePath: string) => {
         this.canvas.getActiveExplorerPlugin()?.revealFile(filePath);
+        this.canvas.panToActiveExplorer();
       },
       killTerminal: (uuid: string) => {
         window.electronAPI?.terminal.kill(uuid);

@@ -1716,6 +1716,19 @@ export class CanvasArea {
     return true;
   }
 
+  panToActiveExplorer(): void {
+    const sorted = [...this.cards].sort((a, b) =>
+      parseInt(b.card.el.style.zIndex || '0') - parseInt(a.card.el.style.zIndex || '0')
+    );
+    const cs = sorted.find(c => c.explorerPlugin && c.isOpen);
+    if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
+  }
+
+  panToCardByUuid(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && c.isOpen);
+    if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
+  }
+
   openFileAndReveal(filePath: string): void {
     const sorted = [...this.cards].sort((a, b) =>
       parseInt(b.card.el.style.zIndex || '0') - parseInt(a.card.el.style.zIndex || '0')
