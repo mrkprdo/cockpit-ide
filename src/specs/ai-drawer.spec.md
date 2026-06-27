@@ -9,73 +9,30 @@ exports: [AiDrawer]
 
 # AI Drawer
 
-Slide-out AI assistant panel that provides chat-based interaction with an LLM backend. Reads workspace context (file tree, git status, open files) to provide project-aware responses. Supports: chat message input/output, conversation history, code block rendering, file operation suggestions (create/modify/delete), and preference management for API configuration. Uses `localStorage` for chat history persistence and `fetch` for LLM API calls.
+AI assistant side panel that slides in from the right edge of the window. Toggled via Tools > AI or the ▶ notch button. Communicates with a local HTTP+WebSocket backend (not yet connected — ready for integration). Contains a chat message list (user, assistant, tool, thinking messages), a text input with send button, session management (create, rename, delete, switch), a model selection dropdown, an "Attach" button to add file context, and model status indicators. Sessions are persisted to localStorage. The system prompt (Cockpit Agent rules) is embedded inline (~280 lines). Implements a key-sequence map (`KEY_SEQUENCES`) for translating symbolic key names to escape codes when sending keystrokes to terminals via the agent.
 
 ## Dependencies
 
-None — self-contained with IPC and `fetch`.
+No imports from `src/`.
 
 ## Referenced By
 
-- **app** `src/renderer/components/App.ts` — opens via View → AI Chat menu or toolbar button
+- **App Orchestrator** `src/renderer/components/App.ts` — creates instance, calls `toggle()` on Tools > AI
 
 ## IPC Channels
 
-- `prefs:load` — loads API key and model preferences
-- `prefs:save` — saves API key and model preferences
-- `fs:readFile` — reads file content for context
-- `fs:writeFile` — writes generated files
-- `fs:readDir` — reads directory structure for context
-- `fs:mkdir` — creates directories
-- `fs:delete` — deletes files
-- `fs:rename` — renames files
-- `fs:copy` — copies files
-- `git:currentBranch` — gets branch name for context
-- `git:stagedFiles` — gets staged files for context
-- `git:unstagedFiles` — gets unstaged files for context
-- `git:unstagedDiff` — gets unstaged diff for context
-- `git:log` — gets commit log for context
-- `git:stage` — stages AI-generated files
-- `git:unstage` — unstages files
-- `git:commit` — commits AI changes
-- `git:push` — pushes commits
-- `git:branches` — lists branches
-- `git:checkout` — switches branches
-- `shell:openExternal` — opens external URLs
-- `clipboard:readText` — reads clipboard for paste
-- `clipboard:writeText` — copies response to clipboard
-
-## Interface
-
-### Classes
-
-- **AiDrawer**
-  - **constructor** `(): AiDrawer` — creates panel DOM with chat area, input, tabs
-  - **open** `(): void` — slides panel in from right
-  - **close** `(): void` — slides panel out
-  - **toggle** `(): void` — toggles open/close
-  - **sendMessage** `(message: string): Promise<void>` — sends to LLM, renders response
-  - **clearHistory** `(): void` — clears chat history
-  - **getWorkspaceContext** `(): Promise<object>` — gathers git, fs, editor state for LLM
-
-### Properties
-
-- **isOpen** `boolean`
-
-## State
-
-Chat history (persisted in localStorage), API preferences, panel open/close state.
-
-## Lifecycle
-
-- **created_by:** `App` constructor (singleton)
-- **destroyed_by:** App destruction
-
-## External Dependencies
-
-- `fetch` (browser API)
-- `localStorage` (browser API)
-
-## Test
-
-`src/renderer/components/AiDrawer.test.ts`
+- `terminal:write` — agent writes commands to terminal
+- `terminal:kill` — agent kills terminal processes
+- `clipboard:readText` — agent reads clipboard
+- `clipboard:writeText` — agent writes clipboard
+- `fs:readFile` — agent reads files
+- `fs:writeFile` — agent writes files
+- `fs:readDir` — agent lists directories
+- `fs:mkdir` — agent creates directories
+- `fs:delete` — agent deletes files
+- `fs:copy` — agent copies files
+- `fs:rename` — agent renames files
+- `workspace:load` — agent gets canvas state
+- `workspace:save` — agent saves state
+- `shell:openExternal` — agent opens URLs
+- `git:*` — agent runs git operations

@@ -9,58 +9,23 @@ exports: [TerminalPlugin]
 
 # Terminal Plugin
 
-xterm.js-based PTY terminal emulator running as a canvas card plugin. Creates a real shell process via `terminal:create` IPC (which spawns node-pty in the main process), then pipes stdin/stdout between the xterm.js Terminal UI and the PTY. Handles terminal lifecycle: creation, resize (columns/rows), clipboard copy/paste, and process termination. Fires an `onExit` callback when the shell process exits.
+Full PTY terminal emulator wrapped around `@xterm/xterm` with the `@xterm/addon-fit` addon. Each instance corresponds to one terminal card on the canvas. Creates an xterm.js instance in a container div, wires it to the Node PTY process via `electronAPI.terminal.*` IPC channels. Handles data flow: `term.onData` → `terminal:write` (send keystrokes to PTY), `terminal:data` listener → `term.write` (render PTY output). Implements `Ctrl+Shift+C` for copy selection and `Ctrl+Shift+V` for paste (writes clipboard text to PTY). Adapts cols/rows to container size via `ResizeObserver` calling `fitAddon.fit()`. Reads theme colors from CSS custom properties (`--bg`, `--primary`, `--accent`) on construction and on `updateTheme()`. Exposes `getScreenBuffer(maxLines)` for agent integration (reads last N lines of terminal output). Cleanup destroys xterm, disconnects IPC listeners, kills PTY, and removes DOM.
 
 ## Dependencies
 
-None — uses only xterm.js and IPC bridge.
+No imports from `src/`.
 
 ## Referenced By
 
-- **canvas-area** `src/renderer/components/CanvasArea.ts` — instantiates terminal cards via `createTerminal()`
+- **Canvas Area** `src/renderer/components/CanvasArea.ts` — instantiates TerminalPlugin per terminal card
 
 ## IPC Channels
 
-- `terminal:create` — spawns PTY process with shell and dimensions
-- `terminal:write` — sends keystrokes to PTY stdin
-- `terminal:resize` — resizes PTY cols/rows on container resize
-- `terminal:data` — listener for PTY stdout (rendered to xterm)
-- `terminal:exit` — listener for shell process exit (fires onExit)
-- `terminal:kill` — terminates PTY process
-- `clipboard:writeText` — copies selection to clipboard
-- `clipboard:readText` — reads clipboard for paste
-
-## Interface
-
-### Classes
-
-- **TerminalPlugin**
-  - **constructor** `(container: HTMLElement, cardTitle: string): TerminalPlugin` — creates xterm Terminal, opens PTY
-  - **focus** `(): void` — focuses the terminal input
-  - **resize** `(cols: number, rows: number): void` — resizes terminal + PTY dimensions
-  - **write** `(data: string): void` — writes directly to PTY
-  - **destroy** `(): void` — kills PTY, disposes xterm
-  - **onExit** — callback `(code: number) => void` — fired when shell exits
-  - **onTitleChange** — callback `(title: string) => void` — fired on OSC title change
-
-### Properties
-
-- **terminal** `Terminal` — xterm.js Terminal instance
-- **ptyId** `string` — PTY process identifier
-
-## State
-
-Terminal dimensions (cols, rows), PTY process ID, shell type.
-
-## Lifecycle
-
-- **created_by:** `CanvasArea.createTerminal()` when user opens a terminal card
-- **destroyed_by:** card close → `terminal:kill` IPC → xterm dispose
-
-## External Dependencies
-
-- `@xterm/xterm`
-
-## Test
-
-`src/renderer/components/TerminalPlugin.test.ts`
+- `terminal:create` — spawn a new PTY process with given UUID and optional cwd
+- `terminal:write` — write data string to the PTY stdin
+- `terminal:resize` — resize the PTY cols/rows
+- `terminal:kill` — terminate the PTY process
+- `terminal:data` — receive output data from PTY (listener)
+- `terminal:exit` — receive PTY exit notification (listener)
+- `clipboard:readText` — read system clipboard for paste
+- `clipboard:writeText` — write selection to clipboard for copy

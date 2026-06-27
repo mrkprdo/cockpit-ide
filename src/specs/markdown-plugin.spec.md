@@ -4,57 +4,23 @@ file: src/renderer/components/MarkdownPlugin.ts
 type: ui
 layer: plugin
 singleton: false
-exports: [MarkdownState, MarkdownPlugin]
+exports: [MarkdownPlugin, MarkdownState]
 ---
 
 # Markdown Plugin
 
-Multi-tab Markdown preview viewer plugin. Renders `.md` files as HTML using the `marked` library with syntax-highlighted code blocks. Manages a tab bar for multiple open markdown files, each tab rendering into a scrollable content area. Supports: opening files via `fs:readFile`, tab switching, tab close with context menu, auto-reload on external file changes via `file:changed` listener, and copy file path from tab context menu.
+Tabbed Markdown preview viewer. Each tab corresponds to one `.md` file. Uses the `marked` library with a custom `Renderer` that escapes raw HTML in code blocks and prevents `javascript:` URLs in links. The preview pane scrolls independently; scroll position is saved per tab and restored on switch. Tabs support click to switch, middle-click to close, drag-and-drop reorder, and right-click context menu (Close, Close Others, Close All, Copy File Path). Tab bar matches the style of MonacoEditorPlugin's tab bar (`editor-tab-bar`, `editor-tab-scroll`). Externally changed files auto-reload (via `file:changed` IPC), preserving scroll position. Serializes/restores open tabs, active tab, and per-tab scroll positions. Supports legacy single-file save state format for backward compatibility.
 
 ## Dependencies
 
-- **context-menu** `./ContextMenu` — right-click context menu on markdown tabs (close, close others, copy path)
+- **Context Menu** `src/renderer/components/ContextMenu.ts` — right-click tab context menu
 
 ## Referenced By
 
-- **canvas-area** `src/renderer/components/CanvasArea.ts` — creates markdown viewer cards
+- **Canvas Area** `src/renderer/components/CanvasArea.ts` — instantiates MarkdownPlugin per markdown card
 
 ## IPC Channels
 
-- `fs:readFile` — loads markdown file content for rendering
-- `file:changed` — listener for auto-reload on external changes
-- `clipboard:writeText` — copies file path from tab context menu
-
-## Interface
-
-### Types
-
-- **MarkdownState** — `{ tabs: { filePath: string; title: string }[]; activeTab: string }`
-
-### Classes
-
-- **MarkdownPlugin**
-  - **constructor** `(container: HTMLElement): MarkdownPlugin` — creates tab bar + content area
-  - **openFile** `(filePath: string): Promise<void>` — loads and renders markdown file
-  - **closeTab** `(filePath: string): void` — closes tab
-  - **getActiveFilePath** `(): string | null`
-  - **destroy** `(): void` — cleans up listeners
-  - **onFocus** — callback `() => void`
-  - **onClose** — callback `() => void`
-
-## State
-
-Serialized as `MarkdownState` with open tabs and active tab index. Restored on workspace load.
-
-## Lifecycle
-
-- **created_by:** `CanvasArea.createMarkdownViewer()` when opening markdown files
-- **destroyed_by:** card close → remove listeners
-
-## External Dependencies
-
-- `marked`
-
-## Test
-
-`src/renderer/components/MarkdownPlugin.test.ts`
+- `fs:readFile` — load markdown content
+- `file:changed` — external file change notification for auto-reload
+- `clipboard:writeText` — "Copy File Path" context menu action

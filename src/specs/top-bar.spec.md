@@ -4,60 +4,21 @@ file: src/renderer/components/TopBar.ts
 type: ui
 layer: widget
 singleton: true
-exports: [TopBar]
+exports: [TopBar, TopBarCallbacks, GridStyle]
 ---
 
 # Top Bar
 
-Custom menu bar with dropdown menus rendered entirely via `innerHTML` template strings. Provides File menu (New, Open Folder, Close Window), Edit menu (Undo, Redo, Cut, Copy, Paste), View menu (Zoom In, Zoom Out, Reset Zoom, Theme toggle), Tools menu (Command Palette, Terminal, Explorer, Markdown Viewer, Git, AI Chat, Theme Settings, Tutorial), and Help menu (About, Website). Dispatches callbacks for every menu action. Handles menu open/close state, click-outside-to-close behavior, and keyboard navigation (Escape to close).
+Custom menu bar rendered in the title bar drag region. Renders four top-level menus: File (Open Workspace, Exit), View (Terminal submenu with instance list, Explorer, Git, Markdown, Canvas grid style submenu, Zoom submenu), Tools (SpecsMap, AI, Theme), and Help (Tutorial, About). Menus open on hover with 300ms close delay. Each submenu item wires to typed callbacks (`TopBarCallbacks`). Terminal, Git, and SpecsMap submenus are dynamically patched (`patchSubmenu`) to list open instances with focus/reopen actions. Grid style radio items show a checkmark. Zoom lock checkbox toggles lock icon. A theme-toggle button (◐) sits on the right. Supports keyboard navigation: Arrow keys cycle items, Enter activates, Escape closes.
 
 ## Dependencies
 
-- **theme** `../theme` — calls `theme.toggle()` from View → Theme menu item
+- **Theme System** `src/renderer/theme.ts` — for theme toggle button rendering (imports `theme`)
 
 ## Referenced By
 
-- **app** `src/renderer/components/App.ts` — creates and mounts TopBar to `#menu-bar`
+- **App Orchestrator** `src/renderer/components/App.ts` — creates TopBar with all callbacks wired to CanvasArea actions
 
 ## IPC Channels
 
-None — delegates actions to App callbacks.
-
-## Interface
-
-### Classes
-
-- **TopBar**
-  - **constructor** `(callbacks: TopBarCallbacks): TopBar` — renders menu bar into container
-  - **render** `(): void` — rebuilds full menu DOM
-  - **onNewWindow** — callback `() => void`
-  - **onOpenFolder** — callback `() => void`
-  - **onCloseWindow** — callback `() => void`
-  - **onUndo** / **onRedo** — callback `() => void`
-  - **onCut** / **onCopy** / **onPaste** — callback `() => void`
-  - **onZoomIn** / **onZoomOut** / **onResetZoom** — callback `() => void`
-  - **onToggleTheme** — callback `() => void`
-  - **onCommandPalette** — callback `() => void`
-  - **onOpenTerminal** — callback `() => void`
-  - **onOpenExplorer** — callback `() => void`
-  - **onOpenMarkdown** — callback `() => void`
-  - **onOpenGit** — callback `() => void`
-  - **onOpenAiChat** — callback `() => void`
-  - **onOpenThemeSettings** — callback `() => void`
-  - **onTutorial** — callback `() => void`
-  - **onAbout** — callback `() => void`
-  - **onWebsite** — callback `() => void`
-  - **el** `HTMLDivElement` — root menu bar DOM
-
-## Lifecycle
-
-- **created_by:** `App` constructor, mounted to `#menu-bar`
-- **destroyed_by:** App destruction
-
-## External Dependencies
-
-None.
-
-## Test
-
-`src/renderer/components/TopBar.test.ts`
+None — all user actions delegate through callbacks to App.

@@ -5,115 +5,62 @@ parent: monaco-editor-plugin
 
 # Monaco Editor Plugin UI
 
-DOM structure, tab management, editor interactions, and states for the multi-tab Monaco code editor embedded in a PluginCard.
+Multi-tab code editor with Monaco embedded.
 
 ## DOM Structure
 
-```
-.card-body (PluginCard body container)
-├── .editor-tab-bar | flex row, scrollable
-│   ├── .editor-tab[.active] (one per open file)
-│   │   ├── .tab-title (file basename)
-│   │   ├── .tab-dirty-indicator (• dot when unsaved)
-│   │   └── .tab-close (× button)
-│   └── .tab-scroll-arrows (when tabs overflow)
-└── .editor-container | flex: 1
-    └── [Monaco Editor mounted via editor.create()]
+```html
+<div class="editor-wrap">
+  <div class="editor-tab-bar">
+    <div class="editor-tab-scroll" id="tab-container">
+      <div class="editor-tab is-active is-dirty" draggable="true" title="src/file.ts">
+        <span class="editor-tab-name">file.ts</span>
+        <span class="editor-tab-close">✕</span>
+      </div>
+      <!-- more tabs -->
+    </div>
+  </div>
+  <div class="editor-area" id="monaco-{uuid}"><!-- Monaco mounts here --></div>
+</div>
 ```
 
 ## Interactions
 
-### Tab Open (File Open)
+### Tab Click
+- **trigger:** `click` on `.editor-tab`
+- Save current editor content + cursor position → `switchTab(filePath)` → set value, restore cursor/scroll → `sendEditorState()`
 
-- **trigger:** Call `openFile(filePath)` from ExplorerPlugin or FileExplorerPlugin
-- If file already open in a tab → switch to existing tab
-- Otherwise → `fs:readFile` IPC, create new Monaco model with language from extension, add tab to bar, switch to new tab
-- **result:** File content displayed with syntax highlighting, tab added to bar
+### Tab Close Button
+- **trigger:** `click` on `.editor-tab-close`
+- `closeTab(filePath)` → remove from `tabs` array, delete file content. If active tab closed, switch to neighbor.
 
-### Tab Switch
-
-- **trigger:** Click on tab in `.editor-tab-bar`
-- Previous tab: save cursor position in model state
-- New tab: `editor.setModel(newModel)`, restore cursor position
-- Update `.active` class on tabs
-- **result:** Different file content editable, active tab highlighted
-
-### Tab Close
-
-- **trigger:** Click × button on tab, or right-click → Close
-- If file is dirty (unsaved): show unsaved changes prompt
-- Dispose Monaco model, remove tab element
-- If closed tab was active: switch to adjacent tab
-- **result:** Tab removed, file unloaded from editor
+### Middle-click Close
+- **trigger:** `mousedown` button 1 (middle) on `.editor-tab`
+- Calls `closeTab(filePath)`
 
 ### Tab Context Menu
+- **trigger:** `contextmenu` on `.editor-tab`
+- Show ContextMenu: Close, Close Others, Close All, separator, Copy File Path
 
-- **trigger:** Right-click on editor tab
-- `ContextMenu.show()` with items: Close, Close Others, Close All, Copy Path
-- Close Others: closes all tabs except clicked one
-- Copy Path: `clipboard:writeText` with full file path
-- **result:** Tab management actions executed
+### Tab Drag Reorder
+- **trigger:** `dragstart`/`dragover`/`drop` on `.editor-tab`
+- `dragstart` sets dataTransfer to filePath. `drop` reorders `tabs` array and calls `renderTabs()`.
 
-### Save (Ctrl+S)
+### Text Editing
+- **trigger:** Any keyboard input in Monaco editor
+- Content and cursor tracked per tab. Dirty state tracked via `onDidChangeModelContent` listener.
 
-- **trigger:** Ctrl+S keypress or File → Save menu
-- `editor.getValue()` → `fs:writeFile` IPC with file path and content
-- Remove dirty indicator from tab
-- **result:** File saved to disk, dirty marker cleared
-
-### External File Change
-
-- **trigger:** `file:changed` listener fires for open file
-- If file has unsaved changes → prompt: "File changed externally. Reload?"
-- If no unsaved changes → auto-reload file content
-- **result:** Editor content synced with disk, or user prompted
-
-### Language Detection
-
-- **trigger:** File opened (any method)
-- Map file extension to Monaco language ID (`.ts` → `typescript`, `.js` → `javascript`, `.json` → `json`, etc.)
-- Set model language for syntax highlighting
-- **result:** Correct token colors, autocomplete, and diagnostics
-
-### Cursor Position Reporting
-
-- **trigger:** `editor.onDidChangeCursorPosition` event
-- Debounced 300ms → `ide:editorState` IPC with `{ filePath, language, cursorLine, cursorColumn }`
-- **result:** IDE server broadcasts cursor position to external editors
+### Editor Context Menu
+- **trigger:** `contextmenu` in editor area
+- Monaco's built-in context menu appears.
 
 ## States
 
-### No Tabs
+### Tab States
+- **Active** (`.is-active`): highlighted tab with accent bottom border
+- **Dirty** (`.is-dirty`): shows a dot or modified indicator
+- **Dragging** (`.is-dragging`): reduced opacity during drag
+- **Dragover** (`.is-dragover`): insertion indicator border
 
-Empty editor container with "Open a file to begin" placeholder.
-
-### Tab Active (Editing)
-
-Single visible tab, Monaco editor focused, cursor visible, syntax highlighting active.
-
-### Multiple Tabs
-
-Tab bar scrollable, one `.active` tab, others inactive (slightly dimmed title).
-
-### Dirty (Unsaved)
-
-Active tab shows `•` dot indicator, title slightly highlighted. On close attempt: unsaved changes prompt.
-
-### Loading
-
-Tab shows spinner or "Loading..." while `fs:readFile` IPC is pending.
-
-### Save In Progress
-
-Tab shows saving indicator, editor temporarily read-only, dirty marker pulsing.
-
-### External Change Detected
-
-Tab title flashes, info bar shows "File changed externally" with Reload button.
-
-## Accessibility
-
-- **Ctrl+Tab:** Cycle forward through tabs
-- **Ctrl+Shift+Tab:** Cycle backward through tabs
-- **Ctrl+W:** Close active tab
-- **Ctrl+S:** Save active file
+### Empty State
+- No tabs open → tab bar shows "No file selected", editor area shows empty content

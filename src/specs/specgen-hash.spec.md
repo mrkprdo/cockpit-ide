@@ -2,34 +2,23 @@
 name: SpecGen Hash
 file: src/renderer/specgen-hash.ts
 type: config
-layer: foundation
-singleton: true
+layer: utility
+singleton: false
 exports: [SPECGEN_HASH, SPECGEN_VERSION]
 ---
 
 # SpecGen Hash
 
-Auto-generated version stamp file written by `scripts/version.js` during the build process. Exports two constants: `SPECGEN_HASH` (content hash of bundled files) and `SPECGEN_VERSION` (version string from package.json). Used by SpecsMapPlugin to verify workspace integrity.
+Auto-generated constants file produced by `build-renderer.js` on every `npm run build`. Exports `SPECGEN_HASH` (SHA-256 hex digest of the SPECGEN.md template) and `SPECGEN_VERSION` (date-based version string). Used by SpecsMap Plugin to detect when the spec generation template has changed and trigger a re-scan of the source tree.
 
 ## Dependencies
 
-None — auto-generated file with no imports.
+No imports from `src/`.
 
 ## Referenced By
 
-- **specsmap-plugin** `src/renderer/components/SpecsMapPlugin.ts` — reads hash for integrity verification
+- **SpecsMap Plugin** `src/renderer/components/SpecsMapPlugin.ts` — imports `SPECGEN_HASH` and `SPECGEN_VERSION`
 
 ## IPC Channels
 
 None.
-
-## Interface
-
-### Constants
-
-- **SPECGEN_HASH** `string` — content hash of build artifacts
-- **SPECGEN_VERSION** `string` — version string matching package.json
-
-## Test
-
-None — auto-generated; not tested directly.

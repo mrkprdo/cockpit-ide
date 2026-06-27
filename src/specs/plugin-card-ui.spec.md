@@ -5,110 +5,73 @@ parent: plugin-card
 
 # Plugin Card UI
 
-DOM structure, drag/resize interactions, and visual states for the draggable card widget.
+Draggable, resizable card widget hosting plugin content.
 
 ## DOM Structure
 
-```
-.plugin-card | position: absolute; transform: translate(worldX, worldY) scale(canvasScale)
-├── .card-header
-│   ├── .card-title (text, set by setTitle)
-│   └── .card-controls
-│       ├── button.minimize (toggles minimize)
-│       ├── button.maximize (toggles full-size)
-│       └── button.close (fires onClose, destroys card)
-├── .card-body (plugin content mount point)
-└── .card-resize-handles
-    ├── .resize-top
-    ├── .resize-bottom
-    ├── .resize-left
-    ├── .resize-right
-    ├── .resize-top-left
-    ├── .resize-top-right
-    ├── .resize-bottom-left
-    └── .resize-bottom-right
+```html
+<div class="card" style="left: Xpx; top: Ypx; width: Wpx; height: Hpx;">
+  <div class="card-header">
+    <div class="card-title-area">
+      <div class="card-title-text">Terminal 1</div>
+    </div>
+    <div class="card-controls">
+      <button class="card-btn card-btn-minimize" title="Minimize"><!-- SVG minus --></button>
+      <button class="card-btn card-btn-fitview" title="Fit Viewport"><!-- SVG expand --></button>
+      <button class="card-btn card-btn-terminate" title="Close"><!-- SVG X --></button>
+    </div>
+  </div>
+  <div class="card-body"><!-- plugin DOM mounted here --></div>
+  <div class="card-edge card-edge-e"></div>
+  <div class="card-edge card-edge-s"></div>
+  <div class="card-edge card-edge-se"></div>
+</div>
 ```
 
 ## Interactions
 
-### Card Drag
+### Drag (Move)
+- **trigger:** `mousedown` on `.card-header` (not on `.card-controls` buttons)
+- **gesture:** `mousedown` → record offset and start world coords → `mousemove` on document → update `el.style.left/top` = `snappedWorld * scale + pan`
+- `snap(v) = round(v / 28) * 28`
+- **result:** `onDragEnd(worldX, worldY)` fires with snapped coordinates
 
-- **trigger:** `mousedown` on `.card-header`
-- Prevent text selection during drag
-- `mousemove` → `onDrag(dx, dy)` → Card updates `el.style.left/top` based on accumulated delta
-- Constrain to parent container bounds (min 0, max = parentWidth - cardWidth)
-- `mouseup` → `onDragEnd(worldX, worldY)` → snap to 28px grid, fire callback
-- **result:** Card moved to new world position, snapped to grid
+### Resize
+- **trigger:** `mousedown` on `.card-edge-e`, `.card-edge-s`, or `.card-edge-se`
+- **gesture:** record start mouse + dimensions → `mousemove` → compute new W/H = `max(280, round((start + delta) / 28) * 28)`
+- east handle changes width only, south changes height only, southeast changes both
+- **result:** `onResizeEnd(width, height)` fires
 
-### Card Resize
+### Minimize Button
+- **trigger:** `click` on `.card-btn-minimize`
+- Fires `onMinimize()` callback — hides card body
 
-- **trigger:** `mousedown` on any `.card-resize-*` handle
-- Determine resize direction from handle class (n, s, e, w, ne, nw, se, sw)
-- Each direction modifies width/height and optionally x/y offset
-- Enforce minimum size (200px × 100px by default)
-- `mousemove` → `onResize(width, height)` → card dimensions update in real-time
-- `mouseup` → `onResizeEnd(width, height)` → snap to 28px grid, fire callback
-- **result:** Card resized, minimum bounds enforced
+### Fit Viewport Button
+- **trigger:** `click` on `.card-btn-fitview`
+- Fires `onFitViewport()` callback — canvas pans/zooms to frame the card
 
-### Card Focus
+### Close Button
+- **trigger:** `click` on `.card-btn-terminate`
+- Fires `onTerminate()` callback — removes card and destroys plugin
 
-- **trigger:** `mousedown` anywhere on card
-- `onFocus()` callback → parent (CanvasArea) brings card to front
-- Card receives `.focused` CSS class (accent border glow)
-- **result:** Card visually brought forward, z-index elevated
+### Header Double-click
+- **trigger:** `dblclick` on `.card-header` (not on controls)
+- Fires `onFitViewport()` — same as fit viewport button
 
-### Minimize
-
-- **trigger:** Click `.minimize` button
-- Toggle `.minimized` class → card body collapses to header-only (height: header)
-- Click again → restores full height
-- **result:** Card toggles between compact header and full content
-
-### Maximize
-
-- **trigger:** Click `.maximize` button
-- Card expands to fill parent container (full available space)
-- Click again → restores previous size
-- **result:** Card fills canvas viewport or returns to prior dimensions
-
-### Close
-
-- **trigger:** Click `.close` button
-- `onClose()` callback → CanvasArea removes card and destroys plugin
-- **result:** Card removed from DOM, plugin destroyed
-
-### Keyboard
-
-- **trigger:** Card is focused + keypress
-- `Escape`: blurs card, deselects
-- Tab: cycles focus between cards
+### Header Context Menu
+- **trigger:** `contextmenu` on `.card-header`
+- Fires `onHeaderContextMenu(e)` — allows canvas to show card-level context menu
 
 ## States
 
-### Normal
+### Default
+- Dashed `var(--border)` border, `var(--surface)` background. Title text in bold primary.
 
-Card at specified position/size, header + body visible, no interaction.
+### Hover
+- Card shadow intensifies, border color shifts to `var(--tertiary)`.
 
-### Focused
-
-Accent border (2px dashed `--accent-primary`), z-index elevated above other cards.
-
-### Dragging
-
-Opacity slightly reduced (0.95), `cursor: move` on header, card follows cursor, snap grid visible.
-
-### Resizing
-
-`cursor` changes to direction-appropriate resize arrow, minimum size lines shown when approaching limits.
+### Arranging
+- CSS class `.card-arranging` toggles `transition: left/top/width/height 0.25s ease`.
 
 ### Minimized
-
-Card body `display: none` or height collapsed to 0, only header visible, title remains.
-
-### Maximized
-
-Card fills parent container (100% width/height), resize handles hidden, minimize/restore button shows restore icon.
-
-### Closing
-
-Brief fade-out animation (opacity 1→0 over 150ms), then DOM removal.
+- Card body hidden; only header visible. (Handled by CanvasArea.)

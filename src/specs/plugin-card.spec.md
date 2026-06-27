@@ -4,67 +4,21 @@ file: src/renderer/components/PluginCard.ts
 type: ui
 layer: widget
 singleton: false
-exports: [CardOptions, PluginCard]
+exports: [PluginCard, CardOptions]
 ---
 
 # Plugin Card
 
-Draggable, resizable, focusable card widget that wraps a plugin's content DOM. Provides header bar with title, control buttons (minimize, maximize, close), and 8 resize handles (corners + edges). Drag is initiated via `mousedown` on the `.card-header`, constrained by the parent container bounds. Resize uses the 8-directional edge handles with minimum dimension enforcement (200x100). Focus is managed globally — clicking a card raises its z-index and adds a highlight border.
+Draggable, resizable, floatable card widget that hosts all plugin UIs. Each card has a header (title text + control buttons) and a body where the plugin DOM mounts. Supports drag via mousedown on the header (snaps to 28px grid), resize via three edge handles (east, south, southeast, also snapped to 28px grid), minimize (hides card body), fit-viewport (calls `onFitViewport` to auto-pan canvas to card), and terminate (removes card and destroys its plugin). Card DOM uses CSS `position: absolute` with `left`/`top`/`width`/`height` set in world coordinates * scale + pan offset. UUID is generated via `crypto.randomUUID()`. All mouse event handlers are registered on `document` and cleaned up on `remove()`. An `arranging` CSS class is toggled for smooth transitions during auto-arrange.
 
 ## Dependencies
 
-None — standalone card widget with no project imports.
+No imports from `src/`.
 
 ## Referenced By
 
-- **canvas-area** `src/renderer/components/CanvasArea.ts` — creates PluginCard instances for every loaded plugin
+- **Canvas Area** `src/renderer/components/CanvasArea.ts` — instantiates all PluginCard instances via `new PluginCard(parent, opts, getTransform)`
 
 ## IPC Channels
 
-None.
-
-## Interface
-
-### Types
-
-- **CardOptions** — `{ title: string; x: number; y: number; width: number; height: number; minWidth?: number; minHeight?: number; onClose?: () => void; onFocus?: () => void; onDragEnd?: (x: number, y: number) => void; onResizeEnd?: (width: number, height: number) => void }`
-
-### Classes
-
-- **PluginCard**
-  - **constructor** `(container: HTMLElement, options: CardOptions): PluginCard`
-  - **getBodyElement** `(): HTMLElement` — returns the card body container for plugin content mounting
-  - **setTitle** `(title: string): void` — updates header title text
-  - **focus** `(): void` — brings card to front, applies focus styling
-  - **setBounds** `(x: number, y: number, w: number, h: number): void` — programmatic position/size
-  - **destroy** `(): void` — removes card DOM and cleans up listeners
-  - **id** `string` — unique UUID
-  - **el** `HTMLDivElement` — root card DOM element
-
-### Events
-
-- **onDragStart** — callback `(x: number, y: number) => void`
-- **onDrag** — callback `(dx: number, dy: number) => void`
-- **onDragEnd** — callback `(x: number, y: number) => void`
-- **onResizeStart** — callback `() => void`
-- **onResize** — callback `(width: number, height: number) => void`
-- **onResizeEnd** — callback `(width: number, height: number) => void`
-- **onFocus** — callback `() => void`
-- **onClose** — callback `() => void`
-
-## State
-
-Card position, size, z-index, title, and minimize state are stored as instance properties. Serialized to `EditorState` via CanvasArea for persistence.
-
-## Lifecycle
-
-- **created_by:** `CanvasArea.addPlugin()` when adding a new plugin card
-- **destroyed_by:** close button → `CanvasArea.removeCard()` → `card.destroy()`
-
-## External Dependencies
-
-None.
-
-## Test
-
-`src/renderer/components/PluginCard.test.ts`
+None — DOM-only widget.

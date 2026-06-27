@@ -5,107 +5,71 @@ parent: canvas-area
 
 # Canvas Area UI
 
-DOM structure, interactions, and visual states for the infinite zoomable/pannable canvas engine that hosts draggable PluginCard instances.
+The infinite canvas with zoom/pan, plugin card management, and two corner interaction zones.
 
 ## DOM Structure
 
-```
-#canvas (HTMLElement, passed from index.html)
-├── .canvas-area | transform: translate(panX, panY) scale(scale)
-│   ├── [dot-grid background via canvas-grid CSS]
-│   ├── .plugin-card[] (one per loaded plugin, appended by PluginCard)
-│   ├── .arrange-overlay (temporary layout grid during auto-arrange)
-│   └── .origin-dot (center reference marker at 0,0)
-└── .canvas-statusbar (floating bottom bar with zoom%, dimensions, reset button)
+```html
+<div id="canvas">
+  <!-- Grid background via CSS -->
+  <div class="origin-dot"></div>
+  <div class="viewport" style="transform: scale(...) translate(...)">
+    <!-- PluginCard divs positioned here -->
+  </div>
+  <button class="pli-zone">  <!-- lower-left plugin list -->
+    <span class="pli-icon">◣</span>
+    <div class="plugin-list-panel"></div>
+  </button>
+  <button class="prr-zone">  <!-- lower-right arrange panel -->
+    <span class="prr-icon">◢</span>
+    <div class="arr-panel"></div>
+  </button>
+</div>
 ```
 
 ## Interactions
 
-### Canvas Pan (Middle Mouse Drag)
+### Canvas Pan
+- **trigger:** `mousedown` on empty canvas area, `mousemove`, `mouseup`
+- **gesture:** Left-click drag on canvas (or Ctrl+drag over a card)
+- Set `isPanning = true`, record start position and pan. On mousemove: `panX = startPanX + (clientX - startX)`, `panY = startPanY + (clientY - startY)`. Clamp to ±WORLD_BOUNDS * scale. Schedule transform via `requestAnimationFrame`.
+- **result:** Viewport transform updated, grid background repositioned
 
-- **trigger:** `mousedown` (button=1) on `.canvas-area`
-- **gesture:** `mousemove` → recalculate `panX += dx / scale`, `panY += dy / scale`
-- Set `cursor: grabbing` during drag, `cursor: grab` on idle
-- **result:** canvas translates smoothly via CSS transform, world coordinates shift
+### Canvas Zoom
+- **trigger:** `wheel` event on canvas container
+- Compute delta from `e.deltaY`. Multiply scale by `1.1` (zoom in) or `1/1.1` (zoom out). Clamp to `[0.1, 5.0]`. Zoom centers on mouse position by adjusting panX/panY: `panX = e.clientX - (e.clientX - panX) * newScale / scale`. Schedule transform.
+- **result:** All cards scale via CSS transform, grid pattern resizes
 
-### Canvas Zoom (Scroll Wheel)
+### Plugin List Hover
+- **trigger:** `mouseenter` on `.pli-zone` (or focus/keyboard)
+- Build sorted list of all cards. Render `.pli-item` per card with name and "(minimized)" suffix. Show panel.
+- **result:** Plugin list panel displayed above the zone button
 
-- **trigger:** `wheel` event on `.canvas-area`
-- Determine zoom direction from `event.deltaY`
-- Compute zoom anchor from mouse position: zoom toward/away from cursor
-- Clamp `scale` between 0.25 (25%) and 4.0 (400%)
-- Apply cubic-bezier easing on zoom transitions
-- Snap to 0.25 increments when close
-- Update StatusBar with `statusBar.update(scale, worldWidth, worldHeight)`
-- **result:** Cards appear larger/smaller, grid adjusts, status bar reflects new zoom
+### Plugin List Item Click
+- **trigger:** `click` on `.pli-item`
+- If card is open: `focusCard(title)` + `panToCard(cs)`. If minimized: `reopenCard(cs)`.
+- **result:** Card focused or restored
 
-### Card Drag
+### Plugin List Context Menu
+- **trigger:** `contextmenu` on `.pli-item`
+- Show ContextMenu with "Show" and "Terminate/Close" actions.
 
-- **trigger:** `mousedown` on `.card-header` (delegated to PluginCard)
-- Canvas tracks card being dragged, constrains to parent bounds
-- **result:** Card position updated in world coordinates, snapped to 28px grid on release
+### Arrange Panel Hover
+- **trigger:** `mouseenter` on `.prr-zone`
+- Render arrange items: Auto Arrange, Tile Plugins, Snap Origin. Show W×H input row for tile dimensions.
+- **result:** Arrange panel displayed
 
-### Card Creation (Right-Click Context Menu)
-
-- **trigger:** `contextmenu` on `.canvas-area` (empty space)
-- Compute world coordinates: `worldX = (clientX - panX) / scale`, `worldY = (clientY - panY) / scale`
-- `ContextMenu.show([... plugin types], clientX, clientY)` — list of available plugins
-- On menu item click → `addPlugin(type, { x: worldX, y: worldY })` → creates PluginCard at click position
-- **result:** New card appears at cursor position with default dimensions
-
-### Card Arrangement
-
-- **trigger:** Toolbar button or Arrange menu action
-- Overlay `.arrange-overlay` shows grid layout preview
-- Snaps all cards to 28px grid in columns, max 3 per row
-- **result:** Cards neatly arranged, positions serialized to SaveState
-
-### Card Focus
-
-- **trigger:** `mousedown` on any card surface
-- Increment global `zIndexCounter`, set card `zIndex` to new max
-- Apply `.focused` class to card (highlight border)
-- Remove `.focused` from previously focused card
-- **result:** Clicked card comes to front
-
-### Pinch Zoom (Touch)
-
-- **trigger:** Two-finger pinch gesture on touch devices
-- Compute scale delta from touch point distance ratio
-- Same zoom mechanics as scroll wheel
+### Arrange Action Click
+- **trigger:** `click` on `.arr-item`
+- Execute action: `autoArrange()`, `tilePlugins()`, `snapOrigin()`.
 
 ## States
 
-### Default (Idle)
+### Panning active
+- `isPanning = true`, cursor changes to grabbing, transform updates on mousemove.
 
-Canvas at initial 1x zoom, centered origin, grid visible, no cards (or restored cards).
+### Zoom level
+- Scale value `0.1`–`5.0`. Displayed in status bar as percentage.
 
-### Panning
-
-Cursor grabbed, canvas translating, grid moves with content.
-
-### Zooming
-
-Scale animating with cubic-bezier ease, grid dot spacing adjusts, status bar updates in real-time.
-
-### Arranging
-
-Arrange overlay visible, cards snapping to grid positions, layout recalculation in progress.
-
-### Card Dragging
-
-Active card follows cursor in world coordinates, snap grid guidance lines visible, other cards static.
-
-### Context Menu Open
-
-Right-click menu floating at click position, canvas interactions suppressed until menu dismissed.
-
-### Empty (No Workspace)
-
-No cards, origin dot centered, status bar shows zero dimensions, grid visible as default background.
-
-## Accessibility
-
-- **Keyboard Pan:** Arrow keys translate canvas by 28px increments
-- **Keyboard Zoom:** Ctrl+Plus / Ctrl+Minus zoom in/out
-- **Escape:** Dismisses context menu, cancels current drag
+### Locked
+- `_locked = true`: wheel zoom and pan disabled. Lock icon shown in status bar.

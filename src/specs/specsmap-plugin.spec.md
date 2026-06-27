@@ -9,52 +9,18 @@ exports: [SpecsMapPlugin]
 
 # SpecsMap Plugin
 
-Specification visualization and generation tool accessible via Tools → SpecsMap. Parses the project's spec files (`src/specs/*.spec.md`) into a dependency graph and renders a visual map of nodes (features) connected by directed edges (dependencies/references). Supports: auto-generation of spec files from source code audit, integrity verification against `SPECGEN_HASH`, snapshot management (save/load spec state), and export of generation prompts for AI-assisted spec creation.
+Visual dependency graph viewer that parses all `*.spec.md` files in the specs directory and renders a layered interactive graph. Each spec node is drawn as a positioned `<div>` with color-coded border by layer (foundation → green, core → blue, widget → purple, modal → amber, overlay → red, plugin → gray). Edges (dependency arrows) are rendered on a shared SVG layer using quadratic bezier curves. Supports pan and zoom (wheel to zoom, click-drag to pan), node selection (click opens a detail panel showing frontmatter, dependencies, and referenced-by), and search (Ctrl+F opens a search bar with result highlighting and arrow-key navigation). Cycle detection groups nodes into toggleable cycles. Validation badge shows spec count vs. source file count. A settings panel allows configuring the specs directory path (default `src/specs/`). The `triggerRefresh()` reloads specs from disk; `triggerRegenerate()` re-scans `src/` and rebuilds all spec files.
 
 ## Dependencies
 
-- **specgen-hash** `../specgen-hash` — reads `SPECGEN_HASH` and `SPECGEN_VERSION` for integrity verification
+- **SpecGen Hash** `src/renderer/specgen-hash.ts` — `SPECGEN_HASH` and `SPECGEN_VERSION` for template change detection
 
 ## Referenced By
 
-- **canvas-area** `src/renderer/components/CanvasArea.ts` — creates SpecsMap cards
+- **Canvas Area** `src/renderer/components/CanvasArea.ts` — instantiates SpecsMapPlugin per specsmap card
 
 ## IPC Channels
 
-- `fs:readDir` — reads spec files directory, source files directory, workspace root
-- `fs:readFile` — reads spec files, workspace snapshot, main.spec.md, SPECGEN.md, AGENTS.md, source files
-- `fs:writeFile` — saves snapshot, writes SPECGEN.md template, writes generated spec files, writes main.spec.md
-- `fs:mkdir` — creates `.cockpit/` directory for snapshot storage
-- `clipboard:writeText` — copies generation prompt to clipboard
-
-## Interface
-
-### Classes
-
-- **SpecsMapPlugin**
-  - **constructor** `(container: HTMLElement): SpecsMapPlugin` — initializes graph renderer
-  - **loadSpecs** `(): Promise<void>` — parses all spec files into dependency graph
-  - **renderGraph** `(): void` — renders visual graph of feature dependencies
-  - **generateSpecs** `(): Promise<void>` — audits source and generates spec files
-  - **saveSnapshot** `(): Promise<void>` — saves current spec state
-  - **loadSnapshot** `(): Promise<void>` — restores spec state from snapshot
-  - **verifyIntegrity** `(): boolean` — checks SPECGEN_HASH against workspace
-  - **getGenerationPrompt** `(): string` — builds AI prompt for spec generation
-  - **destroy** `(): void`
-
-## State
-
-Snapshot data persisted to `.cockpit/specs-snapshot.json`.
-
-## Lifecycle
-
-- **created_by:** `CanvasArea` on Tools → SpecsMap menu action
-- **destroyed_by:** card close
-
-## External Dependencies
-
-None beyond IPC.
-
-## Test
-
-`src/renderer/components/SpecsMapPlugin.test.ts`
+- `fs:readDir` — scan specs directory and source directory
+- `fs:readFile` — read spec markdown files
+- `fs:writeFile` — write regenerated spec files

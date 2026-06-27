@@ -5,88 +5,70 @@ parent: top-bar
 
 # Top Bar UI
 
-DOM structure, menu dropdown interactions, and states for the custom menu bar.
+Custom menu bar with dropdown menus.
 
 ## DOM Structure
 
-```
-#menu-bar (mount point from index.html)
-└── .top-bar | display: flex; height: 32px
-    └── .menu-item[] (one per top-level menu: File, Edit, View, Tools, Help)
-        ├── .menu-label (menu name text)
-        └── .menu-dropdown | position: absolute; display: none
-            └── .menu-action[] (one per menu action)
-                ├── .menu-action-label (action text)
-                ├── .menu-action-shortcut (keyboard shortcut hint, muted)
-                └── .menu-separator (divider between action groups)
+```html
+<div class="menu-bar" role="menubar">
+  <div class="menu-item" role="menuitem" tabindex="0" aria-haspopup="true">
+    File
+    <div class="menu-dropdown" role="menu">
+      <div class="menu-dropdown-item" role="menuitem" tabindex="-1">Open Workspace</div>
+      <div class="menu-dropdown-separator" role="separator"></div>
+      <div class="menu-dropdown-item" role="menuitem" tabindex="-1">Exit</div>
+    </div>
+  </div>
+  <!-- View, Tools, Help menus -->
+  <div class="menu-spacer"></div>
+  <button class="tb-btn tb-btn--wide" id="theme-toggle" title="Toggle theme">◐</button>
+</div>
 ```
 
 ## Interactions
 
-### Menu Open
+### Menu Hover Open
+- **trigger:** `mouseenter` on `.menu-item`
+- Close all other open menus. Add `.open` class to show dropdown.
 
-- **trigger:** Click on `.menu-label`
-- Set `.menu-dropdown` to `display: block` with slide-down animation
-- Highlight `.menu-label` with accent color
-- Close any other open dropdown (only one menu open at a time)
-- **result:** Dropdown menu visible below label
+### Menu Hover Close
+- **trigger:** `mouseleave` on `.menu-item`
+- Schedule close after 300ms delay (cancel if re-entered).
 
-### Menu Close
+### Dropdown Hover
+- **trigger:** `mouseenter` on `.menu-dropdown`
+- Cancel close timer. Keep menu open.
 
-- **trigger:** Click outside menu, press Escape, or click same label again
-- Hide dropdown with slide-up animation
-- Remove label highlight
-- **result:** Menu closed
+### Dropdown Leave
+- **trigger:** `mouseleave` on `.menu-dropdown`
+- Schedule close after 300ms.
 
-### Hover Menu Switch
+### Dropdown Item Click
+- **trigger:** `click` on `.menu-dropdown-item`
+- Fire associated callback, close all menus.
 
-- **trigger:** Mouse enter on different `.menu-label` while another menu is open
-- Close previous dropdown, open new dropdown without requiring click
-- **result:** Seamless menu switching on hover
+### Nested Submenu Hover
+- **trigger:** `mouseenter` on `.menu-item-nested`
+- Show nested `.menu-dropdown-nested` to the right.
 
-### Action Selection
+### Keyboard Navigation
+- **trigger:** Arrow keys, Enter, Escape on focused `.menu-item`
+- ArrowRight/Left switches top-level menu. ArrowUp/Down navigates items. Enter activates. Escape closes.
 
-- **trigger:** Click on `.menu-action` item
-- Fire corresponding callback (e.g., `onNewWindow`, `onOpenExplorer`, `onAbout`)
-- Close all dropdowns
-- **result:** Action executed, menus dismissed
-
-### Keyboard Shortcut Display
-
-- **trigger:** Menu open (visual only)
-- Each `.menu-action` shows shortcut in muted text (e.g., `Ctrl+N`, `Ctrl+P`, `Ctrl+S`)
-- Shortcuts are display-only hints; actual bindings handled by App keyboard listener
-- **result:** User sees available shortcuts
-
-### Theme Toggle
-
-- **trigger:** Click "Theme" action in View menu
-- Call `theme.toggle()` from theme singleton
-- **result:** Dark/light mode toggled, menu closes
+### Theme Toggle Button
+- **trigger:** `click` on `#theme-toggle`
+- Fires `onThemeToggle()` callback.
 
 ## States
 
-### Default (All Closed)
+### Open Menu
+- `.menu-item.open` — shows the dropdown, adds accent bottom border.
 
-All dropdowns hidden, labels at default color, menu bar at rest.
+### Active Grid Style
+- Checkmark (✓) next to the selected grid style in Canvas submenu.
 
-### Menu Open
+### Zoom Locked
+- Checkmark next to "Lock" in Zoom submenu when locked.
 
-One dropdown visible with slide-down animation, label highlighted, rest of UI dimmed or unresponsive to menu clicks.
-
-### Hover Transition
-
-Fast dropdown swap (no animation) when moving between menu labels.
-
-### Disabled Action
-
-Menu action item greyed out, not clickable (e.g., Undo when nothing to undo).
-
-## Accessibility
-
-- **Alt / F10:** Focus first menu
-- **Left/Right arrows:** Navigate between menus
-- **Down arrow:** Open focused menu
-- **Up/Down arrows:** Navigate within open menu
-- **Enter:** Select action
-- **Escape:** Close menu
+### Empty Instance Lists
+- Terminal/Git/SpecsMap submenus with no instances show "(none)" disabled item.

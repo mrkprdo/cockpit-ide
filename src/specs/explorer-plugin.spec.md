@@ -9,44 +9,25 @@ exports: [ExplorerPlugin]
 
 # Explorer Plugin
 
-Split-pane plugin combining a FileExplorerPlugin (left panel) and a MonacoEditorPlugin (right panel) in a resizable horizontal layout. The file explorer opens files in the adjacent editor on double-click. Provides a `CommandPalette` (Ctrl+P) for fuzzy file finding — opened lazily on first use. Serves as the primary code browsing interface, replacing standalone editor and explorer cards with an integrated IDE-like experience.
+Split-pane layout combining a `FileExplorerPlugin` (left column, default 260px) and a `MonacoEditorPlugin` (right column, fills remaining space). A draggable resize handle (2px wide) between the panes adjusts the split ratio (clamped 120–600px). The file explorer's `onFileOpen` callback opens files in the editor. The editor pane is hidden (`display:none`) when no tabs are open. Exposes convenience methods: `revealFile(filePath)` — selects and scrolls the tree to a path; `openFileSearch()` — opens CommandPalette; `insertText(text)` / `getSelectionText()` / `setEditorContent(content)` / `goToLine(line, col)` — agent integration delegates to the editor. Serializes editor state (open files, active file, cursors, explorer width) via `getEditorState()` and restores it via `restoreEditorState()`.
 
 ## Dependencies
 
-- **file-explorer-plugin** `./FileExplorerPlugin` — left pane file browser
-- **monaco-editor-plugin** `./MonacoEditorPlugin` — right pane code editor
-- **command-palette** `./CommandPalette` — Ctrl+P fuzzy file finder (lazily instantiated)
+- **File Explorer Plugin** `src/renderer/components/FileExplorerPlugin.ts` — recursive file tree browser
+- **Monaco Editor Plugin** `src/renderer/components/MonacoEditorPlugin.ts` — code editor with multi-tab support
+- **Command Palette** `src/renderer/components/CommandPalette.ts` — fuzzy file search overlay
 
 ## Referenced By
 
-- **canvas-area** `src/renderer/components/CanvasArea.ts` — creates explorer cards
+- **Canvas Area** `src/renderer/components/CanvasArea.ts` — instantiates ExplorerPlugin per explorer card
 
 ## IPC Channels
 
-None directly — delegates all IPC to child components.
-
-## Interface
-
-### Classes
-
-- **ExplorerPlugin**
-  - **constructor** `(container: HTMLElement, workspacePath: string): ExplorerPlugin` — creates split pane layout
-  - **openFile** `(filePath: string): Promise<void>` — opens file in right editor, expands tree to file
-  - **openCommandPalette** `(): void` — shows fuzzy file finder overlay
-  - **focus** `(): void` — focuses the editor
-  - **destroy** `(): void` — tears down both panes
-  - **onFocus** — callback `() => void`
-  - **onClose** — callback `() => void`
-
-## State
-
-Serialized as `ExplorerState`: `{ explorerState: any; editorState: MonacoEditorState; splitPosition: number }`. The editor state is delegated to MonacoEditorPlugin; the file explorer state is a nested serializable blob.
-
-## Lifecycle
-
-- **created_by:** `CanvasArea.createExplorer()` on Explorer menu/toolbar action
-- **destroyed_by:** card close → destroy both child components
-
-## Test
-
-`src/renderer/components/ExplorerPlugin.test.ts`
+- `fs:readDir` — file tree navigation
+- `fs:readFile` — file content loading for editor
+- `fs:writeFile` — file save
+- `fs:mkdir` — new folder creation
+- `fs:delete` — file/folder deletion
+- `fs:copy` — file copy
+- `fs:rename` — file rename
+- `file:changed` — external file change notifications for editor reload

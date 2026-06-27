@@ -9,43 +9,16 @@ exports: [AboutModal]
 
 # About Modal
 
-Version and credits dialog showing Cockpit IDE version (from `package.json`), build date, Electron/Chrome/Node versions, project links (GitHub, website), and license information. Clicking the website link opens the default browser via `shell:openExternal` IPC. Dismissed by clicking the overlay background or the Close button.
+Version and credits dialog. Displays "COCKPIT IDE" branding, tagline, and a specs table with VERSION (app version), ELECTRON, NODE (first segment of each), and a clickable STYLE link that opens `usedesign.md` URL in the default browser. Footer has a "Close" button. Overlay click and Escape dismiss. Accepts an `onClose` callback (used by App to re-enable canvas panning that was locked while modal was open).
 
 ## Dependencies
 
-None — standalone modal.
+No imports from `src/`.
 
 ## Referenced By
 
-- **app** `src/renderer/components/App.ts` — opens via Help → About menu
+- **App Orchestrator** `src/renderer/components/App.ts` — instantiates and calls `modal.open(onClose)` from Help > About
 
 ## IPC Channels
 
-- `shell:openExternal` — opens website URL in default browser
-
-## Interface
-
-### Classes
-
-- **AboutModal**
-  - **constructor** `(): AboutModal` — creates modal DOM with version info, links
-  - **open** `(): void` — shows modal overlay
-  - **close** `(): void` — hides modal
-  - **onClose** — callback `() => void`
-
-### Properties
-
-- **version** `string` — app version from package.json
-
-## State
-
-Modal visibility only.
-
-## Lifecycle
-
-- **created_by:** `App` constructor (singleton)
-- **destroyed_by:** App destruction
-
-## Test
-
-`src/renderer/components/AboutModal.test.ts`
+- `shell:openExternal` — open the design reference URL in system browser

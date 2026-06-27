@@ -5,80 +5,63 @@ parent: welcome-modal
 
 # Welcome Modal UI
 
-DOM structure, workspace selection interactions, and states for the startup WelcomeModal.
+Startup workspace picker overlay.
 
 ## DOM Structure
 
-```
-.modal-overlay | position: fixed; inset: 0; z-index: 1000
-└── .welcome-modal | centered, max-width: 500px
-    ├── .welcome-header
-    │   ├── .welcome-logo (SVG circles icon)
-    │   └── .welcome-title "Cockpit IDE"
-    ├── .welcome-body
-    │   ├── button.open-folder "Select Workspace Folder"
-    │   └── .recent-workspaces (conditional)
-    │       ├── .recent-header "Recent Workspaces"
-    │       └── .recent-list
-    │           └── .recent-item[] (one per recent workspace)
-    │               ├── .recent-path (directory path)
-    │               └── button.recent-remove (× remove button)
-    └── .welcome-footer
-        └── .welcome-version "v0.0.1"
+```html
+<div class="modal-overlay" style="display:flex">
+  <div class="welcome-modal" role="dialog" aria-labelledby="welcome-title">
+    <div class="welcome-head">
+      <div class="welcome-name" id="welcome-title">COCKPIT IDE</div>
+      <div class="welcome-sub">Select a workspace</div>
+    </div>
+    <div class="welcome-sep"></div>
+    <div class="welcome-recent" id="welcome-recent">
+      <div class="welcome-recent-title">Recent</div>
+      <div class="welcome-recent-item">
+        <span class="welcome-recent-item-path">/path/to/workspace</span>
+        <button class="welcome-recent-item-remove">×</button>
+      </div>
+    </div>
+    <div class="welcome-sep" id="welcome-recent-sep"></div>
+    <div class="welcome-actions">
+      <button class="welcome-btn-secondary" id="welcome-close">Close</button>
+      <button class="welcome-btn" id="welcome-open">Open Workspace</button>
+    </div>
+  </div>
+</div>
 ```
 
 ## Interactions
 
-### Open Workspace (Native Picker)
+### Open Workspace Button
+- **trigger:** `click` on `#welcome-open`
+- Call `workspace:select` (native directory picker). If path selected, close modal with path.
 
-- **trigger:** Click "Select Workspace Folder" button
-- `workspace:select` IPC → native OS directory picker dialog
-- On selection → `onSelect(path)` callback → App sets workspace and closes WelcomeModal
-- **result:** Workspace loaded, canvas populated with saved state (if any)
+### Close Button
+- **trigger:** `click` on `#welcome-close`
+- Close modal with `null` (window will close).
 
-### Open Recent Workspace
+### Recent Item Click
+- **trigger:** `click` on `.welcome-recent-item-path`
+- If path exists (verified via `fs:readDir`), close modal with that path.
 
-- **trigger:** Click on `.recent-item` row
-- `onSelect(path)` callback with the workspace path
-- **result:** Workspace opens directly without native dialog
+### Recent Item Remove
+- **trigger:** `click` on `.welcome-recent-item-remove`
+- Call `workspace:removeRecent(path)`, remove item from DOM. Hide recent section if empty.
 
-### Remove Recent Entry
-
-- **trigger:** Click × button on `.recent-item`
-- `workspace:removeRecent` IPC with path
-- Remove entry from DOM list
-- **result:** Entry removed from recent workspaces
-
-### Dismiss (Escape / Overlay Click)
-
-- **trigger:** Click on `.modal-overlay` background or press Escape
-- If no workspace selected → app continues with last workspace (if available)
-- **result:** Modal closes
+### Escape
+- **trigger:** `Escape` key
+- Close modal with `null`.
 
 ## States
 
 ### Open
+- Overlay visible (`display:flex`). Returns a Promise that resolves when a path is chosen.
 
-Modal overlay visible with fade-in animation, input focused on "Select Folder" button.
+### Closed
+- Overlay hidden. Promise resolved.
 
-### Loading Recent
-
-Recent list shows spinner while `workspace:getRecent` IPC resolves.
-
-### Recent List Populated
-
-Recent workspaces displayed as clickable rows with remove buttons.
-
-### No Recent Workspaces
-
-Recent section hidden entirely, only "Select Folder" button visible.
-
-### Closing
-
-Fade-out animation (200ms), modal removed or hidden via `display: none`.
-
-## Accessibility
-
-- **Escape:** Closes modal
-- **Tab order:** Select Folder → Recent items → Remove buttons
-- **Enter:** Activates focused button/recent item
+### Missing Path
+- Recent path that no longer exists: gets `.welcome-recent-item-missing` class (dimmed), not clickable.

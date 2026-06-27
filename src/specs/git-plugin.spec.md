@@ -4,76 +4,38 @@ file: src/renderer/components/GitPlugin.ts
 type: ui
 layer: plugin
 singleton: false
-exports: [GitState, GitPlugin]
+exports: [GitPlugin, GitState]
 ---
 
 # Git Plugin
 
-Full-featured Git management plugin providing branch switching, commit history browsing, staging/unstaging files, diff viewing (staged and unstaged), commit message composition, and push to remote. UI has three panels: branch selector with branch list, changes list (staged/unstaged files with diffs), and commit history log. Auto-refreshes on file changes and debounces git operations to avoid overwhelming the git process.
+Git UI card with a split-pane layout: left column (branch/remote selectors, staged/unstaged file lists, commit input bar, commit history) and right column (diff viewer). The left column has a draggable resize handle (clamped 120–600px). The right column is split vertically (top: selected commit info and file tree; bottom: diff content) with a draggable horizontal resize handle. Staged and unstaged file sections are collapsible (click to expand/collapse with arrow indicator). Each change file can be clicked to view its diff. The commit bar includes a message input and Commit/Push buttons; Commit is disabled when no files are staged or message is empty. Branch and remote selectors populate from `git:*` IPC. Auto-refreshes file changes on `file:changed` events (1s debounce). Serializes/restores UI state: selected commit, selected file, diff view mode (unified/side-by-side), splitter sizes, and collapsed sections.
 
 ## Dependencies
 
-None — uses only IPC bridge for git operations.
+No imports from `src/`.
 
 ## Referenced By
 
-- **canvas-area** `src/renderer/components/CanvasArea.ts` — creates git cards
+- **Canvas Area** `src/renderer/components/CanvasArea.ts` — instantiates GitPlugin per git card
 
 ## IPC Channels
 
-- `git:remotes` — lists remote repositories
-- `git:branches` — lists local and remote branches
-- `git:checkout` — switches to branch
-- `git:log` — retrieves commit history (last 50)
-- `git:showTree` — shows file tree at a specific commit
-- `git:diff` — shows diff for commit + file
-- `git:currentBranch` — gets current branch name
-- `git:stagedFiles` — lists staged changed files
-- `git:unstagedFiles` — lists unstaged changed files
-- `git:stagedDiff` — shows diff for staged file
-- `git:unstagedDiff` — shows diff for unstaged file
-- `git:commitBody` — retrieves full commit message body
-- `git:stage` — stages a file
-- `git:unstage` — unstages a file
-- `git:commit` — commits staged changes with message
-- `git:push` — pushes to remote
-- `git:checkAhead` — checks if local is ahead of remote
-- `file:changed` — listener for auto-refresh on file changes
-
-## Interface
-
-### Types
-
-- **GitState** — `{ currentBranch: string; stagedFiles: string[]; unstagedFiles: string[]; commitMessage: string }`
-
-### Classes
-
-- **GitPlugin**
-  - **constructor** `(container: HTMLElement): GitPlugin` — builds branch selector, changes panel, log panel
-  - **refresh** `(): Promise<void>` — reloads git state from repository
-  - **stageFile** `(filePath: string): Promise<void>` — stage a file
-  - **unstageFile** `(filePath: string): Promise<void>` — unstage a file
-  - **commit** `(message: string): Promise<void>` — commit staged changes
-  - **push** `(): Promise<void>` — push current branch
-  - **switchBranch** `(branch: string): Promise<void>` — checkout branch
-  - **showDiff** `(filePath: string, staged: boolean): Promise<void>` — show file diff
-  - **destroy** `(): void` — cleans up listeners
-  - **onFocus** — callback `() => void`
-  - **onClose** — callback `() => void`
-
-## State
-
-Serialized as `GitState` with current branch, staged/unstaged file lists, and commit message draft. Restored on workspace load.
-
-## Lifecycle
-
-- **created_by:** `CanvasArea.createGit()` on Git menu/toolbar action
-- **destroyed_by:** card close → remove listeners
-
-## External Dependencies
-
-None beyond simple-git (wrapped in main process IPC).
-
-## Test
-
-`src/renderer/components/GitPlugin.test.ts`
+- `git:remotes` — list remotes for the workspace repo
+- `git:branches` — list branches
+- `git:checkout` — switch branch
+- `git:log` — commit history
+- `git:showTree` — file tree for a commit
+- `git:diff` — diff for a commit/file
+- `git:currentBranch` — current branch name
+- `git:stagedFiles` — list staged changes
+- `git:unstagedFiles` — list unstaged changes
+- `git:stagedDiff` — diff for a staged file
+- `git:unstagedDiff` — diff for an unstaged file
+- `git:commitBody` — full commit message body
+- `git:stage` — stage a file
+- `git:unstage` — unstage a file
+- `git:commit` — commit staged changes
+- `git:push` — push commits
+- `git:checkAhead` — check if local is ahead of remote
+- `file:changed` — auto-refresh changes on external file modifications

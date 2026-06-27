@@ -2,61 +2,31 @@
 name: File Explorer Plugin
 file: src/renderer/components/FileExplorerPlugin.ts
 type: ui
-layer: plugin
+layer: widget
 singleton: false
 exports: [FileExplorerPlugin]
 ---
 
 # File Explorer Plugin
 
-Recursive file tree browser plugin rendering a directory as expandable/collapsible tree nodes. Supports: click to select files, double-click to open in editor (fires `onOpenFile` callback), context menu for file operations (new file, new folder, rename, delete with ConfirmModal, copy, paste), keyboard navigation (arrows, Enter), and auto-refresh on external file changes via `file:changed` listener with debounce. Uses DirEntry type for node data.
+Recursive file tree browser that renders the workspace directory structure as an indented, collapsible tree. Each directory can be expanded/collapsed (toggled via click on the arrow icon). Files display with color-coded names by extension (`.ts`/`.js` → accent, `.css` → accent2, `.json` → amber, `.md` → green). Supports inline file/folder creation via an input row (Enter commits, Escape cancels). Right-click context menu on files offers Open, Open in Markdown (if markdown plugins configured), Rename (inline input), Copy, Delete (with ConfirmModal), and Paste. The empty-area context menu offers New File, New Folder, and Paste. Inline rename renames via `electronAPI.fs.rename`. Double-click expands/collapses directories. Watches for external file changes and auto-refreshes the tree (500ms debounce). The `selectFile(filePath)` method expands parent directories and scrolls to the file.
 
 ## Dependencies
 
-- **context-menu** `./ContextMenu` — right-click context menu for file/folder operations
-- **confirm-modal** `./ConfirmModal` — confirmation dialog before delete operations
+- **Context Menu** `src/renderer/components/ContextMenu.ts` — file and empty-area context menus
+- **Confirm Modal** `src/renderer/components/ConfirmModal.ts` — delete confirmation dialog
 
 ## Referenced By
 
-- **canvas-area** `src/renderer/components/CanvasArea.ts` — creates file explorer cards
-- **explorer-plugin** `src/renderer/components/ExplorerPlugin.ts` — uses as left split pane in explorer mode
+- **Explorer Plugin** `src/renderer/components/ExplorerPlugin.ts` — instantiates one FileExplorerPlugin per explorer card
 
 ## IPC Channels
 
-- `fs:readDir` — reads directory contents for tree expansion
-- `fs:mkdir` — creates new folder
-- `fs:writeFile` — creates new empty file
-- `fs:delete` — deletes file/folder
-- `fs:rename` — renames file/folder
-- `fs:copy` — copies file for paste operation
-- `file:changed` — listener for auto-refresh on external changes
-
-## Interface
-
-### Classes
-
-- **FileExplorerPlugin**
-  - **constructor** `(container: HTMLElement, rootPath: string): FileExplorerPlugin` — builds tree from root path
-  - **refresh** `(): Promise<void>` — re-reads directory and updates tree
-  - **setRootPath** `(path: string): Promise<void>` — changes root directory
-  - **expandToPath** `(filePath: string): Promise<void>` — expands tree nodes to reveal file
-  - **destroy** `(): void` — cleans up listeners
-  - **onOpenFile** — callback `(filePath: string) => void` — fired on double-click/Enter
-  - **onFocus** — callback `() => void`
-
-## State
-
-Expanded directory paths set, selected file path, tree DOM state.
-
-## Lifecycle
-
-- **created_by:** `CanvasArea.createFileExplorer()` or `ExplorerPlugin`
-- **destroyed_by:** card close → remove listeners
-
-## External Dependencies
-
-None.
-
-## Test
-
-`src/renderer/components/FileExplorerPlugin.test.ts`
+- `fs:readDir` — list directory entries
+- `fs:readFile` — read file for markdown opener
+- `fs:writeFile` — create new file
+- `fs:mkdir` — create new folder
+- `fs:delete` — delete file/folder
+- `fs:copy` — copy file (paste)
+- `fs:rename` — rename file/folder
+- `file:changed` — external file change notification for auto-refresh

@@ -5,118 +5,90 @@ parent: ai-drawer
 
 # AI Drawer UI
 
-DOM structure, chat interactions, context gathering, and states for the slide-out AI assistant panel.
+AI assistant side panel with chat messages, session management, and tool integration.
 
 ## DOM Structure
 
-```
-.ai-drawer | position: fixed; top: 0; right: 0; height: 100vh; z-index: 1500
-├── .ai-drawer-header
-│   ├── .ai-drawer-title "AI Assistant"
-│   ├── .ai-drawer-model-selector (model dropdown)
-│   └── button.ai-drawer-close (× close button)
-├── .ai-drawer-chat | flex: 1; overflow-y: auto
-│   └── .ai-message[] (one per chat turn)
-│       ├── .ai-message-user (user messages, right-aligned)
-│       │   └── .ai-message-content (text or code blocks)
-│       └── .ai-message-assistant (AI responses, left-aligned)
-│           ├── .ai-message-content (markdown-rendered text)
-│           └── .ai-message-actions
-│               ├── button.copy (copy response)
-│               └── button.apply (apply suggested file changes)
-├── .ai-drawer-context | collapsible
-│   ├── .ai-context-header "Workspace Context" (toggle)
-│   └── .ai-context-body
-│       ├── .ai-context-section "Current Branch: main"
-│       ├── .ai-context-section "Changed Files: N"
-│       └── .ai-context-section "Open Files: N"
-├── .ai-drawer-input-area
-│   ├── textarea.ai-drawer-input (message input)
-│   └── button.ai-drawer-send (send button)
-└── .ai-drawer-resizer (left edge drag handle, 4px)
+```html
+<div class="ai-drawer" style="width: 0">
+  <div class="ai-drawer-notch">▶</div>
+  <div class="ai-drawer-content">
+    <!-- Session selector -->
+    <div class="ai-session-bar">
+      <select class="ai-session-select"></select>
+      <button class="ai-session-new">+</button>
+      <button class="ai-session-rename">✎</button>
+      <button class="ai-session-delete">×</button>
+    </div>
+    <!-- Messages -->
+    <div class="ai-messages">
+      <div class="ai-message ai-message-user">
+        <div class="ai-message-role">User</div>
+        <div class="ai-message-content">text or code</div>
+      </div>
+      <div class="ai-message ai-message-assistant">
+        <div class="ai-message-role">Assistant</div>
+        <div class="ai-message-content">response</div>
+      </div>
+      <div class="ai-message ai-message-thinking">
+        <div class="ai-message-role">Thinking</div>
+        <div class="ai-message-content">thought process</div>
+      </div>
+      <div class="ai-message ai-message-tool">
+        <div class="ai-message-role">Tool: read_file</div>
+        <div class="ai-message-content">/path/to/file</div>
+        <div class="ai-message-tool-result">result preview</div>
+      </div>
+    </div>
+    <!-- Input area -->
+    <div class="ai-input-bar">
+      <button class="ai-attach-btn">Attach</button>
+      <textarea class="ai-input" placeholder="Ask anything..."></textarea>
+      <button class="ai-send-btn" disabled>Send</button>
+    </div>
+  </div>
+</div>
 ```
 
 ## Interactions
 
 ### Toggle Open/Close
-
-- **trigger:** Menu action (View → AI Chat) or toolbar button
-- Panel slides in from right (transform: translateX transition, 300ms ease)
-- Close: slides out or button click
-- **result:** AI assistant panel visible or hidden
+- **trigger:** `click` on `.ai-drawer-notch` (▶/◀)
+- Toggle `.is-open` class, animate width between `0` and `420px`.
 
 ### Send Message
+- **trigger:** `click` on `.ai-send-btn` or `Enter` in textarea (Ctrl+Enter for newline)
+- Read input, create user message, clear input, call backend API (not yet wired).
 
-- **trigger:** Type in textarea + press Enter or click Send button
-- Gather workspace context (git status, open files, file tree)
-- Send message + context to LLM API via `fetch`
-- Show user message bubble immediately
-- Stream response: render markdown incrementally in assistant bubble
-- **result:** AI response displayed in chat
+### Session Switch
+- **trigger:** `change` on `.ai-session-select`
+- Save current session, load selected session's messages.
 
-### Copy Response
+### New Session
+- **trigger:** `click` on `.ai-session-new`
+- Create new session with generated title, switch to it.
 
-- **trigger:** Click Copy button on assistant message
-- `clipboard:writeText` IPC with message content
-- **result:** Response text in clipboard
+### Attach File
+- **trigger:** `click` on `.ai-attach-btn`
+- Open a file picker or show recent files to attach as context.
 
-### Apply Code Suggestion
-
-- **trigger:** Click Apply button on code block in AI response
-- Extract file path and content from code block
-- `fs:writeFile` IPC to create/overwrite file
-- Optionally stage with `git:stage`
-- **result:** AI-suggested code written to workspace
-
-### Clear History
-
-- **trigger:** Click Clear button in header
-- Clear `localStorage['cockpit-ai-history']`
-- Remove all message DOM elements
-- **result:** Fresh conversation context
-
-### Resize Drawer
-
-- **trigger:** `mousedown` on `.ai-drawer-resizer` (left edge)
-- Drag horizontally to resize drawer width
-- Clamp between 300px and 600px
-- Save width preference via `prefs:save`
-- **result:** Panel width adjusted
-
-### Context Toggle
-
-- **trigger:** Click `.ai-context-header` 
-- Toggle `.ai-context-body` visibility
-- **result:** Workspace context shown or collapsed
+### Model Select
+- **trigger:** `change` on model selector (in settings area)
+- Switch active model.
 
 ## States
 
+### Open
+- `.is-open` class on drawer. Width animates to 420px. Notch rotates.
+
 ### Closed
+- Width 0px, notch shows ▶.
 
-Panel off-screen (transform: translateX(100%)), no DOM interaction.
+### Loading
+- While waiting for AI response: "Thinking..." indicator in messages.
 
-### Open (Idle)
+### Empty Session
+- No messages yet: shows placeholder text in messages area.
 
-Panel visible, chat history displayed, input focused, ready for message.
-
-### Sending
-
-Send button disabled, input disabled, "Thinking..." animation in new assistant bubble.
-
-### Receiving Response
-
-Assistant bubble growing as response streams, markdown rendering incrementally, scroll follows content.
-
-### Error
-
-Error message bubble: "Failed to reach AI service: [reason]", retry button.
-
-### Empty (First Use)
-
-Welcome message: "Ask me about your codebase. I can see your file structure, git status, and open files."
-
-## Accessibility
-
-- **Escape:** Close drawer
-- **Enter:** Send message (Shift+Enter for newline)
-- **Tab:** Input → Send button → Context sections
+### Tool Result
+- Tool messages show collapsible result preview.

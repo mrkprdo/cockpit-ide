@@ -5,76 +5,67 @@ parent: theme-modal
 
 # Theme Modal UI
 
-DOM structure, theme palette selection, and theme toggle interactions for the Theme settings modal.
+Theme selection dialog with radio groups.
 
 ## DOM Structure
 
-```
-.modal-overlay | position: fixed; inset: 0; z-index: 1000
-└── .theme-modal | centered, max-width: 480px
-    ├── .theme-modal-header
-    │   ├── .theme-modal-title "Theme Settings"
-    │   └── button.theme-modal-close (× close button)
-    ├── .theme-mode-toggle | flex row
-    │   ├── button.theme-mode-dark[.active] "Dark"
-    │   └── button.theme-mode-light[.active] "Light"
-    └── .theme-palettes | grid: 3 columns
-        └── .theme-palette[] (one per theme palette)
-            ├── .palette-preview (row of color swatch squares)
-            │   ├── .palette-swatch (bg-primary)
-            │   ├── .palette-swatch (bg-secondary)
-            │   ├── .palette-swatch (accent-primary)
-            │   ├── .palette-swatch (text-primary)
-            │   └── .palette-swatch (border-color)
-            ├── .palette-name "Default Dark"
-            └── .palette-check (✓ when active)
+```html
+<div class="modal-overlay" style="display:flex">
+  <div class="modal" role="dialog" aria-label="Theme">
+    <div class="modal-header">THEME</div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <div class="modal-label">THEMES</div>
+        <label class="modal-radio">
+          <input type="radio" name="theme-base" value="default" checked> Default
+        </label>
+        <label class="modal-radio">
+          <input type="radio" name="theme-base" value="monokai"> Monokai
+        </label>
+        <label class="modal-radio">
+          <input type="radio" name="theme-base" value="idol"> Idol
+        </label>
+      </div>
+      <div class="modal-section">
+        <div class="modal-label">LIGHT / DARK</div>
+        <label class="modal-radio">
+          <input type="radio" name="theme-mode" value="dark" checked> Dark
+        </label>
+        <label class="modal-radio">
+          <input type="radio" name="theme-mode" value="light"> Light
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="theme-cancel">Cancel</button>
+        <button class="btn-primary" id="theme-apply">Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
 ```
 
 ## Interactions
 
-### Dark/Light Mode Toggle
+### Apply Button
+- **trigger:** `click` on `#theme-apply`
+- Read selected radio values for `theme-base` and `theme-mode`. Call `theme.setTheme(base, mode)`. Close modal.
 
-- **trigger:** Click "Dark" or "Light" button in `.theme-mode-toggle`
-- Toggle `.active` class between buttons
-- Switch displayed palettes to dark or light variants
-- Call `theme.toggle()` or `theme.setTheme()` as appropriate
-- **result:** Mode switched, corresponding palettes shown
+### Cancel Button
+- **trigger:** `click` on `#theme-cancel`
+- Close modal without applying.
 
-### Palette Selection
+### Overlay Click
+- **trigger:** `click` on `.modal-overlay` background
+- Close modal without applying.
 
-- **trigger:** Click on `.theme-palette` card
-- Call `theme.setTheme(paletteName)` with selected palette ID
-- Move `.palette-check` (✓ indicator) to selected palette
-- Apply palette colors via CSS custom properties on `:root`
-- Persist preference via `prefs:save` IPC
-- **result:** Theme colors updated application-wide, preference saved
-
-### Close
-
-- **trigger:** Click × button, click overlay background, or press Escape
-- Modal fades out, overlay removed
-- **result:** Modal dismissed
+### Escape
+- **trigger:** `Escape` key
+- Close modal without applying.
 
 ## States
 
-### Open (Dark Mode Active)
+### Open
+- Overlay visible. Radio buttons reflect current `theme.base` and `theme.mode`.
 
-Dark mode toggle active, dark palette swatches displayed, current palette highlighted with ✓.
-
-### Open (Light Mode Active)
-
-Light mode toggle active, light palette swatches displayed, current palette highlighted with ✓.
-
-### Palette Switching
-
-Brief flash on `.palette-preview` as colors transition, CSS custom properties updating with smooth transition (0.3s).
-
-### Closing
-
-Fade-out animation (200ms), modal removed from DOM.
-
-## Accessibility
-
-- **Escape:** Close modal
-- **Tab:** Cycle through mode toggle → palettes → close button
-- **Enter/Space:** Select focused palette
+### Closed
+- Overlay hidden. `onClose` callback fired (used to unlock canvas).

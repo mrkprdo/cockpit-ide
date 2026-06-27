@@ -3,44 +3,22 @@ name: Confirm Modal
 file: src/renderer/components/ConfirmModal.ts
 type: ui
 layer: modal
-singleton: true
+singleton: false
 exports: [ConfirmModal]
 ---
 
 # Confirm Modal
 
-Generic confirmation dialog with message text, OK and Cancel buttons. Returns a Promise that resolves to `true` (accepted) or `false` (cancelled/dismissed). Dismissed by clicking Cancel, the overlay background, or pressing Escape. Used by FileExplorerPlugin for delete confirmations and other destructive-action safeguards.
+Generic confirmation dialog used for destructive actions (file delete). Constructed with a message string (sanitized of dangerous HTML tags), a confirm button label (default "Delete"), and a `destructive` flag (default true) that applies a red-tinted CSS class. Returns a Promise<boolean>: `true` if the user clicked OK, `false` if Cancel or overlay click or Escape. The Cancel button receives auto-focus on open. Each instance creates fresh DOM elements and removes them on completion.
 
 ## Dependencies
 
-None — standalone confirmation dialog.
+No imports from `src/`.
 
 ## Referenced By
 
-- **file-explorer-plugin** `src/renderer/components/FileExplorerPlugin.ts` — confirms file/folder deletion
+- **File Explorer Plugin** `src/renderer/components/FileExplorerPlugin.ts` — `new ConfirmModal(...)` before `fs:delete`
 
 ## IPC Channels
 
-None.
-
-## Interface
-
-### Classes
-
-- **ConfirmModal**
-  - **constructor** `(): ConfirmModal` — creates modal DOM with message, OK/Cancel buttons
-  - **show** `(message: string): Promise<boolean>` — displays confirmation and returns user choice
-  - **close** `(): void` — programmatic dismiss
-
-## State
-
-Active promise resolution callbacks, current message text.
-
-## Lifecycle
-
-- **created_by:** `FileExplorerPlugin` (lazily, on first use) or other components
-- **destroyed_by:** parent destruction
-
-## Test
-
-`src/renderer/components/ConfirmModal.test.ts`
+None — pure DOM dialog.

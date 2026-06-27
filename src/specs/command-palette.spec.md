@@ -9,41 +9,16 @@ exports: [CommandPalette]
 
 # Command Palette
 
-Ctrl+P fuzzy file finder overlay that scans the workspace directory for files (via `fs:readDir` recursively), filters results by fuzzy-matching the input against file paths, and displays matches in a scrollable dropdown. Supports: keyboard navigation (up/down arrows, Enter to select, Escape to close), click-to-select, and opens selected file via `onSelect(path)` callback. Debounces input for efficient re-filtering on large workspaces.
+Fuzzy file search overlay (opened via Ctrl+P). Walks the entire workspace directory tree (excluding `.git`, `node_modules`, `.cockpit`) on first search, caching results. Filters files by name or path substring matching. Renders a scrollable result list with file name (primary) and relative directory (secondary). Supports keyboard navigation: ArrowUp/ArrowDown to move selection, Enter to open, Escape to close. Mouse hover moves the selection. Recent files (up to 10) are shown when the input is empty, persisted to `localStorage`. Selecting a file fires the `onSelectFile` callback to open it in the editor. Shows a progress bar while walking the directory tree.
 
 ## Dependencies
 
-None — standalone overlay with IPC for file scanning.
+No imports from `src/`.
 
 ## Referenced By
 
-- **explorer-plugin** `src/renderer/components/ExplorerPlugin.ts` — opened via Ctrl+P within explorer
-- **app** `src/renderer/components/App.ts` — Ctrl+Shift+P hotkey (may delegate)
+- **Explorer Plugin** `src/renderer/components/ExplorerPlugin.ts` — creates a CommandPalette instance and wires it to file-open
 
 ## IPC Channels
 
-- `fs:readDir` — recursively scans workspace for file listing
-
-## Interface
-
-### Classes
-
-- **CommandPalette**
-  - **constructor** `(workspacePath: string): CommandPalette` — scans directory, builds file index
-  - **open** `(): void` — shows overlay with search input focused
-  - **close** `(): void` — hides overlay
-  - **onSelect** — callback `(filePath: string) => void` — fires when file is selected
-  - **onClose** — callback `() => void`
-
-## State
-
-Search query, filtered results list, selected index, overlay visibility.
-
-## Lifecycle
-
-- **created_by:** `ExplorerPlugin` (lazily on first Ctrl+P)
-- **destroyed_by:** parent destruction or close
-
-## Test
-
-`src/renderer/components/CommandPalette.test.ts`
+- `fs:readDir` — walk the workspace directory tree

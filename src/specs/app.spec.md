@@ -9,65 +9,32 @@ exports: [App]
 
 # App Orchestrator
 
-Root application controller that wires the menu bar, infinite canvas, workspace management, and all modal/overlay components. On initialization, loads saved workspace state via `workspace:load` IPC, restores card layout, and sets up keyboard shortcuts (Ctrl+N new window, Ctrl+Shift+P command palette, F1 tutorial, etc.). Manages the WelcomeModal workspace picker lifecycle, AboutModal display, ThemeModal, AiDrawer, and Tutorial overlay. Delegates canvas rendering to CanvasArea.
+Root component of the renderer UI. Constructed by `renderer-entry.ts`. Creates and wires all major subsystems: `CanvasArea`, `TopBar`, `WelcomeModal`, `AboutModal`, `ThemeModal`, `AiDrawer`, and `Tutorial`. Registers global keyboard shortcuts (`Ctrl+Shift+N` new window, `Ctrl+W` close tab, `Ctrl+Tab` cycle cards, `Ctrl+P` file search, `Ctrl+J` new terminal). Loads persisted theme preference on construction. Orchestrates workspace lifecycle: prompts for workspace via `WelcomeModal` on first launch, loads saved plugin layout (`workspace:load`), restores zoom/pan state, and auto-saves on every state change. Exposes `__cockpit` global API for agent integration (get canvas state, open files, write terminals, manage cards). Connects CanvasArea callbacks to TopBar display updates (terminal list, git list, specsmap list).
 
 ## Dependencies
 
-- **top-bar** `./TopBar` — menu bar with File/Edit/View/Tools/Help menus
-- **canvas-area** `./CanvasArea` — infinite canvas hosting plugin cards
-- **welcome-modal** `./WelcomeModal` — startup workspace picker dialog
-- **about-modal** `./AboutModal` — version/credits dialog
-- **theme-modal** `./ThemeModal` — theme palette selection dialog
-- **ai-drawer** `./AiDrawer` — AI assistant side panel
-- **tutorial** `./Tutorial` — guided first-run tutorial overlay
-- **theme** `../theme` — theme toggle and preference persistence
+- **Top Bar** `src/renderer/components/TopBar.ts` — creates menu bar and wires all user-initiated actions
+- **Canvas Area** `src/renderer/components/CanvasArea.ts` — the infinite canvas hosting all plugin cards
+- **Welcome Modal** `src/renderer/components/WelcomeModal.ts` — shown on first launch to select a workspace
+- **About Modal** `src/renderer/components/AboutModal.ts` — version/credits overlay
+- **Theme Modal** `src/renderer/components/ThemeModal.ts` — palette and mode selection dialog
+- **AiDrawer** `src/renderer/components/AiDrawer.ts` — AI assistant side panel
+- **Tutorial** `src/renderer/components/Tutorial.ts` — interactive guided tour
+- **Theme System** `src/renderer/theme.ts` — reads/saves theme preferences
 
 ## Referenced By
 
-- **index** `src/renderer/index.ts` — instantiated on renderer entry
+- **Renderer Entry** `src/renderer/index.ts` — instantiates `new App()`
 
 ## IPC Channels
 
-- `window:new` — opens new Cockpit window
-- `window:minimize` / `window:maximize` / `window:close` — window controls
-- `ide:openFile` — listener for external editor file open requests
-- `prefs:load` / `prefs:save` — theme and preference persistence
-- `workspace:getPath` / `workspace:setPath` — workspace path management
-- `workspace:load` / `workspace:save` — window state persistence
 - `workspace:select` — native directory picker
-- `terminal:write` / `terminal:kill` — terminal cleanup on workspace change
-
-## Interface
-
-### Classes
-
-- **App** — root orchestrator
-  - **constructor** `(): App` — sets up IPC listeners, keyboard shortcuts, UI components
-  - **init** `(): Promise<void>` — loads workspace, restores state, shows welcome if needed
-  - **onWorkspaceSelected** `(path: string): Promise<void>` — handles workspace switch
-  - **saveState** `(): Promise<void>` — persists current canvas state
-  - **openWelcome** `(): void` — shows workspace picker
-  - **openAbout** `(): void` — shows about dialog
-  - **openTheme** `(): void` — shows theme settings
-  - **openTutorial** `(): void` — launches guided tutorial
-
-### Events
-
-- **onWorkspaceChange** — callback `(path: string) => void`
-
-## State
-
-Loads/saves `SaveState` (card positions, sizes, plugin types, workspace path) via `workspace:load`/`workspace:save` IPC.
-
-## Lifecycle
-
-- **created_by:** `index.ts` on page load
-- **destroyed_by:** window unload (calls saveState)
-
-## External Dependencies
-
-None beyond IPC bridge.
-
-## Test
-
-`src/renderer/components/App.test.ts`
+- `workspace:setPath` — register workspace with main process
+- `workspace:load` — load saved plugin state from disk
+- `workspace:save` — persist current plugin layout
+- `workspace:getPath` — get the currently set workspace path
+- `prefs:load` — load theme, grid, zoom-lock preferences
+- `prefs:save` — persist preferences
+- `ide:onOpenFile` — receive external file-open requests from IDE server
+- `window:newWindow` — open a new Electron window
+- `terminal:write` — agent terminal command execution

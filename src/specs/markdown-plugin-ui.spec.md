@@ -5,99 +5,59 @@ parent: markdown-plugin
 
 # Markdown Plugin UI
 
-DOM structure, tab management, and content rendering for the Markdown preview viewer.
+Tabbed Markdown preview viewer.
 
 ## DOM Structure
 
-```
-.card-body (PluginCard body container)
-├── .markdown-tab-bar | flex row, scrollable
-│   └── .markdown-tab[] (one per open .md file)
-│       ├── .tab-title (file basename)
-│       └── .tab-close (× button)
-└── .markdown-content | overflow-y: auto; padding: 16px
-    └── .markdown-body (rendered HTML from marked)
-        ├── h1, h2, h3... (headings with anchor links)
-        ├── p, ul, ol, blockquote (styled prose)
-        ├── pre > code (syntax highlighted code blocks)
-        ├── table (bordered tables)
-        └── a (external links, open in browser)
+```html
+<div class="editor-wrap">
+  <div class="editor-tab-bar">
+    <div class="editor-tab-scroll">
+      <div class="editor-tab is-active" draggable="true" title="file.md">
+        <span class="editor-tab-name">file.md</span>
+        <span class="editor-tab-close">✕</span>
+      </div>
+    </div>
+  </div>
+  <div class="md-preview">
+    <div class="md-content"><!-- rendered markdown HTML --></div>
+  </div>
+</div>
 ```
 
 ## Interactions
 
-### Tab Open (Load File)
-
-- **trigger:** Call `openFile(filePath)` from CanvasArea or double-click in file explorer
-- `fs:readFile` IPC → `marked.parse(markdown)` → set `.markdown-content` innerHTML
-- Add tab to bar if not already open
-- Switch to new tab
-- **result:** Markdown rendered as styled HTML in content area
-
-### Tab Switch
-
-- **trigger:** Click on tab in `.markdown-tab-bar`
-- Show corresponding content div, hide others
-- Update `.active` class on tabs
-- **result:** Different file content displayed
+### Tab Click
+- **trigger:** `click` on `.editor-tab`
+- Save current scroll position → `switchTab(filePath)` → load content, render markdown, restore scroll
 
 ### Tab Close
-
-- **trigger:** Click × button on tab, or right-click → Close
-- Remove tab and associated content div
-- If closed tab was active: switch to adjacent tab
-- **result:** Tab removed
+- **trigger:** `click` on `.editor-tab-close` or middle-click on tab
+- `closeTab(filePath)` → remove from tabs. If last tab closed, show "No file loaded".
 
 ### Tab Context Menu
+- **trigger:** `contextmenu` on `.editor-tab`
+- ContextMenu: Close, Close Others, Close All, Copy File Path
 
-- **trigger:** Right-click on markdown tab
-- `ContextMenu.show()` with: Close, Close Others, Copy Path
-- Copy Path: `clipboard:writeText` IPC with full file path
-- **result:** Context actions executed
+### Tab Drag Reorder
+- **trigger:** `dragstart`/`drop` on `.editor-tab`
+- Same drag-and-drop reorder as Monaco editor tabs.
 
-### Auto-Reload (External Change)
-
-- **trigger:** `file:changed` listener fires for open markdown file
-- Re-read file via `fs:readFile` → re-render with marked
-- Preserve scroll position in content area
-- **result:** Preview updated to reflect file changes
-
-### External Links
-
-- **trigger:** Click on `<a>` link in rendered markdown
-- Determine if link is external (http/https) or internal (relative)
-- External: `shell:openExternal` IPC
-- Internal: `openFile(relativePath)` if exists in workspace
-- **result:** Link opened in browser or opened as new tab
+### Scroll
+- **trigger:** `scroll` on `.md-preview`
+- Scroll position saved per tab in `scrollTops` map.
 
 ## States
 
-### Empty (No Tabs)
+### Active Tab
+- `.is-active` class on the selected tab.
 
-Placeholder: "Open a Markdown file to preview" centered in content area.
-
-### Single Tab
-
-One tab with file name, markdown content rendered below tab bar.
-
-### Multiple Tabs
-
-Tab bar scrollable, one `.active` tab, inactive tabs dimmed slightly.
+### Empty State
+- No tabs: shows `<div class="md-status">No file loaded</div>`
 
 ### Loading
-
-Content area shows spinner or "Loading..." while `fs:readFile` resolves.
+- While reading file content: brief flash of previous content then replaced.
 
 ### Error
-
-Content area shows "Error loading file: [message]" if read fails.
-
-### Reloading (External Change)
-
-Brief flash on content area when auto-reloading from external change.
-
-## Accessibility
-
-- **Tab order:** Tab bar → content area
-- **Keyboard:** Ctrl+W closes active tab
-- **Scroll:** Content area independently scrollable
+- Render error: shows `<div class="md-status is-error">Render error</div>`
+- File deleted externally: shows `<div class="md-status">File deleted</div>`
