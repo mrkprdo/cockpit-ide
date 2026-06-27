@@ -87,7 +87,7 @@ npm run pack:linux  # Linux AppImage
 **Build:** tsc (main/preload) + esbuild 0.28 (renderer IIFE)  
 **Editor:** Monaco Editor 0.52 (AMD-loaded)  
 **Terminal:** @xterm/xterm 6 + @xterm/addon-fit + node-pty  
-**Rendering:** @chenglou/pretext (canvas text) + marked 18 (markdown)  
+**Rendering:** marked 18 (markdown)  
 **File watching:** chokidar 5  
 **MCP:** @modelcontextprotocol/sdk + ws (WebSocket IDE server)  
 **Validation:** zod 4  
