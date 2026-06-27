@@ -1420,6 +1420,7 @@ export class AiDrawer {
           return ok ? `Written: ${args.path}` : `Error: could not write "${args.path}"`;
         }
         case 'list_directory': {
+          cockpit?.revealFile(args.path);
           const entries = await window.electronAPI?.fs.readDir(args.path);
           if (!entries) return `Error: cannot list "${args.path}"`;
           return (entries as { name: string; isDirectory: boolean }[])
@@ -1427,6 +1428,7 @@ export class AiDrawer {
             .join('\n');
         }
         case 'create_directory': {
+          cockpit?.revealFile(args.path);
           const ok = await window.electronAPI?.fs.mkdir(args.path);
           return ok ? `Created: ${args.path}` : `Error: could not create "${args.path}"`;
         }
@@ -1466,14 +1468,17 @@ export class AiDrawer {
           return `Focused: ${args.title}`;
         }
         case 'delete_file': {
+          await cockpit?.revealFile(args.path);
           const ok = await window.electronAPI?.fs.delete(args.path);
           return ok ? `Deleted: ${args.path}` : `Error: could not delete "${args.path}"`;
         }
         case 'rename_file': {
+          await cockpit?.revealFile(args.old_path);
           const ok = await window.electronAPI?.fs.rename(args.old_path, args.new_path);
           return ok ? `Renamed: ${args.old_path} → ${args.new_path}` : `Error: could not rename "${args.old_path}"`;
         }
         case 'copy_file': {
+          await cockpit?.revealFile(args.src);
           const ok = await window.electronAPI?.fs.copy(args.src, args.dest);
           return ok ? `Copied: ${args.src} → ${args.dest}` : `Error: could not copy "${args.src}"`;
         }
