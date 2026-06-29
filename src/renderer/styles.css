@@ -79,6 +79,7 @@ html, body {
   line-height: var(--lh-ui);
   letter-spacing: 0.01em;   /* light-on-dark compensation */
   font-kerning: normal;
+  user-select: none;        /* prevent Ctrl+A from highlighting app chrome */
 }
 
 /* ===== Global Scrollbar ===== */
@@ -106,6 +107,29 @@ html, body {
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* ===== Text Selection ===== */
+/* Content areas opt back into selection while the rest of the chrome stays non-selectable. */
+.md-preview,
+.card-content-text,
+.ai-drawer-body,
+.ai-chat-msg-bubble,
+.ai-chat-code,
+.ai-tool-result,
+.ai-thinking-body,
+.git-diff,
+.git-diff-pre,
+.git-sbs-content,
+.git-commit-info-desc,
+.tutorial-step-body,
+.palette-input,
+.monaco-editor,
+.xterm,
+input,
+textarea,
+[contenteditable] {
+  user-select: text;
 }
 
 /* ===== Custom Title Bar ===== */
