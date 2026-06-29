@@ -49,6 +49,11 @@ export class App {
         e.preventDefault();
         this.canvas.addTerminal(this.wsPath);
       }
+      // Ctrl+O / Cmd+O — open workspace
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        this.openWorkspace();
+      }
     });
 
     this.canvas = new CanvasArea(document.getElementById('canvas')!);
