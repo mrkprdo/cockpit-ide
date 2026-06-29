@@ -8,6 +8,8 @@ import {
   type LLMMessage,
   type LLMResponse,
   type OpenAIFunctionSchema,
+  type LLMToolCall,
+  type LLMStreamEvent,
 } from '../ai';
 
 interface ChatMessage {
@@ -42,6 +44,7 @@ export class AiDrawer {
   private apiKey = '';
   private model = 'deepseek-v4-flash';
   private endpoint = 'https://opencode.ai/zen/go/v1';
+  private streamResponses = true;
   private toolRegistry = new ToolRegistry(ALL_TOOLS);
 
   // Agentic control state
@@ -128,13 +131,18 @@ export class AiDrawer {
             'opencode.ai/zen/go/v1',
           );
         }
+        if (typeof prefs.aiStreamResponses === 'boolean') {
+          this.streamResponses = prefs.aiStreamResponses;
+        }
       }
       const endpointInput = this.settingsEl?.querySelector<HTMLInputElement>('.ai-settings-input[data-key="endpoint"]');
       const apiKeyInput = this.settingsEl?.querySelector<HTMLInputElement>('.ai-settings-input[data-key="apiKey"]');
       const modelInput = this.settingsEl?.querySelector<HTMLInputElement>('.ai-settings-input[data-key="model"]');
+      const streamInput = this.settingsEl?.querySelector<HTMLInputElement>('.ai-settings-input[data-key="stream"]');
       if (endpointInput) endpointInput.value = this.endpoint;
       if (apiKeyInput) apiKeyInput.value = this.apiKey;
       if (modelInput) modelInput.value = this.model;
+      if (streamInput) streamInput.checked = this.streamResponses;
       if (prefs && (prefs.aiModel !== this.model || prefs.aiEndpoint !== this.endpoint)) {
         this.saveSettings();
       }
@@ -147,6 +155,7 @@ export class AiDrawer {
       prefs.aiApiKey = this.apiKey;
       prefs.aiModel = this.model;
       prefs.aiEndpoint = this.endpoint;
+      prefs.aiStreamResponses = this.streamResponses;
       window.electronAPI?.prefs.save(prefs);
     } catch {}
   }
@@ -408,6 +417,10 @@ export class AiDrawer {
             Model
             <input class="ai-settings-input" type="text" value="${this.escapeHtml(this.model)}" data-key="model" placeholder="deepseek-v4-flash">
           </label>
+          <label class="ai-settings-label ai-settings-checkbox">
+            <input class="ai-settings-input" type="checkbox" ${this.streamResponses ? 'checked' : ''} data-key="stream">
+            Stream responses
+          </label>
           <button class="ai-settings-save">Save</button>
         </div>
       </div>
@@ -530,6 +543,7 @@ export class AiDrawer {
         if (key === 'endpoint') this.endpoint = input.value;
         else if (key === 'apiKey') this.apiKey = input.value;
         else if (key === 'model') this.model = input.value;
+        else if (key === 'stream') this.streamResponses = input.checked;
       });
       this.saveSettings();
       this.settingsEl.classList.remove('is-visible');
@@ -548,6 +562,35 @@ export class AiDrawer {
     });
   }
 
+  /**
+   * Partially update a single streaming message in place instead of re-rendering
+   * the whole list. This preserves selection and avoids flicker while chunks arrive.
+   */
+  private updateStreamingMessage(index: number): void {
+    const msg = this.messages[index];
+    const el = this.messagesEl.querySelector(`[data-msg-index="${index}"]`) as HTMLElement | null;
+    if (!msg || !el) return;
+
+    if (msg.role === 'thinking') {
+      const body = el.querySelector('.ai-thinking-body') as HTMLElement | null;
+      if (body) body.innerHTML = this.formatBody(msg.content);
+    } else {
+      const text = el.querySelector('.ai-chat-msg-text') as HTMLElement | null;
+      if (text) text.innerHTML = this.renderMessageText(msg);
+    }
+
+    requestAnimationFrame(() => {
+      this.bodyEl.scrollTop = this.bodyEl.scrollHeight;
+    });
+  }
+
+  private renderMessageText(m: ChatMessage): string {
+    if ((m.role === 'assistant' || m.role === 'user') && !m.content) {
+      return '<span class="ai-chat-msg-loading"><span></span><span></span><span></span></span>';
+    }
+    return this.formatBody(m.content);
+  }
+
   private renderMessage(m: ChatMessage, index = 0): string {
     if (m.role === 'tool') {
       const name = m.toolName || '';
@@ -555,16 +598,16 @@ export class AiDrawer {
       const resultHtml = pending
         ? `<div class="ai-tool-result ai-tool-result-pending">running…</div>`
         : `<pre class="ai-tool-result">${this.escapeHtml(m.toolResult!)}</pre>`;
-      return `<div class="ai-chat-msg ai-chat-msg-tool"><details class="ai-tool-details"${pending ? ' open' : ''}><summary class="ai-tool-chip"><span class="ai-tool-icon">⚙</span><span class="ai-tool-name">${this.escapeHtml(name)}</span><span class="ai-tool-args">${this.escapeHtml(m.content)}</span><span class="ai-tool-toggle">▸</span></summary>${resultHtml}</details></div>`;
+      return `<div class="ai-chat-msg ai-chat-msg-tool" data-msg-index="${index}"><details class="ai-tool-details"${pending ? ' open' : ''}><summary class="ai-tool-chip"><span class="ai-tool-icon">⚙</span><span class="ai-tool-name">${this.escapeHtml(name)}</span><span class="ai-tool-args">${this.escapeHtml(m.content)}</span><span class="ai-tool-toggle">▸</span></summary>${resultHtml}</details></div>`;
     }
 
     if (m.role === 'thinking') {
       const body = this.formatBody(m.content);
-      return `<div class="ai-chat-msg ai-chat-msg-thinking"><details class="ai-thinking-details" open><summary class="ai-thinking-header"><span class="ai-thinking-icon">◈</span><span class="ai-thinking-label">Agent reasoning</span><span class="ai-thinking-toggle">▸</span></summary><div class="ai-thinking-body">${body}</div></details></div>`;
+      return `<div class="ai-chat-msg ai-chat-msg-thinking" data-msg-index="${index}"><details class="ai-thinking-details" open><summary class="ai-thinking-header"><span class="ai-thinking-icon">◈</span><span class="ai-thinking-label">Agent reasoning</span><span class="ai-thinking-toggle">▸</span></summary><div class="ai-thinking-body">${body}</div></details></div>`;
     }
 
     const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    let body = this.formatBody(m.content);
+    const body = this.renderMessageText(m);
 
     if (m.role === 'system') {
       return `<div class="ai-chat-msg ai-chat-msg-system"><div class="ai-chat-msg-bubble">${body}</div></div>`;
@@ -572,7 +615,7 @@ export class AiDrawer {
 
     const steerBadge = m.isSteer ? '<span class="ai-steer-badge">&#x21B3; steer</span>' : '';
     return `
-      <div class="ai-chat-msg ai-chat-msg-${m.role}${m.isSteer ? ' is-steer' : ''}">
+      <div class="ai-chat-msg ai-chat-msg-${m.role}${m.isSteer ? ' is-steer' : ''}" data-msg-index="${index}">
         <div class="ai-chat-msg-bubble">
           ${steerBadge}
           <div class="ai-chat-msg-text">${body}</div>
@@ -798,16 +841,21 @@ export class AiDrawer {
     if (this.agentMode === 'plan') {
       this.fetchController = new AbortController();
       try {
-        const planData = await client.chatCompletion({
-          messages: [
-            ...apiMessages,
-            { role: 'user', content: 'Before using any tools, write a numbered step-by-step plan of what you will do. Do NOT call any tools yet — only write the plan.' },
-          ],
-          temperature: 0.2,
-          max_tokens: 1024,
-          signal: this.fetchController.signal,
-        });
-        const planText = planData.choices?.[0]?.message?.content || 'No plan generated.';
+        const planText = this.streamResponses
+          ? await this.streamPlainText(client, [
+              ...apiMessages,
+              { role: 'user', content: 'Before using any tools, write a numbered step-by-step plan of what you will do. Do NOT call any tools yet — only write the plan.' },
+            ], 1024)
+          : (await client.chatCompletion({
+              messages: [
+                ...apiMessages,
+                { role: 'user', content: 'Before using any tools, write a numbered step-by-step plan of what you will do. Do NOT call any tools yet — only write the plan.' },
+              ],
+              temperature: 0.2,
+              max_tokens: 1024,
+              signal: this.fetchController.signal,
+            })).choices?.[0]?.message?.content || 'No plan generated.';
+
         this.messages.push({ role: 'thinking', content: `**Plan**\n\n${planText}`, timestamp: Date.now() });
         this.renderMessages();
 
@@ -828,17 +876,93 @@ export class AiDrawer {
     for (;;) {
       if (this.abortRequested) return 'Aborted.';
 
-      let data: LLMResponse;
       this.fetchController = new AbortController();
+
+      let toolCalls: LLMToolCall[] | null = null;
+      let streamedContent = '';
+      let placeholderIndex = -1;
+
       try {
-        data = await client.chatCompletion({
-          messages: apiMessages,
-          tools,
-          tool_choice: planModeFirstIter ? 'required' : 'auto',
-          temperature: 0.2,
-          max_tokens: 4096,
-          signal: this.fetchController.signal,
-        });
+        if (this.streamResponses) {
+          placeholderIndex = this.messages.length;
+          this.messages.push({ role: 'assistant', content: '', timestamp: Date.now() });
+          this.renderMessages();
+
+          for await (const event of client.streamChatCompletion({
+            messages: apiMessages,
+            tools,
+            tool_choice: planModeFirstIter ? 'required' : 'auto',
+            temperature: 0.2,
+            max_tokens: 4096,
+            signal: this.fetchController.signal,
+          })) {
+            if (this.abortRequested) break;
+
+            if (event.type === 'content') {
+              streamedContent += event.delta;
+              if (this.messages[placeholderIndex]) {
+                this.messages[placeholderIndex].content = streamedContent;
+                this.updateStreamingMessage(placeholderIndex);
+              }
+            } else if (event.type === 'tool_calls') {
+              toolCalls = event.tool_calls;
+              // Convert the streaming placeholder into a reasoning entry.
+              const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
+              if (this.messages[placeholderIndex]) {
+                this.messages[placeholderIndex].role = 'thinking';
+                this.messages[placeholderIndex].content = streamedContent.trim()
+                  ? `${streamedContent.trim()}\n\n→ **${toolNames}**`
+                  : `→ **${toolNames}**`;
+                this.renderMessages();
+              }
+              break;
+            }
+          }
+
+          if (this.abortRequested) {
+            const kept = this.messages[placeholderIndex]?.content || streamedContent || '';
+            if (this.messages[placeholderIndex]) {
+              this.messages.splice(placeholderIndex, 1);
+              this.renderMessages();
+            }
+            return kept || 'Aborted.';
+          }
+
+          if (!toolCalls) {
+            // Final text response: remove the placeholder so the caller can add the finalized message.
+            const finalContent = streamedContent || this.messages[placeholderIndex]?.content || 'No response.';
+            if (this.messages[placeholderIndex]) {
+              this.messages.splice(placeholderIndex, 1);
+              this.renderMessages();
+            }
+            return finalContent;
+          }
+        } else {
+          const data = await client.chatCompletion({
+            messages: apiMessages,
+            tools,
+            tool_choice: planModeFirstIter ? 'required' : 'auto',
+            temperature: 0.2,
+            max_tokens: 4096,
+            signal: this.fetchController.signal,
+          });
+          const msg = data.choices?.[0]?.message;
+          if (!msg) throw new Error('Empty response from model');
+
+          if (!msg.tool_calls || msg.tool_calls.length === 0) {
+            return msg.content || 'No response.';
+          }
+
+          toolCalls = msg.tool_calls;
+          streamedContent = msg.content || '';
+          const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
+          const stepContent = streamedContent.trim()
+            ? `${streamedContent.trim()}\n\n→ **${toolNames}**`
+            : `→ **${toolNames}**`;
+          this.messages.push({ role: 'thinking', content: stepContent, timestamp: Date.now() });
+          this.renderMessages();
+        }
+
         planModeFirstIter = false;
         firstIter = false;
       } catch (err: any) {
@@ -847,28 +971,20 @@ export class AiDrawer {
         if (firstIter && err?.message?.includes('400')) {
           return this.callLLMBasic(apiMessages);
         }
+        // Remove any streaming placeholder before surfacing the error.
+        if (placeholderIndex >= 0 && this.messages[placeholderIndex]) {
+          this.messages.splice(placeholderIndex, 1);
+          this.renderMessages();
+        }
         throw err;
       }
 
-      const choice = data.choices?.[0];
-      if (!choice) throw new Error('Empty response from model');
-
-      const msg = choice.message;
-
-      if (!msg.tool_calls || msg.tool_calls.length === 0) {
-        return msg.content || 'No response.';
+      if (!toolCalls || toolCalls.length === 0) {
+        return streamedContent || 'No response.';
       }
 
-      // Always show a step entry: model reasoning (if any) + which tools are being called
-      const thinkingContent = msg.content?.trim();
-      const toolNames = msg.tool_calls.map(tc => tc.function.name).join(', ');
-      const stepContent = thinkingContent
-        ? `${thinkingContent}\n\n→ **${toolNames}**`
-        : `→ **${toolNames}**`;
-      this.messages.push({ role: 'thinking', content: stepContent, timestamp: Date.now() });
-      this.renderMessages();
-
       // STEP mode: pause before executing this batch
+      const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
       if (this.agentMode === 'step') {
         stepCount++;
         const proceed = await this.waitForAction(`Step ${stepCount}: run ${toolNames}?`);
@@ -876,10 +992,10 @@ export class AiDrawer {
       }
 
       // Add assistant turn with tool_calls
-      apiMessages.push({ role: 'assistant', content: msg.content || null, tool_calls: msg.tool_calls });
+      apiMessages.push({ role: 'assistant', content: streamedContent || null, tool_calls: toolCalls });
 
       // Execute each tool and collect results
-      for (const tc of msg.tool_calls) {
+      for (const tc of toolCalls) {
         if (this.abortRequested) return 'Aborted.';
 
         const toolName: string = tc.function.name;
@@ -919,8 +1035,59 @@ export class AiDrawer {
     return 'Aborted.';
   }
 
+  /**
+   * Stream a plain text response (no tools) into a temporary message and return
+   * the final content. Used by PLAN mode and the basic fallback.
+   */
+  private async streamPlainText(client: LLMClient, messages: LLMMessage[], maxTokens = 4096): Promise<string> {
+    const placeholderIndex = this.messages.length;
+    this.messages.push({ role: 'assistant', content: '', timestamp: Date.now() });
+    this.renderMessages();
+
+    let content = '';
+    try {
+      for await (const event of client.streamChatCompletion({
+        messages,
+        temperature: 0.2,
+        max_tokens: maxTokens,
+        signal: this.fetchController?.signal,
+      })) {
+        if (this.abortRequested) break;
+        if (event.type === 'content') {
+          content += event.delta;
+          if (this.messages[placeholderIndex]) {
+            this.messages[placeholderIndex].content = content;
+            this.updateStreamingMessage(placeholderIndex);
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        if (this.messages[placeholderIndex]) {
+          this.messages.splice(placeholderIndex, 1);
+          this.renderMessages();
+        }
+        return content || 'Aborted.';
+      }
+      if (this.messages[placeholderIndex]) {
+        this.messages.splice(placeholderIndex, 1);
+        this.renderMessages();
+      }
+      throw err;
+    }
+
+    if (this.messages[placeholderIndex]) {
+      this.messages.splice(placeholderIndex, 1);
+      this.renderMessages();
+    }
+    return content;
+  }
+
   private async callLLMBasic(apiMessages: LLMMessage[]): Promise<string> {
     const client = new LLMClient({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model });
+    if (this.streamResponses) {
+      return this.streamPlainText(client, apiMessages.map(m => ({ role: m.role, content: m.content || '' })));
+    }
     const msgs = apiMessages.map(m => ({ role: m.role, content: m.content || '' }));
     return client.complete(msgs, this.fetchController?.signal);
   }

@@ -128,4 +128,18 @@ export interface LLMCompletionOptions {
   temperature?: number;
   max_tokens?: number;
   signal?: AbortSignal;
+  stream?: boolean;
 }
+
+/** Events emitted by a streaming chat completion. */
+export interface LLMStreamContent {
+  type: 'content';
+  delta: string;
+}
+
+export interface LLMStreamToolCalls {
+  type: 'tool_calls';
+  tool_calls: LLMToolCall[];
+}
+
+export type LLMStreamEvent = LLMStreamContent | LLMStreamToolCalls;

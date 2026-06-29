@@ -983,6 +983,15 @@ describe('AiDrawer', () => {
       expect(textEl?.querySelector('strong')?.textContent).toBe('Bold');
       expect(textEl?.querySelector('em')?.textContent).toBe('italic');
     });
+
+    it('shows loading dots in empty assistant messages', async () => {
+      drawer = await createDrawer();
+      drawer['messages'].push({ role: 'assistant', content: '', timestamp: Date.now() });
+      drawer['renderMessages']();
+      const loading = q('.ai-chat-messages').querySelector('.ai-chat-msg-assistant .ai-chat-msg-loading');
+      expect(loading).toBeTruthy();
+      expect(loading?.querySelectorAll('span').length).toBe(3);
+    });
   });
 
   // ─── COPY BUTTON ─────────────────────────────────────────────────────────────
