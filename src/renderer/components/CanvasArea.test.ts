@@ -414,21 +414,26 @@ describe('CanvasArea', () => {
       expect(state.panY).not.toBe(0);
     });
 
-    it('clamps zoom to minimum 0.1 for very spread-out cards', async () => {
+    it('fitAll zooms out to fit cards spread across the 8000x4500 canvas', async () => {
       canvas.addTerminal();
       canvas.addTerminal();
       await new Promise(r => setTimeout(r, 50));
 
       const cs = (canvas as any).cards as any[];
-      cs[0].worldX = 0;
-      cs[0].worldY = 0;
-      cs[1].worldX = 50000;
-      cs[1].worldY = 50000;
+      cs[0].worldX = -4000;
+      cs[0].worldY = -2250;
+      cs[1].worldX = 4000;
+      cs[1].worldY = 2250;
 
       callFitAll();
       await new Promise(r => setTimeout(r, 100));
 
-      expect(canvas.getSaveState().zoom).toBe(0.1);
+      const state = canvas.getSaveState();
+      expect(state.zoom).toBeLessThan(1);
+      // With a 1920x1080 viewport the canvas-fitting minimum is 1920/8000 = 0.24
+      expect(state.zoom).toBeGreaterThanOrEqual(0.24);
+      expect(cs[0].worldX).toBe(-4000);
+      expect(cs[1].worldX).toBe(4000);
     });
 
     it('never zooms in past 1x', async () => {
@@ -1227,6 +1232,41 @@ describe('auto arrange', () => {
       const scale = canvas.getSaveState().zoom;
       expect(px).toBeCloseTo(1170 - (0 + 200) * scale, 1);
       canvas.overlayLeft = 0;
+    });
+  });
+
+  describe('canvas bounds', () => {
+    it('cards are clamped to ±4000x±2250 world coordinates', async () => {
+      canvas.addTerminal();
+      await new Promise(r => setTimeout(r, 50));
+      (canvas as any).offsetCard('Terminal 1', 99999, -99999);
+      const state = canvas.getSaveState();
+      expect(state.plugins[0].x).toBe(4000);
+      expect(state.plugins[0].y).toBe(-2250);
+    });
+
+    it('pan clamps to keep viewport inside the 8000x4500 canvas', async () => {
+      const el = document.getElementById('canvas')!;
+      (canvas as any).scale = 1;
+      (canvas as any).panX = 10000;
+      (canvas as any).panY = -10000;
+      canvas.refresh();
+      await new Promise(r => setTimeout(r, 50));
+      const state = canvas.getSaveState();
+      // viewport 1920x1080, boundX=4000, boundY=2250:
+      // panX ∈ [1920-4000, 4000], panY ∈ [1080-2250, 2250]
+      expect(state.panX).toBe(4000);
+      expect(state.panY).toBe(el.clientHeight - 2250);
+    });
+
+    it('renders a canvas-boundary element aligned to world bounds', async () => {
+      (canvas as any).scale = 1;
+      canvas.refresh();
+      await new Promise(r => setTimeout(r, 50));
+      const boundary = document.querySelector('.canvas-boundary') as HTMLElement;
+      expect(boundary).toBeTruthy();
+      expect(parseFloat(boundary.style.width)).toBe(8000);
+      expect(parseFloat(boundary.style.height)).toBe(4500);
     });
   });
 

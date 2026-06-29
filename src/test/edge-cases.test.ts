@@ -335,6 +335,8 @@ describe('CanvasArea edge cases', () => {
     el.id = 'canvas';
     el.style.cssText = 'width:1920px;height:1080px;position:relative';
     document.body.appendChild(el);
+    Object.defineProperty(el, 'clientWidth', { value: 1920, configurable: true });
+    Object.defineProperty(el, 'clientHeight', { value: 1080, configurable: true });
     const sb = document.createElement('div');
     sb.id = 'statusbar';
     document.body.appendChild(sb);
@@ -350,11 +352,12 @@ describe('CanvasArea edge cases', () => {
     expect(state.zoom).toBeLessThanOrEqual(5);
   });
 
-  it('zoom never goes below min of 0.1', () => {
+  it('zoom never goes below canvas-fitting minimum', () => {
     const canvas = new CanvasArea(makeCanvas());
     for (let i = 0; i < 20; i++) canvas.zoomOut();
     const state = canvas.getSaveState();
-    expect(state.zoom).toBeGreaterThanOrEqual(0.1);
+    // 1920x1080 viewport over 8000x4500 canvas => min scale = 1920/8000 = 0.24
+    expect(state.zoom).toBeGreaterThanOrEqual(0.24);
   });
 
   it('each grid style generates a pattern without errors', () => {
@@ -392,13 +395,15 @@ describe('CanvasArea edge cases', () => {
     expect(state.zoom).toBe(1);
   });
 
-  it('setView with extreme values works', () => {
+  it('setView clamps extreme zoom and pan to canvas bounds', () => {
     const canvas = new CanvasArea(makeCanvas());
-    canvas.setView({ zoom: 0.1, panX: -1000, panY: 5000 });
+    canvas.setView({ zoom: 0.1, panX: -10000, panY: 10000 });
     const state = canvas.getSaveState();
-    expect(state.zoom).toBe(0.1);
-    expect(state.panX).toBe(-1000);
-    expect(state.panY).toBe(5000);
+    // 1920x1080 viewport over 8000x4500 canvas => min scale = 1920/8000 = 0.24
+    expect(state.zoom).toBe(0.24);
+    // at min scale the 8000x4500 canvas is exactly 1920x1080, so pan is fixed
+    expect(state.panX).toBe(960);
+    expect(state.panY).toBe(540);
   });
 
   it('grid pattern generation for each style cycle does not leak', () => {

@@ -564,10 +564,11 @@ describe('E2E Advanced: Canvas Navigation with Cards', () => {
     expect(canvas.getSaveState().zoom).toBe(1);
   });
 
-  it('zoom is clamped between 0.1 and 5', async () => {
+  it('zoom is clamped between canvas-fitting minimum and 5', async () => {
     for (let i = 0; i < 20; i++) canvas.zoomOut();
     await flushRaf();
-    expect(canvas.getSaveState().zoom).toBeGreaterThanOrEqual(0.1);
+    // 1920x1080 viewport over 8000x4500 canvas => min scale = 1920/8000
+    expect(canvas.getSaveState().zoom).toBeGreaterThanOrEqual(0.24);
 
     for (let i = 0; i < 20; i++) canvas.zoomIn();
     await flushRaf();

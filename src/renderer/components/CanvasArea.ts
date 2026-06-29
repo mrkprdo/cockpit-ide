@@ -64,6 +64,7 @@ export class CanvasArea {
   private rafId = 0;
   private panAnimId = 0;
   private originDot: HTMLDivElement;
+  private boundaryEl: HTMLDivElement;
   private gridStyle: GridStyle = 'dots';
   private terminalCounter = 0;
   private explorerCounter = 0;
@@ -82,18 +83,39 @@ export class CanvasArea {
   private lastDragX = 0;
   private lastDragY = 0;
 
-  private static readonly WORLD_BOUNDS = 50000;
+  private static readonly WORLD_BOUNDS_X = 4000; // 8000 px wide
+  private static readonly WORLD_BOUNDS_Y = 2250; // 4500 px tall (16:9)
 
-  private clampWorld(v: number): number {
-    return Math.max(-CanvasArea.WORLD_BOUNDS, Math.min(CanvasArea.WORLD_BOUNDS, Math.round(v)));
+  private clampWorld(v: number, axis: 'x' | 'y'): number {
+    const bound = axis === 'x' ? CanvasArea.WORLD_BOUNDS_X : CanvasArea.WORLD_BOUNDS_Y;
+    return Math.max(-bound, Math.min(bound, Math.round(v)));
+  }
+
+  private minScale(): number {
+    // The canvas must always fill the viewport, so the minimum scale is the
+    // largest ratio required to make the 8000x4500 canvas at least as wide
+    // and as tall as the viewport.
+    const cw = this.el.clientWidth;
+    const ch = this.el.clientHeight;
+    return Math.max(cw / (CanvasArea.WORLD_BOUNDS_X * 2), ch / (CanvasArea.WORLD_BOUNDS_Y * 2));
+  }
+
+  private clampScale(): void {
+    const min = this.minScale();
+    this.scale = Math.max(min, Math.min(5, this.scale));
   }
 
   private clampView(): void {
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
-    const bound = CanvasArea.WORLD_BOUNDS * this.scale;
-    this.panX = Math.max(cw - bound, Math.min(bound, this.panX));
-    this.panY = Math.max(ch - bound, Math.min(bound, this.panY));
+    const boundX = CanvasArea.WORLD_BOUNDS_X * this.scale;
+    const boundY = CanvasArea.WORLD_BOUNDS_Y * this.scale;
+    // Keep the viewport inside the canvas bounds. The allowed pan range is the
+    // interval between the near edge (bound) and far edge (viewport - bound).
+    // When the canvas is smaller than the viewport those values are inverted,
+    // so we take the min/max to always get the valid range.
+    this.panX = Math.max(Math.min(boundX, cw - boundX), Math.min(Math.max(boundX, cw - boundX), this.panX));
+    this.panY = Math.max(Math.min(boundY, ch - boundY), Math.min(Math.max(boundY, ch - boundY), this.panY));
   }
 
   constructor(private el: HTMLElement) {
@@ -194,6 +216,10 @@ export class CanvasArea {
     this.originDot = document.createElement('div');
     this.originDot.className = 'origin-dot';
     this.el.appendChild(this.originDot);
+
+    this.boundaryEl = document.createElement('div');
+    this.boundaryEl.className = 'canvas-boundary';
+    this.el.appendChild(this.boundaryEl);
 
     this.createLayoutOverlays();
 
@@ -423,8 +449,8 @@ export class CanvasArea {
   }
 
   private addCard(title: string, subtitle: string, x: number, y: number, w: number, h: number): CardState {
-    const sx = this.clampWorld(this.snap(x));
-    const sy = this.clampWorld(this.snap(y));
+    const sx = this.clampWorld(this.snap(x), 'x');
+    const sy = this.clampWorld(this.snap(y), 'y');
     const sw = this.snapSize(w);
     const sh = this.snapSize(h);
     const card = new PluginCard(this.el, {
@@ -466,8 +492,8 @@ export class CanvasArea {
           if (zone) {
             this.applyDropZone(zone, cs);
           } else {
-            cs.worldX = this.clampWorld(worldX);
-            cs.worldY = this.clampWorld(worldY);
+            cs.worldX = this.clampWorld(worldX, 'x');
+            cs.worldY = this.clampWorld(worldY, 'y');
           }
         }
         this.hideLayoutOverlays();
@@ -630,8 +656,8 @@ export class CanvasArea {
     }
     w = Math.max(28 * 10, w);
     h = Math.max(28 * 10, h);
-    cs.worldX = this.clampWorld(worldX);
-    cs.worldY = this.clampWorld(worldY);
+    cs.worldX = this.clampWorld(worldX, 'x');
+    cs.worldY = this.clampWorld(worldY, 'y');
     cs.savedWidth = w;
     cs.savedHeight = h;
     cs.savedWX = cs.worldX;
@@ -762,7 +788,8 @@ export class CanvasArea {
           if (zone) {
             this.applyDropZone(zone, cs);
           } else {
-            cs.worldX = this.clampWorld(worldX); cs.worldY = this.clampWorld(worldY);
+            cs.worldX = this.clampWorld(worldX, 'x');
+            cs.worldY = this.clampWorld(worldY, 'y');
           }
         }
         this.hideLayoutOverlays();
@@ -797,8 +824,8 @@ export class CanvasArea {
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
 
-    const cx = this.clampWorld(p.x);
-    const cy = this.clampWorld(p.y);
+    const cx = this.clampWorld(p.x, 'x');
+    const cy = this.clampWorld(p.y, 'y');
     const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null };
     this.cards.push(cs);
 
@@ -1448,8 +1475,8 @@ export class CanvasArea {
   offsetCard(title: string, worldX: number, worldY: number): void {
     const cs = this.cards.find(c => c.savedTitle === title);
     if (!cs) return;
-    cs.worldX = this.clampWorld(worldX);
-    cs.worldY = this.clampWorld(worldY);
+    cs.worldX = this.clampWorld(worldX, 'x');
+    cs.worldY = this.clampWorld(worldY, 'y');
     cs.savedWX = cs.worldX;
     cs.savedWY = cs.worldY;
     this.positionCard(cs);
@@ -1462,7 +1489,7 @@ export class CanvasArea {
   }
 
   zoomOut(): void {
-    this.scale = Math.max(0.1, this.scale / 1.3);
+    this.scale = Math.max(this.minScale(), this.scale / 1.3);
     this.scheduleTransform();
   }
 
@@ -1495,8 +1522,8 @@ export class CanvasArea {
         [offset, offset], [-offset, offset], [offset, -offset], [-offset, -offset],
       ];
       for (const [dx, dy] of candidates) {
-        const nx = this.clampWorld(this.snap(cs.worldX + dx));
-        const ny = this.clampWorld(this.snap(cs.worldY + dy));
+        const nx = this.clampWorld(this.snap(cs.worldX + dx), 'x');
+        const ny = this.clampWorld(this.snap(cs.worldY + dy), 'y');
         if (!others.some(o =>
           this.overlaps(nx, ny, cs.savedWidth, cs.savedHeight, o.worldX, o.worldY, o.savedWidth, o.savedHeight)
         )) {
@@ -1575,6 +1602,8 @@ export class CanvasArea {
 
   setView(state: { zoom: number; panX: number; panY: number }): void {
     this.scale = state.zoom; this.panX = state.panX; this.panY = state.panY;
+    this.clampScale();
+    this.clampView();
     this.scheduleTransform();
   }
 
@@ -1583,6 +1612,7 @@ export class CanvasArea {
     if (this.rafId) return;
     this.rafId = requestAnimationFrame(() => {
       this.rafId = 0;
+      this.clampScale();
       this.clampView();
       this.repositionAllCards();
       applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
@@ -1591,6 +1621,11 @@ export class CanvasArea {
       this.originDot.style.left = `${this.panX - 3}px`;
       this.originDot.style.top = `${this.panY - 3}px`;
       this.originDot.style.transform = `scale(${this.scale})`;
+      const bw = CanvasArea.WORLD_BOUNDS_X * 2 * this.scale;
+      const bh = CanvasArea.WORLD_BOUNDS_Y * 2 * this.scale;
+      this.boundaryEl.style.width = `${bw}px`;
+      this.boundaryEl.style.height = `${bh}px`;
+      this.boundaryEl.style.transform = `translate(${this.panX - CanvasArea.WORLD_BOUNDS_X * this.scale}px, ${this.panY - CanvasArea.WORLD_BOUNDS_Y * this.scale}px)`;
 
       this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll(), () => { this.scale = 1; this.scheduleTransform(); });
       this.onStateChange?.();
@@ -1606,7 +1641,7 @@ export class CanvasArea {
       const my = e.clientY - rect.top;
       const oldScale = this.scale;
       const delta = -e.deltaY * 0.001;
-      this.scale = Math.max(0.1, Math.min(5, this.scale * (1 + delta)));
+      this.scale = Math.max(this.minScale(), Math.min(5, this.scale * (1 + delta)));
       const worldX = (mx - this.panX) / oldScale;
       const worldY = (my - this.panY) / oldScale;
       this.panX = mx - worldX * this.scale;
@@ -1625,7 +1660,7 @@ export class CanvasArea {
       const my = e.clientY - rect.top;
       const oldScale = this.scale;
       const delta = -e.deltaY * 0.001;
-      this.scale = Math.max(0.1, Math.min(5, this.scale * (1 + delta)));
+      this.scale = Math.max(this.minScale(), Math.min(5, this.scale * (1 + delta)));
       const worldX = (mx - this.panX) / oldScale;
       const worldY = (my - this.panY) / oldScale;
       this.panX = mx - worldX * this.scale;
@@ -1716,7 +1751,7 @@ export class CanvasArea {
     const margin = 80;
     const fitX = (avW - margin) / worldW;
     const fitY = (ch - margin) / worldH;
-    this.scale = Math.max(0.1, Math.min(fitX, fitY, 1));
+    this.scale = Math.max(this.minScale(), Math.min(fitX, fitY, 1));
 
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
@@ -1793,7 +1828,7 @@ export class CanvasArea {
   }
 
   setViewAnimated(panX: number, panY: number, zoom?: number): void {
-    if (zoom !== undefined) this.scale = Math.max(0.1, Math.min(5, zoom));
+    if (zoom !== undefined) this.scale = Math.max(this.minScale(), Math.min(5, zoom));
     this.animatePan(panX, panY);
   }
 
@@ -1814,7 +1849,7 @@ export class CanvasArea {
     const fitX = (avW - margin) / cs.savedWidth;
     const fitY = (ch - margin) / cs.savedHeight;
     const targetScale = Math.min(fitX, fitY, 1);
-    this.scale = Math.max(0.1, targetScale);
+    this.scale = Math.max(this.minScale(), targetScale);
 
     const targetX = avCX - (cs.worldX + cs.savedWidth / 2) * this.scale;
     const targetY = ch / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;

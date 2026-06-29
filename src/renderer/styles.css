@@ -262,6 +262,15 @@ html, body {
   transform-origin: center center;
 }
 
+.canvas-boundary {
+  position: absolute;
+  border: 2px dashed var(--accent);
+  border-radius: 4px;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* ===== Plugin List (lower-left) ===== */
 .pli-zone {
   position: absolute;
