@@ -1,3 +1,15 @@
+import {
+  AGENT_SYSTEM_PROMPT,
+  ALL_TOOLS,
+  LLMClient,
+  ToolRegistry,
+  executeToolCall,
+  getToolContext,
+  type LLMMessage,
+  type LLMResponse,
+  type OpenAIFunctionSchema,
+} from '../ai';
+
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'tool' | 'thinking';
   content: string;
@@ -15,706 +27,6 @@ interface Session {
   messages: ChatMessage[];
 }
 
-const AGENT_SYSTEM_PROMPT = `You are Cockpit Agent, an AI assistant embedded in Cockpit IDE — a spatial, canvas-based IDE where plugin cards (Explorer, Terminal, Git, Markdown, SpecsMap) float on an infinite canvas.
-
-## Capabilities
-- **Files**: read_file, write_file, list_directory, create_directory, delete_file, rename_file, copy_file, grep_workspace
-- **Editor**: read_editor, get_editor_state, get_selected_text, set_editor_content, insert_text_in_editor, go_to_line, open_file_in_editor, reveal_file_in_explorer, open_in_markdown
-- **Terminal**: write_to_terminal, send_key_to_terminal, read_terminal, kill_terminal (get uuid from get_canvas_state)
-- **Canvas cards**: get_canvas_state, add_plugin, focus_card, close_card, minimize_card, reopen_card, move_card, resize_card, auto_arrange, fit_card_to_viewport, reset_view, pan_to_card, set_view, zoom_in, zoom_out
-- **Git**: git_status, git_diff, git_log, git_stage, git_unstage, git_commit, git_push, git_branches, git_checkout
-- **System**: open_external, get_clipboard, set_clipboard
-- **SpecsMap**: refresh_specsmap (reload graph from disk), regenerate_specsmap (re-scan src/ and rebuild all spec files)
-
-## Rules
-- Always use absolute paths for files.
-- git_* tools default repo_path to workspace root — omit it unless targeting a different repo.
-- To run a terminal command: get_canvas_state → write_to_terminal(uuid, command). Read output with read_terminal(uuid).
-- To send a special key (Tab, Escape, ArrowUp, Ctrl+c, etc.): use send_key_to_terminal(uuid, key) — never embed raw escape chars in write_to_terminal.
-- When editing a file: read_file first → write_file with full new content. Or open in editor → set_editor_content.
-- grep_workspace is fast for finding symbols/patterns. Use it before reading many files.
-- Be concise. After completing a task, give a one-sentence summary.`;
-
-const KEY_SEQUENCES: Record<string, string> = {
-  Tab: '\x09', Enter: '\r', Escape: '\x1b', Backspace: '\x7f',
-  Delete: '\x1b[3~', Home: '\x1b[H', End: '\x1b[F',
-  PageUp: '\x1b[5~', PageDown: '\x1b[6~',
-  ArrowUp: '\x1b[A', ArrowDown: '\x1b[B', ArrowRight: '\x1b[C', ArrowLeft: '\x1b[D',
-  F1: '\x1bOP', F2: '\x1bOQ', F3: '\x1bOR', F4: '\x1bOS',
-  F5: '\x1b[15~', F6: '\x1b[17~', F7: '\x1b[18~', F8: '\x1b[19~',
-  F9: '\x1b[20~', F10: '\x1b[21~', F11: '\x1b[23~', F12: '\x1b[24~',
-  'Ctrl+a': '\x01', 'Ctrl+b': '\x02', 'Ctrl+c': '\x03', 'Ctrl+d': '\x04',
-  'Ctrl+e': '\x05', 'Ctrl+f': '\x06', 'Ctrl+k': '\x0b', 'Ctrl+l': '\x0c',
-  'Ctrl+r': '\x12', 'Ctrl+u': '\x15', 'Ctrl+w': '\x17', 'Ctrl+z': '\x1a',
-};
-
-const TOOLS = [
-  {
-    type: 'function',
-    function: {
-      name: 'read_file',
-      description: 'Read the contents of a file in the workspace. Returns up to 12 000 chars.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute path to the file' },
-        },
-        required: ['path'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'write_file',
-      description: 'Write content to a file (creates or overwrites). Always use absolute paths.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute path to the file' },
-          content: { type: 'string', description: 'Full file content to write' },
-        },
-        required: ['path', 'content'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'list_directory',
-      description: 'List files and subdirectories at a path.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute path to the directory' },
-        },
-        required: ['path'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'create_directory',
-      description: 'Create a directory (and any missing parents).',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute path of directory to create' },
-        },
-        required: ['path'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_canvas_state',
-      description: 'Return the current IDE canvas state: open cards, types, positions, workspace path.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'open_file_in_editor',
-      description: 'Open a file in the Explorer/Editor card.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute path to the file' },
-        },
-        required: ['path'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'add_plugin',
-      description: 'Add a plugin card to the canvas.',
-      parameters: {
-        type: 'object',
-        properties: {
-          type: {
-            type: 'string',
-            enum: ['terminal', 'explorer', 'git', 'markdown', 'specsmap'],
-            description: 'Plugin type to add',
-          },
-        },
-        required: ['type'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'focus_card',
-      description: 'Bring a canvas card to the front and pan to it.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Card title, e.g. "Explorer", "Terminal 1", "Git"' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'delete_file',
-      description: 'Delete a file or directory from the workspace.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute path to delete' },
-        },
-        required: ['path'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'rename_file',
-      description: 'Rename or move a file within the workspace.',
-      parameters: {
-        type: 'object',
-        properties: {
-          old_path: { type: 'string', description: 'Current absolute path' },
-          new_path: { type: 'string', description: 'New absolute path' },
-        },
-        required: ['old_path', 'new_path'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'copy_file',
-      description: 'Copy a file or directory within the workspace.',
-      parameters: {
-        type: 'object',
-        properties: {
-          src: { type: 'string', description: 'Source absolute path' },
-          dest: { type: 'string', description: 'Destination absolute path' },
-        },
-        required: ['src', 'dest'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'close_card',
-      description: 'Close and remove a canvas card entirely.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Card title, e.g. "Terminal 1", "Git"' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'minimize_card',
-      description: 'Minimize (hide) a canvas card without removing it.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Card title' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'move_card',
-      description: 'Move a canvas card to world coordinates (x, y).',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Card title' },
-          x: { type: 'number', description: 'World X position (pixels)' },
-          y: { type: 'number', description: 'World Y position (pixels)' },
-        },
-        required: ['title', 'x', 'y'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'resize_card',
-      description: 'Resize a canvas card to the given width and height.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Card title' },
-          width: { type: 'number', description: 'Width in pixels' },
-          height: { type: 'number', description: 'Height in pixels' },
-        },
-        required: ['title', 'width', 'height'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'auto_arrange',
-      description: 'Auto-arrange all open canvas cards in a grid.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'fit_card_to_viewport',
-      description: 'Resize and reposition a card to fill the entire visible viewport at 100% zoom, then bring it to front. Works for any card type.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Card title' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'write_to_terminal',
-      description: 'Send a command to a terminal card and execute it. Call get_canvas_state first to find the terminal uuid.',
-      parameters: {
-        type: 'object',
-        properties: {
-          uuid: { type: 'string', description: 'Terminal card uuid from get_canvas_state' },
-          command: { type: 'string', description: 'Command to run (Enter is appended automatically)' },
-        },
-        required: ['uuid', 'command'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'send_key_to_terminal',
-      description: 'Send a special key or control sequence to a terminal. Use this instead of embedding escape chars in write_to_terminal. Supported keys: Tab, Enter, Escape, Backspace, Delete, Home, End, PageUp, PageDown, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, F1–F12, Ctrl+a/b/c/d/e/f/k/l/r/u/w/z.',
-      parameters: {
-        type: 'object',
-        properties: {
-          uuid: { type: 'string', description: 'Terminal card uuid from get_canvas_state' },
-          key: { type: 'string', description: 'Key name, e.g. "Tab", "Escape", "ArrowUp", "Ctrl+c"' },
-        },
-        required: ['uuid', 'key'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'insert_text_in_editor',
-      description: 'Insert text at the current cursor position in the active editor tab.',
-      parameters: {
-        type: 'object',
-        properties: {
-          text: { type: 'string', description: 'Text to insert at the cursor' },
-        },
-        required: ['text'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'read_terminal',
-      description: 'Read the current output buffer of a terminal card (last 200 lines). Use get_canvas_state first to find the terminal uuid.',
-      parameters: {
-        type: 'object',
-        properties: {
-          uuid: { type: 'string', description: 'Terminal card uuid from get_canvas_state' },
-        },
-        required: ['uuid'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'read_editor',
-      description: 'Read the full content of the currently active editor tab.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  // ── Editor ──────────────────────────────────────────────────────────────────
-  {
-    type: 'function',
-    function: {
-      name: 'get_editor_state',
-      description: 'Get the active editor state: open files, active file path, cursor position, and any selected text.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_selected_text',
-      description: 'Get the text currently selected (highlighted) in the editor.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'set_editor_content',
-      description: 'Replace the entire content of the active editor buffer. Triggers auto-save.',
-      parameters: {
-        type: 'object',
-        properties: {
-          content: { type: 'string', description: 'New full content for the active file' },
-        },
-        required: ['content'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'go_to_line',
-      description: 'Move the editor cursor to a specific line (and optional column) and reveal it.',
-      parameters: {
-        type: 'object',
-        properties: {
-          line: { type: 'number', description: 'Line number (1-based)' },
-          col: { type: 'number', description: 'Column number (1-based, default 1)' },
-        },
-        required: ['line'],
-      },
-    },
-  },
-  // ── Canvas ───────────────────────────────────────────────────────────────────
-  {
-    type: 'function',
-    function: {
-      name: 'reopen_card',
-      description: 'Restore a minimized card back to the canvas.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Card title, e.g. "Terminal 2", "Explorer"' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'reset_view',
-      description: 'Reset canvas zoom to 1x and re-center the view.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'pan_to_card',
-      description: 'Pan and zoom the canvas to focus on a specific card by title (partial match ok). Also brings the card to front.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Card title or partial name (e.g. "Terminal 3", "Explorer")' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'set_view',
-      description: 'Set canvas pan position and optional zoom level directly. panX/panY are screen-space pixel offsets (the world origin position on screen). zoom is a scale factor (1.0 = 100%).',
-      parameters: {
-        type: 'object',
-        properties: {
-          panX: { type: 'number', description: 'Horizontal pan offset in pixels' },
-          panY: { type: 'number', description: 'Vertical pan offset in pixels' },
-          zoom: { type: 'number', description: 'Zoom scale factor (0.1–5.0). Omit to keep current zoom.' },
-        },
-        required: ['panX', 'panY'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'zoom_in',
-      description: 'Zoom in the canvas view by one step (~30%).',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'zoom_out',
-      description: 'Zoom out the canvas view by one step (~30%).',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'open_in_markdown',
-      description: 'Open a Markdown file in the Markdown preview card.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute path to the .md file' },
-        },
-        required: ['path'],
-      },
-    },
-  },
-  // ── Navigation ───────────────────────────────────────────────────────────────
-  {
-    type: 'function',
-    function: {
-      name: 'reveal_file_in_explorer',
-      description: 'Select and highlight a file in the Explorer file tree.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute path to the file' },
-        },
-        required: ['path'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'grep_workspace',
-      description: 'Search for a regex pattern across all files in a directory. Returns file path, line number, and matching line text.',
-      parameters: {
-        type: 'object',
-        properties: {
-          pattern: { type: 'string', description: 'Regular expression to search for' },
-          dir: { type: 'string', description: 'Directory to search in (defaults to workspace root)' },
-          glob: { type: 'string', description: 'File extension filter e.g. ".ts" or ".json" (optional)' },
-        },
-        required: ['pattern'],
-      },
-    },
-  },
-  // ── Terminal ─────────────────────────────────────────────────────────────────
-  {
-    type: 'function',
-    function: {
-      name: 'kill_terminal',
-      description: 'Kill a terminal PTY process by uuid.',
-      parameters: {
-        type: 'object',
-        properties: {
-          uuid: { type: 'string', description: 'Terminal card uuid from get_canvas_state' },
-        },
-        required: ['uuid'],
-      },
-    },
-  },
-  // ── Git ──────────────────────────────────────────────────────────────────────
-  {
-    type: 'function',
-    function: {
-      name: 'git_status',
-      description: 'Get current git status: branch, staged files, unstaged files.',
-      parameters: {
-        type: 'object',
-        properties: {
-          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'git_diff',
-      description: 'Get unstaged diff for the repo or a specific file.',
-      parameters: {
-        type: 'object',
-        properties: {
-          file_path: { type: 'string', description: 'Specific file path (optional, omit for full diff)' },
-          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'git_log',
-      description: 'Get recent git commit history.',
-      parameters: {
-        type: 'object',
-        properties: {
-          max_count: { type: 'number', description: 'Max commits to return (default 10)' },
-          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'git_stage',
-      description: 'Stage a file for commit.',
-      parameters: {
-        type: 'object',
-        properties: {
-          file_path: { type: 'string', description: 'Absolute path to the file to stage' },
-          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
-        },
-        required: ['file_path'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'git_unstage',
-      description: 'Unstage a file (remove from staging area).',
-      parameters: {
-        type: 'object',
-        properties: {
-          file_path: { type: 'string', description: 'Absolute path to the file to unstage' },
-          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
-        },
-        required: ['file_path'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'git_commit',
-      description: 'Commit staged changes with a message.',
-      parameters: {
-        type: 'object',
-        properties: {
-          message: { type: 'string', description: 'Commit message' },
-          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
-        },
-        required: ['message'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'git_push',
-      description: 'Push committed changes to the remote.',
-      parameters: {
-        type: 'object',
-        properties: {
-          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'git_branches',
-      description: 'List all git branches (local and remote).',
-      parameters: {
-        type: 'object',
-        properties: {
-          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'git_checkout',
-      description: 'Switch to a git branch.',
-      parameters: {
-        type: 'object',
-        properties: {
-          branch: { type: 'string', description: 'Branch name to checkout' },
-          repo_path: { type: 'string', description: 'Repo path (defaults to workspace root)' },
-        },
-        required: ['branch'],
-      },
-    },
-  },
-  // ── System ───────────────────────────────────────────────────────────────────
-  {
-    type: 'function',
-    function: {
-      name: 'open_external',
-      description: 'Open a URL in the default system browser.',
-      parameters: {
-        type: 'object',
-        properties: {
-          url: { type: 'string', description: 'URL to open' },
-        },
-        required: ['url'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_clipboard',
-      description: 'Read the current clipboard text content.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'set_clipboard',
-      description: 'Write text to the clipboard.',
-      parameters: {
-        type: 'object',
-        properties: {
-          text: { type: 'string', description: 'Text to copy to clipboard' },
-        },
-        required: ['text'],
-      },
-    },
-  },
-  // ── SpecsMap ─────────────────────────────────────────────────────────────────
-  {
-    type: 'function',
-    function: {
-      name: 'refresh_specsmap',
-      description: 'Reload the SpecsMap graph from the current spec files on disk.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'regenerate_specsmap',
-      description: 'Re-scan the src/ directory and regenerate all SPECGEN spec files, then reload the SpecsMap.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-];
 
 export class AiDrawer {
   private el: HTMLDivElement;
@@ -730,6 +42,7 @@ export class AiDrawer {
   private apiKey = '';
   private model = 'deepseek-v4-flash';
   private endpoint = 'https://opencode.ai/zen/go/v1';
+  private toolRegistry = new ToolRegistry(ALL_TOOLS);
 
   // Agentic control state
   private agentMode: 'auto' | 'plan' | 'step' = 'auto';
@@ -1430,351 +743,18 @@ export class AiDrawer {
     });
   }
 
+  /**
+   * Backward-compatible wrapper used by tests and the agent loop.
+   * Delegates to the shared tool executor with the current IDE context.
+   */
   private async executeTool(name: string, args: Record<string, any>): Promise<string> {
-    const cockpit = (window as any).__cockpit;
-    try {
-      switch (name) {
-        case 'read_file': {
-          const content = await window.electronAPI?.fs.readFile(args.path);
-          if (content === null || content === undefined) return `Error: file not found or not allowed: "${args.path}"`;
-          cockpit?.openFile(args.path);
-          return content.length > 12000 ? content.slice(0, 12000) + '\n[truncated]' : content;
-        }
-        case 'write_file': {
-          const ok = await window.electronAPI?.fs.writeFile(args.path, args.content);
-          if (ok) cockpit?.openFile(args.path);
-          return ok ? `Written: ${args.path}` : `Error: could not write "${args.path}"`;
-        }
-        case 'list_directory': {
-          cockpit?.revealFile(args.path);
-          const entries = await window.electronAPI?.fs.readDir(args.path);
-          if (!entries) return `Error: cannot list "${args.path}"`;
-          return (entries as { name: string; isDirectory: boolean }[])
-            .map(e => `${e.isDirectory ? 'd' : 'f'} ${e.name}`)
-            .join('\n');
-        }
-        case 'create_directory': {
-          cockpit?.revealFile(args.path);
-          const ok = await window.electronAPI?.fs.mkdir(args.path);
-          return ok ? `Created: ${args.path}` : `Error: could not create "${args.path}"`;
-        }
-        case 'get_canvas_state': {
-          if (!cockpit) return 'Canvas not ready';
-          const state = cockpit.getCanvasState();
-          return JSON.stringify({
-            workspace: cockpit.getWorkspacePath(),
-            zoom: state.zoom,
-            cards: (state.plugins as any[]).map(p => ({
-              uuid: p.uuid,
-              title: p.title,
-              type: p.title.startsWith('Terminal') ? 'terminal'
-                : p.title === 'Explorer' ? 'explorer'
-                : p.title === 'Git' ? 'git'
-                : p.title === 'Markdown' ? 'markdown'
-                : p.title === 'SpecsMap' ? 'specsmap' : 'unknown',
-              isOpen: p.isOpen,
-              x: p.x, y: p.y,
-              width: p.width, height: p.height,
-            })),
-          }, null, 2);
-        }
-        case 'open_file_in_editor': {
-          if (!cockpit) return 'Canvas not ready';
-          await cockpit.openFile(args.path);
-          return `Opened: ${args.path}`;
-        }
-        case 'add_plugin': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.addPlugin(args.type);
-          return `Added ${args.type} plugin`;
-        }
-        case 'focus_card': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.focusCard(args.title);
-          return `Focused: ${args.title}`;
-        }
-        case 'delete_file': {
-          await cockpit?.revealFile(args.path);
-          const ok = await window.electronAPI?.fs.delete(args.path);
-          return ok ? `Deleted: ${args.path}` : `Error: could not delete "${args.path}"`;
-        }
-        case 'rename_file': {
-          await cockpit?.revealFile(args.old_path);
-          const ok = await window.electronAPI?.fs.rename(args.old_path, args.new_path);
-          return ok ? `Renamed: ${args.old_path} → ${args.new_path}` : `Error: could not rename "${args.old_path}"`;
-        }
-        case 'copy_file': {
-          await cockpit?.revealFile(args.src);
-          const ok = await window.electronAPI?.fs.copy(args.src, args.dest);
-          return ok ? `Copied: ${args.src} → ${args.dest}` : `Error: could not copy "${args.src}"`;
-        }
-        case 'close_card': {
-          if (!cockpit) return 'Canvas not ready';
-          const ok = cockpit.closeCard(args.title);
-          return ok ? `Closed: ${args.title}` : `No card found: "${args.title}"`;
-        }
-        case 'minimize_card': {
-          if (!cockpit) return 'Canvas not ready';
-          const ok = cockpit.minimizeCard(args.title);
-          return ok ? `Minimized: ${args.title}` : `No open card found: "${args.title}"`;
-        }
-        case 'move_card': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.moveCard(args.title, args.x, args.y);
-          return `Moved ${args.title} to (${args.x}, ${args.y})`;
-        }
-        case 'resize_card': {
-          if (!cockpit) return 'Canvas not ready';
-          const ok = cockpit.resizeCard(args.title, args.width, args.height);
-          return ok ? `Resized ${args.title} to ${args.width}×${args.height}` : `No card found: "${args.title}"`;
-        }
-        case 'auto_arrange': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.autoArrange();
-          return 'Canvas arranged';
-        }
-        case 'fit_card_to_viewport': {
-          if (!cockpit) return 'Canvas not ready';
-          const ok = cockpit.fitCardToViewport(args.title);
-          return ok ? `Fit to viewport: ${args.title}` : `No open card found: "${args.title}"`;
-        }
-        case 'write_to_terminal': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.writeToTerminal(args.uuid, args.command);
-          return `Sent to terminal ${args.uuid}: ${args.command}`;
-        }
-        case 'send_key_to_terminal': {
-          if (!cockpit) return 'Canvas not ready';
-          const seq = KEY_SEQUENCES[args.key];
-          if (!seq) return `Unknown key: "${args.key}". Supported: ${Object.keys(KEY_SEQUENCES).join(', ')}`;
-          cockpit.sendKeyToTerminal(args.uuid, seq);
-          return `Sent key ${args.key} to terminal ${args.uuid}`;
-        }
-        case 'insert_text_in_editor': {
-          if (!cockpit) return 'Canvas not ready';
-          await cockpit.insertInEditor(args.text);
-          return `Inserted text in editor`;
-        }
-        case 'read_terminal': {
-          if (!cockpit) return 'Canvas not ready';
-          const buf = cockpit.readTerminal(args.uuid);
-          return buf || 'Terminal output is empty';
-        }
-        case 'read_editor': {
-          if (!cockpit) return 'Canvas not ready';
-          const content = await cockpit.readEditor();
-          return content || 'Editor is empty or no file open';
-        }
-        // ── Editor ──────────────────────────────────────────────────────────
-        case 'get_editor_state': {
-          if (!cockpit) return 'Canvas not ready';
-          const st = await cockpit.getEditorState();
-          return st ? JSON.stringify(st, null, 2) : 'No explorer/editor open';
-        }
-        case 'get_selected_text': {
-          if (!cockpit) return 'Canvas not ready';
-          return (await cockpit.getSelectionText()) || '(no selection)';
-        }
-        case 'set_editor_content': {
-          if (!cockpit) return 'Canvas not ready';
-          await cockpit.setEditorContent(args.content);
-          return 'Editor content replaced';
-        }
-        case 'go_to_line': {
-          if (!cockpit) return 'Canvas not ready';
-          await cockpit.goToLine(args.line, args.col);
-          return `Navigated to line ${args.line}${args.col ? `:${args.col}` : ''}`;
-        }
-        // ── Canvas ──────────────────────────────────────────────────────────
-        case 'reopen_card': {
-          if (!cockpit) return 'Canvas not ready';
-          const ok = cockpit.reopenCard(args.title);
-          return ok ? `Reopened: ${args.title}` : `No minimized card found: "${args.title}"`;
-        }
-        case 'reset_view': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.resetView();
-          return 'View reset to 1x and centered';
-        }
-        case 'pan_to_card': {
-          if (!cockpit) return 'Canvas not ready';
-          const ok = cockpit.panToCard(args.title);
-          return ok ? `Panned to card: "${args.title}"` : `No open card matching "${args.title}"`;
-        }
-        case 'set_view': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.setView(args.panX, args.panY, args.zoom);
-          return `View set: panX=${args.panX}, panY=${args.panY}${args.zoom !== undefined ? `, zoom=${args.zoom}` : ''}`;
-        }
-        case 'zoom_in': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.zoomIn();
-          return 'Zoomed in';
-        }
-        case 'zoom_out': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.zoomOut();
-          return 'Zoomed out';
-        }
-        case 'open_in_markdown': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.openInMarkdown(args.path);
-          return `Opened in Markdown: ${args.path}`;
-        }
-        // ── Navigation ──────────────────────────────────────────────────────
-        case 'reveal_file_in_explorer': {
-          if (!cockpit) return 'Canvas not ready';
-          await cockpit.revealFile(args.path);
-          return `Revealed: ${args.path}`;
-        }
-        case 'grep_workspace': {
-          const dir = args.dir || cockpit?.getWorkspacePath();
-          if (!dir) return 'No directory specified and no workspace loaded';
-          const results = await this.grepWorkspace(dir, args.pattern, args.glob);
-          if (results.length === 0) return 'No matches found';
-          return results.slice(0, 100).map(r => `${r.file}:${r.line}: ${r.text}`).join('\n');
-        }
-        // ── Terminal ────────────────────────────────────────────────────────
-        case 'kill_terminal': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.killTerminal(args.uuid);
-          return `Killed terminal ${args.uuid}`;
-        }
-        // ── Git ─────────────────────────────────────────────────────────────
-        case 'git_status': {
-          const repo = args.repo_path || cockpit?.getWorkspacePath();
-          if (!repo) return 'No repo path';
-          const [branch, staged, unstaged] = await Promise.all([
-            window.electronAPI?.git.currentBranch(repo),
-            window.electronAPI?.git.stagedFiles(repo),
-            window.electronAPI?.git.unstagedFiles(repo),
-          ]);
-          return JSON.stringify({ branch, staged, unstaged }, null, 2);
-        }
-        case 'git_diff': {
-          const repo = args.repo_path || cockpit?.getWorkspacePath();
-          if (!repo) return 'No repo path';
-          if (args.file_path) {
-            const diff = await window.electronAPI?.git.unstagedDiff(repo, args.file_path);
-            return diff || 'No diff';
-          }
-          const unstaged = await window.electronAPI?.git.unstagedFiles(repo);
-          if (!unstaged?.length) return 'No unstaged changes';
-          const diffs = await Promise.all(
-            unstaged.slice(0, 5).map(f => window.electronAPI?.git.unstagedDiff(repo, f.path).then(d => `--- ${f.path} ---\n${d}`))
-          );
-          return diffs.filter(Boolean).join('\n\n').slice(0, 8000) || 'No diff';
-        }
-        case 'git_log': {
-          const repo = args.repo_path || cockpit?.getWorkspacePath();
-          if (!repo) return 'No repo path';
-          const log = await window.electronAPI?.git.log(repo, args.max_count ?? 10);
-          return log ? JSON.stringify(log, null, 2) : 'No log';
-        }
-        case 'git_stage': {
-          const repo = args.repo_path || cockpit?.getWorkspacePath();
-          if (!repo) return 'No repo path';
-          const ok = await window.electronAPI?.git.stage(repo, args.file_path);
-          return ok ? `Staged: ${args.file_path}` : `Failed to stage: ${args.file_path}`;
-        }
-        case 'git_unstage': {
-          const repo = args.repo_path || cockpit?.getWorkspacePath();
-          if (!repo) return 'No repo path';
-          const ok = await window.electronAPI?.git.unstage(repo, args.file_path);
-          return ok ? `Unstaged: ${args.file_path}` : `Failed to unstage: ${args.file_path}`;
-        }
-        case 'git_commit': {
-          const repo = args.repo_path || cockpit?.getWorkspacePath();
-          if (!repo) return 'No repo path';
-          const ok = await window.electronAPI?.git.commit(repo, args.message);
-          return ok ? `Committed: "${args.message}"` : 'Commit failed';
-        }
-        case 'git_push': {
-          const repo = args.repo_path || cockpit?.getWorkspacePath();
-          if (!repo) return 'No repo path';
-          const ok = await window.electronAPI?.git.push(repo);
-          return ok ? 'Pushed successfully' : 'Push failed';
-        }
-        case 'git_branches': {
-          const repo = args.repo_path || cockpit?.getWorkspacePath();
-          if (!repo) return 'No repo path';
-          const branches = await window.electronAPI?.git.branches(repo);
-          return branches ? JSON.stringify(branches, null, 2) : 'No branches';
-        }
-        case 'git_checkout': {
-          const repo = args.repo_path || cockpit?.getWorkspacePath();
-          if (!repo) return 'No repo path';
-          const ok = await window.electronAPI?.git.checkout(repo, args.branch);
-          return ok ? `Checked out: ${args.branch}` : `Failed to checkout: ${args.branch}`;
-        }
-        // ── System ──────────────────────────────────────────────────────────
-        case 'open_external': {
-          const ok = await window.electronAPI?.shell.openExternal(args.url);
-          return ok ? `Opened: ${args.url}` : `Failed to open: ${args.url}`;
-        }
-        case 'get_clipboard': {
-          return window.electronAPI?.clipboard.readText() || '(empty)';
-        }
-        case 'set_clipboard': {
-          await window.electronAPI?.clipboard.writeText(args.text);
-          return 'Clipboard updated';
-        }
-        // ── SpecsMap ────────────────────────────────────────────────────────
-        case 'refresh_specsmap': {
-          if (!cockpit) return 'Canvas not ready';
-          cockpit.refreshSpecsMap();
-          return 'SpecsMap refresh triggered';
-        }
-        case 'regenerate_specsmap': {
-          if (!cockpit) return 'Canvas not ready';
-          await cockpit.regenerateSpecs();
-          return 'SpecsMap regeneration complete';
-        }
-        default:
-          return `Unknown tool: ${name}`;
-      }
-    } catch (err: any) {
-      return `Error in ${name}: ${err.message || String(err)}`;
+    if (!this.toolRegistry.has(name)) {
+      return `Unknown tool: ${name}`;
     }
-  }
-
-  private async grepWorkspace(dir: string, pattern: string, glob?: string): Promise<{ file: string; line: number; text: string }[]> {
-    const SKIP = new Set(['node_modules', '.git', 'dist', 'out', 'build', '.next', 'coverage']);
-    const TEXT_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.html', '.css', '.txt', '.yaml', '.yml', '.toml', '.py', '.go', '.rs', '.sh', '.env', '.gitignore']);
-    const results: { file: string; line: number; text: string }[] = [];
-    const re = new RegExp(pattern, 'gi');
-    const extFilter = glob?.startsWith('.') ? glob : (glob ? `.${glob}` : null);
-    let fileCount = 0;
-
-    const walk = async (path: string): Promise<void> => {
-      if (results.length >= 100 || fileCount >= 500) return;
-      const entries = await window.electronAPI?.fs.readDir(path);
-      if (!entries) return;
-      for (const entry of entries) {
-        if (results.length >= 100 || fileCount >= 500) return;
-        const full = `${path}/${entry.name}`.replace(/\\/g, '/');
-        if (entry.isDirectory) {
-          if (!SKIP.has(entry.name)) await walk(full);
-        } else {
-          const ext = entry.name.includes('.') ? `.${entry.name.split('.').pop()!.toLowerCase()}` : '';
-          if (extFilter && ext !== extFilter) continue;
-          if (!TEXT_EXT.has(ext)) continue;
-          fileCount++;
-          const content = await window.electronAPI?.fs.readFile(full);
-          if (!content) continue;
-          const lines = content.split('\n');
-          lines.forEach((text, i) => {
-            if (results.length < 100 && re.test(text)) {
-              results.push({ file: full, line: i + 1, text: text.trim().slice(0, 200) });
-            }
-            re.lastIndex = 0;
-          });
-        }
-      }
-    };
-
-    await walk(dir);
-    return results;
+    const ctx = getToolContext();
+    if (!ctx) return 'Canvas not ready';
+    const result = await executeToolCall(this.toolRegistry, name, JSON.stringify(args), ctx);
+    return result.output;
   }
 
   private formatToolChip(name: string, args: Record<string, any>): string {
@@ -1788,18 +768,20 @@ export class AiDrawer {
   }
 
   private async callLLMWithTools(userMessage: string): Promise<string> {
-    const cockpit = (window as any).__cockpit;
-    const wsPath = cockpit?.getWorkspacePath() || '';
+    const ctx = getToolContext();
+    const wsPath = ctx?.cockpit.getWorkspacePath() || '';
 
     const systemContent = wsPath
       ? `${AGENT_SYSTEM_PROMPT}\n\nWorkspace: ${wsPath}`
       : AGENT_SYSTEM_PROMPT;
 
-    const apiMessages: any[] = [
+    const apiMessages: LLMMessage[] = [
       { role: 'system', content: systemContent },
     ];
 
-    const history = this.messages.filter(m => m.role === 'user' || m.role === 'assistant').slice(-12);
+    const history = this.messages.filter((m): m is ChatMessage & { role: 'user' | 'assistant' } =>
+      m.role === 'user' || m.role === 'assistant'
+    ).slice(-12);
     for (const m of history) {
       apiMessages.push({ role: m.role, content: m.content });
     }
@@ -1808,46 +790,37 @@ export class AiDrawer {
       apiMessages.push({ role: 'user', content: userMessage });
     }
 
-    const fetchJSON = async (body: object) => {
-      this.fetchController = new AbortController();
-      const res = await fetch(`${this.endpoint.replace(/\/+$/, '')}/chat/completions`, {
-        method: 'POST',
-        signal: this.fetchController.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '');
-        throw new Error(`API error ${res.status}: ${errBody.slice(0, 200)}`);
-      }
-      return res.json();
-    };
+    const client = new LLMClient({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model });
+    const tools = this.toolRegistry.toOpenAISchemas();
 
     // PLAN mode: first get a plain text plan, then ask user to confirm before executing
     let planModeFirstIter = false;
     if (this.agentMode === 'plan') {
-      const planData = await fetchJSON({
-        model: this.model,
-        messages: [
-          ...apiMessages,
-          { role: 'user', content: 'Before using any tools, write a numbered step-by-step plan of what you will do. Do NOT call any tools yet — only write the plan.' },
-        ],
-        temperature: 0.2,
-        max_tokens: 1024,
-      });
-      const planText = planData.choices?.[0]?.message?.content || 'No plan generated.';
-      this.messages.push({ role: 'thinking', content: `**Plan**\n\n${planText}`, timestamp: Date.now() });
-      this.renderMessages();
+      this.fetchController = new AbortController();
+      try {
+        const planData = await client.chatCompletion({
+          messages: [
+            ...apiMessages,
+            { role: 'user', content: 'Before using any tools, write a numbered step-by-step plan of what you will do. Do NOT call any tools yet — only write the plan.' },
+          ],
+          temperature: 0.2,
+          max_tokens: 1024,
+          signal: this.fetchController.signal,
+        });
+        const planText = planData.choices?.[0]?.message?.content || 'No plan generated.';
+        this.messages.push({ role: 'thinking', content: `**Plan**\n\n${planText}`, timestamp: Date.now() });
+        this.renderMessages();
 
-      const proceed = await this.waitForAction('Approve plan to execute?');
-      if (!proceed || this.abortRequested) return 'Aborted.';
+        const proceed = await this.waitForAction('Approve plan to execute?');
+        if (!proceed || this.abortRequested) return 'Aborted.';
 
-      planModeFirstIter = true;
-      // Do NOT add plan to apiMessages — execution proceeds on original context
-      // The plan was preview-only; the model will naturally call tools on the original request
+        planModeFirstIter = true;
+        // Do NOT add plan to apiMessages — execution proceeds on original context
+        // The plan was preview-only; the model will naturally call tools on the original request
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return 'Aborted.';
+        throw err;
+      }
     }
 
     let firstIter = true;
@@ -1855,15 +828,16 @@ export class AiDrawer {
     for (;;) {
       if (this.abortRequested) return 'Aborted.';
 
-      let data: any;
+      let data: LLMResponse;
+      this.fetchController = new AbortController();
       try {
-        data = await fetchJSON({
-          model: this.model,
+        data = await client.chatCompletion({
           messages: apiMessages,
-          tools: TOOLS,
+          tools,
           tool_choice: planModeFirstIter ? 'required' : 'auto',
           temperature: 0.2,
           max_tokens: 4096,
+          signal: this.fetchController.signal,
         });
         planModeFirstIter = false;
         firstIter = false;
@@ -1887,7 +861,7 @@ export class AiDrawer {
 
       // Always show a step entry: model reasoning (if any) + which tools are being called
       const thinkingContent = msg.content?.trim();
-      const toolNames = (msg.tool_calls as any[]).map(tc => tc.function.name).join(', ');
+      const toolNames = msg.tool_calls.map(tc => tc.function.name).join(', ');
       const stepContent = thinkingContent
         ? `${thinkingContent}\n\n→ **${toolNames}**`
         : `→ **${toolNames}**`;
@@ -1945,28 +919,10 @@ export class AiDrawer {
     return 'Aborted.';
   }
 
-  private async callLLMBasic(apiMessages: any[]): Promise<string> {
+  private async callLLMBasic(apiMessages: LLMMessage[]): Promise<string> {
+    const client = new LLMClient({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model });
     const msgs = apiMessages.map(m => ({ role: m.role, content: m.content || '' }));
-    const res = await fetch(`${this.endpoint.replace(/\/+$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-      },
-      signal: this.fetchController?.signal,
-      body: JSON.stringify({
-        model: this.model,
-        messages: msgs,
-        temperature: 0.2,
-        max_tokens: 4096,
-      }),
-    });
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`API error ${res.status}: ${errBody.slice(0, 200)}`);
-    }
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || 'No response from model.';
+    return client.complete(msgs, this.fetchController?.signal);
   }
 
   resetSessions(): void {

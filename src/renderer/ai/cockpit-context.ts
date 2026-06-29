@@ -1,4 +1,4 @@
-import type { CockpitGlobal, ToolContext } from './types.ts';
+import type { CockpitGlobal, ToolContext } from './types';
 
 const REQUIRED_COCKPIT_KEYS: (keyof CockpitGlobal)[] = [
   'getCanvasState',
@@ -51,12 +51,16 @@ export function getCockpitGlobal(): CockpitGlobal | null {
 /**
  * Build a ToolContext from the current window globals.
  * Returns null if the cockpit bridge is not available.
+ *
+ * This is intentionally lenient: tests and partial integrations may supply
+ * only the cockpit methods a specific tool needs. Runtime failures for
+ * missing methods are surfaced by the tool executor as error strings.
  */
 export function getToolContext(): ToolContext | null {
-  const cockpit = getCockpitGlobal();
+  const raw = (window as any).__cockpit as Partial<CockpitGlobal> | undefined;
   const electronAPI = (window as any).electronAPI as Window['electronAPI'] | undefined;
-  if (!cockpit || !electronAPI) return null;
-  return { cockpit, electronAPI };
+  if (!raw || !electronAPI) return null;
+  return { cockpit: raw as CockpitGlobal, electronAPI };
 }
 
 /** Throw-friendly variant used by the executor when a tool truly needs the IDE. */

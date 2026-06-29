@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import type { z } from 'zod/v3';
 
 /**
  * Typed shape of the global `window.__cockpit` object injected by App.ts.
