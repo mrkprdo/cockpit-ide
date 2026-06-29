@@ -495,22 +495,16 @@ describe('AiDrawer', () => {
   // ─── SESSIONS ────────────────────────────────────────────────────────────────
 
   describe('sessions', () => {
-    it('getSessionsPath returns {workspace}/.cockpit/ai-sessions.json', () => {
+    it('getSessionsDir returns {workspace}/.cockpit/sessions', () => {
       drawer = new AiDrawer();
       (window as any).__cockpit = { getWorkspacePath: () => '/my/workspace' };
-      expect(drawer['getSessionsPath']()).toBe('/my/workspace/.cockpit/ai-sessions.json');
+      expect(drawer['getSessionsDir']()).toBe('/my/workspace/.cockpit/sessions');
     });
 
-    it('getCockpitDir returns {workspace}/.cockpit', () => {
-      drawer = new AiDrawer();
-      (window as any).__cockpit = { getWorkspacePath: () => '/my/workspace' };
-      expect(drawer['getCockpitDir']()).toBe('/my/workspace/.cockpit');
-    });
-
-    it('getSessionsPath returns null without workspace', () => {
+    it('getSessionsDir returns null without workspace', () => {
       drawer = new AiDrawer();
       (window as any).__cockpit = { getWorkspacePath: () => null };
-      expect(drawer['getSessionsPath']()).toBeNull();
+      expect(drawer['getSessionsDir']()).toBeNull();
     });
 
     it('loadSessions creates first session when no workspace', async () => {
@@ -530,27 +524,22 @@ describe('AiDrawer', () => {
       expect(mockAPI.fs.readFile).toHaveBeenCalledTimes(1);
     });
 
-    it('loadSessions reads from .cockpit/ai-sessions.json path', async () => {
+    it('loadSessions reads from sessions/index.json path', async () => {
       const mockAPI = (window as any).electronAPI;
       (window as any).__cockpit = { getWorkspacePath: () => '/ws' };
-      const data = {
-        sessions: [{ id: 'abc', title: '', createdAt: 1, updatedAt: 1, messages: [] }],
-        currentSessionId: 'abc',
-      };
-      mockAPI.fs.readFile.mockResolvedValue(JSON.stringify(data));
+      mockAPI.fs.readFile.mockResolvedValue(null);
       drawer = new AiDrawer();
       await drawer['loadSessions']();
-      expect(mockAPI.fs.readFile).toHaveBeenCalledWith('/ws/.cockpit/ai-sessions.json');
+      expect(mockAPI.fs.readFile).toHaveBeenCalledWith('/ws/.cockpit/sessions/index.json');
     });
 
     it('loadSessions restores sessions and messages from disk', async () => {
       const mockAPI = (window as any).electronAPI;
       (window as any).__cockpit = { getWorkspacePath: () => '/ws' };
-      const data = {
-        sessions: [{ id: 's1', title: '', createdAt: 1, updatedAt: 1, messages: [{ role: 'user', content: 'hello', timestamp: 1 }] }],
-        currentSessionId: 's1',
-      };
-      mockAPI.fs.readFile.mockResolvedValue(JSON.stringify(data));
+      const session = { id: 's1', title: '', createdAt: 1, updatedAt: 1, messages: [{ role: 'user', content: 'hello', timestamp: 1 }] };
+      mockAPI.fs.readFile
+        .mockResolvedValueOnce(JSON.stringify({ currentSessionId: 's1', order: ['s1'] }))
+        .mockResolvedValueOnce(JSON.stringify(session));
       drawer = new AiDrawer();
       await drawer['loadSessions']();
       expect(drawer['sessions']).toHaveLength(1);
@@ -575,12 +564,12 @@ describe('AiDrawer', () => {
       drawer['flushSave']();
       await flush();
       expect(mockAPI.fs.mkdir).toHaveBeenCalledTimes(1);
-      expect(mockAPI.fs.writeFile).toHaveBeenCalledTimes(1);
+      expect(mockAPI.fs.writeFile).toHaveBeenCalledTimes(2); // session file + index
 
       drawer['flushSave']();
       await flush();
       expect(mockAPI.fs.mkdir).toHaveBeenCalledTimes(1);
-      expect(mockAPI.fs.writeFile).toHaveBeenCalledTimes(2);
+      expect(mockAPI.fs.writeFile).toHaveBeenCalledTimes(4); // 2 more: session file + index
     });
 
     it('saveSessions debounces: multiple rapid calls = one write', async () => {
@@ -601,7 +590,7 @@ describe('AiDrawer', () => {
         vi.advanceTimersByTime(350);
         await Promise.resolve(); // flush Promise microtasks from mkdir/writeFile chain
 
-        expect(mockAPI.fs.writeFile).toHaveBeenCalledTimes(1);
+        expect(mockAPI.fs.writeFile).toHaveBeenCalledTimes(2); // session file + index
       } finally {
         vi.useRealTimers();
       }
@@ -776,11 +765,12 @@ describe('AiDrawer', () => {
     it('resetSessions reloads workspace sessions immediately when drawer is open', async () => {
       const mockAPI = (window as any).electronAPI;
       (window as any).__cockpit = { getWorkspacePath: () => '/ws2', getCanvasState: () => ({ panX: 0, panY: 0, zoom: 1 }), setView: vi.fn(), setCanvasOverlay: vi.fn() };
-      const data = {
-        sessions: [{ id: 'ws2-s', title: 'WS2', createdAt: 1, updatedAt: 1, messages: [] }],
-        currentSessionId: 'ws2-s',
-      };
-      mockAPI.fs.readFile.mockResolvedValue(JSON.stringify(data));
+      const session = { id: 'ws2-s', title: 'WS2', createdAt: 1, updatedAt: 1, messages: [] };
+      mockAPI.fs.readFile.mockImplementation((path: string) =>
+        Promise.resolve(path.endsWith('index.json')
+          ? JSON.stringify({ currentSessionId: 'ws2-s', order: ['ws2-s'] })
+          : JSON.stringify(session))
+      );
 
       drawer = await createDrawer();
       await drawer.toggle(); // open drawer

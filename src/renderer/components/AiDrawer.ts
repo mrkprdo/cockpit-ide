@@ -741,7 +741,7 @@ export class AiDrawer {
   private sessions: Session[] = [];
   private currentSessionId = '';
   private sessionsLoaded = false;
-  private cockpitDirEnsured = false;
+  private sessionsDirEnsured = false;
   private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Queue + steer state
@@ -858,35 +858,42 @@ export class AiDrawer {
     return first.content.slice(0, 48).replace(/\n/g, ' ');
   }
 
-  private getSessionsPath(): string | null {
+  private getSessionsDir(): string | null {
     const cockpit = (window as any).__cockpit;
     const wp = cockpit?.getWorkspacePath?.();
-    return wp ? `${wp}/.cockpit/ai-sessions.json` : null;
-  }
-
-  private getCockpitDir(): string | null {
-    const cockpit = (window as any).__cockpit;
-    const wp = cockpit?.getWorkspacePath?.();
-    return wp ? `${wp}/.cockpit` : null;
+    return wp ? `${wp}/.cockpit/sessions` : null;
   }
 
   private async loadSessions(): Promise<void> {
     if (this.sessionsLoaded) return;
     this.sessionsLoaded = true;
-    const path = this.getSessionsPath();
-    if (!path) { this.initFirstSession(); return; }
+    const dir = this.getSessionsDir();
+    if (!dir) { this.initFirstSession(); return; }
+
     try {
-      const raw = await window.electronAPI?.fs.readFile(path);
-      if (!raw) { this.initFirstSession(); return; }
-      const data = JSON.parse(raw) as { sessions: Session[]; currentSessionId: string };
-      this.sessions = data.sessions || [];
-      this.currentSessionId = data.currentSessionId || '';
+      const indexRaw = await window.electronAPI?.fs.readFile(`${dir}/index.json`);
+      if (!indexRaw) { this.initFirstSession(); return; }
+      const index = JSON.parse(indexRaw) as { currentSessionId: string; order: string[] };
+      const loaded = await Promise.all(
+        index.order.map(id =>
+          window.electronAPI!.fs.readFile(`${dir}/${id}.json`)
+            .then(raw => raw ? JSON.parse(raw) as Session : null)
+            .catch(() => null)
+        )
+      );
+      this.sessions = loaded.filter(Boolean) as Session[];
+      this.currentSessionId = index.currentSessionId || '';
       if (this.sessions.length === 0) { this.initFirstSession(); return; }
       const current = this.sessions.find(s => s.id === this.currentSessionId) ?? this.sessions[0];
       this.currentSessionId = current.id;
       this.messages = [...current.messages];
       this.renderMessages();
     } catch { this.initFirstSession(); }
+  }
+
+  private writeSessionsIndex(dir: string): Promise<boolean | undefined> {
+    const index = { currentSessionId: this.currentSessionId, order: this.sessions.map(s => s.id) };
+    return window.electronAPI!.fs.writeFile(`${dir}/index.json`, JSON.stringify(index, null, 2)).catch(() => undefined);
   }
 
   private initFirstSession(): void {
@@ -910,17 +917,20 @@ export class AiDrawer {
   }
 
   private flushSave(): void {
-    const path = this.getSessionsPath();
-    const dir = this.getCockpitDir();
-    if (!path || !dir) return;
-    const data = { sessions: this.sessions, currentSessionId: this.currentSessionId };
-    const json = JSON.stringify(data, null, 2);
-    const doWrite = () => window.electronAPI!.fs.writeFile(path, json).catch(() => {});
-    if (this.cockpitDirEnsured) {
+    const dir = this.getSessionsDir();
+    if (!dir) return;
+    const session = this.sessions.find(s => s.id === this.currentSessionId);
+    if (!session) return;
+    const sessionJson = JSON.stringify(session, null, 2);
+    const doWrite = () => {
+      window.electronAPI!.fs.writeFile(`${dir}/${session.id}.json`, sessionJson).catch(() => {});
+      this.writeSessionsIndex(dir);
+    };
+    if (this.sessionsDirEnsured) {
       doWrite();
     } else {
       window.electronAPI?.fs.mkdir(dir)
-        .then(() => { this.cockpitDirEnsured = true; return doWrite(); })
+        .then(() => { this.sessionsDirEnsured = true; doWrite(); })
         .catch(() => {});
     }
   }
@@ -962,6 +972,8 @@ export class AiDrawer {
   }
 
   private deleteSession(id: string): void {
+    const dir = this.getSessionsDir();
+    if (dir) window.electronAPI?.fs.delete(`${dir}/${id}.json`).catch(() => {});
     this.sessions = this.sessions.filter(s => s.id !== id);
     if (this.sessions.length === 0) {
       this.initFirstSession();
@@ -1959,7 +1971,7 @@ export class AiDrawer {
 
   resetSessions(): void {
     this.sessionsLoaded = false;
-    this.cockpitDirEnsured = false;
+    this.sessionsDirEnsured = false;
     this.sessions = [];
     this.currentSessionId = '';
     this.promptQueue = [];
