@@ -55,7 +55,12 @@ export class CanvasArea {
   private scale = 1;
   private panX = 0;
   private panY = 0;
-  overlayLeft = 0;
+  private _overlayLeft = 0;
+  get overlayLeft(): number { return this._overlayLeft; }
+  set overlayLeft(v: number) {
+    this._overlayLeft = v;
+    this.setDrawerOffset(v);
+  }
   private isPanning = false;
   private panStartX = 0;
   private panStartY = 0;
@@ -72,6 +77,7 @@ export class CanvasArea {
   private markdownCounter = 0;
   workspaceName = 'no workspace';
 
+  private pluginListZone: HTMLButtonElement;
   private pluginListPanel: HTMLDivElement;
   private arrPanel: HTMLDivElement;
   private tileW = '23';
@@ -124,6 +130,7 @@ export class CanvasArea {
     zone.className = 'pli-zone';
     zone.setAttribute('aria-label', 'Plugin list');
     zone.tabIndex = 0;
+    this.pluginListZone = zone;
     const icon = document.createElement('span');
     icon.className = 'pli-icon';
     icon.textContent = '◣';
@@ -228,6 +235,11 @@ export class CanvasArea {
     this.initZoomPan();
     this.statusBar.init();
     this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll(), () => { this.scale = 1; this.scheduleTransform(); });
+  }
+
+  private setDrawerOffset(left: number): void {
+    if (!this.pluginListZone) return;
+    this.pluginListZone.style.left = `${left + 4}px`;
   }
 
   private showPluginList(): void {

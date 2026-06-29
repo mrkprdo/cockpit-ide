@@ -1402,6 +1402,21 @@ describe('auto arrange', () => {
       expect(panel.style.display).toBe('block');
     });
 
+    it('pli-zone shifts right when overlayLeft matches an open drawer', () => {
+      const pliZone = document.querySelector('.pli-zone') as HTMLElement;
+      expect(pliZone.style.left).toBe('');
+      canvas.overlayLeft = 420;
+      expect(pliZone.style.left).toBe('424px');
+    });
+
+    it('pli-zone returns to base position when overlayLeft is cleared', () => {
+      const pliZone = document.querySelector('.pli-zone') as HTMLElement;
+      canvas.overlayLeft = 420;
+      expect(pliZone.style.left).toBe('424px');
+      canvas.overlayLeft = 0;
+      expect(pliZone.style.left).toBe('4px');
+    });
+
     it('context menu shows "Close" for non-terminal cards', async () => {
       canvas.addExplorer('/test');
       await new Promise(r => setTimeout(r, 50));
