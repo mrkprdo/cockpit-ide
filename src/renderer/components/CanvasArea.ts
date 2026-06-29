@@ -1511,6 +1511,15 @@ export class CanvasArea {
     }
   }
 
+  fitCardToViewport(title: string): boolean {
+    const cs = this.cards.find(c => c.savedTitle === title && c.isOpen);
+    if (!cs) return false;
+    this.fitViewport(cs);
+    this.bringToFront(cs.card);
+    cs.card.el.focus();
+    return true;
+  }
+
   private fitViewport(cs: CardState): void {
     const cw = this.el.clientWidth;
     const h = this.el.clientHeight;

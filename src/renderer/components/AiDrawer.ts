@@ -21,7 +21,7 @@ const AGENT_SYSTEM_PROMPT = `You are Cockpit Agent, an AI assistant embedded in 
 - **Files**: read_file, write_file, list_directory, create_directory, delete_file, rename_file, copy_file, grep_workspace
 - **Editor**: read_editor, get_editor_state, get_selected_text, set_editor_content, insert_text_in_editor, go_to_line, open_file_in_editor, reveal_file_in_explorer, open_in_markdown
 - **Terminal**: write_to_terminal, send_key_to_terminal, read_terminal, kill_terminal (get uuid from get_canvas_state)
-- **Canvas cards**: get_canvas_state, add_plugin, focus_card, close_card, minimize_card, reopen_card, move_card, resize_card, auto_arrange, reset_view, pan_to_card, set_view, zoom_in, zoom_out
+- **Canvas cards**: get_canvas_state, add_plugin, focus_card, close_card, minimize_card, reopen_card, move_card, resize_card, auto_arrange, fit_card_to_viewport, reset_view, pan_to_card, set_view, zoom_in, zoom_out
 - **Git**: git_status, git_diff, git_log, git_stage, git_unstage, git_commit, git_push, git_branches, git_checkout
 - **System**: open_external, get_clipboard, set_clipboard
 - **SpecsMap**: refresh_specsmap (reload graph from disk), regenerate_specsmap (re-scan src/ and rebuild all spec files)
@@ -270,6 +270,20 @@ const TOOLS = [
       name: 'auto_arrange',
       description: 'Auto-arrange all open canvas cards in a grid.',
       parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'fit_card_to_viewport',
+      description: 'Resize and reposition a card to fill the entire visible viewport at 100% zoom, then bring it to front. Works for any card type.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Card title' },
+        },
+        required: ['title'],
+      },
     },
   },
   {
@@ -1506,6 +1520,11 @@ export class AiDrawer {
           if (!cockpit) return 'Canvas not ready';
           cockpit.autoArrange();
           return 'Canvas arranged';
+        }
+        case 'fit_card_to_viewport': {
+          if (!cockpit) return 'Canvas not ready';
+          const ok = cockpit.fitCardToViewport(args.title);
+          return ok ? `Fit to viewport: ${args.title}` : `No open card found: "${args.title}"`;
         }
         case 'write_to_terminal': {
           if (!cockpit) return 'Canvas not ready';

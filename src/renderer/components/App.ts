@@ -224,6 +224,7 @@ export class App {
       moveCard: (title: string, x: number, y: number) => this.canvas.offsetCard(title, x, y),
       resizeCard: (title: string, w: number, h: number) => this.canvas.resizeCard(title, w, h),
       autoArrange: () => this.canvas.autoArrange(),
+      fitCardToViewport: (title: string) => this.canvas.fitCardToViewport(title),
       writeToTerminal: (uuid: string, command: string) => {
         window.electronAPI?.terminal.write(uuid, command + '\r');
         this.canvas.panToCardByUuid(uuid);
