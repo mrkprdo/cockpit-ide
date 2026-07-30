@@ -2065,6 +2065,7 @@ textarea,
   border-radius: var(--radius-md);
   box-shadow: var(--shadow), 0 16px 48px color-mix(in srgb, var(--bg) 55%, transparent);
   animation: ai-float-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: left 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 

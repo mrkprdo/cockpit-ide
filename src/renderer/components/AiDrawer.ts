@@ -107,6 +107,7 @@ export class AiDrawer {
   private floatEl: HTMLDivElement | null = null;
   private floatPreviewEl: HTMLDivElement | null = null;
   private dockBtnEl: HTMLButtonElement | null = null;
+  private floatResizeHandler: (() => void) | null = null;
 
   private slashCommands: SlashCommand[] = [];
   private slashPopupEl!: HTMLDivElement;
@@ -1340,6 +1341,9 @@ export class AiDrawer {
 
     this.detachBtn.style.display = 'none';
     this.wrapper.appendChild(this.floatEl);
+    this.updateFloatPosition();
+    this.floatResizeHandler = () => this.updateFloatPosition();
+    window.addEventListener('resize', this.floatResizeHandler);
     this.inputEl.focus();
     this.onDetachChange?.(true);
   }
@@ -1347,6 +1351,11 @@ export class AiDrawer {
   attach(): void {
     if (!this.isDetached || !this.floatEl) return;
     this.isDetached = false;
+
+    if (this.floatResizeHandler) {
+      window.removeEventListener('resize', this.floatResizeHandler);
+      this.floatResizeHandler = null;
+    }
 
     // Remove injected dock button
     this.dockBtnEl?.remove();
@@ -1751,6 +1760,13 @@ export class AiDrawer {
     return client.complete(msgs, this.fetchController?.signal);
   }
 
+  private updateFloatPosition(): void {
+    if (!this.floatEl) return;
+    const overlayLeft = this.el.classList.contains('is-open') ? this.occupiedLeft(this.drawerWidth) : 0;
+    const centerX = (window.innerWidth + overlayLeft) / 2;
+    this.floatEl.style.left = `${Math.round(centerX)}px`;
+  }
+
   resetSessions(): void {
     this.sessionsLoaded = false;
     this.sessionsDirEnsured = false;
@@ -1805,6 +1821,7 @@ export class AiDrawer {
     this.setOpenWidth(this.drawerWidth);
     this.el.classList.add('is-open');
     this.notch.classList.add('is-open');
+    if (this.isDetached) this.updateFloatPosition();
     this.escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.close(); };
     document.addEventListener('keydown', this.escHandler);
   }
@@ -1815,6 +1832,7 @@ export class AiDrawer {
     this.setCanvasOverlay(0);
     this.el.style.width = '0';
     this.el.classList.remove('is-open');
+    this.updateFloatPosition();
     this.notch.style.left = '0';
     this.notch.classList.remove('is-open');
     this.settingsEl?.classList.remove('is-visible');
@@ -1854,6 +1872,7 @@ export class AiDrawer {
       this.drawerWidth = w;
       this.setOpenWidth(w);
       this.setCanvasOverlay(this.occupiedLeft(w));
+      this.updateFloatPosition();
     });
 
     document.addEventListener('mouseup', () => {
