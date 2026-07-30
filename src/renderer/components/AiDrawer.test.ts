@@ -969,7 +969,7 @@ describe('AiDrawer', () => {
       expect(result).toContain('Unknown tool');
     });
 
-    it('pauses for confirmation before a destructive tool call, even in auto mode', async () => {
+    it('does not pause for a destructive tool call in auto mode', async () => {
       let callCount = 0;
       globalThis.fetch = vi.fn().mockImplementation(() => {
         callCount++;
@@ -993,17 +993,10 @@ describe('AiDrawer', () => {
       (q('.ai-chat-input') as HTMLTextAreaElement).value = 'Delete foo.ts';
       q('.ai-chat-send-btn').click();
       await flush();
-
-      // Paused waiting on confirmation — the destructive tool has not run yet.
-      const deleteMock = (window as any).electronAPI.fs.delete;
-      expect(deleteMock).not.toHaveBeenCalled();
-      expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(true);
-
-      q('.ai-step-continue-btn').click();
-      await flush();
       await flush();
 
-      expect(deleteMock).toHaveBeenCalledWith('/ws/foo.ts');
+      expect((window as any).electronAPI.fs.delete).toHaveBeenCalledWith('/ws/foo.ts');
+      expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(false);
     });
 
     it('does not pause for a non-destructive tool call in auto mode', async () => {
@@ -1025,6 +1018,34 @@ describe('AiDrawer', () => {
 
       expect((window as any).electronAPI.fs.readFile).toHaveBeenCalledWith('/ws/foo.ts');
       expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(false);
+    });
+
+    it('pauses before every tool batch in step mode', async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(makeToolResponse('read_file', JSON.stringify({ path: '/ws/foo.ts' })));
+        return Promise.resolve(makeTextResponse('Done.'));
+      });
+
+      drawer = await createDrawer();
+      drawer['sessionsLoaded'] = true;
+      await drawer.toggle();
+      drawer['agentMode'] = 'step';
+      drawer['inputModeBtn'].textContent = 'STEP';
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'Read foo.ts';
+      q('.ai-chat-send-btn').click();
+      await flush();
+
+      expect((window as any).electronAPI.fs.readFile).not.toHaveBeenCalled();
+      expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(true);
+
+      q('.ai-step-continue-btn').click();
+      await flush();
+      await flush();
+
+      expect((window as any).electronAPI.fs.readFile).toHaveBeenCalledWith('/ws/foo.ts');
     });
 
     it('send_key_to_terminal sends correct byte sequence', async () => {

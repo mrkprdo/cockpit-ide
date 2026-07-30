@@ -833,12 +833,9 @@ export const memoryDeleteTool: ToolDefinition<typeof MemoryDeleteArgs> = {
   execute: async (args) => memoryStore.delete(args.scope as MemoryScope, args.key),
 };
 
-// Tools that mutate the filesystem, run a shell command, or change git/branch
-// state. The agent runner requires explicit user confirmation for these even
-// in 'auto'/'plan' mode — the agent reads arbitrary file/repo/web content as
-// part of normal operation, so a prompt-injection payload in that content
-// could otherwise chain straight into a destructive or exfiltrating call with
-// nothing in between.
+// Tools that mutate the filesystem, run a shell command, change git/branch
+// state, or write agent memory. Catalog for UI/callers; the agent runner only
+// pauses on tool batches in 'step' mode (not auto/plan).
 export const DESTRUCTIVE_TOOL_NAMES = new Set<string>([
   'write_file',
   'delete_file',
