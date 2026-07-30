@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateGridPattern, applyGridToElement, GridStyle } from './canvas-grid';
+import { generateGridPattern, applyGridToElement, applyGridPattern, applyViewTransform, GridStyle } from './canvas-grid';
 
 describe('generateGridPattern', () => {
   it('returns empty string for "none" style', () => {
@@ -71,5 +71,32 @@ describe('applyGridToElement', () => {
     const dataURL = 'data:image/png;base64,mockdata';
     applyGridToElement(el, 'grid', dataURL, 28, 0, 0, 0);
     expect(el.style.backgroundSize).toBe('0px 0px');
+  });
+});
+
+describe('applyGridPattern', () => {
+  it('sets fixed tile size without pan/scale', () => {
+    const el = document.createElement('div');
+    const dataURL = 'data:image/png;base64,mockdata';
+    applyGridPattern(el, 'dots', dataURL, 28);
+    expect(el.style.backgroundImage).toContain(dataURL);
+    expect(el.style.backgroundSize).toBe('28px 28px');
+    expect(el.style.backgroundPosition).toBe('0px 0px');
+  });
+
+  it('clears pattern for none', () => {
+    const el = document.createElement('div');
+    el.style.backgroundImage = 'url(x)';
+    applyGridPattern(el, 'none', 'data:x', 28);
+    expect(el.style.backgroundImage).toBe('none');
+  });
+});
+
+describe('applyViewTransform', () => {
+  it('sets translate3d + scale with origin 0 0', () => {
+    const el = document.createElement('div');
+    applyViewTransform(el, 2, 100, -50);
+    expect(el.style.transform).toBe('translate3d(100px, -50px, 0) scale(2)');
+    expect(el.style.transformOrigin).toBe('0 0');
   });
 });

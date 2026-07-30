@@ -30,6 +30,25 @@ export function generateGridPattern(style: GridStyle, patternSize: number): stri
   return c.toDataURL();
 }
 
+/** Paint a fixed-size tile pattern (zoom/pan applied via applyViewTransform on a parent/world layer). */
+export function applyGridPattern(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number): void {
+  if (style === 'none' || !dataURL) {
+    el.style.backgroundImage = 'none';
+    return;
+  }
+  el.style.backgroundImage = `url(${dataURL})`;
+  el.style.backgroundRepeat = 'repeat';
+  el.style.backgroundSize = `${patternSize}px ${patternSize}px`;
+  el.style.backgroundPosition = '0 0';
+}
+
+/** Compositor-friendly pan/zoom transform (origin top-left). */
+export function applyViewTransform(el: HTMLElement, scale: number, panX: number, panY: number): void {
+  el.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${scale})`;
+  el.style.transformOrigin = '0 0';
+}
+
+/** @deprecated Prefer applyGridPattern + applyViewTransform on a world layer. */
 export function applyGridToElement(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number, scale: number, panX: number, panY: number): void {
   if (style === 'none' || !dataURL) {
     el.style.backgroundImage = 'none';

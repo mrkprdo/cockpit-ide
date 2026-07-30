@@ -281,6 +281,32 @@ textarea,
   z-index: var(--z-canvas);
 }
 
+/* Single compositor layer for pan/zoom; cards stay in world coordinates */
+.canvas-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 1;
+  will-change: auto;
+  contain: layout style;
+}
+.canvas-world.is-navigating {
+  will-change: transform;
+  pointer-events: none;
+}
+.canvas-world.is-navigating .card:hover {
+  box-shadow: none;
+  border-color: var(--border);
+}
+
+.canvas-grid-layer {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .origin-dot {
   position: absolute;
   width: 6px;
@@ -288,6 +314,7 @@ textarea,
   border-radius: 50%;
   background: var(--red);
   pointer-events: none;
+  z-index: 1;
   transform-origin: center center;
 }
 
@@ -298,6 +325,7 @@ textarea,
   opacity: 0.85;
   pointer-events: none;
   z-index: 0;
+  box-sizing: border-box;
 }
 
 /* ===== Plugin List (lower-left) ===== */

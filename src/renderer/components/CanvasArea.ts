@@ -2,7 +2,7 @@ export type EditorState = { openFiles: string[]; activeFile: string; explorerWid
 export type PluginEntry = { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; markdownState?: MarkdownState; gitState?: GitState };
 export type SaveState = { plugins: PluginEntry[]; zOrder: string[]; zoom: number; panX: number; panY: number; locked?: boolean; aiDrawerDetached?: boolean };
 
-import { GridStyle, generateGridPattern, applyGridToElement } from './canvas-grid';
+import { GridStyle, generateGridPattern, applyGridPattern, applyViewTransform } from './canvas-grid';
 import { StatusBar } from './canvas-statusbar';
 import { PluginCard } from './PluginCard';
 import { TerminalPlugin } from './TerminalPlugin';
@@ -68,6 +68,11 @@ export class CanvasArea {
   private panStartPanY = 0;
   private rafId = 0;
   private panAnimId = 0;
+  private navIdleTimer = 0;
+  private navigating = false;
+  private flushChrome = false;
+  private worldEl: HTMLDivElement;
+  private gridEl: HTMLDivElement;
   private originDot: HTMLDivElement;
   private boundaryEl: HTMLDivElement;
   private gridStyle: GridStyle = 'dots';
@@ -220,18 +225,39 @@ export class CanvasArea {
       if (!arrZone.matches(':hover') && document.activeElement !== arrZone) this.arrPanel.style.display = 'none';
     });
 
-    this.originDot = document.createElement('div');
-    this.originDot.className = 'origin-dot';
-    this.el.appendChild(this.originDot);
+    // Single world layer: pan/zoom is one compositor transform; cards stay in world coords.
+    this.worldEl = document.createElement('div');
+    this.worldEl.className = 'canvas-world';
+    this.el.appendChild(this.worldEl);
+
+    this.gridEl = document.createElement('div');
+    this.gridEl.className = 'canvas-grid-layer';
+    this.gridEl.setAttribute('aria-hidden', 'true');
+    this.gridEl.style.left = `${-CanvasArea.WORLD_BOUNDS_X}px`;
+    this.gridEl.style.top = `${-CanvasArea.WORLD_BOUNDS_Y}px`;
+    this.gridEl.style.width = `${CanvasArea.WORLD_BOUNDS_X * 2}px`;
+    this.gridEl.style.height = `${CanvasArea.WORLD_BOUNDS_Y * 2}px`;
+    this.worldEl.appendChild(this.gridEl);
 
     this.boundaryEl = document.createElement('div');
     this.boundaryEl.className = 'canvas-boundary';
-    this.el.appendChild(this.boundaryEl);
+    this.boundaryEl.style.left = `${-CanvasArea.WORLD_BOUNDS_X}px`;
+    this.boundaryEl.style.top = `${-CanvasArea.WORLD_BOUNDS_Y}px`;
+    this.boundaryEl.style.width = `${CanvasArea.WORLD_BOUNDS_X * 2}px`;
+    this.boundaryEl.style.height = `${CanvasArea.WORLD_BOUNDS_Y * 2}px`;
+    this.worldEl.appendChild(this.boundaryEl);
+
+    this.originDot = document.createElement('div');
+    this.originDot.className = 'origin-dot';
+    this.originDot.style.left = '-3px';
+    this.originDot.style.top = '-3px';
+    this.worldEl.appendChild(this.originDot);
 
     this.createLayoutOverlays();
 
     this.patternDataURL = generateGridPattern(this.gridStyle, this.patternSize);
-    applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
+    applyGridPattern(this.gridEl, this.gridStyle, this.patternDataURL, this.patternSize);
+    this.applyWorldTransform();
     this.initZoomPan();
     this.statusBar.init();
     this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll(), () => { this.scale = 1; this.scheduleTransform(); });
@@ -449,7 +475,7 @@ export class CanvasArea {
   setGridStyle(style: GridStyle): void {
     this.gridStyle = style;
     this.patternDataURL = generateGridPattern(this.gridStyle, this.patternSize);
-    applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
+    applyGridPattern(this.gridEl, this.gridStyle, this.patternDataURL, this.patternSize);
   }
 
   private snap(v: number): number {
@@ -465,7 +491,7 @@ export class CanvasArea {
     const sy = this.clampWorld(this.snap(y), 'y');
     const sw = this.snapSize(w);
     const sh = this.snapSize(h);
-    const card = new PluginCard(this.el, {
+    const card = new PluginCard(this.worldEl, {
       title, subtitle, x: 0, y: 0, width: sw, height: sh,
       onMinimize: () => {
         const cs = this.cards.find(c => c.card === card);
@@ -546,17 +572,44 @@ export class CanvasArea {
   }
 
   private positionCard(cs: CardState): void {
-    const left = cs.worldX * this.scale + this.panX;
-    const top = cs.worldY * this.scale + this.panY;
-    cs.card.el.style.left = `${left}px`;
-    cs.card.el.style.top = `${top}px`;
-    cs.card.el.style.transform = `scale(${this.scale})`;
-    cs.card.el.style.transformOrigin = '0 0';
+    // World coords only — pan/zoom lives on .canvas-world
+    cs.card.el.style.left = `${cs.worldX}px`;
+    cs.card.el.style.top = `${cs.worldY}px`;
+    cs.card.el.style.transform = '';
     cs.terminalPlugin?.setScale(this.scale);
   }
 
   private repositionAllCards(): void {
     for (const cs of this.cards) this.positionCard(cs);
+  }
+
+  private applyWorldTransform(): void {
+    applyViewTransform(this.worldEl, this.scale, this.panX, this.panY);
+  }
+
+  private beginNavigating(): void {
+    if (!this.navigating) {
+      this.navigating = true;
+      this.worldEl.classList.add('is-navigating');
+    }
+    if (this.navIdleTimer) clearTimeout(this.navIdleTimer);
+    this.navIdleTimer = window.setTimeout(() => this.endNavigating(), 120);
+  }
+
+  private endNavigating(): void {
+    if (this.navIdleTimer) {
+      clearTimeout(this.navIdleTimer);
+      this.navIdleTimer = 0;
+    }
+    // Keep cheap frames while the mouse button is still down for pan.
+    if (this.isPanning) return;
+    if (!this.navigating) {
+      this.scheduleTransform(true);
+      return;
+    }
+    this.navigating = false;
+    this.worldEl.classList.remove('is-navigating');
+    this.scheduleTransform(true);
   }
 
   private overlaySVG(zone: string): string {
@@ -779,7 +832,7 @@ export class CanvasArea {
   }
 
   private createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onMinimize?: () => void; onFitViewport?: () => void; onTerminate?: () => void }): CardState {
-    const card = new PluginCard(this.el, {
+    const card = new PluginCard(this.worldEl, {
       title: p.title, subtitle: '', x: 0, y: 0, width: p.width, height: p.height,
       onMinimize: callbacks.onMinimize,
       onFitViewport: callbacks.onFitViewport,
@@ -1660,28 +1713,21 @@ export class CanvasArea {
     this.scheduleTransform();
   }
 
-  refresh(): void { this.scheduleTransform(); }
-  private scheduleTransform(): void {
+  refresh(): void { this.scheduleTransform(true); }
+  private scheduleTransform(flushChrome = false): void {
+    if (flushChrome) this.flushChrome = true;
     if (this.rafId) return;
     this.rafId = requestAnimationFrame(() => {
       this.rafId = 0;
       this.clampScale();
       this.clampView();
-      this.repositionAllCards();
-      applyGridToElement(this.el, this.gridStyle, this.patternDataURL, this.patternSize, this.scale, this.panX, this.panY);
-      for (const cs of this.cards) cs.card.renderTitle();
-      const half = this.patternSize / 2;
-      this.originDot.style.left = `${this.panX - 3}px`;
-      this.originDot.style.top = `${this.panY - 3}px`;
-      this.originDot.style.transform = `scale(${this.scale})`;
-      const bw = CanvasArea.WORLD_BOUNDS_X * 2 * this.scale;
-      const bh = CanvasArea.WORLD_BOUNDS_Y * 2 * this.scale;
-      this.boundaryEl.style.width = `${bw}px`;
-      this.boundaryEl.style.height = `${bh}px`;
-      this.boundaryEl.style.transform = `translate(${this.panX - CanvasArea.WORLD_BOUNDS_X * this.scale}px, ${this.panY - CanvasArea.WORLD_BOUNDS_Y * this.scale}px)`;
-
-      this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll(), () => { this.scale = 1; this.scheduleTransform(); });
-      this.onStateChange?.();
+      this.applyWorldTransform();
+      const chrome = this.flushChrome || !this.navigating;
+      this.flushChrome = false;
+      if (chrome) {
+        this.statusBar.update(this._locked, this.scale, this.workspaceName, this.onLockToggle, () => this.fitAll(), () => { this.scale = 1; this.scheduleTransform(true); });
+        this.onStateChange?.();
+      }
     });
   }
 
@@ -1699,6 +1745,7 @@ export class CanvasArea {
       const worldY = (my - this.panY) / oldScale;
       this.panX = mx - worldX * this.scale;
       this.panY = my - worldY * this.scale;
+      this.beginNavigating();
       this.scheduleTransform();
     }, { passive: false });
 
@@ -1718,6 +1765,7 @@ export class CanvasArea {
       const worldY = (my - this.panY) / oldScale;
       this.panX = mx - worldX * this.scale;
       this.panY = my - worldY * this.scale;
+      this.beginNavigating();
       this.scheduleTransform();
     }, { capture: true, passive: false });
 
@@ -1731,6 +1779,7 @@ export class CanvasArea {
           this.panStartPanX = this.panX;
           this.panStartPanY = this.panY;
           this.el.style.cursor = 'grabbing';
+          this.beginNavigating();
         }
       }
     });
@@ -1739,12 +1788,15 @@ export class CanvasArea {
       if (!this.isPanning) return;
       this.panX = this.panStartPanX + (e.clientX - this.panStartX);
       this.panY = this.panStartPanY + (e.clientY - this.panStartY);
+      this.beginNavigating();
       this.scheduleTransform();
     });
 
     document.addEventListener('mouseup', () => {
+      if (!this.isPanning) return;
       this.isPanning = false;
       this.el.style.cursor = '';
+      this.endNavigating();
     });
 
     this.el.addEventListener('contextmenu', (e) => {
@@ -1763,14 +1815,20 @@ export class CanvasArea {
     const startX = this.panX;
     const startY = this.panY;
     const startTime = performance.now();
+    this.beginNavigating();
     const animate = (now: number) => {
       if (id !== this.panAnimId) return;
       const t = Math.min((now - startTime) / duration, 1);
       const ease = 1 - Math.pow(1 - t, 3);
       this.panX = startX + (targetX - startX) * ease;
       this.panY = startY + (targetY - startY) * ease;
-      this.scheduleTransform();
-      if (t < 1) requestAnimationFrame(animate);
+      if (t < 1) {
+        this.beginNavigating();
+        this.scheduleTransform();
+        requestAnimationFrame(animate);
+      } else {
+        this.endNavigating();
+      }
     };
     requestAnimationFrame(animate);
   }

@@ -33,8 +33,6 @@ export class PluginCard {
   private dragOffsetY = 0;
   private startWorldX = 0;
   private startWorldY = 0;
-  private startPanX = 0;
-  private startPanY = 0;
 
   constructor(private parent: HTMLElement, opts: CardOptions, private getTransform: () => { scale: number; panX: number; panY: number }) {
     this.opts = opts;
@@ -144,15 +142,17 @@ export class PluginCard {
   private dragHandlers: { mousemove: (e: MouseEvent) => void; mouseup: () => void } | null = null;
 
   private initDrag(): void {
+    // Cards live in world space under a parent that applies pan/zoom via CSS transform.
+    // left/top are world coords; client deltas convert with scale only.
     const onMouseMove = (e: MouseEvent) => {
       if (!this.isDragging) return;
       const t = this.getTransform();
-      const worldRawX = this.startWorldX + (e.clientX - this.dragOffsetX - t.panX + this.startPanX) / t.scale;
-      const worldRawY = this.startWorldY + (e.clientY - this.dragOffsetY - t.panY + this.startPanY) / t.scale;
+      const worldRawX = this.startWorldX + (e.clientX - this.dragOffsetX) / t.scale;
+      const worldRawY = this.startWorldY + (e.clientY - this.dragOffsetY) / t.scale;
       const snappedWorldX = Math.round(worldRawX / SNAP) * SNAP;
       const snappedWorldY = Math.round(worldRawY / SNAP) * SNAP;
-      this.el.style.left = `${snappedWorldX * t.scale + t.panX}px`;
-      this.el.style.top = `${snappedWorldY * t.scale + t.panY}px`;
+      this.el.style.left = `${snappedWorldX}px`;
+      this.el.style.top = `${snappedWorldY}px`;
       this.opts.onDragMove?.(e.clientX, e.clientY);
     };
 
@@ -160,12 +160,9 @@ export class PluginCard {
       if (this.isDragging) {
         this.isDragging = false;
         this.el.style.transition = '';
-        const t = this.getTransform();
-        const left = parseFloat(this.el.style.left);
-        const top = parseFloat(this.el.style.top);
         this.opts.onDragEnd?.(
-          (left - t.panX) / t.scale,
-          (top - t.panY) / t.scale,
+          parseFloat(this.el.style.left) || 0,
+          parseFloat(this.el.style.top) || 0,
         );
       }
     };
@@ -180,11 +177,8 @@ export class PluginCard {
       this.isDragging = true;
       this.dragOffsetX = e.clientX;
       this.dragOffsetY = e.clientY;
-      const t = this.getTransform();
-      this.startWorldX = (this.el.offsetLeft - t.panX) / t.scale;
-      this.startWorldY = (this.el.offsetTop - t.panY) / t.scale;
-      this.startPanX = t.panX;
-      this.startPanY = t.panY;
+      this.startWorldX = parseFloat(this.el.style.left) || 0;
+      this.startWorldY = parseFloat(this.el.style.top) || 0;
       this.el.style.transition = 'none';
       this.opts.onDragStart?.(e.clientX, e.clientY);
     });
