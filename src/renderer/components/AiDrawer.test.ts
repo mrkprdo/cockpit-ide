@@ -101,9 +101,14 @@ describe('AiDrawer', () => {
       expect(document.querySelector('.ai-drawer-notch')).toBeTruthy();
     });
 
-    it('shows Cockpit Agent welcome message on creation', async () => {
+    it('shows centered empty-state welcome, not a conversation card', async () => {
       drawer = await createDrawer();
-      expect(q('.ai-chat-messages').textContent).toContain('Cockpit Agent ready');
+      expect(drawer['messages']).toEqual([]);
+      expect(q('.ai-chat-empty')).toBeTruthy();
+      expect(q('.ai-chat-empty-logo')).toBeTruthy();
+      expect(q('.ai-chat-empty-icon').querySelectorAll('circle').length).toBe(4);
+      expect(q('.ai-chat-empty').textContent).toContain('Cockpit Agent ready');
+      expect(q('.ai-chat-messages').querySelectorAll('.ai-chat-msg').length).toBe(0);
     });
 
     it('title is COCKPIT AGENT', async () => {
@@ -561,10 +566,12 @@ describe('AiDrawer', () => {
 
     it('initFirstSession creates session from current messages', () => {
       drawer = new AiDrawer();
-      expect(drawer['messages'].length).toBeGreaterThan(0);
+      expect(drawer['messages']).toEqual([]);
+      drawer['messages'] = [{ role: 'user', content: 'hi', timestamp: 1 }];
       drawer['initFirstSession']();
       expect(drawer['sessions']).toHaveLength(1);
-      expect(drawer['sessions'][0].messages.length).toBe(drawer['messages'].length);
+      expect(drawer['sessions'][0].messages).toHaveLength(1);
+      expect(drawer['sessions'][0].messages[0].content).toBe('hi');
     });
 
     it('flushSave calls mkdir once, then writeFile on repeat saves', async () => {
@@ -847,10 +854,12 @@ describe('AiDrawer', () => {
       drawer = await createDrawer();
       await drawer.toggle();
 
+      expect(q('.ai-chat-empty')).toBeTruthy();
       (q('.ai-chat-input') as HTMLTextAreaElement).value = 'Hello agent';
       q('.ai-chat-send-btn').click();
       await flush();
 
+      expect(q('.ai-chat-empty')).toBeNull();
       expect(q('.ai-chat-messages').querySelectorAll('.ai-chat-msg-user').length).toBe(1);
       expect(q('.ai-chat-messages').querySelectorAll('.ai-chat-msg-assistant').length).toBeGreaterThanOrEqual(1);
     });

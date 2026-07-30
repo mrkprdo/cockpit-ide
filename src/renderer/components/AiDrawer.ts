@@ -227,11 +227,7 @@ export class AiDrawer {
   }
 
   private showWelcome(): void {
-    this.messages = [{
-      role: 'assistant',
-      content: '**Cockpit Agent ready.** I can read/write files, open them in the editor, add plugins, and arrange the canvas. Ask me to do something in your workspace.',
-      timestamp: Date.now(),
-    }];
+    this.messages = [];
   }
 
   // ── Sessions ────────────────────────────────────────────────────────────────
@@ -720,6 +716,22 @@ export class AiDrawer {
   }
 
   private renderMessages(): void {
+    if (this.messages.length === 0) {
+      this.messagesEl.innerHTML = `<div class="ai-chat-empty">
+        <div class="ai-chat-empty-logo" aria-hidden="true">
+          <svg class="ai-chat-empty-icon" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+            <circle class="ai-logo-c ai-logo-c1" cx="72" cy="72" r="56"/>
+            <circle class="ai-logo-c ai-logo-c2" cx="184" cy="72" r="56"/>
+            <circle class="ai-logo-c ai-logo-c3" cx="72" cy="184" r="56"/>
+            <circle class="ai-logo-c ai-logo-c4" cx="184" cy="184" r="56"/>
+          </svg>
+        </div>
+        <div class="ai-chat-empty-title">Cockpit Agent ready.</div>
+        <div class="ai-chat-empty-sub">I can read/write files, open them in the editor, and arrange the canvas.</div>
+      </div>`;
+      this.renderTokenUsage();
+      return;
+    }
     this.messagesEl.innerHTML = this.messages.map((m, i) => this.renderMessage(m, i)).join('');
     // Mark only the last message for entrance animation; previous messages render instantly
     const last = this.messagesEl.lastElementChild as HTMLElement | null;
