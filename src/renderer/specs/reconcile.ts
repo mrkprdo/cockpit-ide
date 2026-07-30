@@ -54,25 +54,29 @@ export async function reconcile(opts: ReconcileOptions): Promise<ReconcileResult
   result.sourceFiles = new Set(sourceFiles);
   result.existingFiles = relAll;
 
-  // 2. Extract facts
-  for (const rel of sourceFiles) {
-    const content = await fs.readFile(`${wsRoot}/${rel}`);
+  // 2. Extract facts (read all source files concurrently — independent IPC round-trips)
+  const sourceContents = await Promise.all(sourceFiles.map(rel => fs.readFile(`${wsRoot}/${rel}`)));
+  sourceFiles.forEach((rel, i) => {
+    const content = sourceContents[i];
     if (content !== null) result.facts.set(rel, extractSourceFacts(rel, content, relAll));
-  }
+  });
 
-  // 3. Load spec corpus
+  // 3. Load spec corpus (concurrently)
   const entries = await fs.readDir(specsDir) ?? [];
+  const specEntries = entries.filter(e => !e.isDirectory && e.name.endsWith('.spec.md') && e.name !== 'main.spec.md');
   const rawByFile = new Map<string, string>();
   const docs = new Map<string, SpecDoc>();
-  for (const e of entries) {
-    if (e.isDirectory || !e.name.endsWith('.spec.md') || e.name === 'main.spec.md') continue;
-    const raw = await fs.readFile(`${specsDir}/${e.name}`);
+  const [specRaws, mainRaw] = await Promise.all([
+    Promise.all(specEntries.map(e => fs.readFile(`${specsDir}/${e.name}`))),
+    fs.readFile(`${specsDir}/main.spec.md`),
+  ]);
+  specEntries.forEach((e, i) => {
+    const raw = specRaws[i];
     if (raw !== null) {
       rawByFile.set(e.name, raw);
       docs.set(e.name, parseSpecDoc(raw));
     }
-  }
-  const mainRaw = await fs.readFile(`${specsDir}/main.spec.md`);
+  });
   const mainDoc = mainRaw !== null ? parseSpecDoc(mainRaw) : null;
 
   // Source path → spec filename
@@ -220,16 +224,23 @@ async function walk(fs: SpecsFs, dir: string, out: string[], depth: number, maxD
   if (depth > maxDepth) return;
   const entries = await fs.readDir(dir);
   if (!entries) return;
+  const subdirs: string[] = [];
   for (const e of entries) {
     if (IGNORE_DIRS.has(e.name)) continue;
     const full = `${dir}/${e.name}`;
     if (e.isDirectory) {
       if (full === skipDir) continue;
-      await walk(fs, full, out, depth + 1, maxDepth, skipDir);
+      subdirs.push(full);
     } else {
       out.push(full);
     }
   }
+  const results = await Promise.all(subdirs.map(async full => {
+    const sub: string[] = [];
+    await walk(fs, full, sub, depth + 1, maxDepth, skipDir);
+    return sub;
+  }));
+  for (const sub of results) out.push(...sub);
 }
 
 function kebab(s: string): string {

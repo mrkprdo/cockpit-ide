@@ -6,6 +6,12 @@ import { reconcile } from '../specs/reconcile';
 import { corpusHash, loadSnapshot as loadSnapshotV2, makeSnapshot } from '../specs/snapshot';
 import { staleFooter, summarizeReport, validate } from '../specs/validate';
 import type { ReconcileMode, SpecGraph, ValidationReport } from '../specs/types';
+import {
+  computeLayout, GRAPH_MARGIN, LAYER_COLORS_HEX, LAYER_COLORS_VAR, LAYER_LABELS,
+  NODE_GAP, NODE_H, NODE_UI_H, NODE_UI_W, NODE_W, PANEL_W, PORT_OFFSET, type SpecNode,
+} from '../specs/layout';
+import { CyclesController, CYCLE_COLORS, type CyclesHost } from './specsmap/cycles';
+import { SearchController, type SearchHost } from './specsmap/search';
 
 interface SpecData {
   name?: string;
@@ -45,64 +51,6 @@ interface SnapNode {
   raw: Record<string, unknown>;
 }
 
-interface SpecNode {
-  id: string;
-  name: string;
-  specFile: string;
-  sourceFile: string;
-  isEntry: boolean;
-  entryPath: string;
-  layer: string;
-  isUI: boolean;
-  parentId?: string;
-  uiChildId?: string;
-  deps: string[];
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-const NODE_W = 280;
-const NODE_H = 100;
-const NODE_UI_W = 230;
-const NODE_UI_H = 62;
-const NODE_GAP = 28;
-const MAX_PER_ROW = 10;
-const LAYER_GAP = 60;
-const UI_OFFSET_Y = 64;
-const PANEL_W = 320;
-const GRAPH_MARGIN = 80;
-const PORT_OFFSET = 28;
-
-const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugin'];
-const LAYER_LABELS: Record<string, string> = {
-  foundation: 'Foundation',
-  core: 'Core',
-  widget: 'Widget',
-  modal: 'Modal',
-  overlay: 'Overlay',
-  plugin: 'Plugins',
-};
-
-const LAYER_COLORS_VAR: Record<string, string> = {
-  foundation: 'var(--green)',
-  core: 'var(--accent)',
-  widget: 'var(--accent2)',
-  modal: 'var(--amber)',
-  overlay: 'var(--red)',
-  plugin: 'var(--secondary)',
-};
-
-const LAYER_COLORS_HEX: Record<string, string> = {
-  foundation: '#4ade80',
-  core: '#5a8af4',
-  widget: '#a78bfa',
-  modal: '#fbbf24',
-  overlay: '#f87171',
-  plugin: '#94a3b8',
-};
-
 async function sha256(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
   const buf = await crypto.subtle.digest('SHA-256', data);
@@ -138,11 +86,7 @@ export class SpecsMapPlugin {
   private readyResolve!: () => void;
   readonly ready: Promise<void>;
   private panelShowingSettings = false;
-  private cycleMode = false;
-  private cycleSets: Set<string>[] = [];
-  private cycleLevel = 1;
-  private selectedCycleIndex: number | null = null;
-  private isolatedMode = false;
+  private cycles!: CyclesController;
   private cycleBtn!: HTMLButtonElement;
   private panX = 0;
   private panY = 0;
@@ -167,20 +111,13 @@ export class SpecsMapPlugin {
   private specDocs = new Map<string, SpecDoc>();
   private report: ValidationReport | null = null;
   private driftDirty = false;
+  private lastRendered: string | null = null; // `${collectionId}:${hash}` of the last renderGraph() call
   private fileUnsub: (() => void) | null = null;
   private specReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Search state
-  private searchOpen = false;
-  private searchQuery = '';
-  private searchResults: string[] = [];
-  private searchIndex = -1;
-  private searchBar!: HTMLDivElement;
-  private searchInput!: HTMLInputElement;
-  private searchCountEl!: HTMLSpanElement;
+  private search!: SearchController;
   private searchBtn!: HTMLButtonElement;
-  private nameTextOrigins = new Map<string, string>();
-  private searchPrevNodeId: string | null = null;
 
   onFileOpen: ((filePath: string) => void) | null = null;
 
@@ -448,7 +385,7 @@ export class SpecsMapPlugin {
     this.searchBtn.className = 'sm-header-btn';
     this.searchBtn.innerHTML = SVG_SEARCH;
     this.searchBtn.title = 'Search nodes (Ctrl+F)';
-    this.searchBtn.addEventListener('click', () => this.toggleSearch());
+    this.searchBtn.addEventListener('click', () => this.search.toggle());
     header.appendChild(this.searchBtn);
 
     header.appendChild(this.cycleBtn);
@@ -520,66 +457,30 @@ export class SpecsMapPlugin {
     content.appendChild(this.panel);
 
     // Search bar (slides down from top of content area)
-    this.searchBar = document.createElement('div');
-    this.searchBar.className = 'sm-search-bar';
-    this.searchBar.style.cssText =
-      'position:absolute;top:0;left:0;right:0;height:34px;z-index:25;' +
-      'background:var(--panel);border-bottom:1px dashed var(--border);' +
-      'display:flex;align-items:center;gap:6px;padding:0 10px;' +
-      'transform:translateY(-100%);opacity:0;pointer-events:none;' +
-      'transition:transform 0.15s cubic-bezier(0.4,0,0.2,1), opacity 0.15s ease';
-
-    const searchIcon = document.createElement('span');
-    searchIcon.innerHTML = SVG_SEARCH;
-    searchIcon.style.cssText = 'flex-shrink:0;opacity:0.5;line-height:0;display:flex';
-    this.searchBar.appendChild(searchIcon);
-
-    this.searchInput = document.createElement('input');
-    this.searchInput.type = 'text';
-    this.searchInput.placeholder = 'Type to search nodes…';
-    this.searchInput.style.cssText =
-      'flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:5px;' +
-      'padding:3px 8px;font-family:"Space Mono","Courier New",monospace;font-size:12px;' +
-      'color:var(--primary);outline:none';
-    this.searchInput.setAttribute('autocomplete', 'off');
-    this.searchInput.setAttribute('spellcheck', 'false');
-    this.searchBar.appendChild(this.searchInput);
-
-    this.searchInput.addEventListener('input', () => this.performSearch(this.searchInput.value));
-    this.searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (e.shiftKey) this.goToPrev();
-        else this.goToNext();
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        this.closeSearch();
-      }
-    });
-    this.searchInput.addEventListener('blur', (e) => {
-      const related = e.relatedTarget as HTMLElement | null;
-      if (related && this.searchBar.contains(related)) return;
-      setTimeout(() => {
-        if (this.searchOpen) this.closeSearch();
-      }, 150);
+    const searchHost: SearchHost = {
+      getNodes: () => this.nodes,
+      getSpecData: (id) => this.specRawMap.get(id),
+      getNodeEls: () => this.nodeEls,
+      selectNode: (id, fromSearch) => this.selectNode(id, fromSearch),
+    };
+    this.search = new SearchController(content, SVG_SEARCH, searchHost, () => {
+      this.searchBtn.style.color = this.search.isOpen ? 'var(--accent)' : '';
     });
 
-    this.searchCountEl = document.createElement('span');
-    this.searchCountEl.style.cssText = 'font-size:10px;color:var(--tertiary);flex-shrink:0;min-width:28px;text-align:right';
-    this.searchCountEl.textContent = '0';
-    this.searchBar.appendChild(this.searchCountEl);
-
-    const searchClose = document.createElement('button');
-    searchClose.textContent = '×';
-    searchClose.style.cssText =
-      'background:none;border:none;cursor:pointer;color:var(--tertiary);font-size:16px;' +
-      'line-height:1;padding:0 2px;font-family:inherit;flex-shrink:0';
-    searchClose.setAttribute('aria-label', 'Close search');
-    searchClose.addEventListener('click', () => this.closeSearch());
-    this.searchBar.appendChild(searchClose);
-
-    content.appendChild(this.searchBar);
+    // Cycle-detection + isolated-node highlighting
+    const cyclesHost: CyclesHost = {
+      getGraph: () => this.graph,
+      getNodes: () => this.nodes,
+      getNodeEls: () => this.nodeEls,
+      getEdgePaths: () => this.cachedEdgePaths,
+      getRefCount: (id) => this.refCounts.get(id) ?? 0,
+      getViewTransform: () => ({ scale: this.scale, panX: this.panX, panY: this.panY }),
+      svg: this.svg,
+    };
+    this.cycles = new CyclesController(cyclesHost, () => {
+      this.updateCycleBtnColor();
+      if (this.panelShowingSettings) this.renderSettingsContent();
+    });
 
     container.appendChild(this.el);
 
@@ -587,6 +488,11 @@ export class SpecsMapPlugin {
     this.initInteractions();
     this.loadSpecs();
     this.watchForChanges();
+  }
+
+  private updateCycleBtnColor(): void {
+    const active = this.panelShowingSettings || this.cycles.cycleMode || this.cycles.isolatedMode;
+    this.cycleBtn.style.color = active ? 'var(--accent)' : '';
   }
 
   /**
@@ -789,30 +695,20 @@ export class SpecsMapPlugin {
         if (this.el.isConnected) {
           e.preventDefault();
           e.stopPropagation();
-          this.toggleSearch();
+          this.search.toggle();
         }
       }
-      if (e.key === 'Escape' && this.searchOpen) {
-        this.closeSearch();
+      if (e.key === 'Escape' && this.search.isOpen) {
+        this.search.close();
       }
     });
 
     // Click on canvas background → close panel; cycle edges → select cycle
     this.viewport.addEventListener('click', (e) => {
-      if (this.cycleMode && this.cycleSets.length > 0) {
-        const rect = this.viewport.getBoundingClientRect();
-        const cx = e.clientX - rect.left;
-        const cy = e.clientY - rect.top;
-        for (const hit of this.getCycleEdgeHitTargets()) {
-          const dist = Math.sqrt((cx - hit.cx) ** 2 + (cy - hit.cy) ** 2);
-          if (dist < 18) {
-            this.selectedCycleIndex = this.selectedCycleIndex === hit.cycleIdx ? null : hit.cycleIdx;
-            this.applyCycleHighlights();
-            if (this.panelShowingSettings) this.renderSettingsContent();
-            return;
-          }
-        }
-      }
+      const rect = this.viewport.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      if (this.cycles.handleViewportClick(cx, cy)) return;
       if (!(e.target as HTMLElement).closest('.sm-node')) this.closePanel(true);
     });
   }
@@ -873,7 +769,7 @@ export class SpecsMapPlugin {
     for (const n of rawNodes) {
       for (const d of n.deps) this.refCounts.set(d, (this.refCounts.get(d) ?? 0) + 1);
     }
-    this.nodes = this.computeLayout(rawNodes);
+    this.nodes = computeLayout(rawNodes);
     return true;
   }
 
@@ -988,9 +884,18 @@ export class SpecsMapPlugin {
 
     const collectionId = base.replace(wsRoot, '').replace(/^\//, '') || base;
     const hash = corpusHash(rawTexts);
+    const renderKey = `${collectionId}:${hash}`;
     const snapRaw = await window.electronAPI?.fs.readFile(this.snapshotPath) ?? null;
     if (this.tryLoadSnapshotV2(snapRaw, hash, collectionId)) {
+      // Corpus unchanged since last render (e.g. Refresh clicked with no file edits) — skip
+      // the full DOM teardown/rebuild, just refresh derived state.
+      if (renderKey === this.lastRendered) {
+        this.updateHeaderCounts();
+        this.showValidation();
+        return;
+      }
       this.renderGraph();
+      this.lastRendered = renderKey;
       this.showValidation();
       return;
     }
@@ -1040,9 +945,10 @@ export class SpecsMapPlugin {
       for (const d of n.deps) this.refCounts.set(d, (this.refCounts.get(d) ?? 0) + 1);
     }
 
-    this.nodes = this.computeLayout(rawNodes);
+    this.nodes = computeLayout(rawNodes);
     await this.saveSnapshot(hash, collectionId);
     this.renderGraph();
+    this.lastRendered = renderKey;
     this.showValidation();
   }
 
@@ -1160,11 +1066,7 @@ export class SpecsMapPlugin {
     this.renderTabBar();
 
     // Reset view state
-    this.cycleMode = false;
-    this.cycleSets = [];
-    this.cycleLevel = 1;
-    this.selectedCycleIndex = null;
-    this.isolatedMode = false;
+    this.cycles.reset();
     this.cycleBtn.style.color = '';
     this.nodes = [];
     this.specRawMap.clear();
@@ -1172,6 +1074,7 @@ export class SpecsMapPlugin {
     this.nodeEls.clear();
     this.nodeLayer.innerHTML = '';
     this.svg.innerHTML = '';
+    this.lastRendered = null;
     this.emptyState.style.display = 'none';
     this.closePanel();
 
@@ -1192,11 +1095,7 @@ export class SpecsMapPlugin {
     this.refreshBtn.querySelector('svg')?.classList.add('sm-spinning');
 
     // Reset cycle mode
-    this.cycleMode = false;
-    this.cycleSets = [];
-    this.cycleLevel = 1;
-    this.selectedCycleIndex = null;
-    this.isolatedMode = false;
+    this.cycles.reset();
     this.cycleBtn.style.color = '';
 
     // Re-discover collections
@@ -1212,6 +1111,7 @@ export class SpecsMapPlugin {
     this.nodeEls.clear();
     this.nodeLayer.innerHTML = '';
     this.svg.innerHTML = '';
+    this.lastRendered = null;
     this.emptyState.style.display = 'none';
     this.closePanel();
 
@@ -1263,71 +1163,10 @@ export class SpecsMapPlugin {
     this.validationBadge.style.display = 'inline';
   }
 
-  private computeLayout(nodes: SpecNode[]): SpecNode[] {
-    const mainNodes = nodes.filter(n => !n.isUI);
-    const uiNodes = nodes.filter(n => n.isUI);
-    const nodeById = new Map<string, SpecNode>(nodes.map(n => [n.id, n]));
-
-    const layerMap = new Map<string, SpecNode[]>();
-    for (const n of mainNodes) {
-      if (!layerMap.has(n.layer)) layerMap.set(n.layer, []);
-      layerMap.get(n.layer)!.push(n);
-    }
-
-    let globalY = 40;
-
-    for (const layer of LAYER_ORDER) {
-      const items = layerMap.get(layer);
-      if (!items || items.length === 0) continue;
-      globalY = this.positionLayer(items, uiNodes, nodeById, globalY);
-    }
-
-    // Unknown/custom layers (e.g. "FEATURE" from generated specs) — sort alphabetically, position below
-    const unknownLayers = [...layerMap.keys()].filter(l => !LAYER_ORDER.includes(l)).sort();
-    for (const layer of unknownLayers) {
-      const items = layerMap.get(layer)!;
-      globalY = this.positionLayer(items, uiNodes, nodeById, globalY);
-    }
-
-    return nodes;
-  }
-
-  private positionLayer(
-    items: SpecNode[],
-    uiNodes: SpecNode[],
-    nodeById: Map<string, SpecNode>,
-    globalY: number,
-  ): number {
-    for (let chunkStart = 0; chunkStart < items.length; chunkStart += MAX_PER_ROW) {
-      const chunk = items.slice(chunkStart, chunkStart + MAX_PER_ROW);
-      const rowW = chunk.length * NODE_W + (chunk.length - 1) * NODE_GAP;
-      const startX = -rowW / 2;
-
-      for (let i = 0; i < chunk.length; i++) {
-        chunk[i].x = startX + i * (NODE_W + NODE_GAP);
-        chunk[i].y = globalY;
-      }
-
-      const chunkUI = uiNodes.filter(u => u.parentId && chunk.some(m => m.id === u.parentId));
-      for (const uiNode of chunkUI) {
-        const parent = nodeById.get(uiNode.parentId!);
-        if (parent) {
-          uiNode.x = parent.x + (NODE_W - NODE_UI_W) / 2;
-          uiNode.y = globalY + NODE_H + UI_OFFSET_Y;
-        }
-      }
-
-      const hasUI = chunkUI.length > 0;
-      globalY += NODE_H + (hasUI ? UI_OFFSET_Y + NODE_UI_H + 20 : 0) + LAYER_GAP;
-    }
-    return globalY;
-  }
-
   private renderGraph(): void {
     this.nodeLayer.innerHTML = '';
     this.svg.innerHTML = '';
     this.nodeEls.clear();
-    this.nameTextOrigins.clear();
     this.updateHeaderCounts();
 
     const nodeMap = new Map<string, SpecNode>(this.nodes.map(n => [n.id, n]));
@@ -1568,7 +1407,7 @@ export class SpecsMapPlugin {
   }
 
   private hoverNode(id: string, enter: boolean): void {
-    if (this.cycleMode || this.searchOpen) return;
+    if (this.cycles.cycleMode || this.search.isOpen) return;
     const connected = new Set<string>([id]);
     for (const node of this.nodes) {
       if (node.id === id) {
@@ -1674,10 +1513,7 @@ export class SpecsMapPlugin {
     this.openPanel(node);
 
     // If search is open, highlight keyword in selected node name
-    if (this.searchOpen && this.searchQuery) {
-      this.restoreNodeNames();
-      this.highlightInNode(id, this.searchQuery);
-    }
+    this.search.onNodeSelected(id);
   }
 
   private zoomToNode(node: SpecNode): void {
@@ -1740,7 +1576,7 @@ export class SpecsMapPlugin {
     this.panelOpen = true;
     this.panel.style.transform = 'translateX(0)';
     this.panel.style.pointerEvents = 'auto';
-    this.cycleBtn.style.color = 'var(--accent)';
+    this.updateCycleBtnColor();
     try {
       this.renderSettingsContent();
     } catch (e) {
@@ -1755,7 +1591,7 @@ export class SpecsMapPlugin {
   }
 
   private renderSettingsContent(): void {
-    const isActive = this.cycleMode;
+    const isActive = this.cycles.cycleMode;
     const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
     this.panelHeaderEl.innerHTML =
@@ -1768,7 +1604,7 @@ export class SpecsMapPlugin {
     const toggleLabel = isActive ? 'On' : 'Off';
 
     const levelChips = (lvl: number) =>
-      `<button class="sm-cycle-level" data-level="${lvl}" style="background:none;border:1px solid ${lvl === this.cycleLevel ? 'var(--accent)' : 'var(--border)'};color:${lvl === this.cycleLevel ? 'var(--accent)' : 'var(--tertiary)'};border-radius:5px;padding:2px 10px;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;transition:color 0.12s,border-color 0.12s" title="Level ${lvl}: ${lvl === 1 ? 'cycle nodes only' : lvl === 2 ? '+ immediate neighbors' : '+ 2-hop neighbors'}">${lvl}</button>`;
+      `<button class="sm-cycle-level" data-level="${lvl}" style="background:none;border:1px solid ${lvl === this.cycles.cycleLevel ? 'var(--accent)' : 'var(--border)'};color:${lvl === this.cycles.cycleLevel ? 'var(--accent)' : 'var(--tertiary)'};border-radius:5px;padding:2px 10px;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;transition:color 0.12s,border-color 0.12s" title="Level ${lvl}: ${lvl === 1 ? 'cycle nodes only' : lvl === 2 ? '+ immediate neighbors' : '+ 2-hop neighbors'}">${lvl}</button>`;
 
     let cyclesSection = '';
     if (isActive) {
@@ -1776,14 +1612,13 @@ export class SpecsMapPlugin {
         `<div class="sm-panel-section">` +
         `<div class="sm-panel-label">DEPTH</div>` +
         `<div style="display:flex;gap:6px;padding:4px 0">${[1, 2, 3].map(levelChips).join('')}</div></div>`;
-      if (this.cycleSets.length > 0) {
+      if (this.cycles.cycleSets.length > 0) {
         cyclesSection +=
           `<div class="sm-panel-section">` +
-          `<div class="sm-panel-label">CYCLES (${this.cycleSets.length}) — click edge on graph to trace</div>` +
-          this.cycleSets.map((s, i) => {
-            const CYCLE_COLORS = ['#f87171', '#fb923c', '#fbbf24', '#f472b6', '#a78bfa'];
+          `<div class="sm-panel-label">CYCLES (${this.cycles.cycleSets.length}) — click edge on graph to trace</div>` +
+          this.cycles.cycleSets.map((s, i) => {
             const c = CYCLE_COLORS[i % CYCLE_COLORS.length];
-            const isSel = i === this.selectedCycleIndex;
+            const isSel = i === this.cycles.selectedCycleIndex;
             return `<div style="font-size:11px;color:${c};padding:4px 0;display:flex;align-items:center;gap:6px;${isSel ? `background:${c}15;border-radius:4px;padding:4px 6px;margin:0 -6px;font-weight:700` : ''}">` +
               `<span style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0"></span>` +
               `<span>${isSel ? '▸ ' : ''}${esc([...s].join(' → '))}</span></div>`;
@@ -1797,8 +1632,8 @@ export class SpecsMapPlugin {
       }
     }
 
-    const isolatedToggleBg = this.isolatedMode ? 'var(--amber)' : 'var(--border)';
-    const isolatedLabel = this.isolatedMode ? 'On' : 'Off';
+    const isolatedToggleBg = this.cycles.isolatedMode ? 'var(--amber)' : 'var(--border)';
+    const isolatedLabel = this.cycles.isolatedMode ? 'On' : 'Off';
 
     this.panelInner.innerHTML =
       `<div class="sm-panel-section">` +
@@ -1812,8 +1647,8 @@ export class SpecsMapPlugin {
       `</div>` +
       `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--border);margin-top:4px;padding-top:12px">` +
       `<label style="flex:1;font-size:12px;color:var(--primary);cursor:pointer">Show isolated nodes</label>` +
-      `<div id="sm-isolated-toggle" style="width:36px;height:20px;border-radius:10px;background:${isolatedToggleBg};cursor:pointer;position:relative;transition:background 0.15s;flex-shrink:0" role="switch" aria-checked="${this.isolatedMode}">` +
-      `<div style="width:16px;height:16px;border-radius:50%;background:var(--bg);position:absolute;top:2px;left:2px;transform:${this.isolatedMode ? 'translateX(16px)' : 'translateX(0)'};transition:transform 0.15s"></div>` +
+      `<div id="sm-isolated-toggle" style="width:36px;height:20px;border-radius:10px;background:${isolatedToggleBg};cursor:pointer;position:relative;transition:background 0.15s;flex-shrink:0" role="switch" aria-checked="${this.cycles.isolatedMode}">` +
+      `<div style="width:16px;height:16px;border-radius:50%;background:var(--bg);position:absolute;top:2px;left:2px;transform:${this.cycles.isolatedMode ? 'translateX(16px)' : 'translateX(0)'};transition:transform 0.15s"></div>` +
       `</div>` +
       `<span style="font-size:10px;color:var(--tertiary);min-width:20px;text-align:right">${isolatedLabel}</span>` +
       `</div></div>` +
@@ -1833,47 +1668,17 @@ export class SpecsMapPlugin {
       ?.addEventListener('click', () => this.closePanel(true));
 
     const toggle = this.panelInner.querySelector('#sm-cycle-toggle');
-    toggle?.addEventListener('click', () => {
-      if (this.cycleMode) {
-        this.cycleMode = false;
-        this.selectedCycleIndex = null;
-        this.clearCycleHighlights();
-        this.cycleSets = [];
-        if (!this.isolatedMode) this.cycleBtn.style.color = '';
-      } else {
-        this.cycleMode = true;
-        this.cycleLevel = 1;
-        this.selectedCycleIndex = null;
-        this.cycleSets = this.findCycles();
-        this.applyCycleHighlights();
-        this.cycleBtn.style.color = 'var(--accent)';
-      }
-      this.renderSettingsContent();
-    });
+    toggle?.addEventListener('click', () => this.cycles.toggleCycleMode());
 
     for (const chip of this.panelInner.querySelectorAll<HTMLElement>('.sm-cycle-level')) {
       chip.addEventListener('click', () => {
         const lvl = parseInt(chip.dataset.level ?? '1', 10);
-        if (lvl !== this.cycleLevel) {
-          this.cycleLevel = lvl;
-          this.applyCycleHighlights();
-          this.renderSettingsContent();
-        }
+        this.cycles.setCycleLevel(lvl);
       });
     }
 
     const isolatedToggle = this.panelInner.querySelector('#sm-isolated-toggle');
-    isolatedToggle?.addEventListener('click', () => {
-      this.isolatedMode = !this.isolatedMode;
-      if (this.isolatedMode) {
-        this.cycleBtn.style.color = 'var(--accent)';
-        this.applyIsolatedHighlights();
-      } else {
-        this.clearIsolatedHighlights();
-        if (!this.cycleMode) this.cycleBtn.style.color = '';
-      }
-      this.renderSettingsContent();
-    });
+    isolatedToggle?.addEventListener('click', () => this.cycles.toggleIsolatedMode());
 
     for (const btn of this.panelInner.querySelectorAll<HTMLButtonElement>('.sm-reconcile-btn')) {
       btn.addEventListener('mouseenter', () => {
@@ -1938,7 +1743,7 @@ export class SpecsMapPlugin {
     this.panelShowingSettings = false;
     this.panel.style.transform = 'translateX(100%)';
     this.panel.style.pointerEvents = 'none';
-    if (!this.cycleMode && !this.isolatedMode) this.cycleBtn.style.color = '';
+    this.updateCycleBtnColor();
     if (this.selectedId) {
       const prev = this.nodeEls.get(this.selectedId);
       if (prev) prev.classList.remove('sm-selected');
@@ -2346,476 +2151,6 @@ export class SpecsMapPlugin {
     }, 3000);
   }
 
-  private findCycles(): Set<string>[] {
-    const adj = new Map<string, string[]>();
-    const nodeIds = new Set(this.nodes.map(n => n.id));
-    for (const n of this.nodes) {
-      adj.set(n.id, n.deps.filter(d => nodeIds.has(d)));
-    }
-
-    const index = new Map<string, number>();
-    const lowlink = new Map<string, number>();
-    const onStack = new Set<string>();
-    const stack: string[] = [];
-    let idx = 0;
-    const sccs: Set<string>[] = [];
-
-    const strongconnect = (v: string) => {
-      index.set(v, idx);
-      lowlink.set(v, idx);
-      idx++;
-      stack.push(v);
-      onStack.add(v);
-
-      for (const w of adj.get(v) ?? []) {
-        if (!index.has(w)) {
-          strongconnect(w);
-          lowlink.set(v, Math.min(lowlink.get(v)!, lowlink.get(w)!));
-        } else if (onStack.has(w)) {
-          lowlink.set(v, Math.min(lowlink.get(v)!, index.get(w)!));
-        }
-      }
-
-      if (lowlink.get(v) === index.get(v)) {
-        const scc = new Set<string>();
-        let w: string;
-        do {
-          w = stack.pop()!;
-          onStack.delete(w);
-          scc.add(w);
-        } while (w !== v);
-        if (scc.size > 1) sccs.push(scc);
-      }
-    };
-
-    for (const v of adj.keys()) {
-      if (!index.has(v)) strongconnect(v);
-    }
-
-    return sccs;
-  }
-
-  private addIsolatedBorderRect(worldX: number, worldY: number, w: number, h: number): void {
-    const ns = 'http://www.w3.org/2000/svg';
-    const rect = document.createElementNS(ns, 'rect');
-    rect.setAttribute('x', `${worldX + 1}`);
-    rect.setAttribute('y', `${worldY + 1}`);
-    rect.setAttribute('width', `${w - 2}`);
-    rect.setAttribute('height', `${h - 2}`);
-    rect.setAttribute('rx', '8');
-    rect.setAttribute('ry', '8');
-    rect.setAttribute('fill', 'none');
-    rect.setAttribute('stroke', '#fbbf24');
-    rect.setAttribute('stroke-width', '2');
-    rect.setAttribute('stroke-dasharray', '6 3');
-    rect.classList.add('sm-isolated-border');
-    rect.style.pointerEvents = 'none';
-    rect.dataset.isolated = '1';
-    let group = this.svg.querySelector('#sm-isolated-group') as SVGGElement | null;
-    if (!group) {
-      group = document.createElementNS(ns, 'g');
-      group.id = 'sm-isolated-group';
-      this.svg.appendChild(group);
-    }
-    group.appendChild(rect);
-  }
-
-  private removeIsolatedBorderRects(): void {
-    const group = this.svg.querySelector('#sm-isolated-group');
-    if (group) group.innerHTML = '';
-  }
-
-  private applyIsolatedHighlights(): void {
-    const isolatedIds = new Set<string>();
-    for (const n of this.nodes) {
-      if (n.isUI) continue;
-      const refCount = this.refCounts.get(n.id) ?? 0;
-      if (n.deps.length === 0 && refCount === 0) isolatedIds.add(n.id);
-    }
-    if (isolatedIds.size === 0) {
-      this.isolatedMode = false;
-      return;
-    }
-
-    const addRects = (nid: string) => {
-      const node = this.nodes.find(n => n.id === nid);
-      if (node) this.addIsolatedBorderRect(node.x, node.y, node.w, node.h);
-    };
-
-    if (this.cycleMode) {
-      for (const [nid, el] of this.nodeEls) {
-        if (isolatedIds.has(nid) && !this.cycleSets.some(c => c.has(nid))) {
-          el.classList.add('sm-isolated');
-          el.style.opacity = '1';
-          addRects(nid);
-        }
-      }
-      return;
-    }
-
-    for (const [nid, el] of this.nodeEls) {
-      if (isolatedIds.has(nid)) {
-        el.classList.add('sm-isolated');
-        el.style.opacity = '1';
-        addRects(nid);
-      } else {
-        el.style.opacity = '0.14';
-      }
-    }
-    for (const path of this.cachedEdgePaths) {
-      if (path.dataset.etype !== 'ui') path.setAttribute('opacity', '0.04');
-    }
-  }
-
-  private clearIsolatedHighlights(): void {
-    this.removeIsolatedBorderRects();
-    for (const [, el] of this.nodeEls) el.classList.remove('sm-isolated');
-    if (this.cycleMode) { this.applyCycleHighlights(); return; }
-    for (const [, el] of this.nodeEls) {
-      el.style.opacity = '';
-      el.style.borderColor = '';
-      el.style.borderStyle = '';
-      el.style.boxShadow = '';
-    }
-    for (const path of this.cachedEdgePaths) {
-      const etype = path.dataset.etype!;
-      const layer = path.dataset.layer ?? '';
-      if (etype === 'dep') {
-        path.style.stroke = LAYER_COLORS_VAR[layer] ?? 'var(--secondary)';
-        path.setAttribute('stroke-width', '1.5');
-        path.setAttribute('marker-end', `url(#sm-mk-${layer})`);
-        path.setAttribute('opacity', '0.3');
-      } else if (etype === 'glow') {
-        path.setAttribute('opacity', '0.06');
-      } else if (etype === 'ui') {
-        path.setAttribute('opacity', '0.25');
-      }
-      path.style.stroke = '';
-    }
-  }
-
-  private getCycleEdgeHitTargets(): Array<{ cx: number; cy: number; cycleIdx: number }> {
-    const hits: Array<{ cx: number; cy: number; cycleIdx: number }> = [];
-    const cycleNodeIds = new Set<string>();
-    for (const cycle of this.cycleSets) {
-      for (const id of cycle) cycleNodeIds.add(id);
-    }
-    for (const node of this.nodes) {
-      if (!cycleNodeIds.has(node.id)) continue;
-      for (const depId of node.deps) {
-        if (!cycleNodeIds.has(depId)) continue;
-        const cycleIdx = this.cycleSets.findIndex(c => c.has(node.id) && c.has(depId));
-        if (cycleIdx === -1) continue;
-        const target = this.nodes.find(n => n.id === depId);
-        if (!target) continue;
-        const midX = (node.x + node.w / 2 + target.x + target.w / 2) / 2;
-        const midY = (node.y + node.h / 2 + target.y + target.h / 2) / 2;
-        hits.push({ cx: midX * this.scale + this.panX, cy: midY * this.scale + this.panY, cycleIdx });
-      }
-    }
-    return hits;
-  }
-
-  private getAffectedNodes(cycleNodeIds: Set<string>): Set<string> {
-    if (this.cycleLevel <= 1) return cycleNodeIds;
-
-    const affected = new Set(cycleNodeIds);
-    const adj = new Map<string, string[]>();
-    for (const n of this.nodes) adj.set(n.id, n.deps);
-
-    const queue = [...cycleNodeIds];
-    let hops = 0;
-    while (queue.length > 0 && hops < this.cycleLevel) {
-      const levelSize = queue.length;
-      for (let i = 0; i < levelSize; i++) {
-        const id = queue.shift()!;
-        for (const dep of adj.get(id) ?? []) {
-          if (!affected.has(dep)) { affected.add(dep); queue.push(dep); }
-        }
-        for (const n of this.nodes) {
-          if (n.deps.includes(id) && !affected.has(n.id)) { affected.add(n.id); queue.push(n.id); }
-        }
-      }
-      hops++;
-    }
-    return affected;
-  }
-
-  private applyCycleHighlights(): void {
-    if (this.cycleSets.length === 0) return;
-
-    const cycleNodeIds = new Set<string>();
-    for (const cycle of this.cycleSets) {
-      for (const id of cycle) cycleNodeIds.add(id);
-    }
-
-    const highlighted = this.getAffectedNodes(cycleNodeIds);
-    const CYCLE_COLORS = ['#f87171', '#fb923c', '#fbbf24', '#f472b6', '#a78bfa'];
-
-    for (const [nid, el] of this.nodeEls) {
-      if (highlighted.has(nid)) {
-        if (cycleNodeIds.has(nid)) {
-          const cycleIdx = this.cycleSets.findIndex(c => c.has(nid));
-          const isSelected = cycleIdx === this.selectedCycleIndex;
-          const c = CYCLE_COLORS[cycleIdx % CYCLE_COLORS.length];
-          el.style.borderColor = c;
-          el.style.borderStyle = 'solid';
-          el.style.boxShadow = isSelected
-            ? `0 0 0 2px ${c}, 0 0 20px ${c}55`
-            : `0 0 0 1px ${c}44, 0 0 14px ${c}33`;
-          el.style.opacity = isSelected ? '1' : (this.selectedCycleIndex !== null ? '0.5' : '1');
-        } else {
-          const c = '#94a3b8';
-          el.style.borderColor = c;
-          el.style.borderStyle = 'solid';
-          el.style.boxShadow = `0 0 0 1px ${c}33, 0 0 10px ${c}22`;
-          el.style.opacity = '0.85';
-        }
-      } else {
-        el.style.opacity = '0.14';
-      }
-    }
-
-    const isConnected = (src: string, tgt: string) =>
-      highlighted.has(src) && highlighted.has(tgt);
-
-    for (const path of this.cachedEdgePaths) {
-      const src = path.dataset.source!;
-      const tgt = path.dataset.target!;
-      const etype = path.dataset.etype!;
-      const bothInCycle = cycleNodeIds.has(src) && cycleNodeIds.has(tgt);
-      const sameCycle = bothInCycle && this.cycleSets.some(c => c.has(src) && c.has(tgt));
-      if (sameCycle) {
-        const cycleIdx = this.cycleSets.findIndex(c => c.has(src));
-        const isSelected = cycleIdx === this.selectedCycleIndex;
-        const c = CYCLE_COLORS[cycleIdx % CYCLE_COLORS.length];
-        if (etype === 'glow') {
-          path.style.stroke = c;
-          path.setAttribute('opacity', isSelected ? '0.4' : '0.25');
-        } else {
-          path.style.stroke = c;
-          path.setAttribute('opacity', isSelected ? '1' : (this.selectedCycleIndex !== null ? '0.3' : '1'));
-          path.setAttribute('stroke-width', isSelected ? '4' : '2.5');
-          path.classList.add('sm-edge-active');
-          path.setAttribute('stroke-dasharray', '6 3');
-          path.style.cursor = 'pointer';
-        }
-      } else if (isConnected(src, tgt) && etype !== 'glow') {
-        path.setAttribute('opacity', '0.6');
-      } else if (etype !== 'ui' || !isConnected(src, tgt)) {
-        path.setAttribute('opacity', '0.04');
-      }
-    }
-  }
-
-  private clearCycleHighlights(): void {
-    this.removeIsolatedBorderRects();
-    for (const [, el] of this.nodeEls) {
-      el.classList.remove('sm-isolated');
-      el.style.opacity = '';
-      el.style.borderColor = '';
-      el.style.borderStyle = '';
-      el.style.boxShadow = '';
-    }
-    for (const path of this.cachedEdgePaths) {
-      const etype = path.dataset.etype!;
-      const layer = path.dataset.layer ?? '';
-      path.classList.remove('sm-edge-active');
-      path.removeAttribute('stroke-dasharray');
-      path.style.cursor = '';
-      if (etype === 'dep') {
-        path.style.stroke = LAYER_COLORS_VAR[layer] ?? 'var(--secondary)';
-        path.setAttribute('stroke-width', '1.5');
-        path.setAttribute('marker-end', `url(#sm-mk-${layer})`);
-        path.setAttribute('opacity', '0.3');
-      } else if (etype === 'glow') {
-        path.setAttribute('opacity', '0.06');
-      } else if (etype === 'ui') {
-        path.setAttribute('opacity', '0.25');
-      }
-      path.style.stroke = '';
-    }
-    if (this.isolatedMode) this.applyIsolatedHighlights();
-  }
-
-  private toggleSearch(): void {
-    if (this.searchOpen) this.closeSearch();
-    else this.openSearch();
-  }
-
-  private openSearch(): void {
-    if (this.searchOpen) return;
-    this.searchOpen = true;
-    this.searchResults = [];
-    this.searchIndex = -1;
-    this.searchQuery = '';
-    this.searchPrevNodeId = null;
-    this.searchInput.value = '';
-    this.searchCountEl.textContent = '0';
-
-    this.searchBar.style.transform = 'translateY(0)';
-    this.searchBar.style.opacity = '1';
-    this.searchBar.style.pointerEvents = 'auto';
-
-    this.searchBtn.style.color = 'var(--accent)';
-    this.searchInput.focus();
-  }
-
-  private closeSearch(): void {
-    if (!this.searchOpen) return;
-    this.searchOpen = false;
-
-    this.searchBar.style.transform = 'translateY(-100%)';
-    this.searchBar.style.opacity = '0';
-    this.searchBar.style.pointerEvents = 'none';
-
-    this.searchBtn.style.color = '';
-    this.searchQuery = '';
-    this.searchResults = [];
-    this.searchIndex = -1;
-    this.searchPrevNodeId = null;
-
-    // Restore all node opacities
-    for (const [, el] of this.nodeEls) {
-      el.style.opacity = '';
-    }
-
-    // Restore all .sm-name textContent
-    this.restoreNodeNames();
-    this.nameTextOrigins.clear();
-
-    // If selected node was from search, keep it selected
-  }
-
-  private performSearch(query: string): void {
-    const q = query.trim();
-    this.searchQuery = q;
-
-    if (!q) {
-      // Restore all nodes
-      for (const [, el] of this.nodeEls) {
-        el.style.opacity = '';
-      }
-      this.restoreNodeNames();
-      this.searchResults = [];
-      this.searchIndex = -1;
-      this.searchPrevNodeId = null;
-      this.searchCountEl.textContent = '0';
-      if (this.selectedId && !this.panelShowingSettings) {
-        // Keep current selection
-      }
-      return;
-    }
-
-    const qLower = q.toLowerCase();
-    const matches: string[] = [];
-
-    for (const node of this.nodes) {
-      const raw = this.specRawMap.get(node.id);
-      let found =
-        node.name.toLowerCase().includes(qLower) ||
-        node.specFile.toLowerCase().includes(qLower) ||
-        node.sourceFile.toLowerCase().includes(qLower) ||
-        node.layer.toLowerCase().includes(qLower);
-
-      if (!found && raw) {
-        if (raw.description && typeof raw.description === 'string' && raw.description.toLowerCase().includes(qLower)) found = true;
-        if (Array.isArray(raw.dependencies)) {
-          for (const d of raw.dependencies) {
-            if ((d.feature && String(d.feature).toLowerCase().includes(qLower)) ||
-                (d.file && String(d.file).toLowerCase().includes(qLower)) ||
-                (d.usage && String(d.usage).toLowerCase().includes(qLower))) {
-              found = true; break;
-            }
-          }
-        }
-        if (Array.isArray(raw.referenced_by)) {
-          for (const r of raw.referenced_by) {
-            if ((r.feature && String(r.feature).toLowerCase().includes(qLower)) ||
-                (r.file && String(r.file).toLowerCase().includes(qLower))) {
-              found = true; break;
-            }
-          }
-        }
-        if (Array.isArray(raw.ipc)) {
-          for (const ch of raw.ipc) {
-            if (String(ch).toLowerCase().includes(qLower)) { found = true; break; }
-          }
-        }
-      }
-
-      if (found) matches.push(node.id);
-    }
-
-    this.searchResults = matches;
-    this.searchCountEl.textContent = String(matches.length);
-
-    // Dim non-matching nodes, keep matching at full opacity
-    for (const [nid, el] of this.nodeEls) {
-      if (matches.includes(nid)) {
-        el.style.opacity = '1';
-      } else {
-        el.style.opacity = '0.14';
-      }
-    }
-
-    this.restoreNodeNames();
-
-    if (matches.length > 0) {
-      this.searchIndex = 0;
-      this.selectNode(matches[0], true);
-    } else {
-      this.searchIndex = -1;
-      this.searchPrevNodeId = null;
-    }
-  }
-
-  private goToNext(): void {
-    if (this.searchResults.length === 0) return;
-    this.searchPrevNodeId = this.selectedId;
-    this.searchIndex = (this.searchIndex + 1) % this.searchResults.length;
-    this.selectNode(this.searchResults[this.searchIndex], true);
-    this.searchInput.focus();
-  }
-
-  private goToPrev(): void {
-    if (this.searchResults.length === 0) return;
-    this.searchPrevNodeId = this.selectedId;
-    this.searchIndex = (this.searchIndex - 1 + this.searchResults.length) % this.searchResults.length;
-    this.selectNode(this.searchResults[this.searchIndex], true);
-    this.searchInput.focus();
-  }
-
-  private highlightInNode(nodeId: string, query: string): void {
-    const el = this.nodeEls.get(nodeId);
-    if (!el) return;
-    const nameEl = el.querySelector('.sm-name') as HTMLElement | null;
-    if (!nameEl) return;
-
-    // Store original if not stored
-    if (!this.nameTextOrigins.has(nodeId)) {
-      this.nameTextOrigins.set(nodeId, nameEl.textContent || '');
-    }
-
-    const text = this.nameTextOrigins.get(nodeId)!;
-    if (!query || !text) return;
-
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(${escaped})`, 'gi');
-    const html = text.replace(regex, '<span class="sm-search-mark">$1</span>');
-    nameEl.innerHTML = html;
-  }
-
-  private restoreNodeNames(): void {
-    for (const [nodeId, original] of this.nameTextOrigins) {
-      const el = this.nodeEls.get(nodeId);
-      if (!el) continue;
-      const nameEl = el.querySelector('.sm-name') as HTMLElement | null;
-      if (nameEl) nameEl.textContent = original;
-    }
-    this.nameTextOrigins.clear();
-  }
-
   triggerRefresh(): void {
     this.refreshBtn?.click();
   }
@@ -2994,6 +2329,5 @@ export class SpecsMapPlugin {
     this.nodeEls.clear();
     this.specRawMap.clear();
     this.specDocs.clear();
-    this.nameTextOrigins.clear();
   }
 }
