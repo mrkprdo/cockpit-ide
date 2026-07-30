@@ -1,16 +1,32 @@
 import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
+import { MarkdownPlugin, MarkdownState } from './MarkdownPlugin';
 import { CommandPalette } from './CommandPalette';
 import { SearchOverlay } from './SearchOverlay';
+
+export type ExplorerEditorState = {
+  openFiles: string[];
+  activeFile: string;
+  explorerWidth: number;
+  cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }>;
+  markdownOpenFiles?: string[];
+  markdownActiveFile?: string;
+  markdownScrollTops?: Record<string, number>;
+};
 
 export class ExplorerPlugin {
   onStateChange: (() => void) | null = null;
   editor: MonacoEditorPlugin;
+  markdownViewer: MarkdownPlugin;
   palette: CommandPalette | null = null;
   searchOverlay: SearchOverlay | null = null;
   private splitEl: HTMLDivElement;
   private isDragging = false;
   private explorerCol: HTMLDivElement;
+  private editorArea: HTMLDivElement;
+  private markdownArea: HTMLDivElement;
+  private editorCol: HTMLDivElement;
+  private activePane: 'editor' | 'markdown' = 'editor';
   private wsPath: string;
   private explorer: FileExplorerPlugin;
 
@@ -57,29 +73,62 @@ export class ExplorerPlugin {
       }
     });
 
-    const editorCol = document.createElement('div');
-    editorCol.style.cssText = 'flex:1;height:100%;overflow:hidden;min-width:200px;display:none';
+    this.editorCol = document.createElement('div');
+    this.editorCol.style.cssText = 'flex:1;height:100%;overflow:hidden;min-width:200px;display:none';
 
     this.splitEl.appendChild(this.explorerCol);
     this.splitEl.appendChild(resizeHandle);
-    this.splitEl.appendChild(editorCol);
+    this.splitEl.appendChild(this.editorCol);
     container.appendChild(this.splitEl);
 
-    // Init editor first so explorer can send files to it
-    this.editor = new MonacoEditorPlugin(editorCol);
+    this.editorArea = document.createElement('div');
+    this.editorArea.style.cssText = 'width:100%;height:100%;';
+    this.markdownArea = document.createElement('div');
+    this.markdownArea.style.cssText = 'width:100%;height:100%;display:none';
+    this.editorCol.appendChild(this.editorArea);
+    this.editorCol.appendChild(this.markdownArea);
+
+    this.editor = new MonacoEditorPlugin(this.editorArea);
     this.editor.onStateChange = () => {
-      editorCol.style.display = this.editor.tabs.length > 0 ? '' : 'none';
+      this.syncVisibility();
       this.onStateChange?.();
     };
     this.editor.onFileActivated = (filePath) => {
       this.explorer.selectFile(filePath);
     };
 
+    this.markdownViewer = new MarkdownPlugin(this.markdownArea);
+    this.markdownViewer.onDestroy = () => {
+      // Markdown instances don't have onStateChange built-in, so we use onDestroy to sync.
+      // We wrap our own sync: the markdown plugin has getState method we can check.
+    };
+
     this.explorer = new FileExplorerPlugin(this.explorerCol, wsPath, (filePath) => {
-      this.editor.openFile(filePath);
+      this.openFile(filePath);
     });
-    // Retry once after 1s in case DOM wasn't ready
     setTimeout(() => this.explorer.refresh(), 1000);
+  }
+
+  private syncVisibility(): void {
+    const editorHasTabs = this.editor.tabs.length > 0;
+    const mdHasTabs = this.markdownViewer.getState() !== null;
+
+    if (!editorHasTabs && !mdHasTabs) {
+      this.editorCol.style.display = 'none';
+      return;
+    }
+    this.editorCol.style.display = '';
+
+    if (editorHasTabs && mdHasTabs) {
+      this.editorArea.style.display = this.activePane === 'editor' ? '' : 'none';
+      this.markdownArea.style.display = this.activePane === 'markdown' ? '' : 'none';
+    } else if (editorHasTabs) {
+      this.editorArea.style.display = '';
+      this.markdownArea.style.display = 'none';
+    } else {
+      this.editorArea.style.display = 'none';
+      this.markdownArea.style.display = '';
+    }
   }
 
   private isHidden(): boolean {
@@ -102,20 +151,32 @@ export class ExplorerPlugin {
   getAgentEditorState() { return this.editor.getAgentEditorState(); }
 
   openFile(filePath: string): void {
-    this.editor.openFile(filePath);
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    if (ext === 'md') {
+      this.activePane = 'markdown';
+      this.markdownViewer.loadFile(filePath);
+    } else {
+      this.activePane = 'editor';
+      this.editor.openFile(filePath);
+    }
     this.revealFile(filePath);
+    this.syncVisibility();
   }
 
   closeActiveTab(): void {
-    this.editor.closeActiveTab();
+    if (this.activePane === 'markdown') {
+      this.markdownViewer.closeActiveTab();
+    } else {
+      this.editor.closeActiveTab();
+    }
+    this.syncVisibility();
   }
 
   openFileSearch(): void {
     if (this.isHidden()) return;
     if (!this.palette) {
       this.palette = new CommandPalette(this.wsPath, (filePath) => {
-        this.editor.openFile(filePath);
-        this.revealFile(filePath);
+        this.openFile(filePath);
       });
     }
     this.palette.open();
@@ -126,8 +187,7 @@ export class ExplorerPlugin {
     ensureExplorer().then(() => {
       if (!this.searchOverlay) {
         this.searchOverlay = new SearchOverlay(this.wsPath, (filePath, lineNumber) => {
-          this.editor.openFile(filePath);
-          this.revealFile(filePath);
+          this.openFile(filePath);
           setTimeout(() => this.editor.goToLine(lineNumber), 100);
         });
       }
@@ -135,25 +195,49 @@ export class ExplorerPlugin {
     });
   }
 
-  setMarkdownOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
-    this.explorer.setMarkdownOpeners(labels, callback);
-  }
-
   updateTheme(): void {
     this.editor.updateTheme?.();
   }
 
-  getEditorState(): { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null {
+  getEditorState(): ExplorerEditorState | null {
     const editorState = this.editor.getState();
-    if (!editorState) return null;
-    return { ...editorState, explorerWidth: this.explorerCol.offsetWidth };
+    const mdState = this.markdownViewer.getState();
+
+    if (!editorState && !mdState) return null;
+
+    const result: ExplorerEditorState = {
+      openFiles: editorState?.openFiles || [],
+      activeFile: editorState?.activeFile || '',
+      explorerWidth: this.explorerCol.offsetWidth,
+      cursors: editorState?.cursors || {},
+    };
+
+    if (mdState) {
+      result.markdownOpenFiles = mdState.openFiles;
+      result.markdownActiveFile = mdState.activeFile;
+      result.markdownScrollTops = mdState.scrollTops;
+    }
+
+    return result;
   }
 
-  async restoreEditorState(state: { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }> } | null): Promise<void> {
-    if (!state || !state.openFiles.length) return;
+  async restoreEditorState(state: ExplorerEditorState | null): Promise<void> {
+    if (!state) return;
     if (state.explorerWidth) {
       this.explorerCol.style.width = state.explorerWidth + 'px';
     }
-    await this.editor.restoreState(state);
+    if (state.markdownOpenFiles && state.markdownOpenFiles.length > 0) {
+      const mdState: MarkdownState = {
+        openFiles: state.markdownOpenFiles,
+        activeFile: state.markdownActiveFile || '',
+        scrollTops: state.markdownScrollTops || {},
+      };
+      await this.markdownViewer.restoreState(mdState);
+      if (mdState.activeFile) this.activePane = 'markdown';
+    }
+    if (state.openFiles && state.openFiles.length > 0) {
+      await this.editor.restoreState(state as any);
+    }
+    this.syncVisibility();
   }
 }

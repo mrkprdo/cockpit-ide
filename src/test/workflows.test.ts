@@ -418,13 +418,6 @@ describe('Explorer Plugin workflows', () => {
     expect(dev.getEditorState()).toBeNull();
   });
 
-  it('markdown: setMarkdownOpeners bridges labels to explorer', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
-    const callback = vi.fn();
-    dev.setMarkdownOpeners(['Markdown 1', 'Markdown 2'], callback);
-    // Should not throw
-  });
-
   it('theme: updateTheme propagates to editor', () => {
     const dev = new ExplorerPlugin(container, '/test/ws');
     dev.updateTheme();
@@ -434,9 +427,8 @@ describe('Explorer Plugin workflows', () => {
   it('restore: restoreEditorState sets explorer column width', async () => {
     const dev = new ExplorerPlugin(container, '/test/ws');
 
-    // restoreEditorState only proceeds if openFiles is non-empty
-    // When openFiles is empty, it returns early (columns not restored)
-    // So we test that with empty state, width stays at default 260px
+    // restoreEditorState applies explorerWidth before the openFiles check
+    // Use empty openFiles to avoid editor restoreState hang (needs Monaco)
     await dev.restoreEditorState({
       openFiles: [],
       activeFile: '',
@@ -444,10 +436,9 @@ describe('Explorer Plugin workflows', () => {
       cursors: {},
     });
 
-    // Since openFiles is empty, the method returns early — width stays 260px
     const splitEl = container.firstElementChild!;
     const explorer = splitEl.children[0] as HTMLElement;
-    expect(explorer.style.width).toBe('260px');
+    expect(explorer.style.width).toBe('300px');
   });
 
   it('resize: explorer column has resize handle between columns', () => {
@@ -631,7 +622,7 @@ describe('End-to-end: File → Editor → Markdown', () => {
     expect(text).toContain('src');
   });
 
-  it('browse files → right-click .md → Markdown options appear', async () => {
+  it('browse files → right-click .md → standard file context menu', async () => {
     new FileExplorerPlugin(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
@@ -646,11 +637,14 @@ describe('End-to-end: File → Editor → Markdown', () => {
 
     await new Promise(r => setTimeout(r, 10));
 
-    // The context menu should show "View in Markdown" for .md files
+    // The context menu should show standard file ops
     const menuText = Array.from(document.querySelectorAll('.ctx-item'))
       .map(m => m.textContent)
       .join(' ');
-    expect(menuText).toContain('Markdown');
+    expect(menuText).toContain('Copy');
+    expect(menuText).toContain('Paste');
+    expect(menuText).toContain('Rename');
+    expect(menuText).toContain('Delete');
   });
 
   it('MarkdownPlugin: full CRUD cycle — load, verify state, close tab reduces count', async () => {
@@ -1038,12 +1032,12 @@ describe('MarkdownPlugin — multi-tab navigation', () => {
     expect(state!.openFiles).toHaveLength(3);
 
     // Close b.md by finding its tab element and clicking ✕
-    // Tabs have name span + ✕ close span. Find tab containing 'b.md' and '✕'
+    // Tabs have name span + ✕ close span. Find tab containing '[MD] b.md' and '✕'
     const tabs = Array.from(container.querySelectorAll('div'))
       .filter(d => d.children.length === 2 && d.querySelector('span'));
     const tabB = tabs.find(t => {
       const nameEl = t.children[0] as HTMLElement;
-      return nameEl?.tagName === 'SPAN' && nameEl.textContent === 'b.md';
+      return nameEl?.tagName === 'SPAN' && nameEl.textContent === '[MD] b.md';
     });
     expect(tabB).toBeTruthy();
 
@@ -1119,9 +1113,8 @@ describe('Cross-component — file open flows', () => {
     );
   });
 
-  it('right-click on .md shows Markdown options when markdown openers are set', async () => {
-    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
-    explorer.setMarkdownOpeners(['Preview 1', 'Preview 2'], vi.fn());
+  it('right-click on .md shows standard file context menu', async () => {
+    new FileExplorerPlugin(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on README.md
@@ -1138,34 +1131,25 @@ describe('Cross-component — file open flows', () => {
     const menuText = Array.from(document.querySelectorAll('.ctx-item'))
       .map(m => m.textContent)
       .join(' ');
-    expect(menuText).toContain('Preview 1');
-    expect(menuText).toContain('Preview 2');
+    expect(menuText).toContain('Copy');
+    expect(menuText).toContain('Delete');
+    expect(menuText).not.toContain('Markdown');
   });
 
-  it('clicking "Open to Preview 1" on .md calls markdown opener callback', async () => {
-    const onOpenInMarkdown = vi.fn();
-    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
-    explorer.setMarkdownOpeners(['Preview 1'], onOpenInMarkdown);
+  it('clicking .md in explorer calls onFileOpen callback', async () => {
+    const onFileOpen = vi.fn();
+    new FileExplorerPlugin(container, '/test', onFileOpen);
     await new Promise(r => setTimeout(r, 100));
 
-    // Right-click on README.md
+    // Click on README.md
     const allDivs = Array.from(container.querySelectorAll('div'));
     const readmeEl = allDivs.find(d =>
       d.textContent?.includes('README.md') && d.style.cursor === 'pointer',
     );
-    (readmeEl as HTMLElement)?.dispatchEvent(
-      new MouseEvent('contextmenu', { bubbles: true }),
-    );
+    (readmeEl as HTMLElement)?.click();
 
-    await new Promise(r => setTimeout(r, 10));
-
-    const previewItem = Array.from(document.querySelectorAll('.ctx-item'))
-      .find(m => m.textContent === 'Open to Preview 1');
-    (previewItem as HTMLElement)?.click();
-
-    expect(onOpenInMarkdown).toHaveBeenCalledWith(
+    expect(onFileOpen).toHaveBeenCalledWith(
       expect.stringContaining('README.md'),
-      'Preview 1',
     );
   });
 

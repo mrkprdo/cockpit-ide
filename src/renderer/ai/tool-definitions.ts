@@ -547,7 +547,7 @@ export const zoomOutTool: ToolDefinition<typeof GetCanvasStateArgs> = {
 
 export const openInMarkdownTool: ToolDefinition<typeof OpenInMarkdownArgs> = {
   name: 'open_in_markdown',
-  description: 'Open a Markdown file in the Markdown preview card.',
+  description: 'Open a Markdown file in the Explorer\'s integrated markdown preview (right pane).',
   parameters: OpenInMarkdownArgs,
   execute: (args, ctx) => {
     ctx.cockpit.openInMarkdown(args.path);

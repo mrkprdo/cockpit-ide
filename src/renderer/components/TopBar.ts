@@ -9,15 +9,12 @@ interface TopBarCallbacks {
   onNewTerminal?: () => void;
   onNewExplorer?: () => void;
   onNewGit?: () => void;
-  onNewMarkdown?: () => void;
   onFocusTerminal?: (uuid: string) => void;
   onReopenTerminal?: (uuid: string) => void;
   onFocusExplorer?: (uuid: string) => void;
   onReopenExplorer?: (uuid: string) => void;
   onFocusGit?: (uuid: string) => void;
   onReopenGit?: (uuid: string) => void;
-  onFocusMarkdown?: (uuid: string) => void;
-  onReopenMarkdown?: (uuid: string) => void;
   onNewSpecsmap?: () => void;
   onFocusSpecsmap?: (uuid: string) => void;
   onReopenSpecsmap?: (uuid: string) => void;
@@ -182,7 +179,6 @@ export class TopBar {
           </div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-explorer">Explorer</div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-git">Git</div>
-          <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-markdown">Markdown</div>
           <div class="menu-dropdown-separator" role="separator"></div>
           <div class="menu-item-nested" role="menuitem" tabindex="-1" aria-haspopup="true">
             <span>Canvas</span><span class="arrow">▸</span>
@@ -380,11 +376,6 @@ export class TopBar {
     document.getElementById('menu-new-git')?.addEventListener('click', () => {
       closeAllMenus();
       this.callbacks.onNewGit?.();
-    });
-
-    document.getElementById('menu-new-markdown')?.addEventListener('click', () => {
-      closeAllMenus();
-      this.callbacks.onNewMarkdown?.();
     });
 
     document.getElementById('menu-tutorial')?.addEventListener('click', () => {

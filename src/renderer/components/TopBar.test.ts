@@ -20,7 +20,6 @@ describe('TopBar', () => {
       onNewTerminal: vi.fn(),
       onNewExplorer: vi.fn(),
       onNewGit: vi.fn(),
-      onNewMarkdown: vi.fn(),
       onFocusTerminal: vi.fn(),
       onReopenTerminal: vi.fn(),
       onFocusExplorer: vi.fn(),
@@ -171,13 +170,6 @@ describe('TopBar', () => {
     const closedItem = document.querySelector('[data-term-open="false"]') as HTMLElement;
     closedItem.click();
     expect(callbacks.onReopenTerminal).toHaveBeenCalledWith('t2');
-  });
-
-  it('"New" in Markdown submenu calls onNewMarkdown', () => {
-    new TopBar(makeTopBarEl(), callbacks);
-    const btn = document.querySelector('#menu-new-markdown') as HTMLElement;
-    btn.click();
-    expect(callbacks.onNewMarkdown).toHaveBeenCalledOnce();
   });
 
   it('clicking "Git" under View menu calls onNewGit', () => {

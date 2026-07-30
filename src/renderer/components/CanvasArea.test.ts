@@ -84,15 +84,12 @@ describe('CanvasArea', () => {
   it('initial term/dev/ctx change callbacks are not called without cards', () => {
     const onTerm = vi.fn();
     const onDev = vi.fn();
-    const onMd = vi.fn();
 
     canvas.onTerminalsChanged = onTerm;
     canvas.onExplorersChanged = onDev;
-    canvas.onMarkdownChanged = onMd;
 
     expect(onTerm).not.toHaveBeenCalled();
     expect(onDev).not.toHaveBeenCalled();
-    expect(onMd).not.toHaveBeenCalled();
   });
 
   describe('arrange panel (lower-right triangle)', () => {
@@ -773,7 +770,7 @@ describe('restore path callbacks', () => {
     const termSpy = vi.fn();
     (canvas as any).fitViewport = fitSpy;
     (canvas as any).terminateCard = termSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Markdown 1'), '/test');
+    (canvas as any).restorePlugins(makeMinimalState('Terminal 1'), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 
@@ -963,21 +960,14 @@ describe('auto arrange', () => {
       expect(state.plugins.length).toBe(1);
     });
 
-    it('addMarkdown() creates card with title "Markdown"', async () => {
+    it('addMarkdown() calls ensureExplorer and creates an explorer card', async () => {
       canvas.addMarkdown();
       await new Promise(r => setTimeout(r, 50));
       const state = canvas.getSaveState();
       expect(state.plugins.length).toBe(1);
-      expect(state.plugins[0].title).toBe('Markdown');
+      expect(state.plugins[0].title).toBe('Explorer');
     });
 
-    it('addMarkdown() fires onMarkdownChanged', async () => {
-      const onChanged = vi.fn();
-      canvas.onMarkdownChanged = onChanged;
-      canvas.addMarkdown();
-      await new Promise(r => setTimeout(r, 50));
-      expect(onChanged).toHaveBeenCalled();
-    });
   });
 
   describe('ensureExplorer race vs addExplorer rAF', () => {
@@ -1065,16 +1055,7 @@ describe('auto arrange', () => {
       expect(cs.isOpen).toBe(true);
     });
 
-    it('reopenMarkdown() restores minimized markdown card', async () => {
-      canvas.addMarkdown();
-      await new Promise(r => setTimeout(r, 50));
-      const cs = (canvas as any).cards[0];
-      cs.isOpen = false;
-      cs.card.el.style.display = 'none';
-      (canvas as any).reopenMarkdown(cs.card.uuid);
-      await new Promise(r => setTimeout(r, 50));
-      expect(cs.isOpen).toBe(true);
-    });
+
 
     it('focusTerminal() brings card to front (highest z-index)', async () => {
       canvas.addTerminal();
@@ -1120,7 +1101,7 @@ describe('auto arrange', () => {
     });
   });
 
-  describe('getActiveExplorerPlugin / getMarkdownLabels', () => {
+  describe('getActiveExplorerPlugin', () => {
     it('getActiveExplorerPlugin() returns null when no explorers exist', () => {
       expect((canvas as any).getActiveExplorerPlugin()).toBeNull();
     });
@@ -1129,17 +1110,6 @@ describe('auto arrange', () => {
       canvas.addExplorer('/test');
       await new Promise(r => setTimeout(r, 50));
       expect((canvas as any).getActiveExplorerPlugin()).not.toBeNull();
-    });
-
-    it('getMarkdownLabels() returns empty array when no markdowns', () => {
-      expect((canvas as any).getMarkdownLabels()).toEqual([]);
-    });
-
-    it('getMarkdownLabels() returns title array with singleton Markdown', async () => {
-      canvas.addMarkdown();
-      await new Promise(r => setTimeout(r, 50));
-      const labels = (canvas as any).getMarkdownLabels();
-      expect(labels).toEqual(['Markdown']);
     });
 
     it('updateAllThemes calls updateTheme on terminal plugins', async () => {

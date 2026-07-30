@@ -8,10 +8,13 @@ interface EditorState {
   activeFile: string;
   explorerWidth: number;
   cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }>;
+  markdownOpenFiles?: string[];
+  markdownActiveFile?: string;
+  markdownScrollTops?: Record<string, number>;
 }
 
 interface WorkspaceState {
-  plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; markdownState?: any; gitState?: any }[];
+  plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; gitState?: any }[];
   zOrder: string[];
   zoom: number;
   panX: number;

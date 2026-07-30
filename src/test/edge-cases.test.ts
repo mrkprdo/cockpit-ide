@@ -548,13 +548,6 @@ describe('TopBar edge cases', () => {
     expect(item!.textContent).toContain('Explorer');
   });
 
-  it('Markdown menu item is present (singleton, like Git)', () => {
-    new TopBar(makeBarEl(), {} as any);
-    const item = document.querySelector('#menu-new-markdown');
-    expect(item).toBeTruthy();
-    expect(item!.textContent).toContain('Markdown');
-  });
-
   it('multiple rapid setItem calls do not cause errors', () => {
     const bar = new TopBar(makeBarEl(), {} as any);
     const items = [
@@ -903,10 +896,10 @@ describe('ExplorerPlugin edge cases', () => {
       explorerWidth: 500,
       cursors: {},
     });
-    // Width stays at default since method returns early
+    // Width is applied from the state object
     const splitEl = container.firstElementChild!;
     const explorer = splitEl.children[0] as HTMLElement;
-    expect(explorer.style.width).toBe('260px');
+    expect(explorer.style.width).toBe('500px');
   });
 
   it('getEditorState returns null with no files', () => {
@@ -975,20 +968,15 @@ describe('Cross-component edge cases', () => {
     (mockElectronAPI.terminal.create as any).mockResolvedValue(true);
   });
 
-  it('ExplorerPlugin → MarkdownPlugin context opener bridge works end-to-end', () => {
+  it('ExplorerPlugin opens .md files in the integrated markdown viewer', () => {
     const devContainer = makeContainer(800, 500);
-    const ctxContainer = makeContainer(600, 400);
-
     const dev = new ExplorerPlugin(devContainer, '/test/ws');
-    const ctx = new MarkdownPlugin(ctxContainer);
-    ctx.title = 'Markdown 1';
 
-    // Bridge: set explorer context openers to point to the context plugin
-    const callback = vi.fn();
-    dev.setMarkdownOpeners(['Markdown 1'], callback);
+    const loadFileSpy = vi.spyOn(dev.markdownViewer, 'loadFile');
 
-    // Verify no errors
-    expect(callback).not.toHaveBeenCalled();
+    dev.openFile('/test/readme.md');
+
+    expect(loadFileSpy).toHaveBeenCalledWith('/test/readme.md');
   });
 
   it('theme toggle propagates through ExplorerPlugin.editor chain', () => {

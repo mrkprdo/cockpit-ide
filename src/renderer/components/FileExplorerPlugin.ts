@@ -9,8 +9,6 @@ export class FileExplorerPlugin {
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubFiles: (() => void) | null = null;
   selectedPath: string | null = null;
-  private markdownLabels: string[] = [];
-  private onOpenInMarkdown: ((filePath: string, label: string) => void) | null = null;
 
   constructor(container: HTMLElement, private rootPath: string, private onFileOpen: (path: string) => void) {
     this.el = document.createElement('div');
@@ -62,11 +60,6 @@ export class FileExplorerPlugin {
     if (['json', 'yaml', 'yml', 'toml', 'env'].includes(ext)) return 'var(--amber)';
     if (['md', 'txt', 'rst', 'mdx'].includes(ext)) return 'var(--green)';
     return 'var(--secondary)';
-  }
-
-  setMarkdownOpeners(labels: string[], callback: (filePath: string, label: string) => void): void {
-    this.markdownLabels = labels;
-    this.onOpenInMarkdown = callback;
   }
 
   async selectFile(filePath: string): Promise<void> {
@@ -369,24 +362,6 @@ export class FileExplorerPlugin {
             { label: 'Copy', action: () => { this.copiedPath = fullPath; } },
             { label: 'Paste', action: () => this.pasteHere(dirPath), disabled: !this.copiedPath },
           ];
-          // If .md file, add markdown plugin options
-          const ext = entry.name.split('.').pop()?.toLowerCase();
-          if (ext === 'md') {
-            items.push({ separator: true });
-            if (this.markdownLabels.length > 0) {
-              for (const label of this.markdownLabels) {
-                items.push({
-                  label: `Open to ${label}`,
-                  action: () => this.onOpenInMarkdown?.(fullPath, label),
-                });
-              }
-            } else {
-              items.push({
-                label: 'View in Markdown',
-                action: () => this.onOpenInMarkdown?.(fullPath, ''),
-              });
-            }
-          }
           items.push({ separator: true });
           items.push({ label: 'Rename', action: () => this.renameItem(item, fullPath) });
           items.push({ separator: true });

@@ -47,14 +47,6 @@ describe('ExplorerPlugin', () => {
     expect(dev.editor.tabs).toEqual([]);
   });
 
-  it('setMarkdownOpeners delegates to explorer without throwing', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
-    const labels = ['Markdown 1', 'Markdown 2'];
-    const callback = vi.fn();
-
-    expect(() => dev.setMarkdownOpeners(labels, callback)).not.toThrow();
-  });
-
   it('updateTheme calls editor updateTheme without throwing', () => {
     const dev = new ExplorerPlugin(container, '/test/ws');
     expect(() => dev.updateTheme()).not.toThrow();
@@ -72,7 +64,7 @@ describe('ExplorerPlugin', () => {
     // Should not throw
   });
 
-  it('restoreEditorState handles state with no open files', async () => {
+  it('restoreEditorState restores explorer width', async () => {
     const dev = new ExplorerPlugin(container, '/test/ws');
     await dev.restoreEditorState({
       openFiles: [],
@@ -80,7 +72,9 @@ describe('ExplorerPlugin', () => {
       explorerWidth: 260,
       cursors: {},
     });
-    // Should not throw
+    const splitEl = container.firstElementChild!;
+    const explorerCol = splitEl.children[0] as HTMLElement;
+    expect(explorerCol.style.width).toBe('260px');
   });
 
   it('palette is lazily created on first openFileSearch call', () => {

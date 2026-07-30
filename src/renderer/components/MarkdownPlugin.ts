@@ -89,8 +89,8 @@ export class MarkdownPlugin {
     if ('loadedFile' in state && typeof (state as any).loadedFile === 'string') {
       const legacy = state as any;
       const lcPath = legacy.loadedFile.replace(/\\/g, '/').toLowerCase();
-      const name = lcPath.split('/').pop() || lcPath;
-      this.tabs.push({ filePath: lcPath, name });
+      const fileName = lcPath.split('/').pop() || lcPath;
+      this.tabs.push({ filePath: lcPath, name: '[MD] ' + fileName });
       this.scrollTops[lcPath] = legacy.scrollTop || 0;
       this.renderTabs();
       await this.switchTab(lcPath);
@@ -103,17 +103,22 @@ export class MarkdownPlugin {
     const targetActive = state.activeFile.replace(/\\/g, '/').toLowerCase();
     for (const f of state.openFiles) {
       const normalized = f.replace(/\\/g, '/').toLowerCase();
-      const name = normalized.split('/').pop() || normalized;
-      this.tabs.push({ filePath: normalized, name });
+      const fileName = normalized.split('/').pop() || normalized;
+      this.tabs.push({ filePath: normalized, name: '[MD] ' + fileName });
     }
     this.renderTabs();
     if (targetActive) await this.switchTab(targetActive);
   }
 
+  closeActiveTab(): void {
+    if (this.activeTab) this.closeTab(this.activeTab);
+  }
+
   async loadFile(filePath: string): Promise<void> {
     const normalized = filePath.replace(/\\/g, '/');
     const lcPath = normalized.toLowerCase();
-    const name = normalized.split('/').pop() || normalized;
+    const fileName = normalized.split('/').pop() || normalized;
+    const name = '[MD] ' + fileName;
 
     // If already open, just switch
     const existing = this.tabs.find(t => t.filePath === lcPath);

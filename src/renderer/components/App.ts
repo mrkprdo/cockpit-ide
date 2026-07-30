@@ -116,13 +116,10 @@ export class App {
       onNewTerminal: () => this.canvas.addTerminal(this.wsPath),
       onNewExplorer: () => this.canvas.addExplorer(this.wsPath),
       onNewGit: () => this.canvas.addGit(this.wsPath),
-      onNewMarkdown: () => this.canvas.addMarkdown(),
       onFocusTerminal: (uuid) => this.canvas.focusTerminal(uuid),
       onReopenTerminal: (uuid) => this.canvas.reopenTerminal(uuid),
       onFocusExplorer: (uuid) => this.canvas.focusExplorer(uuid),
       onReopenExplorer: (uuid) => this.canvas.reopenExplorer(uuid),
-      onFocusMarkdown: (uuid) => this.canvas.focusMarkdown(uuid),
-      onReopenMarkdown: (uuid) => this.canvas.reopenMarkdown(uuid),
       onNewSpecsmap: () => this.canvas.addSpecsmap(this.wsPath),
       onFocusSpecsmap: (uuid) => this.canvas.focusSpecsmap(uuid),
       onReopenSpecsmap: (uuid) => this.canvas.reopenSpecsmap(uuid),
@@ -233,7 +230,7 @@ export class App {
           case 'terminal': this.canvas.addTerminal(this.wsPath); break;
           case 'explorer': this.canvas.addExplorer(this.wsPath); break;
           case 'git': this.canvas.addGit(this.wsPath); break;
-          case 'markdown': this.canvas.addMarkdown(); break;
+          case 'markdown': this.canvas.ensureExplorer(); break;
           case 'specsmap': this.canvas.addSpecsmap(this.wsPath); break;
         }
       },
