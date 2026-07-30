@@ -215,6 +215,12 @@ if (isDOM) {
       load: vi.fn().mockResolvedValue({}),
       save: vi.fn().mockResolvedValue(true),
     },
+    memory: {
+      loadGlobal: vi.fn().mockResolvedValue({ version: 1, updatedAt: '', entries: [] }),
+      saveGlobal: vi.fn().mockResolvedValue(true),
+      loadWorkspace: vi.fn().mockResolvedValue({ version: 1, updatedAt: '', entries: [] }),
+      saveWorkspace: vi.fn().mockResolvedValue(true),
+    },
     fs: {
       readDir: vi.fn().mockResolvedValue([]),
       readFile: vi.fn().mockResolvedValue('test content'),

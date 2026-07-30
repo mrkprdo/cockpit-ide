@@ -54,6 +54,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     load: () => ipcRenderer.invoke('prefs:load'),
     save: (prefs: any) => ipcRenderer.invoke('prefs:save', prefs),
   },
+  memory: {
+    loadGlobal: () => ipcRenderer.invoke('memory:loadGlobal'),
+    saveGlobal: (data: any) => ipcRenderer.invoke('memory:saveGlobal', data),
+    loadWorkspace: (wsPath: string) => ipcRenderer.invoke('memory:loadWorkspace', wsPath),
+    saveWorkspace: (wsPath: string, data: any) => ipcRenderer.invoke('memory:saveWorkspace', wsPath, data),
+  },
   git: {
     remotes: (repoPath: string) => ipcRenderer.invoke('git:remotes', repoPath),
     branches: (repoPath: string) => ipcRenderer.invoke('git:branches', repoPath),

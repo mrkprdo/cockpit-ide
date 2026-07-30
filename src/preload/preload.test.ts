@@ -233,6 +233,30 @@ describe('preload.ts — IPC wiring (invoke-based)', () => {
     expect(invokeCalls.some(c => c[0] === 'prefs:save' && c[1].theme === 'dark')).toBe(true);
   });
 
+  it('memory.loadGlobal invokes memory:loadGlobal', () => {
+    invokeCalls.length = 0;
+    api.memory.loadGlobal();
+    expect(invokeCalls.some(c => c[0] === 'memory:loadGlobal')).toBe(true);
+  });
+
+  it('memory.saveGlobal invokes memory:saveGlobal', () => {
+    invokeCalls.length = 0;
+    api.memory.saveGlobal({ version: 1, entries: [] });
+    expect(invokeCalls.some(c => c[0] === 'memory:saveGlobal')).toBe(true);
+  });
+
+  it('memory.loadWorkspace invokes memory:loadWorkspace with path', () => {
+    invokeCalls.length = 0;
+    api.memory.loadWorkspace('/ws');
+    expect(invokeCalls.some(c => c[0] === 'memory:loadWorkspace' && c[1] === '/ws')).toBe(true);
+  });
+
+  it('memory.saveWorkspace invokes memory:saveWorkspace with path and data', () => {
+    invokeCalls.length = 0;
+    api.memory.saveWorkspace('/ws', { version: 1, entries: [] });
+    expect(invokeCalls.some(c => c[0] === 'memory:saveWorkspace' && c[1] === '/ws')).toBe(true);
+  });
+
   it('workspace.select invokes workspace:select', () => {
     invokeCalls.length = 0;
     api.workspace.select();

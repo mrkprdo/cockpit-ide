@@ -19,6 +19,14 @@ describe('AGENT_SYSTEM_PROMPT', () => {
     expect(AGENT_SYSTEM_PROMPT).toContain('**Git**');
     expect(AGENT_SYSTEM_PROMPT).toContain('**System**');
     expect(AGENT_SYSTEM_PROMPT).toContain('**SpecsMap**');
+    expect(AGENT_SYSTEM_PROMPT).toContain('**Memory**');
+  });
+
+  it('includes Memory Protocol and tools', () => {
+    expect(AGENT_SYSTEM_PROMPT).toContain('Memory Protocol');
+    expect(AGENT_SYSTEM_PROMPT).toContain('memory_list');
+    expect(AGENT_SYSTEM_PROMPT).toContain('memory_get');
+    expect(AGENT_SYSTEM_PROMPT).toContain('memory_set');
   });
 
   it('includes the Specs-First Protocol (mandatory)', () => {

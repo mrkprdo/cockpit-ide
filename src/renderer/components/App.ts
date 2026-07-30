@@ -6,6 +6,7 @@ import { ThemeModal } from './ThemeModal';
 import { AiDrawer } from './AiDrawer';
 import { Tutorial } from './Tutorial';
 import { theme } from '../theme';
+import { memoryStore } from '../ai/memory-store';
 
 export class App {
   private canvas: CanvasArea;
@@ -22,6 +23,8 @@ export class App {
 
     // Load persisted theme preference before any UI renders
     this.loadThemePref();
+    // Global agent memory (userData) — workspace memory loads with loadWorkspace
+    void memoryStore.loadGlobal();
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -310,6 +313,7 @@ export class App {
 
     // Register workspace with main process (sets per-window workspacePath, starts watcher + ide-server)
     await ws.setPath(path);
+    await memoryStore.loadWorkspace(path);
 
     const state = await ws.load(path);
 

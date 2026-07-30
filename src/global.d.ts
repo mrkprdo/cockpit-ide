@@ -33,6 +33,20 @@ interface EditorSelectionState {
   } | null;
 }
 
+interface MemoryEntry {
+  id: string;
+  key: string;
+  tags: string[];
+  body: string;
+  updatedAt: string;
+}
+
+interface MemoryFile {
+  version: number;
+  updatedAt: string;
+  entries: MemoryEntry[];
+}
+
 interface Window {
   electronAPI: {
     platform: string;
@@ -68,6 +82,12 @@ interface Window {
     prefs: {
       load: () => Promise<any>;
       save: (prefs: any) => Promise<boolean>;
+    };
+    memory: {
+      loadGlobal: () => Promise<MemoryFile>;
+      saveGlobal: (data: MemoryFile) => Promise<boolean>;
+      loadWorkspace: (wsPath: string) => Promise<MemoryFile>;
+      saveWorkspace: (wsPath: string, data: MemoryFile) => Promise<boolean>;
     };
     git: {
       remotes: (repoPath: string) => Promise<{ name: string; url: string }[]>;

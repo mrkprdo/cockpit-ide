@@ -8,6 +8,7 @@ import {
   getToolContext,
   estimateMessagesTokens,
   checkContextBudget,
+  memoryStore,
   type LLMMessage,
   type LLMResponse,
   type OpenAIFunctionSchema,
@@ -927,12 +928,21 @@ export class AiDrawer {
     return this.sessions.find(s => s.id === this.currentSessionId);
   }
 
+  private buildSystemPrompt(wsPath: string): string {
+    const parts = [AGENT_SYSTEM_PROMPT];
+    if (wsPath) parts.push(`Workspace: ${wsPath}`);
+    parts.push(memoryStore.buildIndexPrompt());
+    return parts.join('\n\n');
+  }
+
   private estimateContextTokens(): number {
     const hasUserMessages = this.messages.some(m => m.role === 'user');
     if (!hasUserMessages) return 0;
     const session = this.getActiveSession();
+    const ctx = getToolContext();
+    const wsPath = ctx?.cockpit.getWorkspacePath() || '';
     const base = [
-      { role: 'system', content: AGENT_SYSTEM_PROMPT },
+      { role: 'system', content: this.buildSystemPrompt(wsPath) },
     ];
     if (session?.context && session.context.length > 0) {
       return estimateMessagesTokens([...base, ...session.context]);
@@ -1432,9 +1442,7 @@ export class AiDrawer {
     const ctx = getToolContext();
     const wsPath = ctx?.cockpit.getWorkspacePath() || '';
 
-    const systemContent = wsPath
-      ? `${AGENT_SYSTEM_PROMPT}\n\nWorkspace: ${wsPath}`
-      : AGENT_SYSTEM_PROMPT;
+    const systemContent = this.buildSystemPrompt(wsPath);
 
     const apiMessages: LLMMessage[] = [
       { role: 'system', content: systemContent },

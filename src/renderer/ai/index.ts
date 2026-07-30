@@ -6,6 +6,8 @@ export * from './llm-client';
 export * from './token-counter';
 export * from './zod-to-openai';
 export { AGENT_SYSTEM_PROMPT } from './prompts';
+export { memoryStore, MemoryStore, emptyMemory, normalizeMemory } from './memory-store';
+export type { MemoryScope, MemoryEntry, MemoryFile } from './memory-store';
 export {
   ALL_TOOLS,
   KEY_SEQUENCES,

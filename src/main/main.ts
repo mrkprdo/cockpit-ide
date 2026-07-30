@@ -864,6 +864,65 @@ app.whenReady().then(async () => {
     } catch { return false; }
   });
 
+  // Agent memory: global (userData) + workspace-local (.cockpit/memory.json)
+  const globalMemoryFile = path.join(app.getPath('userData'), 'memory.json');
+
+  function emptyMemoryFile(): { version: number; updatedAt: string; entries: any[] } {
+    return { version: 1, updatedAt: new Date().toISOString(), entries: [] };
+  }
+
+  function normalizeMemoryFile(raw: any): { version: number; updatedAt: string; entries: any[] } {
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.entries)) return emptyMemoryFile();
+    return {
+      version: 1,
+      updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+      entries: raw.entries,
+    };
+  }
+
+  function readOrCreateMemoryFile(filePath: string): { version: number; updatedAt: string; entries: any[] } {
+    try {
+      if (!fs.existsSync(filePath)) {
+        const base = emptyMemoryFile();
+        cockpitDir(path.dirname(filePath));
+        fs.writeFileSync(filePath, JSON.stringify(base, null, 2), 'utf-8');
+        return base;
+      }
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      return normalizeMemoryFile(parsed);
+    } catch {
+      const base = emptyMemoryFile();
+      try {
+        cockpitDir(path.dirname(filePath));
+        fs.writeFileSync(filePath, JSON.stringify(base, null, 2), 'utf-8');
+      } catch { /* ignore */ }
+      return base;
+    }
+  }
+
+  function writeMemoryFile(filePath: string, data: any): boolean {
+    try {
+      const file = normalizeMemoryFile(data);
+      file.updatedAt = new Date().toISOString();
+      cockpitDir(path.dirname(filePath));
+      fs.writeFileSync(filePath, JSON.stringify(file, null, 2), 'utf-8');
+      return true;
+    } catch { return false; }
+  }
+
+  ipcMain.handle('memory:loadGlobal', () => readOrCreateMemoryFile(globalMemoryFile));
+  ipcMain.handle('memory:saveGlobal', (_event, data: any) => writeMemoryFile(globalMemoryFile, data));
+  ipcMain.handle('memory:loadWorkspace', (_event, wsPath: string) => {
+    if (!wsPath || !isPathSafe(wsPath, _event)) return emptyMemoryFile();
+    const f = path.join(wsPath, '.cockpit', 'memory.json');
+    return readOrCreateMemoryFile(f);
+  });
+  ipcMain.handle('memory:saveWorkspace', (_event, wsPath: string, data: any) => {
+    if (!wsPath || !isPathSafe(wsPath, _event)) return false;
+    const f = path.join(wsPath, '.cockpit', 'memory.json');
+    return writeMemoryFile(f, data);
+  });
+
   createWindow();
 
   // Associate CLI path with the main window's per-window workspace

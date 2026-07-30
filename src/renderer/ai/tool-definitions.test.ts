@@ -65,6 +65,14 @@ describe('ALL_TOOLS', () => {
     expect(ALL_TOOLS.find(t => t.name === 'get_clipboard')).toBeDefined();
     expect(ALL_TOOLS.find(t => t.name === 'set_clipboard')).toBeDefined();
   });
+
+  it('includes memory tools', () => {
+    expect(ALL_TOOLS.find(t => t.name === 'memory_list')).toBeDefined();
+    expect(ALL_TOOLS.find(t => t.name === 'memory_get')).toBeDefined();
+    expect(ALL_TOOLS.find(t => t.name === 'memory_search')).toBeDefined();
+    expect(ALL_TOOLS.find(t => t.name === 'memory_set')).toBeDefined();
+    expect(ALL_TOOLS.find(t => t.name === 'memory_delete')).toBeDefined();
+  });
 });
 
 describe('KEY_SEQUENCES', () => {

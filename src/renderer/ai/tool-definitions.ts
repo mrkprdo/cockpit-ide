@@ -1,5 +1,6 @@
 import { z } from 'zod/v3';
 import type { ToolDefinition, ToolContext } from './types.ts';
+import { memoryStore, type MemoryScope } from './memory-store.ts';
 
 /** Symbolic key names mapped to terminal escape sequences. */
 export const KEY_SEQUENCES: Record<string, string> = {
@@ -774,6 +775,64 @@ export const specsReloadTool: ToolDefinition<typeof GetCanvasStateArgs> = {
   },
 };
 
+const MemoryScopeArg = z.enum(['global', 'workspace']).describe('global = all workspaces (AppData); workspace = current project .cockpit/memory.json');
+const MemoryListArgs = z.object({
+  scope: MemoryScopeArg.optional().describe('If omitted, list both scopes'),
+});
+const MemoryGetArgs = z.object({
+  scope: MemoryScopeArg,
+  key: z.string().describe('Entry key or id'),
+});
+const MemorySearchArgs = z.object({
+  query: z.string().describe('Search text matched against key, tags, and body'),
+  scope: MemoryScopeArg.optional().describe('If omitted, search both scopes'),
+});
+const MemorySetArgs = z.object({
+  scope: MemoryScopeArg,
+  key: z.string().describe('Stable short key, e.g. preferred-stack'),
+  body: z.string().describe('Durable fact to remember'),
+  tags: z.array(z.string()).optional().describe('Optional tags for filtering'),
+});
+const MemoryDeleteArgs = z.object({
+  scope: MemoryScopeArg,
+  key: z.string().describe('Entry key or id to delete'),
+});
+
+export const memoryListTool: ToolDefinition<typeof MemoryListArgs> = {
+  name: 'memory_list',
+  description: 'List memory entry keys/tags (no bodies). Prefer this or memory_search before memory_get. Scopes: global | workspace.',
+  parameters: MemoryListArgs,
+  execute: (args) => memoryStore.list(args.scope as MemoryScope | undefined),
+};
+
+export const memoryGetTool: ToolDefinition<typeof MemoryGetArgs> = {
+  name: 'memory_get',
+  description: 'Read one memory entry body by key or id. Use after memory_list/memory_search — do not dump all memory.',
+  parameters: MemoryGetArgs,
+  execute: (args) => memoryStore.get(args.scope as MemoryScope, args.key),
+};
+
+export const memorySearchTool: ToolDefinition<typeof MemorySearchArgs> = {
+  name: 'memory_search',
+  description: 'Search memory by key/tags/body substring. Returns ranked previews; use memory_get for full body.',
+  parameters: MemorySearchArgs,
+  execute: (args) => memoryStore.search(args.query, args.scope as MemoryScope | undefined),
+};
+
+export const memorySetTool: ToolDefinition<typeof MemorySetArgs> = {
+  name: 'memory_set',
+  description: 'Create or update a durable memory entry. Only lasting prefs, decisions, and project conventions — not chat fluff.',
+  parameters: MemorySetArgs,
+  execute: async (args) => memoryStore.set(args.scope as MemoryScope, args.key, args.body, args.tags),
+};
+
+export const memoryDeleteTool: ToolDefinition<typeof MemoryDeleteArgs> = {
+  name: 'memory_delete',
+  description: 'Delete a memory entry by key or id.',
+  parameters: MemoryDeleteArgs,
+  execute: async (args) => memoryStore.delete(args.scope as MemoryScope, args.key),
+};
+
 // Tools that mutate the filesystem, run a shell command, or change git/branch
 // state. The agent runner requires explicit user confirmation for these even
 // in 'auto'/'plan' mode — the agent reads arbitrary file/repo/web content as
@@ -791,6 +850,8 @@ export const DESTRUCTIVE_TOOL_NAMES = new Set<string>([
   'git_commit',
   'git_push',
   'git_checkout',
+  'memory_set',
+  'memory_delete',
 ]);
 
 export const ALL_TOOLS: ToolDefinition<any>[] = [
@@ -846,4 +907,9 @@ export const ALL_TOOLS: ToolDefinition<any>[] = [
   specsValidateTool,
   specsReconcileTool,
   specsReloadTool,
+  memoryListTool,
+  memoryGetTool,
+  memorySearchTool,
+  memorySetTool,
+  memoryDeleteTool,
 ];

@@ -780,6 +780,41 @@ describe('main.ts IPC handlers', () => {
     });
   });
 
+  describe('memory behavior', () => {
+    it('memory:loadGlobal creates base file when missing', async () => {
+      const fs = await import('fs');
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      vi.mocked(fs.mkdirSync).mockReturnValue(undefined as any);
+      vi.mocked(fs.writeFileSync).mockReturnValue(undefined);
+      const handler = handleMap.get('memory:loadGlobal')!;
+      const result = await handler({});
+      expect(result.version).toBe(1);
+      expect(result.entries).toEqual([]);
+      expect(fs.writeFileSync).toHaveBeenCalled();
+    });
+
+    it('memory:loadGlobal returns parsed file', async () => {
+      const fs = await import('fs');
+      const data = { version: 1, updatedAt: 't', entries: [{ id: '1', key: 'k', tags: [], body: 'b', updatedAt: 't' }] };
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(data));
+      const handler = handleMap.get('memory:loadGlobal')!;
+      const result = await handler({});
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].key).toBe('k');
+    });
+
+    it('memory:saveGlobal writes JSON', async () => {
+      const fs = await import('fs');
+      vi.mocked(fs.mkdirSync).mockReturnValue(undefined as any);
+      vi.mocked(fs.writeFileSync).mockReturnValue(undefined);
+      const handler = handleMap.get('memory:saveGlobal')!;
+      const ok = await handler({}, { version: 1, entries: [] });
+      expect(ok).toBe(true);
+      expect(fs.writeFileSync).toHaveBeenCalled();
+    });
+  });
+
   describe('shell:openExternal behavior', () => {
     it('returns true on success', async () => {
       const { shell } = await import('electron');
@@ -1011,6 +1046,13 @@ describe('main.ts IPC handlers', () => {
 
     it('prefs:save handler is registered', () => {
       expect(handleMap.has('prefs:save')).toBe(true);
+    });
+
+    it('memory handlers are registered', () => {
+      expect(handleMap.has('memory:loadGlobal')).toBe(true);
+      expect(handleMap.has('memory:saveGlobal')).toBe(true);
+      expect(handleMap.has('memory:loadWorkspace')).toBe(true);
+      expect(handleMap.has('memory:saveWorkspace')).toBe(true);
     });
 
     it('file:watch handler is registered', () => {
