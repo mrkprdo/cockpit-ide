@@ -273,6 +273,7 @@ export class AiDrawer {
       this.messages = [...current.messages];
       if (this.messages.length === 0) this.showWelcome();
       this.renderMessages();
+      this.syncFloatPreviewToMessages();
     } catch { this.initFirstSession(); }
   }
 
@@ -340,6 +341,7 @@ export class AiDrawer {
     this.currentSessionId = session.id;
     this.showWelcome();
     this.renderMessages();
+    this.syncFloatPreviewToMessages();
     this.renderSessionsList();
     this.saveSessions();
   }
@@ -354,6 +356,7 @@ export class AiDrawer {
     this.messages = [...session.messages];
     if (this.messages.length === 0) this.showWelcome();
     this.renderMessages();
+    this.syncFloatPreviewToMessages();
     this.renderSessionsList();
     this.sessionsPanelEl.classList.remove('is-visible');
     this.saveSessions();
@@ -1384,6 +1387,14 @@ export class AiDrawer {
     }
   }
 
+  /** Keep detached float card in sync with the active session transcript. */
+  private syncFloatPreviewToMessages(): void {
+    if (!this.isDetached || this.isLoading) return;
+    const last = [...this.messages].reverse().find(m => m.role === 'assistant');
+    const text = last?.content ?? '';
+    this.updateFloatPreview(text.length > 0 ? 'done' : 'hidden', text);
+  }
+
   private setLoading(loading: boolean): void {
     this.isLoading = loading;
     this.loadingEl.style.display = loading ? 'flex' : 'none';
@@ -1399,9 +1410,7 @@ export class AiDrawer {
       if (loading) {
         this.updateFloatPreview('loading');
       } else {
-        const last = [...this.messages].reverse().find(m => m.role === 'assistant');
-        const text = last?.content ?? '';
-        this.updateFloatPreview(text.length > 0 ? 'done' : 'hidden', text);
+        this.syncFloatPreviewToMessages();
       }
     }
     if (!loading) {
@@ -1751,11 +1760,15 @@ export class AiDrawer {
     this.steeringMessage = null;
     this.showWelcome();
     this.renderMessages();
+    this.syncFloatPreviewToMessages();
     this.renderSessionsList();
     // If drawer is already open, load the new workspace's sessions immediately
     // rather than waiting for the user to close and reopen.
     if (this.el.classList.contains('is-open')) {
-      this.loadSessions().then(() => this.renderSessionsList());
+      this.loadSessions().then(() => {
+        this.syncFloatPreviewToMessages();
+        this.renderSessionsList();
+      });
     }
   }
 

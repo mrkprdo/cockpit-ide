@@ -666,6 +666,25 @@ describe('AiDrawer', () => {
       expect(drawer['sessions'][0].id).toBe(drawer['currentSessionId']);
     });
 
+    it('newSession clears detached float preview response', async () => {
+      drawer = await createDrawer();
+      await drawer['loadSessions']();
+      drawer.detach();
+      drawer['messages'] = [
+        { role: 'user', content: 'hi', timestamp: 1 },
+        { role: 'assistant', content: 'previous reply', timestamp: 2 },
+      ];
+      drawer['syncFloatPreviewToMessages']();
+      const preview = document.querySelector('.ai-float-preview') as HTMLElement;
+      expect(preview.style.display).not.toBe('none');
+      expect(preview.textContent).toContain('previous reply');
+
+      drawer['newSession']();
+
+      expect(preview.style.display).toBe('none');
+      expect(preview.textContent).toBe('');
+    });
+
     it('deleteSession removes session from list', () => {
       drawer = new AiDrawer();
       const s1 = { id: 'keep', title: '', createdAt: 1, updatedAt: 1, messages: [] };
