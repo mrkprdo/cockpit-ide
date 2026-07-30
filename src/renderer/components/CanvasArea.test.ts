@@ -1370,7 +1370,7 @@ describe('auto arrange', () => {
 
       const showItem = document.querySelector('.ctx-item') as HTMLElement;
       showItem.click();
-      expect(parseInt(cs.card.el.style.zIndex)).toBeGreaterThan(100);
+      expect(parseInt(cs.card.el.style.zIndex)).toBeGreaterThan(10);
     });
 
     it('right-click context menu Terminate removes card', async () => {

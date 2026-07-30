@@ -239,22 +239,20 @@ describe('App', () => {
 
   it('trySave does not call workspace:save if state is identical', async () => {
     const app = new App();
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 1500));
     (mockElectronAPI.workspace.save as any).mockClear();
-    (app as any).lastSaved = '';
     (app as any).canvas.onStateChange?.();
     (app as any).canvas.onStateChange?.();
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 600));
     expect(mockElectronAPI.workspace.save).toHaveBeenCalledTimes(1);
   });
 
   it('trySave calls workspace:save when state changes', async () => {
     const app = new App();
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 1500));
     (mockElectronAPI.workspace.save as any).mockClear();
-    (app as any).lastSaved = '';
     (app as any).canvas.onStateChange?.();
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 600));
     expect(mockElectronAPI.workspace.save).toHaveBeenCalled();
   });
 

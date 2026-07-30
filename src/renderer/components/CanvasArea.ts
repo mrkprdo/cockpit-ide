@@ -93,6 +93,9 @@ export class CanvasArea {
   private layoutOverlays: HTMLElement[] = [];
   private lastDragX = 0;
   private lastDragY = 0;
+  private boundMouseMove: ((e: MouseEvent) => void) | null = null;
+  private boundMouseUp: (() => void) | null = null;
+  private boundDocWheel: ((e: WheelEvent) => void) | null = null;
 
   private static readonly WORLD_BOUNDS_X = 4000; // 8000 px wide
   private static readonly WORLD_BOUNDS_Y = 2250; // 4500 px tall (16:9)
@@ -102,23 +105,12 @@ export class CanvasArea {
     return Math.max(-bound, Math.min(bound, Math.round(v)));
   }
 
-  private minScale(): number {
-    // The canvas must always fill the viewport, so the minimum scale is the
-    // largest ratio required to make the 8000x4500 canvas at least as wide
-    // and as tall as the viewport.
-    const cw = this.el.clientWidth;
-    const ch = this.el.clientHeight;
-    return Math.max(cw / (CanvasArea.WORLD_BOUNDS_X * 2), ch / (CanvasArea.WORLD_BOUNDS_Y * 2));
-  }
-
-  private clampScale(): void {
-    const min = this.minScale();
+  private clampScale(cw: number, ch: number): void {
+    const min = Math.max(cw / (CanvasArea.WORLD_BOUNDS_X * 2), ch / (CanvasArea.WORLD_BOUNDS_Y * 2));
     this.scale = Math.max(min, Math.min(5, this.scale));
   }
 
-  private clampView(): void {
-    const cw = this.el.clientWidth;
-    const ch = this.el.clientHeight;
+  private clampView(cw: number, ch: number): void {
     const boundX = CanvasArea.WORLD_BOUNDS_X * this.scale;
     const boundY = CanvasArea.WORLD_BOUNDS_Y * this.scale;
     // Keep the viewport inside the canvas bounds. The allowed pan range is the
@@ -486,34 +478,30 @@ export class CanvasArea {
     return Math.max(this.patternSize, Math.round(v / this.patternSize) * this.patternSize);
   }
 
+  private notifyCardChanged(title: string): void {
+    if (title.startsWith('Terminal')) this.notifyTerminalsChanged();
+    else if (title === 'Explorer') this.notifyExplorersChanged();
+    else if (title === 'Git') this.notifyGitChanged();
+    else if (title === 'Markdown') this.notifyMarkdownChanged();
+    else if (title === 'SpecsMap') this.notifySpecsmapChanged();
+  }
+
   private addCard(title: string, subtitle: string, x: number, y: number, w: number, h: number): CardState {
     const sx = this.clampWorld(this.snap(x), 'x');
     const sy = this.clampWorld(this.snap(y), 'y');
     const sw = this.snapSize(w);
     const sh = this.snapSize(h);
+    let cs: CardState;
     const card = new PluginCard(this.worldEl, {
       title, subtitle, x: 0, y: 0, width: sw, height: sh,
       onMinimize: () => {
-        const cs = this.cards.find(c => c.card === card);
-        if (cs) {
-          cs.isOpen = false;
-          cs.card.el.style.display = 'none';
-          this.notifyTerminalsChanged();
-          this.notifyExplorersChanged();
-            this.notifyGitChanged();
-            this.notifySpecsmapChanged();
-            this.notifyMarkdownChanged();
-            this.onStateChange?.();
-        }
+        cs.isOpen = false;
+        cs.card.el.style.display = 'none';
+        this.notifyCardChanged(title);
+        this.onStateChange?.();
       },
-      onFitViewport: () => {
-        const cs = this.cards.find(c => c.card === card);
-        if (cs) this.fitViewport(cs);
-      },
-      onTerminate: () => {
-        const cs = this.cards.find(c => c.card === card);
-        if (cs) this.terminateCard(cs);
-      },
+      onFitViewport: () => this.fitViewport(cs),
+      onTerminate: () => this.terminateCard(cs),
       onDragStart: (clientX, clientY) => {
         this.lastDragX = clientX;
         this.lastDragY = clientY;
@@ -524,29 +512,23 @@ export class CanvasArea {
         this.lastDragY = clientY;
       },
       onDragEnd: (worldX: number, worldY: number) => {
-        const cs = this.cards.find(c => c.card === card);
-        if (cs) {
-          const zone = this.getDropZone(this.lastDragX, this.lastDragY);
-          if (zone) {
-            this.applyDropZone(zone, cs);
-          } else {
-            cs.worldX = this.clampWorld(worldX, 'x');
-            cs.worldY = this.clampWorld(worldY, 'y');
-          }
+        const zone = this.getDropZone(this.lastDragX, this.lastDragY);
+        if (zone) {
+          this.applyDropZone(zone, cs);
+        } else {
+          cs.worldX = this.clampWorld(worldX, 'x');
+          cs.worldY = this.clampWorld(worldY, 'y');
         }
         this.hideLayoutOverlays();
         this.onStateChange?.();
       },
       onResizeEnd: (w: number, h: number) => {
-        const cs = this.cards.find(c => c.card === card);
-        if (cs) { cs.savedWidth = w; cs.savedHeight = h; }
-        cs?.onCardResize?.();
+        cs.savedWidth = w; cs.savedHeight = h;
+        cs.onCardResize?.();
         this.onStateChange?.();
       },
       onFocus: () => this.bringToFront(card),
       onHeaderContextMenu: (e: MouseEvent) => {
-        const cs = this.cards.find(c => c.card === card);
-        if (!cs) return;
         this.contextMenuOpen = true;
         const menu = new ContextMenu([
           { label: 'Fit Viewport', action: () => this.fitViewport(cs) },
@@ -554,10 +536,7 @@ export class CanvasArea {
           ...(cs.isOpen ? [{ label: 'Minimize', action: () => {
             cs.isOpen = false;
             cs.card.el.style.display = 'none';
-            this.notifyTerminalsChanged();
-            this.notifyExplorersChanged();
-            this.notifyGitChanged();
-            this.notifyMarkdownChanged();
+            this.notifyCardChanged(title);
             this.onStateChange?.();
           }}] : []),
           { label: title.startsWith('Terminal') ? 'Terminate' : 'Close', action: () => this.terminateCard(cs) },
@@ -565,7 +544,7 @@ export class CanvasArea {
         menu.onClose = () => { this.contextMenuOpen = false; };
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
-    const cs: CardState = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null };
+    cs = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -737,15 +716,11 @@ export class CanvasArea {
   }
 
   getSaveState(): SaveState {
-    // Sort by current z-index to get bottom-to-top order
     const byZ = [...this.cards].sort((a, b) => parseInt(a.card.el.style.zIndex || '1') - parseInt(b.card.el.style.zIndex || '1'));
     return {
       plugins: this.cards.map(c => {
-        // Always read actual DOM dimensions as authoritative source
-        const w = parseFloat(c.card.el.style.width) || c.savedWidth;
-        const h = parseFloat(c.card.el.style.height) || c.savedHeight;
-        c.savedWidth = w;
-        c.savedHeight = h;
+        const w = c.savedWidth;
+        const h = c.savedHeight;
         const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: w, height: h, isOpen: c.isOpen };
         const editorState = c.explorerPlugin ? c.explorerPlugin.getEditorState() : null;
         if (c.savedTitle === 'Explorer' && editorState) base.editorState = editorState;
@@ -796,10 +771,7 @@ export class CanvasArea {
   private wsPath = '';
 
   getActiveExplorerPlugin(): ExplorerPlugin | null {
-    const sorted = [...this.cards].sort((a, b) =>
-      parseInt(b.card.el.style.zIndex || '0') - parseInt(a.card.el.style.zIndex || '0')
-    );
-    for (const cs of sorted) {
+    for (const cs of this.cards) {
       if (cs.explorerPlugin && cs.isOpen) return cs.explorerPlugin;
     }
     return null;
@@ -832,6 +804,7 @@ export class CanvasArea {
   }
 
   private createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onMinimize?: () => void; onFitViewport?: () => void; onTerminate?: () => void }): CardState {
+    let cs: CardState;
     const card = new PluginCard(this.worldEl, {
       title: p.title, subtitle: '', x: 0, y: 0, width: p.width, height: p.height,
       onMinimize: callbacks.onMinimize,
@@ -847,29 +820,23 @@ export class CanvasArea {
         this.lastDragY = clientY;
       },
       onDragEnd: (worldX, worldY) => {
-        const cs = this.cards.find(c => c.card === card);
-        if (cs) {
-          const zone = this.getDropZone(this.lastDragX, this.lastDragY);
-          if (zone) {
-            this.applyDropZone(zone, cs);
-          } else {
-            cs.worldX = this.clampWorld(worldX, 'x');
-            cs.worldY = this.clampWorld(worldY, 'y');
-          }
+        const zone = this.getDropZone(this.lastDragX, this.lastDragY);
+        if (zone) {
+          this.applyDropZone(zone, cs);
+        } else {
+          cs.worldX = this.clampWorld(worldX, 'x');
+          cs.worldY = this.clampWorld(worldY, 'y');
         }
         this.hideLayoutOverlays();
         this.onStateChange?.();
       },
       onResizeEnd: (w: number, h: number) => {
-        const cs = this.cards.find(c => c.card === card);
-        if (cs) { cs.savedWidth = w; cs.savedHeight = h; }
-        cs?.onCardResize?.();
+        cs.savedWidth = w; cs.savedHeight = h;
+        cs.onCardResize?.();
         this.onStateChange?.();
       },
       onFocus: () => this.bringToFront(card),
       onHeaderContextMenu: (e: MouseEvent) => {
-        const cs = this.cards.find(c => c.card === card);
-        if (!cs) return;
         this.contextMenuOpen = true;
         const menu = new ContextMenu([
           { label: 'Fit Viewport', action: () => this.fitViewport(cs) },
@@ -877,10 +844,7 @@ export class CanvasArea {
           ...(cs.isOpen ? [{ label: 'Minimize', action: () => {
             cs.isOpen = false;
             cs.card.el.style.display = 'none';
-            this.notifyTerminalsChanged();
-            this.notifyExplorersChanged();
-            this.notifyGitChanged();
-            this.notifyMarkdownChanged();
+            this.notifyCardChanged(p.title);
             this.onStateChange?.();
           }}] : []),
           { label: cs.savedTitle.startsWith('Terminal') ? 'Terminate' : 'Close', action: () => this.terminateCard(cs) },
@@ -891,7 +855,7 @@ export class CanvasArea {
 
     const cx = this.clampWorld(p.x, 'x');
     const cy = this.clampWorld(p.y, 'y');
-    const cs: CardState = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null };
+    cs = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
@@ -1352,11 +1316,8 @@ export class CanvasArea {
   }
 
   focusCard(title: string): void {
-    let base = 10;
-    for (const cs of this.cards) {
-      cs.card.el.style.zIndex = String(base++);
-      if (cs.card.opts.title === title) cs.card.el.style.zIndex = String(base + 100);
-    }
+    const cs = this.cards.find(c => c.card.opts.title === title);
+    if (cs) this.bringToFront(cs.card);
   }
 
   cycleCard(direction: 1 | -1): void {
@@ -1506,11 +1467,7 @@ export class CanvasArea {
     if (!cs) return false;
     cs.isOpen = false;
     cs.card.el.style.display = 'none';
-    this.notifyTerminalsChanged();
-    this.notifyExplorersChanged();
-    this.notifyGitChanged();
-    this.notifySpecsmapChanged();
-    this.notifyMarkdownChanged();
+    this.notifyCardChanged(title);
     this.onStateChange?.();
     return true;
   }
@@ -1540,11 +1497,7 @@ export class CanvasArea {
     }
     cs.card.remove();
     this.cards.splice(idx, 1);
-    this.notifyTerminalsChanged();
-    this.notifyExplorersChanged();
-    this.notifyGitChanged();
-    this.notifySpecsmapChanged();
-    this.notifyMarkdownChanged();
+    this.notifyCardChanged(cs.savedTitle);
     this.onStateChange?.();
   }
 
@@ -1595,7 +1548,7 @@ export class CanvasArea {
   }
 
   zoomOut(): void {
-    this.scale = Math.max(this.minScale(), this.scale / 1.3);
+    this.scale = Math.max(this.el.clientWidth / (CanvasArea.WORLD_BOUNDS_X * 2), this.el.clientHeight / (CanvasArea.WORLD_BOUNDS_Y * 2), this.scale / 1.3);
     this.scheduleTransform();
   }
 
@@ -1708,8 +1661,10 @@ export class CanvasArea {
 
   setView(state: { zoom: number; panX: number; panY: number }): void {
     this.scale = state.zoom; this.panX = state.panX; this.panY = state.panY;
-    this.clampScale();
-    this.clampView();
+    const cw = this.el.clientWidth;
+    const ch = this.el.clientHeight;
+    this.clampScale(cw, ch);
+    this.clampView(cw, ch);
     this.scheduleTransform();
   }
 
@@ -1719,8 +1674,10 @@ export class CanvasArea {
     if (this.rafId) return;
     this.rafId = requestAnimationFrame(() => {
       this.rafId = 0;
-      this.clampScale();
-      this.clampView();
+      const cw = this.el.clientWidth;
+      const ch = this.el.clientHeight;
+      this.clampScale(cw, ch);
+      this.clampView(cw, ch);
       this.applyWorldTransform();
       const chrome = this.flushChrome || !this.navigating;
       this.flushChrome = false;
@@ -1740,7 +1697,9 @@ export class CanvasArea {
       const my = e.clientY - rect.top;
       const oldScale = this.scale;
       const delta = -e.deltaY * 0.001;
-      this.scale = Math.max(this.minScale(), Math.min(5, this.scale * (1 + delta)));
+      const cw = this.el.clientWidth;
+      const ch = this.el.clientHeight;
+      this.scale = Math.max(cw / (CanvasArea.WORLD_BOUNDS_X * 2), ch / (CanvasArea.WORLD_BOUNDS_Y * 2), Math.min(5, this.scale * (1 + delta)));
       const worldX = (mx - this.panX) / oldScale;
       const worldY = (my - this.panY) / oldScale;
       this.panX = mx - worldX * this.scale;
@@ -1750,7 +1709,7 @@ export class CanvasArea {
     }, { passive: false });
 
     // Global Ctrl+Wheel zoom — capture phase so it fires before child stopPropagation
-    document.addEventListener('wheel', (e) => {
+    this.boundDocWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       if (this.locked) { e.preventDefault(); return; }
       e.preventDefault();
@@ -1760,14 +1719,15 @@ export class CanvasArea {
       const my = e.clientY - rect.top;
       const oldScale = this.scale;
       const delta = -e.deltaY * 0.001;
-      this.scale = Math.max(this.minScale(), Math.min(5, this.scale * (1 + delta)));
+      this.scale = Math.max(this.el.clientWidth / (CanvasArea.WORLD_BOUNDS_X * 2), this.el.clientHeight / (CanvasArea.WORLD_BOUNDS_Y * 2), Math.min(5, this.scale * (1 + delta)));
       const worldX = (mx - this.panX) / oldScale;
       const worldY = (my - this.panY) / oldScale;
       this.panX = mx - worldX * this.scale;
       this.panY = my - worldY * this.scale;
       this.beginNavigating();
       this.scheduleTransform();
-    }, { capture: true, passive: false });
+    };
+    document.addEventListener('wheel', this.boundDocWheel, { capture: true, passive: false });
 
     this.el.addEventListener('mousedown', (e) => {
       // Ctrl+drag pans even over cards; otherwise only on empty canvas for text selection
@@ -1784,20 +1744,22 @@ export class CanvasArea {
       }
     });
 
-    document.addEventListener('mousemove', (e) => {
+    this.boundMouseMove = (e: MouseEvent) => {
       if (!this.isPanning) return;
       this.panX = this.panStartPanX + (e.clientX - this.panStartX);
       this.panY = this.panStartPanY + (e.clientY - this.panStartY);
       this.beginNavigating();
       this.scheduleTransform();
-    });
+    };
+    document.addEventListener('mousemove', this.boundMouseMove);
 
-    document.addEventListener('mouseup', () => {
+    this.boundMouseUp = () => {
       if (!this.isPanning) return;
       this.isPanning = false;
       this.el.style.cursor = '';
       this.endNavigating();
-    });
+    };
+    document.addEventListener('mouseup', this.boundMouseUp);
 
     this.el.addEventListener('contextmenu', (e) => {
       if (this.locked) return;
@@ -1862,7 +1824,7 @@ export class CanvasArea {
     const margin = 80;
     const fitX = (avW - margin) / worldW;
     const fitY = (ch - margin) / worldH;
-    this.scale = Math.max(this.minScale(), Math.min(fitX, fitY, 1));
+    this.scale = Math.max(this.el.clientWidth / (CanvasArea.WORLD_BOUNDS_X * 2), this.el.clientHeight / (CanvasArea.WORLD_BOUNDS_Y * 2), Math.min(fitX, fitY, 1));
 
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
@@ -1878,10 +1840,7 @@ export class CanvasArea {
   }
 
   panToActiveExplorer(): void {
-    const sorted = [...this.cards].sort((a, b) =>
-      parseInt(b.card.el.style.zIndex || '0') - parseInt(a.card.el.style.zIndex || '0')
-    );
-    const cs = sorted.find(c => c.explorerPlugin && c.isOpen);
+    const cs = this.cards.find(c => c.explorerPlugin && c.isOpen);
     if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
   }
 
@@ -1941,7 +1900,7 @@ export class CanvasArea {
   }
 
   setViewAnimated(panX: number, panY: number, zoom?: number): void {
-    if (zoom !== undefined) this.scale = Math.max(this.minScale(), Math.min(5, zoom));
+    if (zoom !== undefined) this.scale = Math.max(this.el.clientWidth / (CanvasArea.WORLD_BOUNDS_X * 2), this.el.clientHeight / (CanvasArea.WORLD_BOUNDS_Y * 2), Math.min(5, zoom));
     this.animatePan(panX, panY);
   }
 
@@ -1962,7 +1921,7 @@ export class CanvasArea {
     const fitX = (avW - margin) / cs.savedWidth;
     const fitY = (ch - margin) / cs.savedHeight;
     const targetScale = Math.min(fitX, fitY, 1);
-    this.scale = Math.max(this.minScale(), targetScale);
+    this.scale = Math.max(this.el.clientWidth / (CanvasArea.WORLD_BOUNDS_X * 2), this.el.clientHeight / (CanvasArea.WORLD_BOUNDS_Y * 2), targetScale);
 
     const targetX = avCX - (cs.worldX + cs.savedWidth / 2) * this.scale;
     const targetY = ch / 2 - (cs.worldY + cs.savedHeight / 2) * this.scale;
@@ -1975,6 +1934,18 @@ export class CanvasArea {
     this.animatePan(targetX, targetY);
   }
 
+  destroy(): void {
+    if (this.boundDocWheel) document.removeEventListener('wheel', this.boundDocWheel, { capture: true } as any);
+    if (this.boundMouseMove) document.removeEventListener('mousemove', this.boundMouseMove);
+    if (this.boundMouseUp) document.removeEventListener('mouseup', this.boundMouseUp);
+    for (const cs of [...this.cards]) {
+      cs.card.remove();
+    }
+    this.cards = [];
+    if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = 0; }
+    if (this.navIdleTimer) { clearTimeout(this.navIdleTimer); this.navIdleTimer = 0; }
+    this.el.innerHTML = '';
+  }
 
 }
 

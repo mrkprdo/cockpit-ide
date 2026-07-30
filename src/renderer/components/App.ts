@@ -15,8 +15,8 @@ export class App {
   private themeModal: ThemeModal;
   private aiDrawer: AiDrawer;
   private tutorial: Tutorial;
-  private lastSaved = '';
   private wsPath = '';
+  private saveTimer = 0;
 
   constructor() {
     document.title = 'Cockpit IDE';
@@ -167,15 +167,12 @@ export class App {
 
   private trySave(): void {
     if (!this.wsPath) return;
-    const state = this.canvas.getSaveState();
-    state.aiDrawerDetached = this.aiDrawer.isDetached;
-    const key = JSON.stringify(state);
-    if (key === this.lastSaved) return;
-    this.lastSaved = key;
-    this.saveNow();
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = window.setTimeout(() => this.saveNow(), 300);
   }
 
   private async saveNow(): Promise<void> {
+    this.saveTimer = 0;
     if (!this.wsPath) return;
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
