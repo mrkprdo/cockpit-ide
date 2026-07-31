@@ -12,6 +12,7 @@ import { GitPlugin, GitState } from './GitPlugin';
 import { ContextMenu } from './ContextMenu';
 // MarkdownPlugin removed — integrated into ExplorerPlugin
 import { SpecsMapPlugin } from './SpecsMapPlugin';
+import { AgentsPlugin } from './AgentsPlugin';
 
 interface CardState {
   card: PluginCard;
@@ -27,6 +28,7 @@ interface CardState {
   explorerPlugin: ExplorerPlugin | null;
   gitPlugin: GitPlugin | null;
   specsmapPlugin: SpecsMapPlugin | null;
+  agentsPlugin: AgentsPlugin | null;
   onCardResize?: () => void;
 }
 
@@ -36,6 +38,7 @@ export class CanvasArea {
   onExplorersChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onGitChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onSpecsmapChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
+  onAgentsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onLockToggle: (() => void) | null = null;
   private _locked = false;
   get locked(): boolean { return this._locked; }
@@ -480,6 +483,7 @@ export class CanvasArea {
     else if (title === 'Explorer') this.notifyExplorersChanged();
     else if (title === 'Git') this.notifyGitChanged();
     else if (title === 'SpecsMap') this.notifySpecsmapChanged();
+    else if (title === 'Agents') this.notifyAgentsChanged();
   }
 
   private addCard(title: string, subtitle: string, x: number, y: number, w: number, h: number): CardState {
@@ -540,7 +544,7 @@ export class CanvasArea {
         menu.onClose = () => { this.contextMenuOpen = false; };
       },
     }, () => ({ scale: this.scale, panX: this.panX, panY: this.panY }));
-    cs = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null };
+    cs = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null, agentsPlugin: null };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -847,7 +851,7 @@ export class CanvasArea {
 
     const cx = this.clampWorld(p.x, 'x');
     const cy = this.clampWorld(p.y, 'y');
-    cs = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null };
+    cs = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null, agentsPlugin: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
@@ -983,6 +987,24 @@ export class CanvasArea {
             cs.card.onDestroy = () => sm.destroy();
           }
         }
+      } else if (p.title === 'Agents') {
+        const cs = this.createCardFromDef(p, {
+          onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifyAgentsChanged(); },
+          onFitViewport: () => this.fitViewport(cs),
+          onTerminate: () => this.terminateCard(cs),
+        });
+
+        if (p.isOpen) {
+          const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+          if (body) {
+            body.style.padding = '0';
+            body.style.alignItems = 'stretch';
+            body.style.justifyContent = 'stretch';
+            const ag = new AgentsPlugin(body, wsPath);
+            cs.agentsPlugin = ag;
+            cs.card.onDestroy = () => ag.destroy();
+          }
+        }
       }
     }
 
@@ -992,6 +1014,7 @@ export class CanvasArea {
     this.notifyExplorersChanged();
     this.notifyGitChanged();
     this.notifySpecsmapChanged();
+    this.notifyAgentsChanged();
   }
 
   addEditor(): void {
@@ -1119,6 +1142,40 @@ export class CanvasArea {
     });
   }
 
+  addAgents(wsPath: string): void {
+    const existing = this.cards.find(c => c.savedTitle === 'Agents');
+    if (existing) {
+      existing.isOpen = true;
+      existing.card.el.style.display = '';
+      existing.worldX = existing.savedWX;
+      existing.worldY = existing.savedWY;
+      this.positionCard(existing);
+      this.bringToFront(existing.card);
+      this.panToCard(existing);
+      this.notifyAgentsChanged();
+      return;
+    }
+    const cs = this.addCard('Agents', '', -400, -250, 800, 500);
+    requestAnimationFrame(() => {
+      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+      if (body) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const ag = new AgentsPlugin(body, wsPath);
+        cs.agentsPlugin = ag;
+        cs.card.onDestroy = () => ag.destroy();
+        this.notifyAgentsChanged();
+        this.bringToFront(cs.card);
+        this.panToCard(cs);
+      }
+    });
+  }
+
+  getActiveAgentsPlugin(): AgentsPlugin | null {
+    return this.cards.find(c => c.agentsPlugin && c.isOpen)?.agentsPlugin ?? null;
+  }
+
   ensureSpecsmap(): Promise<SpecsMapPlugin | null> {
     const existing = this.cards.find(c => c.savedTitle === 'SpecsMap');
     if (existing && existing.specsmapPlugin) {
@@ -1208,6 +1265,11 @@ export class CanvasArea {
     if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
   }
 
+  focusAgents(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && c.isOpen);
+    if (cs) { this.focusCard(cs.card.opts.title); this.panToCard(cs); }
+  }
+
   focusCard(title: string): void {
     const cs = this.cards.find(c => c.card.opts.title === title);
     if (cs) this.bringToFront(cs.card);
@@ -1254,6 +1316,11 @@ export class CanvasArea {
   }
 
   reopenSpecsmap(uuid: string): void {
+    const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
+    if (cs) this.reopenCard(cs);
+  }
+
+  reopenAgents(uuid: string): void {
     const cs = this.cards.find(c => c.card.uuid === uuid && !c.isOpen);
     if (cs) this.reopenCard(cs);
   }
@@ -1316,6 +1383,23 @@ export class CanvasArea {
       cs.worldY = cs.savedWY;
       this.positionCard(cs);
       this.notifySpecsmapChanged();
+      this.onStateChange?.();
+    } else if (cs.savedTitle === 'Agents') {
+      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
+      if (body && !body.hasChildNodes()) {
+        body.style.padding = '0';
+        body.style.alignItems = 'stretch';
+        body.style.justifyContent = 'stretch';
+        const ag = new AgentsPlugin(body, this.wsPath);
+        cs.agentsPlugin = ag;
+        cs.card.onDestroy = () => ag.destroy();
+      }
+      cs.isOpen = true;
+      cs.card.el.style.display = '';
+      cs.worldX = cs.savedWX;
+      cs.worldY = cs.savedWY;
+      this.positionCard(cs);
+      this.notifyAgentsChanged();
       this.onStateChange?.();
     }
     this.panToCard(cs);
@@ -1389,6 +1473,12 @@ export class CanvasArea {
     const list = this.cards.filter(c => c.savedTitle === 'SpecsMap')
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.onSpecsmapChanged?.(list);
+  }
+
+  private notifyAgentsChanged(): void {
+    const list = this.cards.filter(c => c.savedTitle === 'Agents')
+      .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
+    this.onAgentsChanged?.(list);
   }
 
   offsetCard(title: string, worldX: number, worldY: number): void {

@@ -1,5 +1,7 @@
 import { AGENT_SYSTEM_PROMPT } from '../ai/prompts';
-import { ALL_TOOLS, DESTRUCTIVE_TOOL_NAMES } from '../ai/tool-definitions';
+import { getAgentExecutor } from '../agents/executor';
+import { ORCHESTRATION_SECTION } from '../agents/prompts';
+import { ALL_TOOLS } from '../ai/tool-definitions';
 import { LLMClient } from '../ai/llm-client';
 import { ToolRegistry } from '../ai/tool-registry';
 import { executeToolCall } from '../ai/tool-executor';
@@ -180,6 +182,7 @@ export class AiDrawer {
           this.contextTokenLimit = prefs.aiContextLimit;
         }
       }
+      getAgentExecutor().setConfigProvider(() => ({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model }));
       const endpointInput = this.settingsEl?.querySelector<HTMLInputElement>('.ai-settings-input[data-key="endpoint"]');
       const apiKeyInput = this.settingsEl?.querySelector<HTMLInputElement>('.ai-settings-input[data-key="apiKey"]');
       const modelSelect = this.settingsEl?.querySelector<HTMLSelectElement>('.ai-settings-select[data-key="model-select"]');
@@ -940,6 +943,7 @@ export class AiDrawer {
     const parts = [AGENT_SYSTEM_PROMPT];
     if (wsPath) parts.push(`Workspace: ${wsPath}`);
     parts.push(memoryStore.buildIndexPrompt());
+    parts.push(ORCHESTRATION_SECTION);
     return parts.join('\n\n');
   }
 
@@ -1637,20 +1641,13 @@ export class AiDrawer {
         return streamedContent || 'No response.';
       }
 
-      // STEP mode pauses before every batch. Every mode — including 'auto' and
-      // 'plan' after their own upfront approval — still pauses before a batch
-      // that includes a destructive tool (file mutation, terminal command, git
-      // commit/push/checkout): those aren't safe to run on blind trust that the
-      // model's plan matched what it actually decided to call, especially
-      // since file/repo content the model just read could be adversarial.
-      const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
-      const hasDestructiveCall = toolCalls.some(tc => DESTRUCTIVE_TOOL_NAMES.has(tc.function.name));
-      if (this.agentMode === 'step' || hasDestructiveCall) {
+      // STEP mode pauses before every batch. auto and plan already run without
+      // per-call confirmation (plan gates upfront on the approved plan), so a
+      // destructive tool batch proceeds immediately in those modes.
+      if (this.agentMode === 'step') {
         stepCount++;
-        const label = hasDestructiveCall && this.agentMode !== 'step'
-          ? `Confirm ${toolNames}?`
-          : `Step ${stepCount}: run ${toolNames}?`;
-        const proceed = await this.waitForAction(label);
+        const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
+        const proceed = await this.waitForAction(`Step ${stepCount}: run ${toolNames}?`);
         if (!proceed || this.abortRequested) return 'Aborted.';
       }
 

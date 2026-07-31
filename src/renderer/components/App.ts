@@ -7,6 +7,7 @@ import { AiDrawer } from './AiDrawer';
 import { Tutorial } from './Tutorial';
 import { theme } from '../theme';
 import { memoryStore } from '../ai/memory-store';
+import { getAgentExecutor } from '../agents/executor';
 
 export class App {
   private canvas: CanvasArea;
@@ -81,6 +82,7 @@ export class App {
 
     this.canvas.onGitChanged = (items) => this.topBar.setGitItems(items);
     this.canvas.onSpecsmapChanged = (items) => this.topBar.setSpecsmapItems(items);
+    this.canvas.onAgentsChanged = (items) => this.topBar.setAgentsItems(items);
 
     this.canvas.onLockToggle = async () => {
       this.canvas.locked = !this.canvas.locked;
@@ -123,6 +125,9 @@ export class App {
       onNewSpecsmap: () => this.canvas.addSpecsmap(this.wsPath),
       onFocusSpecsmap: (uuid) => this.canvas.focusSpecsmap(uuid),
       onReopenSpecsmap: (uuid) => this.canvas.reopenSpecsmap(uuid),
+      onNewAgents: () => this.canvas.addAgents(this.wsPath),
+      onFocusAgents: (uuid) => this.canvas.focusAgents(uuid),
+      onReopenAgents: (uuid) => this.canvas.reopenAgents(uuid),
       onAbout: () => {
         this.canvas.locked = true;
         this.about.open(() => { this.canvas.locked = false; });
@@ -232,6 +237,7 @@ export class App {
           case 'git': this.canvas.addGit(this.wsPath); break;
           case 'markdown': this.canvas.ensureExplorer(); break;
           case 'specsmap': this.canvas.addSpecsmap(this.wsPath); break;
+          case 'agents': this.canvas.addAgents(this.wsPath); break;
         }
       },
       addTerminal: () => this.canvas.addTerminal(this.wsPath),
@@ -308,6 +314,23 @@ export class App {
     // Register workspace with main process (sets per-window workspacePath, starts watcher + ide-server)
     await ws.setPath(path);
     await memoryStore.loadWorkspace(path);
+
+    // Fleet persistence: bus log + roster under .cockpit/agents/.
+    const agentsDir = path + '/.cockpit/agents';
+    const ensureAgentsDir = () => window.electronAPI?.fs.mkdir(agentsDir).catch(() => {});
+    void ensureAgentsDir();
+    getAgentExecutor().setPersistHook((kind, data) => {
+      if (kind === 'bus') {
+        const line = JSON.stringify(data) + '\n';
+        window.electronAPI?.fs.readFile(agentsDir + '/bus.jsonl').then((prev) => {
+          window.electronAPI?.fs.writeFile(agentsDir + '/bus.jsonl', (prev || '') + line).catch(() => {});
+        }).catch(() => {
+          window.electronAPI?.fs.writeFile(agentsDir + '/bus.jsonl', line).catch(() => {});
+        });
+      } else if (kind === 'roster') {
+        window.electronAPI?.fs.writeFile(agentsDir + '/roster.json', JSON.stringify(data, null, 2)).catch(() => {});
+      }
+    });
 
     const state = await ws.load(path);
 

@@ -997,7 +997,7 @@ describe('AiDrawer', () => {
       expect(result).toContain('Unknown tool');
     });
 
-    it('pauses for confirmation before a destructive tool call, even in auto mode', async () => {
+    it('runs a destructive tool call immediately in auto mode (no confirmation)', async () => {
       let callCount = 0;
       globalThis.fetch = vi.fn().mockImplementation(() => {
         callCount++;
@@ -1021,17 +1021,11 @@ describe('AiDrawer', () => {
       (q('.ai-chat-input') as HTMLTextAreaElement).value = 'Delete foo.ts';
       q('.ai-chat-send-btn').click();
       await flush();
-
-      // Paused waiting on confirmation — the destructive tool has not run yet.
-      const deleteMock = (window as any).electronAPI.fs.delete;
-      expect(deleteMock).not.toHaveBeenCalled();
-      expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(true);
-
-      q('.ai-step-continue-btn').click();
-      await flush();
       await flush();
 
-      expect(deleteMock).toHaveBeenCalledWith('/ws/foo.ts');
+      // No confirmation pause — the destructive tool runs immediately.
+      expect((window as any).electronAPI.fs.delete).toHaveBeenCalledWith('/ws/foo.ts');
+      expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(false);
     });
 
     it('does not pause for a non-destructive tool call in auto mode', async () => {

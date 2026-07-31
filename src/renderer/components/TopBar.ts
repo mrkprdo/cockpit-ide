@@ -18,6 +18,9 @@ interface TopBarCallbacks {
   onNewSpecsmap?: () => void;
   onFocusSpecsmap?: (uuid: string) => void;
   onReopenSpecsmap?: (uuid: string) => void;
+  onNewAgents?: () => void;
+  onFocusAgents?: (uuid: string) => void;
+  onReopenAgents?: (uuid: string) => void;
   onAbout?: () => void;
   onTheme?: () => void;
   onAi?: () => void;
@@ -39,6 +42,8 @@ export class TopBar {
   private gitItems: TermItem[] = [];
 
   private specsmapItems: TermItem[] = [];
+
+  private agentsItems: TermItem[] = [];
 
   private docClickHandler: (() => void) | null = null;
 
@@ -62,6 +67,11 @@ export class TopBar {
   setSpecsmapItems(items: TermItem[]): void {
     this.specsmapItems = items;
     this.patchSubmenu('specsmap-submenu', this.specsmapSubHtml());
+  }
+
+  setAgentsItems(items: TermItem[]): void {
+    this.agentsItems = items;
+    this.patchSubmenu('agents-submenu', this.agentsSubHtml());
   }
 
   setGridStyle(style: GridStyle): void {
@@ -89,6 +99,15 @@ export class TopBar {
       ? '<div class="menu-dropdown-item is-disabled" role="menuitem" tabindex="-1">(none)</div>'
       : this.gitItems.map(t =>
           `<div class="menu-dropdown-item git-instance${closedCls(t.isOpen)}" role="menuitem" tabindex="-1" data-git-uuid="${t.uuid}" data-git-open="${t.isOpen}">${t.title}</div>`
+        ).join(''));
+  }
+
+  private agentsSubHtml(): string {
+    const closedCls = (isOpen: boolean) => isOpen ? '' : ' is-closed';
+    return (this.agentsItems.length === 0
+      ? '<div class="menu-dropdown-item is-disabled" role="menuitem" tabindex="-1">(none)</div>'
+      : this.agentsItems.map(t =>
+          '<div class="menu-dropdown-item agents-instance' + closedCls(t.isOpen) + '" role="menuitem" tabindex="-1" data-agents-uuid="' + t.uuid + '" data-agents-open="' + t.isOpen + '">' + t.title + '</div>'
         ).join(''));
   }
 
@@ -133,6 +152,18 @@ export class TopBar {
         const isOpen = target.dataset.gitOpen === 'true';
         if (isOpen) this.callbacks.onFocusGit?.(uuid);
         else this.callbacks.onReopenGit?.(uuid);
+        closeAll();
+      });
+    });
+
+    el.querySelectorAll('.agents-instance').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const target = e.currentTarget as HTMLElement;
+        const uuid = target.dataset.agentsUuid || '';
+        const isOpen = target.dataset.agentsOpen === 'true';
+        if (isOpen) this.callbacks.onFocusAgents?.(uuid);
+        else this.callbacks.onReopenAgents?.(uuid);
         closeAll();
       });
     });
@@ -205,6 +236,7 @@ export class TopBar {
         Tools
         <div class="menu-dropdown" role="menu">
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-specsmap">SpecsMap</div>
+          <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-agents">Agents</div>
           <div class="menu-dropdown-separator" role="separator"></div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-ai">Cockpit Agent&nbsp;<span class="menu-shortcut">Ctrl+Space</span></div>
           <div class="menu-dropdown-separator" role="separator"></div>
@@ -421,6 +453,11 @@ export class TopBar {
     document.getElementById('menu-new-specsmap')?.addEventListener('click', () => {
       closeAllMenus();
       this.callbacks.onNewSpecsmap?.();
+    });
+
+    document.getElementById('menu-new-agents')?.addEventListener('click', () => {
+      closeAllMenus();
+      this.callbacks.onNewAgents?.();
     });
 
     this.el.querySelectorAll('[data-grid]').forEach(el => {
