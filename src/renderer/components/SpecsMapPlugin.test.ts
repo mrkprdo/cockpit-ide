@@ -1056,4 +1056,80 @@ describe('SpecsMapPlugin', () => {
     const out = await sm.reloadSpecs();
     expect(out).toContain('SpecsMap reloaded');
   });
+  // ── View toggle (Stack | Constellation) ──
+
+  it('renders a Stack | Constellation view toggle in the header', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const toggle = container.querySelector('.sm-view-toggle') as HTMLElement;
+    expect(toggle).toBeTruthy();
+    const opts = toggle.querySelectorAll('.sm-view-opt');
+    expect(opts.length).toBe(2);
+    expect((opts[0] as HTMLElement).textContent).toBe('Stack');
+    expect((opts[1] as HTMLElement).textContent).toBe('Constellation');
+    expect((opts[0] as HTMLElement).classList.contains('active')).toBe(true);
+    expect((opts[1] as HTMLElement).classList.contains('active')).toBe(false);
+  });
+
+  it('switching to Constellation activates the toggle and moves nodes', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const opts = container.querySelectorAll<HTMLElement>('.sm-view-toggle .sm-view-opt');
+    const before = new Map<string, string>();
+    container.querySelectorAll<HTMLElement>('.sm-node').forEach(el => {
+      before.set(el.dataset.id ?? '', el.style.left + '|' + el.style.top);
+    });
+    (opts[1] as HTMLElement).click();
+    expect((opts[1] as HTMLElement).classList.contains('active')).toBe(true);
+    expect((opts[0] as HTMLElement).classList.contains('active')).toBe(false);
+    // A few animation frames so the flock physics moves at least one node.
+    await new Promise(r => setTimeout(r, 150));
+    const moved = Array.from(container.querySelectorAll<HTMLElement>('.sm-node')).some(el => {
+      const b = before.get(el.dataset.id ?? '');
+      return b !== undefined && (el.style.left + '|' + el.style.top) !== b;
+    });
+    expect(moved).toBe(true);
+  });
+
+  it('switching back to Stack restores the deterministic layout', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const opts = container.querySelectorAll<HTMLElement>('.sm-view-toggle .sm-view-opt');
+    const nodeBefore = container.querySelector('.sm-node') as HTMLElement;
+    const leftBefore = nodeBefore.style.left;
+    const topBefore = nodeBefore.style.top;
+    (opts[1] as HTMLElement).click();
+    await new Promise(r => setTimeout(r, 120));
+    (opts[0] as HTMLElement).click();
+    const nodeAfter = container.querySelector('.sm-node') as HTMLElement;
+    expect(nodeAfter.style.left).toBe(leftBefore);
+    expect(nodeAfter.style.top).toBe(topBefore);
+    expect((opts[0] as HTMLElement).classList.contains('active')).toBe(true);
+    expect((opts[1] as HTMLElement).classList.contains('active')).toBe(false);
+  });
+
+  it('hides layer headers in Constellation view and restores them in Stack view', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const opts = container.querySelectorAll<HTMLElement>('.sm-view-toggle .sm-view-opt');
+    const headers = () => Array.from(container.querySelectorAll<HTMLElement>('.sm-layer-header'));
+    expect(headers().length).toBeGreaterThan(0);
+    expect(headers()[0].style.display).not.toBe('none');
+    (opts[1] as HTMLElement).click();
+    expect(headers().length).toBeGreaterThan(0);
+    expect(headers()[0].style.display).toBe('none');
+    (opts[0] as HTMLElement).click();
+    expect(headers().length).toBeGreaterThan(0);
+    expect(headers()[0].style.display).not.toBe('none');
+  });
+
+  it('destroy while in Constellation mode does not throw', async () => {
+    const sm = new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const opts = container.querySelectorAll<HTMLElement>('.sm-view-toggle .sm-view-opt');
+    (opts[1] as HTMLElement).click();
+    await new Promise(r => setTimeout(r, 30));
+    expect(() => sm.destroy()).not.toThrow();
+  });
+
 });

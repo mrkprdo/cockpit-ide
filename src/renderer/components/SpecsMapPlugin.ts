@@ -12,6 +12,7 @@ import {
 } from '../specs/layout';
 import { CyclesController, CYCLE_COLORS, type CyclesHost } from './specsmap/cycles';
 import { SearchController, type SearchHost } from './specsmap/search';
+import { FlockController, type FlockHost } from './specsmap/flock';
 
 interface SpecData {
   name?: string;
@@ -118,6 +119,12 @@ export class SpecsMapPlugin {
   // Search state
   private search!: SearchController;
   private searchBtn!: HTMLButtonElement;
+
+  // View mode: deterministic layered stack vs physics-driven constellation
+  private viewMode: 'stack' | 'constellation' = 'stack';
+  private flock!: FlockController;
+  private viewToggleStackBtn!: HTMLButtonElement;
+  private viewToggleFlockBtn!: HTMLButtonElement;
 
   onFileOpen: ((filePath: string) => void) | null = null;
 
@@ -381,11 +388,29 @@ export class SpecsMapPlugin {
     header.appendChild(headerPath);
     header.appendChild(this.validationBadge);
 
+    // View toggle: Stack (layered) | Constellation (floating flock)
+    const viewToggle = document.createElement('div');
+    viewToggle.className = 'sm-view-toggle';
+    viewToggle.title = 'Graph layout: Stack (layered by architecture layer) or Constellation (floating flock — connected nodes drift together, unconnected repel, no overlap)';
+    this.viewToggleStackBtn = document.createElement('button');
+    this.viewToggleStackBtn.className = 'sm-view-opt active';
+    this.viewToggleStackBtn.textContent = 'Stack';
+    this.viewToggleStackBtn.title = 'Stack view — nodes stacked by layer (foundation → plugin)';
+    this.viewToggleStackBtn.addEventListener('click', () => this.setViewMode('stack'));
+    this.viewToggleFlockBtn = document.createElement('button');
+    this.viewToggleFlockBtn.className = 'sm-view-opt';
+    this.viewToggleFlockBtn.textContent = 'Constellation';
+    this.viewToggleFlockBtn.title = 'Constellation view — nodes float; connected nodes flock closer, unconnected repel, no overlap';
+    this.viewToggleFlockBtn.addEventListener('click', () => this.setViewMode('constellation'));
+    viewToggle.appendChild(this.viewToggleStackBtn);
+    viewToggle.appendChild(this.viewToggleFlockBtn);
+
     this.searchBtn = document.createElement('button');
     this.searchBtn.className = 'sm-header-btn';
     this.searchBtn.innerHTML = SVG_SEARCH;
     this.searchBtn.title = 'Search nodes (Ctrl+F)';
     this.searchBtn.addEventListener('click', () => this.search.toggle());
+    header.appendChild(viewToggle);
     header.appendChild(this.searchBtn);
 
     header.appendChild(this.cycleBtn);
@@ -481,6 +506,15 @@ export class SpecsMapPlugin {
       this.updateCycleBtnColor();
       if (this.panelShowingSettings) this.renderSettingsContent();
     });
+
+    // Constellation view: physics-driven floating flock
+    const flockHost: FlockHost = {
+      getNodes: () => this.nodes,
+      getNodeEls: () => this.nodeEls,
+      getEdgePaths: () => this.cachedEdgePaths,
+      onFrame: () => this.syncEdgesFromNodes(),
+    };
+    this.flock = new FlockController(flockHost, () => this.updateViewToggleStyles());
 
     container.appendChild(this.el);
 
@@ -654,6 +688,30 @@ export class SpecsMapPlugin {
         border-radius: 2px;
         padding: 0 2px;
       }
+      .sm-view-toggle {
+        display: flex;
+        align-items: stretch;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+        flex-shrink: 0;
+        user-select: none;
+      }
+      .sm-view-opt {
+        background: none;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        font-family: "Space Mono", "Courier New", monospace;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        color: var(--tertiary);
+        padding: 4px 8px;
+        transition: color 0.15s, background 0.15s;
+      }
+      .sm-view-opt:hover { color: var(--primary); }
+      .sm-view-opt.active { background: var(--surface); color: var(--accent); }
     `;
     document.head.appendChild(style);
   }
@@ -897,6 +955,7 @@ export class SpecsMapPlugin {
       this.renderGraph();
       this.lastRendered = renderKey;
       this.showValidation();
+      this.syncFlockMode();
       return;
     }
 
@@ -950,6 +1009,7 @@ export class SpecsMapPlugin {
     this.renderGraph();
     this.lastRendered = renderKey;
     this.showValidation();
+    this.syncFlockMode();
   }
 
   private async findAllCollections(): Promise<SpecCollection[]> {
@@ -1173,6 +1233,7 @@ export class SpecsMapPlugin {
 
     this.renderSVGDefs();
     this.renderLayerHeaders();
+    if (this.viewMode === 'constellation') this.hideLayerHeaders();
     this.renderEdges(nodeMap);
 
     for (const node of this.nodes) {
@@ -1925,6 +1986,59 @@ export class SpecsMapPlugin {
     this.applyTransform();
   }
 
+  /**
+   * Switch between the layered Stack view and the floating Constellation view.
+   * Entering Constellation disables cycle/isolated analysis overlays (they are
+   * anchored to stack-space positions) and starts the flock physics loop.
+   * Leaving it restores the deterministic layer layout and rebuilds the DOM.
+   */
+  private setViewMode(mode: 'stack' | 'constellation'): void {
+    if (mode === this.viewMode) return;
+    this.viewMode = mode;
+    this.updateViewToggleStyles();
+    if (mode === 'constellation') {
+      this.cycles.reset();
+      this.updateCycleBtnColor();
+      this.hideLayerHeaders();
+      this.flock.start();
+    } else {
+      this.flock.stop();
+      this.nodes = computeLayout(this.nodes);
+      this.renderGraph();
+      if (this.selectedId) this.nodeEls.get(this.selectedId)?.classList.add('sm-selected');
+    }
+  }
+
+  private updateViewToggleStyles(): void {
+    this.viewToggleStackBtn.classList.toggle('active', this.viewMode === 'stack');
+    this.viewToggleFlockBtn.classList.toggle('active', this.viewMode === 'constellation');
+  }
+
+  /** Ensure the flock loop matches the current view mode (after reloads/tab switches). */
+  private syncFlockMode(): void {
+    if (this.viewMode === 'constellation') this.flock.restart();
+    else this.flock.stop();
+  }
+
+  /** Re-curve all cached SVG edges from the (possibly flock-moved) node positions. */
+  private syncEdgesFromNodes(): void {
+    const nodeMap = new Map(this.nodes.map(n => [n.id, n]));
+    for (const path of this.cachedEdgePaths) {
+      const src = nodeMap.get(path.dataset.source!);
+      const tgt = nodeMap.get(path.dataset.target!);
+      if (!src || !tgt) continue;
+      const pts = this.curvePoints(src, tgt, path.dataset.etype === 'ui');
+      path.setAttribute('d', `M${pts.x1},${pts.y1} C${pts.cx1},${pts.cy1} ${pts.cx2},${pts.cy2} ${pts.x2},${pts.y2}`);
+    }
+  }
+
+  /** Layer labels are stack-space; hide them while the flock floats. */
+  private hideLayerHeaders(): void {
+    for (const h of this.nodeLayer.querySelectorAll<HTMLElement>('.sm-layer-header')) {
+      h.style.display = 'none';
+    }
+  }
+
   private detectEntrycandidates(entries: DirEntry[]): string[] {
     const dirNames = new Set(entries.filter(e => e.isDirectory).map(e => e.name));
     const fileNames = new Set(entries.filter(e => !e.isDirectory).map(e => e.name));
@@ -2326,6 +2440,7 @@ export class SpecsMapPlugin {
     document.removeEventListener('keydown', this.onSearchKeydown);
     if (this.fileUnsub) { this.fileUnsub(); this.fileUnsub = null; }
     if (this.specReloadTimer) { clearTimeout(this.specReloadTimer); this.specReloadTimer = null; }
+    this.flock?.stop();
     this.nodeEls.clear();
     this.specRawMap.clear();
     this.specDocs.clear();
