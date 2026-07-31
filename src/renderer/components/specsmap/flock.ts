@@ -1,18 +1,22 @@
 // SpecsMap "Constellation" view interaction module.
 //
 // Owns the requestAnimationFrame loop that drives the pure flock physics:
-// each tick it steps the simulation, writes body positions back onto the
-// SpecNode records and the .sm-node DOM elements, then asks the host to
-// refresh SVG edge paths so edges follow the moving nodes. All graph/DOM
-// reads go through FlockHost; `onChange` lets the host refresh its chrome.
-// Rendering stays in SpecsMapPlugin; this module owns the animation clock.
+// each tick it steps the 3D simulation, projects every body through a pinhole
+// camera onto the 2D canvas (near = bigger, painted on top), writes the
+// projected positions back onto the SpecNode records and the .sm-node DOM
+// elements, then asks the host to refresh SVG edge paths so edges follow the
+// moving nodes. All graph/DOM reads go through FlockHost; `onChange` lets the
+// host refresh its chrome. Rendering stays in SpecsMapPlugin; this module owns
+// the animation clock.
 
 import {
   createFlockBodies,
   createFlockEdges,
   flockStep,
+  projectFlock,
   type FlockBody,
   type FlockEdge,
+  type FlockProjection,
 } from '../../specs/flock';
 import type { SpecNode } from '../../specs/layout';
 
@@ -24,9 +28,10 @@ export interface FlockHost {
   onFrame(): void;
 }
 
-const WANDER = 24;       // px/s^2 — gentle life
+const WANDER = 40;       // px/s^2 — gentle life
 const WANDER_FREQ = 0.6; // rad/s
 const MAX_FRAME_DT = 0.05; // clamp big gaps (tab switches, debugger pauses)
+const Z_BASE = 100;        // CSS z-index floor for the depth-sorted stack
 
 export class FlockController {
   private _active = false;
@@ -103,15 +108,25 @@ export class FlockController {
     const nodes = this.host.getNodes();
     const els = this.host.getNodeEls();
     const byId = new Map(nodes.map(n => [n.id, n]));
-    for (const b of this.bodies.values()) {
-      const node = byId.get(b.id);
-      const el = els.get(b.id);
-      if (!node || !el) continue;
-      node.x = b.x;
-      node.y = b.y;
-      el.style.left = `${b.x}px`;
-      el.style.top = `${b.y}px`;
-    }
+
+    // Project the 3D bodies through the pinhole camera, then paint far→near.
+    const projections = new Map<string, FlockProjection>();
+    for (const b of this.bodies.values()) projections.set(b.id, projectFlock(b));
+    const order = [...projections.keys()].sort(
+      (a, b) => (projections.get(a)!.zIndex - projections.get(b)!.zIndex),
+    );
+    order.forEach((id, rank) => {
+      const node = byId.get(id);
+      const el = els.get(id);
+      const p = projections.get(id)!;
+      if (!node || !el) return;
+      node.x = p.x;
+      node.y = p.y;
+      el.style.left = `${p.x}px`;
+      el.style.top = `${p.y}px`;
+      el.style.transform = `scale(${p.scale})`;
+      el.style.zIndex = String(Z_BASE + rank);
+    });
 
     this.host.onFrame();
     this.rafId = this.raf(this.tick);
