@@ -1,6 +1,7 @@
 import {
   AGENT_SYSTEM_PROMPT,
   ALL_TOOLS,
+  DESTRUCTIVE_TOOL_NAMES,
   LLMClient,
   ToolRegistry,
   executeToolCall,
@@ -1644,12 +1645,20 @@ export class AiDrawer {
         return streamedContent || 'No response.';
       }
 
-      // STEP mode pauses before every tool batch. AUTO and PLAN run tools
-      // without per-call confirmation (PLAN only gates on the upfront plan).
-      if (this.agentMode === 'step') {
+      // STEP mode pauses before every batch. Every mode — including 'auto' and
+      // 'plan' after their own upfront approval — still pauses before a batch
+      // that includes a destructive tool (file mutation, terminal command, git
+      // commit/push/checkout): those aren't safe to run on blind trust that the
+      // model's plan matched what it actually decided to call, especially
+      // since file/repo content the model just read could be adversarial.
+      const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
+      const hasDestructiveCall = toolCalls.some(tc => DESTRUCTIVE_TOOL_NAMES.has(tc.function.name));
+      if (this.agentMode === 'step' || hasDestructiveCall) {
         stepCount++;
-        const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
-        const proceed = await this.waitForAction(`Step ${stepCount}: run ${toolNames}?`);
+        const label = hasDestructiveCall && this.agentMode !== 'step'
+          ? `Confirm ${toolNames}?`
+          : `Step ${stepCount}: run ${toolNames}?`;
+        const proceed = await this.waitForAction(label);
         if (!proceed || this.abortRequested) return 'Aborted.';
       }
 
