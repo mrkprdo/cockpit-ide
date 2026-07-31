@@ -36,6 +36,9 @@ interface SlashCommand {
   action: () => void | Promise<void>;
 }
 
+/** Cap on consecutive tool-call iterations in one agentic run (anti-hang guard). */
+export const MAX_TOOL_ITERATIONS = 30;
+
 
 export class AiDrawer {
   private el: HTMLDivElement;
@@ -1530,7 +1533,11 @@ export class AiDrawer {
 
     let firstIter = true;
     let stepCount = 0;
+    let toolIterations = 0;
     for (;;) {
+      if (++toolIterations > MAX_TOOL_ITERATIONS) {
+        return `⚠️ Stopped after ${MAX_TOOL_ITERATIONS} tool-loop iterations — possible agent/sub-agent hang. Run agent_status to inspect sub-agents and agent_kill any stuck ones, then retry with a more specific instruction.`;
+      }
       if (this.abortRequested) return 'Aborted.';
 
       this.fetchController = new AbortController();

@@ -189,13 +189,17 @@ export class SubAgentSession {
 
       this.result = final;
       this.setState('done');
-      this.postRespond(final);
+      this.postRespond(final, 'done');
       return final;
     } catch (err: any) {
       this.error = err?.message || String(err);
       const aborted = this.controller.signal.aborted;
       this.setState(aborted ? 'killed' : 'error');
       this.postStatus(this.state, this.error ?? undefined);
+      // Resolve any pending agent_wait on our correlationId FAST — a failed or
+      // killed agent must not leave the main session hanging for the full wait
+      // timeout. The payload carries the error so the orchestrator can adapt.
+      this.postRespond(`[${this.state.toUpperCase()}] ${this.error}`, this.state);
       throw err;
     } finally {
       this.running = false;
@@ -318,13 +322,14 @@ export class SubAgentSession {
     return all.filter(s => this.skill.allowedTools.includes(s.function.name));
   }
 
-  private postRespond(text: string): void {
+  /** Post the final respond. `state` selects the topic (done/error/killed). */
+  private postRespond(text: string, state: AgentState = 'done'): void {
     const msg: AgentMessage = {
       id: `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       type: 'respond',
       from: this.id,
       to: 'main',
-      topic: `${this.skill.name}.done`,
+      topic: `${this.skill.name}.${state}`,
       correlationId: this.correlationId,
       replyTo: 'main',
       expectsResponse: false,

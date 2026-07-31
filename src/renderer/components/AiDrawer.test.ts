@@ -1521,5 +1521,23 @@ describe('AiDrawer', () => {
       drawer['renderTokenUsage']();
       expect(q('.ai-token-progress-label').textContent).toContain('/');
     });
+    it('stops the tool loop after MAX_TOOL_ITERATIONS instead of hanging forever', async () => {
+      globalThis.fetch = vi.fn().mockImplementation(() =>
+        Promise.resolve(makeToolResponse('get_canvas_state'))
+      );
+
+      drawer = await createDrawer();
+      drawer['sessionsLoaded'] = true;
+      await drawer.toggle();
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'loop forever';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      const texts = drawer['messages'].map((m: any) => m.content).join('\n');
+      expect(texts).toContain('tool-loop iterations');
+    });
+
   });
 });

@@ -136,4 +136,23 @@ describe('SubAgentSession', () => {
     await expect(s.run()).rejects.toThrow();
     expect(s.state).toBe('killed');
   });
+
+  it('posts a respond with the error when the run fails, so agent_wait resolves fast', async () => {
+    const bus = new AgentBus();
+    bus.registerMailbox('main');
+    const llm = makeLLM([{ content: 'never reached' }]);
+    const s = makeSession('implementer', brief(), llm, bus);
+    llm.chatCompletion.mockRejectedValueOnce(new Error('kaboom'));
+
+    await expect(s.run()).rejects.toThrow('kaboom');
+    expect(s.state).toBe('error');
+
+    // A respond WITH the correlationId must be on the bus — the executor's
+    // waitFor resolves on it instantly instead of hanging for the timeout.
+    const respond = bus.getMailbox('main')!.drain().find(m => m.type === 'respond');
+    expect(respond?.correlationId).toBe('corr-test');
+    expect(respond?.payload).toContain('[ERROR]');
+    expect(respond?.payload).toContain('kaboom');
+    expect(respond?.topic).toContain('implementer.error');
+  });
 });

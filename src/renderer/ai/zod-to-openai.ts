@@ -3,13 +3,19 @@ import { z } from 'zod/v3';
 /**
  * Convert a Zod schema into a JSON Schema object suitable for OpenAI function calling.
  * Supports the subset of Zod used by the agent tool definitions:
- * object, string, number, boolean, enum, optional, default, array, literal, nullable, any.
+ * object, string, number, boolean, enum, optional, default, array, literal, nullable, any, effects.
  *
  * Implementation note: the schema is treated as `any` during introspection because
  * the installed Zod package is in a transitional state (v4 packaging with a v3
  * runtime bundle). The runtime checks below are compatible with the v3 runtime.
  */
 export function zodToJsonSchema(schema: any): Record<string, unknown> {
+  // z.preprocess / z.transform wrap the real schema in ZodEffects — unwrap it so
+  // the advertised JSON schema still describes the inner object's properties.
+  if (schema instanceof z.ZodEffects) {
+    return zodToJsonSchema((schema as any).innerType());
+  }
+
   if (schema instanceof z.ZodObject) {
     const shape = schema.shape as Record<string, any>;
     const properties: Record<string, unknown> = {};

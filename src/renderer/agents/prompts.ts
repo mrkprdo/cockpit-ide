@@ -99,12 +99,12 @@ You keep the SPECGEN spec graph in sync with source.
 export const ORCHESTRATION_SECTION = `## Sub-Agent Orchestration
 You can delegate SDLC work to autonomous sub-agents. They run on a message bus with correlation IDs; you await results non-blocking.
 
-### Tools
-- agent_spawn(skill, context, expectedResult, guardrails?) — launch a sub-agent. Returns agentId + correlationId.
-- agent_dispatch(agentId, message, topic?, expectsResponse?) — send a peer message/request to a running agent.
-- agent_wait(correlationId, timeoutMs) — await the respond for a spawn/dispatch.
+### Tools (snake_case parameters; camelCase aliases also accepted)
+- agent_spawn(skill, context, expected_result, guardrails?, timeout_ms?, seed_summary?) — launch a sub-agent. Returns {agentId, correlationId}. Non-blocking; await with agent_wait.
+- agent_dispatch(agent_id, message, topic?, expects_response?) — send a peer message/request to a running agent. Returns {messageId, correlationId?}.
+- agent_wait(correlation_id, timeout_ms?) — await the respond for a spawn/dispatch. Resolves fast if the agent already finished or failed.
 - agent_status() — list all agents, their lifecycle state, tokens, steps, mailbox depth.
-- agent_kill(agentId) — abort an agent.
+- agent_kill(agent_id) — abort an agent.
 
 ### Skills
 planner 🗺️ · spec-orienter 🧭 · scaffolder 🏗️ · implementer 🛠️ · reviewer 🔍 · tester 🧪 · debugger 🐞 · git-committer 📦 · docs-writer 📝 · spec-sync 🔄
@@ -118,7 +118,8 @@ planner 🗺️ · spec-orienter 🧭 · scaffolder 🏗️ · implementer 🛠�
 
 ### Rules
 - One brief = one task. Keep context short; the sub-agent has no memory of this session.
-- Always include expectedResult — it is what the agent aims its final respond at.
+- Always include expected_result — it is what the agent aims its final respond at.
 - Always wait (agent_wait) after spawning before relying on the result.
+- If agent_wait reports a failure or timeout, do NOT blindly retry the same spawn with identical params — check agent_status, fix the brief, or kill the stuck agent first.
 - Agents may talk to each other (peer messaging) — that is fine and expected; you only see their final responds (and any broadcasts you subscribe to).
 - Kill agents that are stuck or no longer needed; they are cheap to re-spawn.`;

@@ -40,6 +40,8 @@ interface AgentRuntime {
 }
 
 const MAX_CONCURRENT = 5;
+/** How many recent respond payloads to keep for fast agent_wait resolution. */
+const RESPOND_CACHE_SIZE = 100;
 
 /**
  * AgentExecutor — the fleet orchestrator.
@@ -64,6 +66,14 @@ export class AgentExecutor {
   private maxConcurrent = MAX_CONCURRENT;
   private persistHook: ((kind: 'transcript' | 'bus' | 'roster', data: unknown) => void) | null = null;
 
+  /**
+   * Recent responds keyed by correlationId (insertion-ordered, bounded).
+   * Lets waitFor() resolve instantly when an agent finished (or failed) BEFORE
+   * the caller registered its waiter — without this, the respond is consumed
+   * by the bus and the wait burns the full timeout.
+   */
+  private respondCache = new Map<string, AgentMessage>();
+
   /** Fired on any lifecycle/status change — the UI card subscribes here. */
   onStatusChange: (() => void) | null = null;
   /** Fired when a message travels the bus (edges animation). */
@@ -72,7 +82,10 @@ export class AgentExecutor {
   constructor(bus?: AgentBus, registry?: ToolRegistry) {
     this.bus = bus ?? getDefaultBus();
     this.registry = registry ?? new ToolRegistry([]);
-    this.bus.onMessage = (msg) => this.onBusMessage?.(msg);
+    this.bus.onMessage = (msg) => {
+      this.captureRespond(msg);
+      this.onBusMessage?.(msg);
+    };
   }
 
   getBus(): AgentBus {
@@ -112,6 +125,16 @@ export class AgentExecutor {
     if (this.configOverride) return { ...this.configOverride };
     if (this.configProvider) return { ...this.configProvider() };
     return { endpoint: 'https://opencode.ai/zen/go/v1', apiKey: '', model: 'deepseek-v4-flash' };
+  }
+
+  /** Remember the latest respond per correlationId (bounded, oldest evicted). */
+  private captureRespond(msg: AgentMessage): void {
+    if (msg.type !== 'respond' || !msg.correlationId) return;
+    this.respondCache.set(msg.correlationId, msg);
+    if (this.respondCache.size > RESPOND_CACHE_SIZE) {
+      const oldest = this.respondCache.keys().next().value;
+      if (oldest !== undefined) this.respondCache.delete(oldest);
+    }
   }
 
   /** Spawn a sub-agent for a skill. Returns agentId + correlationId. Non-blocking. */
@@ -251,6 +274,13 @@ export class AgentExecutor {
 
   /** Non-blocking wait on the collector for a correlationId. */
   async waitFor(correlationId: string, timeoutMs = 120_000): Promise<WaitResult> {
+    // Fast path: the respond may already be on the bus (agent finished or
+    // failed before the caller called agent_wait). Never burn the timeout
+    // for a message we already saw.
+    const cached = this.respondCache.get(correlationId);
+    if (cached) {
+      return { ok: true, correlationId, message: cached, reason: 'respond' };
+    }
     try {
       const msg = await this.bus.waitFor(correlationId, { timeoutMs });
       return { ok: true, correlationId, message: msg, reason: 'respond' };
@@ -317,6 +347,7 @@ export class AgentExecutor {
     for (const r of this.agents.values()) r.session.abort();
     this.agents.clear();
     this.bus.clearDeliveryLog();
+    this.respondCache.clear();
     this.notifyStatus();
     this.persist('roster', this.serializeRoster());
   }

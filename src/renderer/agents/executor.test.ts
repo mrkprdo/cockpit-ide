@@ -67,6 +67,52 @@ describe('AgentExecutor', () => {
     expect(st?.resultPreview).toBe('task complete');
   });
 
+  it('waitFor resolves instantly from the respond cache when the agent already finished before the wait', async () => {
+    const ex = new AgentExecutor();
+    ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
+    const bus = ex.getBus();
+    // Simulate a fast agent that responded BEFORE main called agent_wait
+    // (without the cache this would burn the full timeout).
+    bus.publish({
+      id: 'msg-pre',
+      type: 'respond',
+      from: 'agent:fast',
+      to: 'main',
+      correlationId: 'corr-fast',
+      replyTo: 'main',
+      expectsResponse: false,
+      payload: 'fast done',
+      ts: Date.now(),
+    });
+    const res = await ex.waitFor('corr-fast', 5000);
+    expect(res.ok).toBe(true);
+    expect(res.message?.payload).toBe('fast done');
+    expect(res.message?.from).toBe('agent:fast');
+  });
+
+  it('waitFor resolves fast with the error payload when an agent fails (no 120s hang)', async () => {
+    const ex = new AgentExecutor();
+    ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
+    fetchMock.mockRejectedValue(new Error('boom'));
+    const res = ex.spawn({ skill: 'implementer', context: 'do', expectedResult: 'it' });
+
+    const wait = await ex.waitFor(res.correlationId, 5000);
+    expect(wait.ok).toBe(true);
+    expect(wait.message?.payload).toContain('[ERROR]');
+    expect(wait.message?.payload).toContain('boom');
+
+    const st = ex.status().find(s => s.id === res.agentId);
+    expect(st?.state).toBe('error');
+  });
+
+  it('waitFor returns a timeout reason when nothing ever responds', async () => {
+    const ex = new AgentExecutor();
+    ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
+    const res = await ex.waitFor('corr-never', 30);
+    expect(res.ok).toBe(false);
+    expect(res.reason).toBe('timeout');
+  });
+
   it('enforces the concurrency cap', async () => {
     const ex = new AgentExecutor();
     ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
