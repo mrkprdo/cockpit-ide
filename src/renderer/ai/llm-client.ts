@@ -13,6 +13,8 @@ type FetchLike = typeof fetch;
 interface StreamChoice {
   delta: {
     content?: string | null;
+    // DeepSeek-family models stream their hidden chain-of-thought here.
+    reasoning_content?: string | null;
     tool_calls?: StreamToolCallChunk[];
   };
   finish_reason: string | null;
@@ -54,7 +56,7 @@ export class LLMClient {
       model: this.config.model,
       messages: options.messages,
       temperature: options.temperature ?? 0.2,
-      max_tokens: options.max_tokens ?? 4096,
+      max_tokens: options.max_tokens ?? 65536,
     };
     if (options.tools && options.tools.length > 0) {
       body.tools = options.tools;
@@ -147,6 +149,12 @@ export class LLMClient {
       if (typeof delta.content === 'string' && delta.content.length > 0) {
         streamedAnyContent = true;
         yield { type: 'content', delta: delta.content };
+      } else if (typeof delta.reasoning_content === 'string' && delta.reasoning_content.length > 0) {
+        // Surface DeepSeek-style reasoning deltas so a reasoning-only turn is
+        // never mistaken for an empty completion (and so the user sees the
+        // model thinking when its answer is cut off by max_tokens).
+        streamedAnyContent = true;
+        yield { type: 'content', delta: delta.reasoning_content };
       }
 
       if (delta.tool_calls) {

@@ -127,7 +127,7 @@ export class SubAgentSession {
             tools,
             tool_choice: 'auto',
             temperature: 0.2,
-            max_tokens: 4096,
+            max_tokens: 65536,
             signal: this.controller.signal,
           });
         } catch (err: any) {
@@ -139,7 +139,7 @@ export class SubAgentSession {
             data = await this.deps.llm.chatCompletion({
               messages: this.transcript,
               temperature: 0.2,
-              max_tokens: 4096,
+              max_tokens: 65536,
               signal: this.controller.signal,
             });
           } else {

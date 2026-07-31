@@ -6,8 +6,9 @@ import { LLMClient } from '../ai/llm-client';
 import { ToolRegistry } from '../ai/tool-registry';
 import { executeToolCall } from '../ai/tool-executor';
 import { getToolContext } from '../ai/cockpit-context';
-import { estimateMessagesTokens, checkContextBudget } from '../ai/token-counter';
+import { estimateMessagesTokens, estimateMessageTokens, checkContextBudget } from '../ai/token-counter';
 import { memoryStore } from '../ai/memory-store';
+import { resolveModelLimit } from '../ai/model-metadata';
 import type { LLMMessage, LLMResponse, OpenAIFunctionSchema, LLMToolCall, LLMStreamEvent } from '../ai/types';
 
 interface ChatMessage {
@@ -36,8 +37,18 @@ interface SlashCommand {
   action: () => void | Promise<void>;
 }
 
-/** Cap on consecutive tool-call iterations in one agentic run (anti-hang guard). */
-export const MAX_TOOL_ITERATIONS = 30;
+/** How many consecutive empty completions before the endpoint is considered wedged. */
+export const MAX_CONSECUTIVE_EMPTIES = 5;
+
+/**
+ * Safety ceiling for the in-flight tool-loop request — older tool rounds are
+ * folded above this. Set to match the real context windows of the preset models
+ * (smallest is 200k); the old 20k floor assumed a ~40k model and caused the
+ * agent to churn by stripping file reads the model could easily hold.
+ */
+export const LOOP_CONTEXT_MIN_LIMIT = 131_072;
+/** Mid-loop folding ceiling is this multiple of the configured context budget. */
+export const LOOP_CONTEXT_MULTIPLIER = 3;
 
 
 export class AiDrawer {
@@ -58,6 +69,8 @@ export class AiDrawer {
   private endpoint = 'https://opencode.ai/zen/go/v1';
   private streamResponses = true;
   private contextTokenLimit = 8192;
+  /** Official max output tokens for the active model — seeded from presets, refreshed from models.dev. */
+  private modelMaxOutput = 65536;
   private toolRegistry = new ToolRegistry(ALL_TOOLS);
 
   // Agentic control state
@@ -115,18 +128,18 @@ export class AiDrawer {
   private slashFiltered: SlashCommand[] = [];
 
   private static readonly ZEN_MODELS = [
-    // Free (Zen endpoint)
-    { id: 'deepseek-v4-flash-free', label: 'DeepSeek V4 Flash (Free)', group: 'free' as const, maxContext: 131072 },
-    { id: 'north-mini-code-free', label: 'North Mini Code (Free)', group: 'free' as const, maxContext: 131072 },
-    { id: 'nemotron-3-ultra-free', label: 'Nemotron 3 Ultra (Free)', group: 'free' as const, maxContext: 131072 },
-    { id: 'mimo-v2.5-free', label: 'MiMo V2.5 (Free)', group: 'free' as const, maxContext: 131072 },
-    { id: 'big-pickle', label: 'Big Pickle (Free)', group: 'free' as const, maxContext: 131072 },
+    // Free (Zen endpoint) — context/output from models.dev
+    { id: 'deepseek-v4-flash-free', label: 'DeepSeek V4 Flash (Free)', group: 'free' as const, maxContext: 200000, maxOutput: 128000 },
+    { id: 'north-mini-code-free', label: 'North Mini Code (Free)', group: 'free' as const, maxContext: 256000, maxOutput: 64000 },
+    { id: 'nemotron-3-ultra-free', label: 'Nemotron 3 Ultra (Free)', group: 'free' as const, maxContext: 1000000, maxOutput: 128000 },
+    { id: 'mimo-v2.5-free', label: 'MiMo V2.5 (Free)', group: 'free' as const, maxContext: 200000, maxOutput: 32000 },
+    { id: 'big-pickle', label: 'Big Pickle (Free)', group: 'free' as const, maxContext: 200000, maxOutput: 32000 },
     // Paid (Go endpoint)
-    { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', group: 'paid' as const, maxContext: 131072 },
-    { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', group: 'paid' as const, maxContext: 131072 },
-    { id: 'minimax-m2.7', label: 'MiniMax M2.7', group: 'paid' as const, maxContext: 131072 },
-    { id: 'grok-build-0.1', label: 'Grok Build 0.1', group: 'paid' as const, maxContext: 131072 },
-    { id: 'kimi-k2.5', label: 'Kimi K2.5', group: 'paid' as const, maxContext: 131072 },
+    { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', group: 'paid' as const, maxContext: 1000000, maxOutput: 384000 },
+    { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', group: 'paid' as const, maxContext: 1000000, maxOutput: 384000 },
+    { id: 'minimax-m2.7', label: 'MiniMax M2.7', group: 'paid' as const, maxContext: 204800, maxOutput: 131072 },
+    { id: 'grok-build-0.1', label: 'Grok Build 0.1', group: 'paid' as const, maxContext: 256000, maxOutput: 256000 },
+    { id: 'kimi-k2.5', label: 'Kimi K2.5', group: 'paid' as const, maxContext: 262144, maxOutput: 65536 },
   ];
 
   constructor() {
@@ -186,6 +199,7 @@ export class AiDrawer {
         }
       }
       getAgentExecutor().setConfigProvider(() => ({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model }));
+      this.seedMaxOutput();
       const endpointInput = this.settingsEl?.querySelector<HTMLInputElement>('.ai-settings-input[data-key="endpoint"]');
       const apiKeyInput = this.settingsEl?.querySelector<HTMLInputElement>('.ai-settings-input[data-key="apiKey"]');
       const modelSelect = this.settingsEl?.querySelector<HTMLSelectElement>('.ai-settings-select[data-key="model-select"]');
@@ -672,6 +686,9 @@ export class AiDrawer {
           : 'https://opencode.ai/zen/go/v1';
         const epInput = this.el.querySelector<HTMLInputElement>('.ai-settings-input[data-key="endpoint"]');
         if (epInput) epInput.value = this.endpoint;
+        this.model = modelSelect.value;
+        this.seedMaxOutput();
+        this.refreshModelMetadata();
         if (entry) {
           const ctxInput = this.el.querySelector<HTMLInputElement>('.ai-settings-input[data-key="contextLimit"]');
           if (ctxInput) {
@@ -713,6 +730,8 @@ export class AiDrawer {
           this.model = modelSelect.value;
         }
       }
+      this.seedMaxOutput();
+      this.refreshModelMetadata();
       this.saveSettings();
       this.settingsEl.classList.remove('is-visible');
     });
@@ -1467,6 +1486,180 @@ export class AiDrawer {
     return argStr;
   }
 
+  /** Mid-loop folding ceiling — safely above the between-run compaction budget. */
+  private loopContextLimit(): number {
+    return Math.max(this.contextTokenLimit * LOOP_CONTEXT_MULTIPLIER, LOOP_CONTEXT_MIN_LIMIT);
+  }
+
+  /**
+   * Official max output tokens for the active model. Seeded synchronously from
+   * the preset list, then auto-refreshed from models.dev so custom models
+   * resolve their real limit too. These are reasoning models — a low max_tokens
+   * lets hidden chain-of-thought consume the whole budget, producing an empty
+   * completion.
+   */
+  private getMaxOutputTokens(): number {
+    return this.modelMaxOutput;
+  }
+
+  /** Seed max output from the preset list (sync, covers the built-in models). */
+  private seedMaxOutput(): void {
+    this.modelMaxOutput = AiDrawer.ZEN_MODELS.find(m => m.id === this.model)?.maxOutput ?? 65536;
+  }
+
+  /** Auto-refresh the active model's official limits from models.dev (async, cached). */
+  private async refreshModelMetadata(): Promise<void> {
+    const info = await resolveModelLimit(this.model, this.endpoint);
+    if (info) this.modelMaxOutput = info.maxOutput;
+  }
+
+  /**
+   * Trim the in-flight tool-loop request once it approaches the model's context
+   * window. The ceiling applies to the WHOLE request — the kept system prompt +
+   * user messages still cost tokens, so the trailing tool rounds get only the
+   * leftover budget. Keeps the system prompt, every user message, and as many
+   * trailing assistant→tool pairs as fit; folds older pairs into a short system
+   * note. Mirrors the sub-agent session's rolling window so long tool rounds
+   * can't overflow the model and make it reply with an empty completion.
+   * Returns true if anything was folded.
+   */
+  private foldToolContext(apiMessages: LLMMessage[], limit = this.loopContextLimit()): boolean {
+    if (estimateMessagesTokens(apiMessages) < limit) return false;
+
+    // Keep the system prompt (index 0) and every user message — they carry the task.
+    let keepStart = 1;
+    for (let i = 1; i < apiMessages.length; i++) {
+      if (apiMessages[i].role === 'user') keepStart = i + 1;
+    }
+
+    // Greedily keep the newest messages that fit inside the leftover budget.
+    const prefixTokens = estimateMessagesTokens(apiMessages.slice(0, keepStart));
+    const tailBudget = Math.max(0, limit - prefixTokens);
+    let tailEnd = apiMessages.length;
+    let tailTokens = 0;
+    while (tailEnd > keepStart) {
+      const tokens = estimateMessageTokens(apiMessages[tailEnd - 1]);
+      if (tailTokens + tokens > tailBudget) break;
+      tailTokens += tokens;
+      tailEnd--;
+    }
+    if (tailEnd <= keepStart + 1) return false;
+    // Align to a whole assistant(tool_calls) → tool pair — never fold a tool
+    // result while its assistant call stays behind.
+    while (tailEnd < apiMessages.length && apiMessages[tailEnd]?.role === 'tool') tailEnd++;
+    if (tailEnd <= keepStart + 1) return false;
+
+    const foldedCount = tailEnd - keepStart;
+    const note: LLMMessage = {
+      role: 'system',
+      content: `[Context trimmed mid-task: ${foldedCount} earlier tool-result messages were removed to stay within the context window. You already processed their contents; call tools again only if you still need that data.]`,
+    };
+    apiMessages.splice(keepStart, foldedCount, note);
+    return true;
+  }
+
+  /**
+   * Structurally compact the conversation into the active session's context so
+   * the model gets room to continue. Deliberately avoids the LLM summary call
+   * (`compactSession`) — that request itself can overflow on a long transcript.
+   * Keeps the task and the most recent tool rounds as readable text so the next
+   * request starts small but still knows where things stand.
+   */
+  private persistCompactedContext(apiMessages: LLMMessage[]): void {
+    const session = this.getActiveSession();
+    if (!session) return;
+    const copy = [...apiMessages];
+    this.foldToolContext(copy, 8_000); // hard-trim to a small tail
+    const lines: string[] = [];
+    for (const m of copy.slice(1)) {
+      if (m.role === 'system') lines.push(m.content || '');
+      else if (m.role === 'user') lines.push(`User: ${m.content}`);
+      else if (m.role === 'assistant') lines.push(m.content || '(tool call)');
+      else if (m.role === 'tool') lines.push(`Tool result: ${String(m.content || '').slice(0, 300)}`);
+    }
+    session.context = [{
+      role: 'system',
+      content: `[Auto-compacted mid-task because the model ran out of context. Continuing state:\n${lines.join('\n')}]`,
+    }];
+  }
+
+  /**
+   * Handle an empty completion mid-task (the model exhausted its context window).
+   * Recovery escalates and NEVER gives up — the run only ends on a final model
+   * answer, the stall detector, a wedged endpoint (MAX_CONSECUTIVE_EMPTIES), or
+   * the user aborting:
+   *   1. first empty → fold older tool rounds and retry,
+   *   2. second empty → auto-compact the session and continue from the compacted
+   *      context (rebuilds the in-flight request so it starts small),
+   *   3. any further empty → keep folding with a shrinking budget and retry.
+   * The only exception is the very first call of the run: a tiny request coming
+   * back empty is an endpoint/config problem, not context, so we surface the
+   * diagnostic instead of retrying.
+   */
+  private handleEmptyCompletion(
+    apiMessages: LLMMessage[],
+    placeholderIndex: number,
+    recoveryState: { emptyRecoveries: number; autoCompacted: boolean; consecutiveEmpties: number },
+    firstIter: boolean,
+    systemContent: string,
+  ): string | null {
+    if (firstIter) return this.emptyCompletionMessage();
+
+    recoveryState.consecutiveEmpties++;
+    // A genuinely wedged endpoint keeps returning empty even on a tiny request —
+    // auto-compact can't fix that, so stop instead of burning credits forever.
+    if (recoveryState.consecutiveEmpties >= MAX_CONSECUTIVE_EMPTIES) {
+      return this.emptyCompletionMessage();
+    }
+    recoveryState.emptyRecoveries++;
+
+    if (!recoveryState.autoCompacted && recoveryState.emptyRecoveries >= 2) {
+      // Second empty: structurally compact the session and rebuild the request.
+      recoveryState.autoCompacted = true;
+      this.persistCompactedContext(apiMessages);
+      apiMessages.length = 0;
+      apiMessages.push({ role: 'system', content: systemContent });
+      const session = this.getActiveSession();
+      if (session?.context) apiMessages.push(...session.context);
+      apiMessages.push({
+        role: 'user',
+        content: 'Continue the task. The conversation was auto-compacted because the model ran out of context.',
+      });
+      this.messages.push({
+        role: 'system',
+        content: '**Auto-compacted:** the model ran out of context mid-task; older tool results were trimmed so it can continue.',
+        timestamp: Date.now(),
+      });
+      if (placeholderIndex >= 0 && this.messages[placeholderIndex]) {
+        this.messages[placeholderIndex].role = 'thinking';
+        this.messages[placeholderIndex].content = '⚠️ Model ran out of context — auto-compacting the conversation and continuing…';
+        this.renderMessages();
+      }
+      return null;
+    }
+
+    // First empty (or empties after compaction): shrink the request and retry.
+    // Fold with a progressively tighter budget so repeated empties keep driving
+    // the request smaller until the model can respond.
+    const budget = Math.max(4_000, this.loopContextLimit() - recoveryState.emptyRecoveries * 4_000);
+    this.foldToolContext(apiMessages, budget);
+    if (placeholderIndex >= 0 && this.messages[placeholderIndex]) {
+      this.messages[placeholderIndex].role = 'thinking';
+      this.messages[placeholderIndex].content = '⚠️ Model returned an empty completion (out of context). Trimming older tool rounds and retrying…';
+      this.renderMessages();
+    }
+    return null;
+  }
+
+  /** Diagnostic surfaced when the very first call of a run — or a wedged endpoint — comes back empty. */
+  private emptyCompletionMessage(): string {
+    return (
+      '⚠️ The model returned an empty completion (no text, no tool call) — the endpoint responded without output, even on a minimal request. ' +
+      'This is usually hidden reasoning consuming the output budget (max_tokens) or an endpoint hiccup. ' +
+      'Retry the message, or try a different model/endpoint in settings.'
+    );
+  }
+
   private async callLLMWithTools(userMessage: string): Promise<string | null> {
     const ctx = getToolContext();
     const wsPath = ctx?.cockpit.getWorkspacePath() || '';
@@ -1533,12 +1726,15 @@ export class AiDrawer {
 
     let firstIter = true;
     let stepCount = 0;
-    let toolIterations = 0;
+    const recoveryState = { emptyRecoveries: 0, autoCompacted: false, consecutiveEmpties: 0 };
     for (;;) {
-      if (++toolIterations > MAX_TOOL_ITERATIONS) {
-        return `⚠️ Stopped after ${MAX_TOOL_ITERATIONS} tool-loop iterations — possible agent/sub-agent hang. Run agent_status to inspect sub-agents and agent_kill any stuck ones, then retry with a more specific instruction.`;
-      }
       if (this.abortRequested) return 'Aborted.';
+
+      // Keep the in-flight request inside a safety ceiling. A model that
+      // receives far more input than its context window can hold responds with
+      // an EMPTY completion (no content, no tool call), which used to end the
+      // run with a bare "No response." — folding older tool rounds prevents it.
+      this.foldToolContext(apiMessages);
 
       this.fetchController = new AbortController();
 
@@ -1557,7 +1753,7 @@ export class AiDrawer {
             tools,
             tool_choice: 'auto',
             temperature: 0.2,
-            max_tokens: 4096,
+            max_tokens: this.getMaxOutputTokens(),
             signal: this.fetchController.signal,
           })) {
             if (this.abortRequested) break;
@@ -1593,15 +1789,22 @@ export class AiDrawer {
           }
 
           if (!toolCalls) {
-            // Finalize the placeholder in-place — no splice, no re-add flash.
-            const finalContent = streamedContent || this.messages[placeholderIndex]?.content || 'No response.';
-            if (this.messages[placeholderIndex]) {
-              this.messages[placeholderIndex].content = finalContent;
-              this.renderMessages();
-              return null; // signals runMessage: already in messages, skip push
+            const finalContent = streamedContent || this.messages[placeholderIndex]?.content || '';
+            if (finalContent) {
+              // Finalize the placeholder in-place — no splice, no re-add flash.
+              if (this.messages[placeholderIndex]) {
+                this.messages[placeholderIndex].content = finalContent;
+                this.renderMessages();
+                return null; // signals runMessage: already in messages, skip push
+              }
+              // Placeholder was displaced (e.g. messages reset mid-run) — let runMessage add it
+              return finalContent;
             }
-            // Placeholder was displaced (e.g. messages reset mid-run) — let runMessage add it
-            return finalContent;
+            // Empty completion mid-task: fold + retry, then auto-compact, instead
+            // of ending the run with a dead "No response.".
+            const outcome = this.handleEmptyCompletion(apiMessages, placeholderIndex, recoveryState, firstIter, systemContent);
+            if (outcome === null) continue;
+            return outcome;
           }
         } else {
           const data = await client.chatCompletion({
@@ -1609,14 +1812,18 @@ export class AiDrawer {
             tools,
             tool_choice: 'auto',
             temperature: 0.2,
-            max_tokens: 4096,
+            max_tokens: this.getMaxOutputTokens(),
             signal: this.fetchController.signal,
           });
           const msg = data.choices?.[0]?.message;
           if (!msg) throw new Error('Empty response from model');
 
           if (!msg.tool_calls || msg.tool_calls.length === 0) {
-            return msg.content || 'No response.';
+            if (msg.content) return msg.content;
+            // Same empty-completion recovery as the streaming path.
+            const outcome = this.handleEmptyCompletion(apiMessages, -1, recoveryState, firstIter, systemContent);
+            if (outcome === null) continue;
+            return outcome;
           }
 
           toolCalls = msg.tool_calls;
@@ -1645,8 +1852,15 @@ export class AiDrawer {
       }
 
       if (!toolCalls || toolCalls.length === 0) {
-        return streamedContent || 'No response.';
+        if (streamedContent) return streamedContent;
+        // Same empty-completion recovery as the branches above.
+        const outcome = this.handleEmptyCompletion(apiMessages, -1, recoveryState, firstIter, systemContent);
+        if (outcome === null) continue;
+        return outcome;
       }
+
+      // A real tool round — reset the consecutive-empty counter.
+      recoveryState.consecutiveEmpties = 0;
 
       // STEP mode pauses before every batch. auto and plan already run without
       // per-call confirmation (plan gates upfront on the approved plan), so a
@@ -1712,7 +1926,7 @@ export class AiDrawer {
   private async streamPlainText(
     client: LLMClient,
     messages: LLMMessage[],
-    maxTokens = 4096,
+    maxTokens = this.getMaxOutputTokens(),
     keepAsRole: ChatMessage['role'] | null = null,
   ): Promise<string> {
     const placeholderIndex = this.messages.length;

@@ -55,7 +55,7 @@ describe('LLMClient', () => {
     expect(body.model).toBe('gpt-4');
     expect(body.messages).toEqual([{ role: 'user', content: 'hello' }]);
     expect(body.temperature).toBe(0.2);
-    expect(body.max_tokens).toBe(4096);
+    expect(body.max_tokens).toBe(65536);
   });
 
   it('includes tool schemas when tools are provided', async () => {
@@ -190,6 +190,30 @@ describe('LLMClient', () => {
       expect(events[1].type).toBe('tool_calls');
       expect((events[1] as any).tool_calls[0].function.name).toBe('read_file');
       expect((events[1] as any).tool_calls[0].function.arguments).toBe('{"path\":\"/file\"}');
+    });
+
+    it('surfaces reasoning_content so a reasoning-only turn is not an empty completion', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        body: makeSSEStream([
+          'data: {"choices":[{"delta":{"reasoning_content":"Let me think"}}]}',
+          'data: {"choices":[{"delta":{"reasoning_content":" carefully."}}]}',
+          'data: {"choices":[{"delta":{"content":"Here is the answer."}}]}',
+          'data: [DONE]',
+        ]),
+      });
+
+      const client = new LLMClient(
+        { apiKey: 'k', endpoint: 'https://api.example.com', model: 'm' },
+        fetchMock as unknown as typeof fetch
+      );
+
+      const events = await collectStream(client.streamChatCompletion({ messages: [{ role: 'user', content: 'think' }] }));
+      expect(events).toEqual([
+        { type: 'content', delta: 'Let me think' },
+        { type: 'content', delta: ' carefully.' },
+        { type: 'content', delta: 'Here is the answer.' },
+      ]);
     });
 
     it('falls back to a single JSON response when no body is provided', async () => {

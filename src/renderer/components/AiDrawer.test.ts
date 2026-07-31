@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AiDrawer } from './AiDrawer';
+import { estimateMessagesTokens } from '../ai/token-counter';
 
 function flush(): Promise<void> {
   return new Promise(r => setTimeout(r, 10));
@@ -1521,23 +1522,145 @@ describe('AiDrawer', () => {
       drawer['renderTokenUsage']();
       expect(q('.ai-token-progress-label').textContent).toContain('/');
     });
-    it('stops the tool loop after MAX_TOOL_ITERATIONS instead of hanging forever', async () => {
-      globalThis.fetch = vi.fn().mockImplementation(() =>
-        Promise.resolve(makeToolResponse('get_canvas_state'))
-      );
+
+  });
+
+  describe('empty-completion recovery', () => {
+    it('recovers from an empty completion after a tool round and retries once', async () => {
+      let call = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(makeToolResponse('get_canvas_state'));
+        // Round 2: empty completion — the stall that used to end with "No response."
+        if (call === 2) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ choices: [{ message: { content: '', role: 'assistant' } }] }),
+          });
+        }
+        return Promise.resolve(makeTextResponse('Done with the task.'));
+      });
 
       drawer = await createDrawer();
       drawer['sessionsLoaded'] = true;
       await drawer.toggle();
 
-      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'loop forever';
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'read the file and finish';
       q('.ai-chat-send-btn').click();
       await flush();
       await flush();
 
       const texts = drawer['messages'].map((m: any) => m.content).join('\n');
-      expect(texts).toContain('tool-loop iterations');
+      expect(texts).toContain('Done with the task.');
+      expect(texts).not.toContain('No response.');
+      expect(call).toBe(3);
     });
 
+    it('does not retry when the first call is already empty', async () => {
+      let call = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        call++;
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ choices: [{ message: { content: '', role: 'assistant' } }] }),
+        });
+      });
+
+      drawer = await createDrawer();
+      drawer['sessionsLoaded'] = true;
+      await drawer.toggle();
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'say hi';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      const texts = drawer['messages'].map((m: any) => m.content).join('\n');
+      expect(texts).toContain('empty completion');
+      expect(call).toBe(1);
+    });
+
+    it('auto-compacts and continues when the retry is also empty', async () => {
+      let call = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(makeToolResponse('get_canvas_state'));
+        // Rounds 2-3: two empty completions → fold+retry, then auto-compact.
+        if (call <= 3) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ choices: [{ message: { content: '', role: 'assistant' } }] }),
+          });
+        }
+        return Promise.resolve(makeTextResponse('Resumed after auto-compact.'));
+      });
+
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'read the file and finish';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      const texts = drawer['messages'].map((m: any) => m.content).join('\n');
+      expect(texts).toContain('Resumed after auto-compact.');
+      expect(texts).toContain('Auto-compacted');
+      // The compacted context must be persisted for the next run to resume from.
+      const session = drawer['sessions'].find(s => s.id === drawer['currentSessionId']);
+      expect(session?.context?.length).toBe(1);
+      expect(call).toBe(4);
+    });
+
+    it('keeps going through repeated empties after auto-compact instead of giving up', async () => {
+      let call = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(makeToolResponse('get_canvas_state'));
+        // 2nd-4th calls empty: fold → auto-compact → keep retrying.
+        if (call <= 4) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ choices: [{ message: { content: '', role: 'assistant' } }] }),
+          });
+        }
+        return Promise.resolve(makeTextResponse('Finally done.'));
+      });
+
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'read the file and finish';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      const texts = drawer['messages'].map((m: any) => m.content).join('\n');
+      expect(texts).toContain('Finally done.');
+      // The run must NOT have ended with the endpoint-diagnostic message.
+      expect(texts).not.toContain('endpoint responded without output');
+      expect(call).toBe(5);
+    });
+
+    it('foldToolContext trims old tool rounds so the whole request stays under the ceiling', async () => {
+      drawer = await createDrawer();
+      const big = 'x'.repeat(120000); // ~30k estimated tokens — one big read_file result
+      const apiMessages: any[] = [
+        { role: 'system', content: 'sys' },
+        { role: 'user', content: 'task' },
+        { role: 'assistant', content: null, tool_calls: [{ id: 'a', type: 'function', function: { name: 'read_file', arguments: '{}' } }] },
+        { role: 'tool', tool_call_id: 'a', content: big },
+        { role: 'assistant', content: null, tool_calls: [{ id: 'b', type: 'function', function: { name: 'write_file', arguments: '{}' } }] },
+        { role: 'tool', tool_call_id: 'b', content: 'Written' },
+      ];
+      const folded = drawer['foldToolContext'](apiMessages, 16000);
+      expect(folded).toBe(true);
+      expect(apiMessages.some((m: any) => (m.content || '').startsWith('[Context trimmed'))).toBe(true);
+      // The folded note must not split an assistant tool_call from its tool result,
+      // and the WHOLE request (system + users + kept tail) must stay under the budget.
+      expect(estimateMessagesTokens(apiMessages)).toBeLessThan(16000);
+    });
   });
 });
