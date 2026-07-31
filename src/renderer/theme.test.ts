@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { theme, defaultDarkTheme, defaultLightTheme, monokaiDarkTheme, monokaiLightTheme, idolDarkTheme, idolLightTheme } from './theme';
+import { theme, defaultDarkTheme, defaultLightTheme, monokaiDarkTheme, monokaiLightTheme, idolDarkTheme, idolLightTheme, carbonDarkTheme, carbonLightTheme } from './theme';
 
 describe('theme', () => {
   beforeEach(() => {
@@ -146,6 +146,14 @@ describe('theme', () => {
     for (const k of allKeys) expect(idolLightTheme[k]).toBeDefined();
   });
 
+  it('carbonDarkTheme has all required color keys', () => {
+    for (const k of allKeys) expect(carbonDarkTheme[k]).toBeDefined();
+  });
+
+  it('carbonLightTheme has all required color keys', () => {
+    for (const k of allKeys) expect(carbonLightTheme[k]).toBeDefined();
+  });
+
   it('apply sets idol-dark CSS properties', () => {
     theme.setTheme('idol', 'dark');
     const root = document.documentElement;
@@ -192,6 +200,48 @@ describe('theme', () => {
     expect(theme.colors).toBe(idolLightTheme);
   });
 
+  it('setTheme carbon+dark switches correctly', () => {
+    theme.setTheme('carbon', 'dark');
+    expect(theme.base).toBe('carbon');
+    expect(theme.mode).toBe('dark');
+    expect(theme.colors).toBe(carbonDarkTheme);
+  });
+
+  it('setTheme carbon+light switches correctly', () => {
+    theme.setTheme('carbon', 'light');
+    expect(theme.base).toBe('carbon');
+    expect(theme.mode).toBe('light');
+    expect(theme.colors).toBe(carbonLightTheme);
+  });
+
+  it('setBase carbon keeps current mode', () => {
+    theme.setMode('dark');
+    theme.setBase('carbon');
+    expect(theme.base).toBe('carbon');
+    expect(theme.mode).toBe('dark');
+    expect(theme.colors).toBe(carbonDarkTheme);
+  });
+
+  it('apply sets carbon-dark CSS properties', () => {
+    theme.setTheme('carbon', 'dark');
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--bg')).toBe('#000000');
+    expect(root.style.getPropertyValue('--surface')).toBe('#0A0A0A');
+    expect(root.style.getPropertyValue('--panel')).toBe('#141414');
+    expect(root.style.getPropertyValue('--primary')).toBe('#E6E6E6');
+    expect(root.style.getPropertyValue('--border')).toBe('#262626');
+    expect(root.style.getPropertyValue('--accent')).toBe('#FF7A1A');
+    expect(root.style.getPropertyValue('--accent2')).toBe('#FFA94D');
+  });
+
+  it('apply sets carbon-light CSS properties', () => {
+    theme.setTheme('carbon', 'light');
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--bg')).toBe('#d5d7da');
+    expect(root.style.getPropertyValue('--primary')).toBe('#1c1f24');
+    expect(root.style.getPropertyValue('--accent')).toBe('#E86A00');
+  });
+
   it('apply sets green, amber, red, onAccent, scrim CSS custom properties', () => {
     theme.setDark(true);
     const root = document.documentElement;
@@ -210,13 +260,14 @@ describe('theme', () => {
     expect(idolDarkTheme.tertiary).toBe('#5A6A6A');
   });
 
-  it('all six palettes are distinct', () => {
+  it('all eight palettes are distinct', () => {
     const bgs = [
       defaultDarkTheme.bg, defaultLightTheme.bg,
       monokaiDarkTheme.bg, monokaiLightTheme.bg,
       idolDarkTheme.bg, idolLightTheme.bg,
+      carbonDarkTheme.bg, carbonLightTheme.bg,
     ];
     const unique = new Set(bgs);
-    expect(unique.size).toBe(6);
+    expect(unique.size).toBe(8);
   });
 });

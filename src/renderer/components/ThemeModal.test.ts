@@ -16,6 +16,7 @@ describe('ThemeModal', () => {
     expect(document.body.textContent).toContain('Default');
     expect(document.body.textContent).toContain('Monokai');
     expect(document.body.textContent).toContain('Idol');
+    expect(document.body.textContent).toContain('Carbon');
     expect(document.body.textContent).toContain('Dark');
     expect(document.body.textContent).toContain('Light');
   });
@@ -185,6 +186,37 @@ describe('ThemeModal', () => {
 
     expect(theme.base).toBe('idol');
     expect(theme.mode).toBe('dark');
+  });
+
+  it('reflects carbon base when carbon active', () => {
+    theme.setTheme('carbon', 'dark');
+    new ThemeModal();
+    expect((document.querySelector('input[name="theme-base"][value="carbon"]') as HTMLInputElement).checked).toBe(true);
+    expect((document.querySelector('input[name="theme-base"][value="default"]') as HTMLInputElement).checked).toBe(false);
+  });
+
+  it('Apply with carbon+dark sets theme correctly', () => {
+    const modal = new ThemeModal();
+    modal.open();
+
+    (document.querySelector('input[name="theme-base"][value="carbon"]') as HTMLInputElement).checked = true;
+    (document.querySelector('input[name="theme-mode"][value="dark"]') as HTMLInputElement).checked = true;
+    (document.querySelector('#theme-apply') as HTMLElement).click();
+
+    expect(theme.base).toBe('carbon');
+    expect(theme.mode).toBe('dark');
+  });
+
+  it('Apply with carbon+light sets theme correctly', () => {
+    const modal = new ThemeModal();
+    modal.open();
+
+    (document.querySelector('input[name="theme-base"][value="carbon"]') as HTMLInputElement).checked = true;
+    (document.querySelector('input[name="theme-mode"][value="light"]') as HTMLInputElement).checked = true;
+    (document.querySelector('#theme-apply') as HTMLElement).click();
+
+    expect(theme.base).toBe('carbon');
+    expect(theme.mode).toBe('light');
   });
 
   it('re-renders on open to reflect current theme state', () => {
