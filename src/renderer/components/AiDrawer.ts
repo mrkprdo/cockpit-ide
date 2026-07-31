@@ -1,20 +1,12 @@
-import {
-  AGENT_SYSTEM_PROMPT,
-  ALL_TOOLS,
-  DESTRUCTIVE_TOOL_NAMES,
-  LLMClient,
-  ToolRegistry,
-  executeToolCall,
-  getToolContext,
-  estimateMessagesTokens,
-  checkContextBudget,
-  memoryStore,
-  type LLMMessage,
-  type LLMResponse,
-  type OpenAIFunctionSchema,
-  type LLMToolCall,
-  type LLMStreamEvent,
-} from '../ai';
+import { AGENT_SYSTEM_PROMPT } from '../ai/prompts';
+import { ALL_TOOLS, DESTRUCTIVE_TOOL_NAMES } from '../ai/tool-definitions';
+import { LLMClient } from '../ai/llm-client';
+import { ToolRegistry } from '../ai/tool-registry';
+import { executeToolCall } from '../ai/tool-executor';
+import { getToolContext } from '../ai/cockpit-context';
+import { estimateMessagesTokens, checkContextBudget } from '../ai/token-counter';
+import { memoryStore } from '../ai/memory-store';
+import type { LLMMessage, LLMResponse, OpenAIFunctionSchema, LLMToolCall, LLMStreamEvent } from '../ai/types';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'tool' | 'thinking';

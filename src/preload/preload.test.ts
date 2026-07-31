@@ -135,6 +135,11 @@ describe('preload.ts — exposed API shape', () => {
     expect(typeof api.fs.onChanged).toBe('function');
   });
 
+  it('exposes diagnostics namespace', () => {
+    expect(api.diagnostics).toBeDefined();
+    expect(typeof api.diagnostics.reportError).toBe('function');
+  });
+
   it('exposes git namespace with all 17 methods', () => {
     expect(api.git).toBeDefined();
     expect(typeof api.git.remotes).toBe('function');
@@ -341,6 +346,12 @@ describe('preload.ts — IPC wiring (invoke-based)', () => {
     invokeCalls.length = 0;
     api.workspace.addRecent('/ws');
     expect(invokeCalls.some(c => c[0] === 'workspace:addRecent' && c[1] === '/ws')).toBe(true);
+  });
+
+  it('diagnostics.reportError sends diagnostics:rendererError', () => {
+    sendCalls.length = 0;
+    api.diagnostics.reportError('window.onerror', 'boom');
+    expect(sendCalls.some(c => c[0] === 'diagnostics:rendererError' && c[1] === 'window.onerror' && c[2] === 'boom')).toBe(true);
   });
 
   it('workspace.removeRecent invokes workspace:removeRecent', () => {

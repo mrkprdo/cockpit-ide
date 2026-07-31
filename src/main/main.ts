@@ -18,6 +18,23 @@ function logFatal(kind: string, err: unknown): void {
 process.on('uncaughtException', (err) => logFatal('uncaughtException', err));
 process.on('unhandledRejection', (err) => logFatal('unhandledRejection', err));
 
+// Fatal JS errors in the renderer (window.onerror / unhandledrejection) have
+// no console once packaged — forward them here so they land in crash.log too.
+ipcMain.on('diagnostics:rendererError', (_event, kind: string, message: string) => {
+  logFatal(`renderer:${kind}`, message);
+});
+
+// A renderer crash (OOM, GPU fault, etc.) otherwise leaves a permanently
+// blank/frozen window with no log and no recovery. Log it and reload so the
+// user gets their workspace back (state is already persisted via
+// workspace:save) instead of a dead window.
+function wireCrashRecovery(win: BrowserWindow): void {
+  win.webContents.on('render-process-gone', (_event, details) => {
+    logFatal('render-process-gone', new Error(`reason=${details.reason} exitCode=${details.exitCode}`));
+    if (!win.isDestroyed()) win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  });
+}
+
 function resolveCliWorkspace(): string | null {
   const userArgs = app.isPackaged ? process.argv.slice(1) : process.argv.slice(2);
   for (const arg of userArgs) {
@@ -309,6 +326,7 @@ function createWindow(): void {
   mainWindow.webContents.on('will-navigate', (event) => { event.preventDefault(); });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   installZoomControls(mainWindow.webContents);
+  wireCrashRecovery(mainWindow);
 
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
@@ -365,6 +383,7 @@ function createNewWindow(): void {
   win.webContents.on('will-navigate', (event) => { event.preventDefault(); });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   installZoomControls(win.webContents);
+  wireCrashRecovery(win);
   if (process.argv.includes('--dev')) {
     win.webContents.openDevTools();
   }
@@ -814,7 +833,14 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle('workspace:getRecent', () => getRecentWorkspaces());
-  ipcMain.handle('workspace:addRecent', (_event, p: string) => { addRecentWorkspace(p); });
+  // Only record paths already trusted (OS dialog, CLI arg, or a path persisted
+  // from a prior session) — otherwise a renderer could plant an arbitrary path
+  // here, which trustWorkspacePath() then blindly trusts on the next launch,
+  // widening the fs sandbox root to anything.
+  ipcMain.handle('workspace:addRecent', (_event, p: string) => {
+    if (!isTrustedWorkspacePath(p)) return;
+    addRecentWorkspace(p);
+  });
   ipcMain.handle('workspace:removeRecent', (_event, p: string) => { removeRecentWorkspace(p); });
 
   ipcMain.handle('shell:openExternal', async (_event, url: string) => {

@@ -345,6 +345,8 @@ describe('main.ts IPC handlers', () => {
     it('workspace:addRecent adds path to recent list', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('workspace:addRecent')!;
+      const main = await import('../main/main');
+      main._testTrustPath('/ws2');
       vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(['/ws1']));
       const writeSpy = vi.mocked(fs.writeFileSync);
       writeSpy.mockClear();
@@ -360,6 +362,8 @@ describe('main.ts IPC handlers', () => {
     it('workspace:addRecent caps list at 5 entries', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('workspace:addRecent')!;
+      const main = await import('../main/main');
+      main._testTrustPath('/ws6');
       vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(['/ws1', '/ws2', '/ws3', '/ws4', '/ws5']));
       const writeSpy = vi.mocked(fs.writeFileSync);
       writeSpy.mockClear();
@@ -370,6 +374,19 @@ describe('main.ts IPC handlers', () => {
       const written = JSON.parse(writeSpy.mock.calls[0][1] as string);
       expect(written).toEqual(['/ws6', '/ws1', '/ws2', '/ws3', '/ws4']);
       expect(written.length).toBe(5);
+    });
+
+    it('workspace:addRecent rejects an untrusted path (no dialog/CLI origin)', async () => {
+      const fs = await import('fs');
+      const handler = handleMap.get('workspace:addRecent')!;
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(['/ws1']));
+      const writeSpy = vi.mocked(fs.writeFileSync);
+      writeSpy.mockClear();
+      writeSpy.mockImplementation(() => {});
+
+      await handler({}, '/attacker/planted/path');
+
+      expect(writeSpy).not.toHaveBeenCalled();
     });
 
     it('workspace:removeRecent removes path from recent list', async () => {
@@ -399,6 +416,22 @@ describe('main.ts IPC handlers', () => {
 
       const written = JSON.parse(writeSpy.mock.calls[0][1] as string);
       expect(written).toEqual(['/ws1', '/ws2']);
+    });
+  });
+
+  describe('diagnostics:rendererError', () => {
+    it('appends the renderer error to crash.log', async () => {
+      const fs = await import('fs');
+      const handler = onMap.get('diagnostics:rendererError')!;
+      const appendSpy = vi.mocked(fs.appendFileSync);
+      appendSpy.mockClear();
+
+      handler({}, 'window.onerror', 'TypeError: boom');
+
+      expect(appendSpy).toHaveBeenCalled();
+      const line = appendSpy.mock.calls[0][1] as string;
+      expect(line).toContain('renderer:window.onerror');
+      expect(line).toContain('TypeError: boom');
     });
   });
 

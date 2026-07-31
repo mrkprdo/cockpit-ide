@@ -106,4 +106,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('ide:openFile', handler);
     },
   },
+  diagnostics: {
+    reportError: (kind: string, message: string) => ipcRenderer.send('diagnostics:rendererError', kind, message),
+  },
 });

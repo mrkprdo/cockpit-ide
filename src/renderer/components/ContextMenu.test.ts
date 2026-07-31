@@ -86,4 +86,42 @@ describe('ContextMenu', () => {
     expect(menus.length).toBe(1);
     expect(menus[0].querySelector('.ctx-item')!.textContent).toBe('Second');
   });
+
+  it('exposes menu/menuitem roles and makes items keyboard-focusable', () => {
+    new ContextMenu([
+      { label: 'Copy', action: vi.fn() },
+      { separator: true },
+      { label: 'Disabled', action: vi.fn(), disabled: true },
+    ], 0, 0);
+
+    const menu = document.querySelector('.ctx-menu') as HTMLElement;
+    expect(menu.getAttribute('role')).toBe('menu');
+
+    const item = document.querySelector('.ctx-item:not(.ctx-disabled)') as HTMLElement;
+    expect(item.getAttribute('role')).toBe('menuitem');
+    expect(item.tabIndex).toBe(0);
+
+    const disabled = document.querySelector('.ctx-disabled') as HTMLElement;
+    expect(disabled.getAttribute('aria-disabled')).toBe('true');
+    expect(disabled.tabIndex).toBe(-1);
+  });
+
+  it('fires action on Enter/Space and focuses the first enabled item on open', () => {
+    const action = vi.fn();
+    new ContextMenu([{ label: 'Run', action }], 0, 0);
+
+    const item = document.querySelector('.ctx-item') as HTMLElement;
+    expect(document.activeElement).toBe(item);
+
+    item.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(action).toHaveBeenCalledOnce();
+  });
+
+  it('closes on Escape', () => {
+    new ContextMenu([{ label: 'X' }], 0, 0);
+    expect(document.querySelector('.ctx-menu')).toBeTruthy();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.querySelector('.ctx-menu')).toBeNull();
+  });
 });

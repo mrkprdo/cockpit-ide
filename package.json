@@ -1,6 +1,6 @@
 {
   "name": "cockpit-ide",
-  "version": "0.0.20260701",
+  "version": "0.0.20260730",
   "description": "The IDE for developers who thinks spatially",
   "main": "dist/main/main.js",
   "scripts": {
@@ -45,7 +45,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "@xterm/addon-fit": "^0.11.0",
     "chokidar": "^5.0.0",
     "node-pty": "^1.1.0",

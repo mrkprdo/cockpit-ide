@@ -516,6 +516,22 @@ describe('GitPlugin', () => {
       expect(menu.style.display).not.toBe('none');
     });
 
+    it('dropdown items are keyboard-focusable and activatable via Enter', async () => {
+      new GitPlugin(container, '/test/repo');
+      await flush();
+
+      const items = container.querySelectorAll<HTMLElement>('.git-diff-dropdown-item');
+      for (const item of items) {
+        expect(item.tabIndex).toBe(0);
+        expect(item.getAttribute('role')).toBe('button');
+      }
+
+      items[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await flush();
+
+      expect(items[1].className).toContain('is-active');
+    });
+
     it('clicking "View side by side" switches mode and closes dropdown', async () => {
       new GitPlugin(container, '/test/repo');
       await flush();

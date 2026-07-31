@@ -406,11 +406,13 @@ export class GitPlugin {
     this.unifiedItem.className = 'git-diff-dropdown-item is-active';
     this.unifiedItem.textContent = 'View unified';
     this.unifiedItem.addEventListener('click', () => { this.setDiffViewMode('unified'); this.closeDropdown(); });
+    this.focusable(this.unifiedItem);
 
     this.sideBySideItem = document.createElement('div');
     this.sideBySideItem.className = 'git-diff-dropdown-item';
     this.sideBySideItem.textContent = 'View side by side';
     this.sideBySideItem.addEventListener('click', () => { this.setDiffViewMode('side-by-side'); this.closeDropdown(); });
+    this.focusable(this.sideBySideItem);
 
     this.dropdownMenu.appendChild(this.unifiedItem);
     this.dropdownMenu.appendChild(this.sideBySideItem);
@@ -504,9 +506,10 @@ export class GitPlugin {
     return el;
   }
 
-  /** Make a clickable row reachable and activatable by keyboard */
+  /** Make a clickable row reachable, activatable, and identifiable by keyboard/AT */
   private focusable(el: HTMLElement): void {
     el.tabIndex = 0;
+    if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();

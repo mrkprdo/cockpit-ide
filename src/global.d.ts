@@ -132,5 +132,8 @@ interface Window {
       status: () => Promise<{ running: boolean; port: number; workspace: string | null; lockPaths: string[] }>;
       onOpenFile: (callback: (filePath: string) => void) => () => void;
     };
+    diagnostics: {
+      reportError: (kind: string, message: string) => void;
+    };
   };
 }
