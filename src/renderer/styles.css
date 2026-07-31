@@ -1894,10 +1894,14 @@ textarea,
 
 /* ===== Chat Loading — vertical scan bars (no bounce) ===== */
 .ai-chat-loading {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 3px;
   padding: 10px 16px 8px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
 }
 .ai-chat-loading-dot {
   width: 2px;
