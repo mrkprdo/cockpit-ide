@@ -1123,6 +1123,48 @@ describe('SpecsMapPlugin', () => {
     expect(headers()[0].style.display).not.toBe('none');
   });
 
+  it('renders Constellation nodes as circles (square footprint, layer ring)', async () => {
+    const sm = new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const opts = container.querySelectorAll<HTMLElement>('.sm-view-toggle .sm-view-opt');
+    (opts[1] as HTMLElement).click();
+    await new Promise(r => setTimeout(r, 30));
+
+    const nodes = container.querySelectorAll<HTMLElement>('.sm-node');
+    expect(nodes.length).toBeGreaterThan(0);
+    for (const n of nodes) {
+      expect(n.classList.contains('sm-flock-node')).toBe(true);
+      const w = parseFloat(n.style.width);
+      const h = parseFloat(n.style.height);
+      expect(w).toBe(h);
+      expect(w).toBeGreaterThan(0);
+      expect(w).toBeLessThan(200);
+      expect(n.style.getPropertyValue('--sm-flock-color')).toBeTruthy();
+    }
+
+    (opts[0] as HTMLElement).click();
+    const stackNodes = container.querySelectorAll<HTMLElement>('.sm-node');
+    expect(stackNodes.length).toBeGreaterThan(0);
+    for (const n of stackNodes) {
+      expect(n.classList.contains('sm-flock-node')).toBe(false);
+      expect(n.style.width).not.toBe(n.style.height);
+    }
+  });
+
+  it('Constellation circles stay clickable for the detail panel', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const opts = container.querySelectorAll<HTMLElement>('.sm-view-toggle .sm-view-opt');
+    (opts[1] as HTMLElement).click();
+    await new Promise(r => setTimeout(r, 30));
+
+    const circle = container.querySelector<HTMLElement>('.sm-node.sm-flock-node')!;
+    expect(circle).toBeTruthy();
+    circle.click();
+    expect(circle.classList.contains('sm-selected')).toBe(true);
+    expect(container.textContent).toContain('SPEC FILE');
+  });
+
   it('destroy while in Constellation mode does not throw', async () => {
     const sm = new SpecsMapPlugin(container, '/test/ws');
     await flushSpecs();
@@ -1130,6 +1172,80 @@ describe('SpecsMapPlugin', () => {
     (opts[1] as HTMLElement).click();
     await new Promise(r => setTimeout(r, 30));
     expect(() => sm.destroy()).not.toThrow();
+  });
+
+  it('shows the 3D navigation hint when entering Constellation', async () => {
+    new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const sub = container.querySelector('.sm-header-sub') as HTMLElement;
+    const opts = container.querySelectorAll<HTMLElement>('.sm-view-toggle .sm-view-opt');
+    expect(sub.textContent).toContain('hover to trace');
+    (opts[1] as HTMLElement).click();
+    expect(sub.textContent).toContain('orbit');
+    (opts[0] as HTMLElement).click();
+    expect(sub.textContent).toContain('hover to trace');
+  });
+
+  it('left-drag orbits the 3D camera in Constellation view', async () => {
+    const sm = new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const opts = container.querySelectorAll<HTMLElement>('.sm-view-toggle .sm-view-opt');
+    (opts[1] as HTMLElement).click();
+    await new Promise(r => setTimeout(r, 30));
+
+    const viewport = container.querySelector('.sm-graph')!.parentElement!;
+    viewport.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 0, clientY: 0 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, button: 0, clientX: 200, clientY: 100 }));
+    await new Promise(r => setTimeout(r, 20));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
+    await new Promise(r => setTimeout(r, 20));
+
+    const cam = (sm as any).flock.getCamera();
+    expect(cam.yaw).toBeGreaterThan(0);
+    expect(cam.pitch).toBeGreaterThan(0);
+
+    const fitBtn = container.querySelector<HTMLElement>('[title="Reset view"]')!;
+    fitBtn.click();
+    const reset = (sm as any).flock.getCamera();
+    expect(reset.yaw).toBe(0);
+    expect(reset.pitch).toBe(0);
+  });
+
+  it('middle-drag still pans in Constellation view (no orbit)', async () => {
+    const sm = new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const opts = container.querySelectorAll<HTMLElement>('.sm-view-toggle .sm-view-opt');
+    (opts[1] as HTMLElement).click();
+    await new Promise(r => setTimeout(r, 30));
+
+    const viewport = container.querySelector('.sm-graph')!.parentElement!;
+    viewport.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 1, clientX: 0, clientY: 0 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, button: 1, clientX: 60, clientY: 40 }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 1 }));
+    await new Promise(r => setTimeout(r, 30));
+
+    const cam = (sm as any).flock.getCamera();
+    expect(cam.yaw).toBe(0);
+    expect(cam.pitch).toBe(0);
+  });
+
+  it('left-drag stays 2D pan in Stack view (no camera orbit)', async () => {
+    const sm = new SpecsMapPlugin(container, '/test/ws');
+    await flushSpecs();
+    const panBefore = (sm as any).panX;
+    const panBeforeY = (sm as any).panY;
+    const viewport = container.querySelector('.sm-graph')!.parentElement!;
+    viewport.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 10, clientY: 10 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, button: 0, clientX: 60, clientY: 40 }));
+    await new Promise(r => setTimeout(r, 20));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
+    await new Promise(r => setTimeout(r, 20));
+
+    const cam = (sm as any).flock.getCamera();
+    expect(cam.yaw).toBe(0);
+    expect(cam.pitch).toBe(0);
+    expect((sm as any).panX).toBeCloseTo(panBefore + 50, 4);
+    expect((sm as any).panY).toBeCloseTo(panBeforeY + 30, 4);
   });
 
 });

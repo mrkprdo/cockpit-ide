@@ -112,6 +112,55 @@ describe('projectFlock', () => {
   });
 });
 
+describe('projectFlock with an orbit camera', () => {
+  const body = (x: number, y = 0, z = 0) =>
+    ({ id: 'b', x, y, z, vx: 0, vy: 0, vz: 0, w: 280, h: 100 });
+
+  it('uses the identity camera by default (yaw/pitch 0)', () => {
+    const p = projectFlock(body(100, 200, 50));
+    expect(p.x).toBeCloseTo(100 * p.scale, 6);
+    expect(p.y).toBeCloseTo(200 * p.scale, 6);
+  });
+
+  it('rotates +x toward the viewer at yaw −90° (depth becomes size)', () => {
+    // −90° yaw maps +x to +z (toward the viewer), so the body swings to
+    // scale > 1 and near x≈0.
+    const p = projectFlock(body(300), undefined, { yaw: -Math.PI / 2, pitch: 0 });
+    expect(p.scale).toBeGreaterThan(1);
+    expect(Math.abs(p.x)).toBeLessThan(5);
+    // Flipped 180°, the same body recedes behind the camera plane.
+    const far = projectFlock(body(300), undefined, { yaw: Math.PI / 2, pitch: 0 });
+    expect(far.scale).toBeLessThan(1);
+  });
+
+  it('rotates +y into depth at pitch 90°', () => {
+    const p = projectFlock(body(0, 300), undefined, { yaw: 0, pitch: Math.PI / 2 });
+    expect(p.scale).toBeGreaterThan(1);
+    expect(Math.abs(p.y)).toBeLessThan(5);
+  });
+
+  it('is deterministic for a fixed camera and body', () => {
+    const cam = { yaw: 0.7, pitch: -0.3 };
+    const a = projectFlock(body(120, 40, -80), undefined, cam);
+    const b = projectFlock(body(120, 40, -80), undefined, cam);
+    expect(a.x).toBeCloseTo(b.x, 9);
+    expect(a.y).toBeCloseTo(b.y, 9);
+    expect(a.scale).toBeCloseTo(b.scale, 9);
+  });
+
+  it('never mirrors or explodes a body that orbits past the camera plane', () => {
+    // A body pushed past the focal plane must stay finite with a non-negative scale.
+    const near = projectFlock(body(100, 0, FLOCK_FOCAL + 200), undefined, { yaw: 0.4, pitch: 0.2 });
+    expect(Number.isFinite(near.x)).toBe(true);
+    expect(Number.isFinite(near.y)).toBe(true);
+    expect(near.scale).toBeGreaterThan(0);
+    expect(near.scale).toBeLessThanOrEqual(FLOCK_SCALE_MAX);
+    const p = projectFlock(body(2000), undefined, { yaw: -Math.PI / 3, pitch: 0 });
+    expect(Number.isFinite(p.x)).toBe(true);
+    expect(p.scale).toBeGreaterThan(0);
+  });
+});
+
 describe('flockStep', () => {
   it('settles connected nodes near the spring rest length (flock closer, in 3D)', () => {
     const { bodies, edges } = makeFixture();
@@ -168,6 +217,63 @@ describe('flockStep', () => {
         expect(dist(iso, c)).toBeGreaterThan(150);
       }
     }
+  });
+
+  it('spreads isolated nodes into a field instead of pulling them together', () => {
+    // Worst case: every body has no edges and starts on top of the others.
+    // Repulsion must keep full strength and push them apart — they must NOT
+    // collapse into a single blob under the centering force.
+    const bodies = createFlockBodies([
+      { id: 'a', x: 0, y: 0, w: 80, h: 80 },
+      { id: 'b', x: 0, y: 0, w: 80, h: 80 },
+      { id: 'c', x: 0, y: 0, w: 80, h: 80 },
+      { id: 'd', x: 0, y: 0, w: 80, h: 80 },
+    ]);
+    for (let i = 0; i < 600; i++) flockStep(bodies, [], { t: i / 60 });
+    const arr = [...bodies.values()];
+    for (let i = 0; i < arr.length; i++) {
+      for (let j = i + 1; j < arr.length; j++) {
+        expect(dist(arr[i], arr[j])).toBeGreaterThan(150);
+      }
+    }
+  });
+
+  it('exempts connected pairs from repulsion (no spring-vs-repel fight)', () => {
+    // Two connected bodies start on top of each other under a huge repulsion
+    // radius/force: the spring owns their spacing, so they settle at rest
+    // instead of being torn apart by the same repulsion that separates
+    // unconnected nodes.
+    const bodies = createFlockBodies([
+      { id: 'a', x: 0, y: 0, w: 280, h: 100 },
+      { id: 'b', x: 0, y: 0, w: 280, h: 100 },
+    ]);
+    const edges = createFlockEdges([{ id: 'a', deps: ['b'] }, { id: 'b', deps: [] }]);
+    run(bodies, edges, 600, { repulsionRadius: 2000, repulsion: 50000 });
+    const a = bodies.get('a')!;
+    const b = bodies.get('b')!;
+    const rest = 280 + DEFAULT_FLOCK_OPTIONS.restGap; // 324
+    expect(dist(a, b)).toBeGreaterThan(rest - 70);
+    expect(dist(a, b)).toBeLessThan(rest + 70);
+  });
+
+  it('alignment steers bodies toward the mean velocity of neighbors', () => {
+    const bodies = createFlockBodies([
+      { id: 'a', x: 0, y: 0, w: 40, h: 40 },
+      { id: 'b', x: 60, y: 0, w: 40, h: 40 },
+    ]);
+    const a = bodies.get('a')!;
+    const b = bodies.get('b')!;
+    a.vx = 100;
+    b.vx = 0;
+    const before = Math.abs(a.vx - b.vx);
+    for (let i = 0; i < 60; i++) {
+      flockStep(bodies, [], {
+        dt: 1 / 60, t: i / 60, align: 1, alignRadius: 500, repulsionRadius: 0, wander: 0,
+      });
+    }
+    const after = Math.abs(a.vx - b.vx);
+    expect(after).toBeLessThan(before);
+    expect(b.vx).toBeGreaterThan(0); // slow body speeds up toward the fast one
   });
 
   it('is deterministic for identical inputs and phases', () => {

@@ -12,7 +12,7 @@ import {
 } from '../specs/layout';
 import { CyclesController, CYCLE_COLORS, type CyclesHost } from './specsmap/cycles';
 import { SearchController, type SearchHost } from './specsmap/search';
-import { FlockController, type FlockHost } from './specsmap/flock';
+import { FlockController, flockNodeDiameter, ORBIT_SENSITIVITY, type FlockHost } from './specsmap/flock';
 
 interface SpecData {
   name?: string;
@@ -96,7 +96,9 @@ export class SpecsMapPlugin {
   private readonly onSearchKeydown: (e: KeyboardEvent) => void;
   private scale = 1;
   private fitScale = 1;
-  private isPanning = false;
+  private dragMode: 'none' | 'pan' | 'orbit' = 'none';
+  private orbitStartYaw = 0;
+  private orbitStartPitch = 0;
   private panStartX = 0;
   private panStartY = 0;
   private panStartPanX = 0;
@@ -286,23 +288,28 @@ export class SpecsMapPlugin {
     this.ready = new Promise(resolve => { this.readyResolve = resolve; });
 
     this.onDocMouseMove = (e: MouseEvent) => {
-      if (!this.isPanning) return;
+      if (this.dragMode === 'none') return;
       this.pendingMouseX = e.clientX;
       this.pendingMouseY = e.clientY;
       if (!this.rafPanPending) {
         this.rafPanPending = true;
         requestAnimationFrame(() => {
-          if (this.isPanning) {
+          if (this.dragMode === 'pan') {
             this.panX = this.panStartPanX + (this.pendingMouseX - this.panStartX);
             this.panY = this.panStartPanY + (this.pendingMouseY - this.panStartY);
             this.applyTransform();
+          } else if (this.dragMode === 'orbit') {
+            this.flock?.setCamera(
+              this.orbitStartYaw + (this.pendingMouseX - this.panStartX) / ORBIT_SENSITIVITY,
+              this.orbitStartPitch + (this.pendingMouseY - this.panStartY) / ORBIT_SENSITIVITY,
+            );
           }
           this.rafPanPending = false;
         });
       }
     };
     this.onDocMouseUp = () => {
-      this.isPanning = false;
+      this.dragMode = 'none';
       this.viewport.style.cursor = '';
       this.nodeLayer.style.willChange = '';
       this.svg.style.willChange = '';
@@ -663,6 +670,49 @@ export class SpecsMapPlugin {
       .sm-isolated {
         box-shadow: 0 0 0 1px #fbbf2444, 0 0 14px #fbbf2433 !important;
       }
+      .sm-node.sm-flock-node {
+        border-radius: 50%;
+        border-width: 2px;
+        border-style: solid;
+        border-color: var(--sm-flock-color, var(--border));
+        background: color-mix(in oklab, var(--sm-flock-color, var(--border)) 12%, var(--surface));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: 0;
+        box-shadow: 0 0 12px color-mix(in oklab, var(--sm-flock-color, var(--border)) 25%, transparent);
+      }
+      .sm-flock-node .sm-node-inner {
+        width: 100%;
+        height: 100%;
+        padding: 0 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+      }
+      .sm-flock-node .sm-node-head { display: block; width: 100%; }
+      .sm-flock-node .sm-dot,
+      .sm-flock-node .sm-layer-badge,
+      .sm-flock-node .sm-file,
+      .sm-flock-node .sm-meta,
+      .sm-flock-node .sm-port {
+        display: none;
+      }
+      .sm-flock-node .sm-name {
+        font-size: 9px;
+        line-height: 1.2;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .sm-node-ui.sm-flock-node .sm-name { display: none; }
+      .sm-node.sm-flock-node.sm-selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent), 0 0 18px color-mix(in oklab, var(--accent) 18%, transparent);
+      }
       .sm-port {
         position: absolute;
         width: 6px; height: 6px;
@@ -734,12 +784,20 @@ export class SpecsMapPlugin {
     this.viewport.addEventListener('mousedown', (e) => {
       if (e.button !== 0 && e.button !== 1) return;
       if ((e.target as HTMLElement).closest('.sm-node')) return;
-      this.isPanning = true;
+      // Constellation: left-drag orbits the camera in 3D, middle-drag pans.
+      // Stack: left/middle-drag pans as before.
+      const orbit = this.viewMode === 'constellation' && e.button === 0;
+      this.dragMode = orbit ? 'orbit' : 'pan';
       this.panStartX = e.clientX;
       this.panStartY = e.clientY;
       this.panStartPanX = this.panX;
       this.panStartPanY = this.panY;
-      this.viewport.style.cursor = 'grabbing';
+      if (orbit && this.flock) {
+        const cam = this.flock.getCamera();
+        this.orbitStartYaw = cam.yaw;
+        this.orbitStartPitch = cam.pitch;
+      }
+      this.viewport.style.cursor = orbit ? 'crosshair' : 'grabbing';
       this.nodeLayer.style.willChange = 'transform';
       this.svg.style.willChange = 'transform';
     });
@@ -1299,6 +1357,7 @@ export class SpecsMapPlugin {
       this.nodeEls.set(node.id, el);
     }
 
+    if (this.viewMode === 'constellation') this.applyFlockNodeStyle();
     this.fitGraph();
   }
 
@@ -1581,12 +1640,14 @@ export class SpecsMapPlugin {
     const rect = this.viewport.getBoundingClientRect();
     const cw = rect.width || 800;
     const ch = rect.height || 600;
+    const nw = this.viewMode === 'constellation' ? flockNodeDiameter(node) : node.w;
+    const nh = this.viewMode === 'constellation' ? flockNodeDiameter(node) : node.h;
 
     const availableW = cw - PANEL_W;
-    const targetScale = Math.min(availableW / (node.w * 3), ch / (node.h * 3), 1.5);
+    const targetScale = Math.min(availableW / (nw * 3), ch / (nh * 3), 1.5);
     const scale = Math.max(targetScale, this.fitScale);
-    const targetPanX = (availableW - node.w * scale) / 2 - node.x * scale;
-    const targetPanY = (ch - node.h * scale) / 2 - node.y * scale;
+    const targetPanX = (availableW - nw * scale) / 2 - node.x * scale;
+    const targetPanY = (ch - nh * scale) / 2 - node.y * scale;
 
     this.animateTo(targetPanX, targetPanY, scale, 300);
   }
@@ -1959,10 +2020,13 @@ export class SpecsMapPlugin {
     const cw = rect.width || 800;
     const ch = rect.height || 600;
 
+    // In Constellation the nodes are circles; fit to their real footprint.
+    const wOf = (n: SpecNode) => this.viewMode === 'constellation' ? flockNodeDiameter(n) : n.w;
+    const hOf = (n: SpecNode) => this.viewMode === 'constellation' ? flockNodeDiameter(n) : n.h;
     const minX = Math.min(...this.nodes.map(n => n.x));
-    const maxX = Math.max(...this.nodes.map(n => n.x + n.w));
+    const maxX = Math.max(...this.nodes.map(n => n.x + wOf(n)));
     const minY = Math.min(...this.nodes.map(n => n.y));
-    const maxY = Math.max(...this.nodes.map(n => n.y + n.h));
+    const maxY = Math.max(...this.nodes.map(n => n.y + hOf(n)));
     const graphW = maxX - minX;
     const graphH = maxY - minY;
 
@@ -1983,6 +2047,7 @@ export class SpecsMapPlugin {
     this.scale = target.scale;
     this.panX = target.panX;
     this.panY = target.panY;
+    this.flock?.resetCamera();
     this.applyTransform();
   }
 
@@ -2000,13 +2065,21 @@ export class SpecsMapPlugin {
       this.cycles.reset();
       this.updateCycleBtnColor();
       this.hideLayerHeaders();
+      this.applyFlockNodeStyle();
+      this.setHeaderHint('drag to orbit · wheel to zoom · middle-drag to pan');
       this.flock.start();
     } else {
       this.flock.stop();
       this.nodes = computeLayout(this.nodes);
       this.renderGraph();
       if (this.selectedId) this.nodeEls.get(this.selectedId)?.classList.add('sm-selected');
+      this.updateHeaderCounts();
     }
+  }
+
+  private setHeaderHint(text: string): void {
+    const sub = this.el.querySelector<HTMLElement>('.sm-header-sub');
+    if (sub) sub.textContent = text;
   }
 
   private updateViewToggleStyles(): void {
@@ -2023,6 +2096,29 @@ export class SpecsMapPlugin {
   /** Re-curve all cached SVG edges from the (possibly flock-moved) node positions. */
   private syncEdgesFromNodes(): void {
     const nodeMap = new Map(this.nodes.map(n => [n.id, n]));
+    if (this.viewMode === 'constellation') {
+      // Circles: connect center to center, pulling endpoints back to the
+      // perimeters so lines kiss the dots instead of running through them.
+      for (const path of this.cachedEdgePaths) {
+        const src = nodeMap.get(path.dataset.source!);
+        const tgt = nodeMap.get(path.dataset.target!);
+        if (!src || !tgt) continue;
+        const r1 = flockNodeDiameter(src) / 2;
+        const r2 = flockNodeDiameter(tgt) / 2;
+        const x1 = src.x + r1;
+        const y1 = src.y + r1;
+        const x2 = tgt.x + r2;
+        const y2 = tgt.y + r2;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len;
+        const uy = dy / len;
+        path.setAttribute('d',
+          `M${x1 + ux * r1},${y1 + uy * r1} L${x2 - ux * r2},${y2 - uy * r2}`);
+      }
+      return;
+    }
     for (const path of this.cachedEdgePaths) {
       const src = nodeMap.get(path.dataset.source!);
       const tgt = nodeMap.get(path.dataset.target!);
@@ -2036,6 +2132,24 @@ export class SpecsMapPlugin {
   private hideLayerHeaders(): void {
     for (const h of this.nodeLayer.querySelectorAll<HTMLElement>('.sm-layer-header')) {
       h.style.display = 'none';
+    }
+  }
+
+  /** Restyle nodes as clean circles for the Constellation view (still clickable).
+   *  Each circle is sized to `flockNodeDiameter` — the same footprint the flock
+   *  physics collides against — and tinted by its layer color via a per-node
+   *  CSS custom property so hover/selection resets don't lose the ring. */
+  private applyFlockNodeStyle(): void {
+    for (const node of this.nodes) {
+      const el = this.nodeEls.get(node.id);
+      if (!el) continue;
+      const d = flockNodeDiameter(node);
+      const hex = LAYER_COLORS_HEX[node.layer] ?? '#94a3b8';
+      el.classList.add('sm-flock-node');
+      el.style.width = `${d}px`;
+      el.style.height = `${d}px`;
+      el.style.setProperty('--sm-flock-color', hex);
+      el.title = node.name;
     }
   }
 
