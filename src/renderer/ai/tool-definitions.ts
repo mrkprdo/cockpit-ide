@@ -1,6 +1,9 @@
 import { z } from 'zod/v3';
+import { ToolRegistry } from './tool-registry';
+import { getAgentExecutor } from '../agents/executor';
 import type { ToolDefinition, ToolContext } from './types.ts';
 import { memoryStore, type MemoryScope } from './memory-store.ts';
+import { AGENT_TOOLS } from '../agents/agent-tools';
 
 /** Symbolic key names mapped to terminal escape sequences. */
 export const KEY_SEQUENCES: Record<string, string> = {
@@ -48,7 +51,7 @@ const CreateDirectoryArgs = PathArg;
 const GetCanvasStateArgs = z.object({});
 const OpenFileInEditorArgs = PathArg;
 const AddPluginArgs = z.object({
-  type: z.enum(['terminal', 'explorer', 'git', 'markdown', 'specsmap']).describe('Plugin type to add'),
+  type: z.enum(['terminal', 'explorer', 'git', 'markdown', 'specsmap', 'agents']).describe('Plugin type to add'),
 });
 const DeleteFileArgs = PathArg;
 const RenameFileArgs = z.object({
@@ -149,6 +152,7 @@ function pluginTypeFromTitle(title: string): string {
   if (title === 'Git') return 'git';
   if (title === 'Markdown') return 'markdown';
   if (title === 'SpecsMap') return 'specsmap';
+  if (title === 'Agents') return 'agents';
   return 'unknown';
 }
 
@@ -834,11 +838,8 @@ export const memoryDeleteTool: ToolDefinition<typeof MemoryDeleteArgs> = {
 };
 
 // Tools that mutate the filesystem, run a shell command, or change git/branch
-// state. The agent runner requires explicit user confirmation for these even
-// in 'auto'/'plan' mode — the agent reads arbitrary file/repo/web content as
-// part of normal operation, so a prompt-injection payload in that content
-// could otherwise chain straight into a destructive or exfiltrating call with
-// nothing in between.
+// state. Catalog of mutating tools — informational only, not used for
+// auto/plan gating (the AI Drawer only pauses for confirmation in step mode).
 export const DESTRUCTIVE_TOOL_NAMES = new Set<string>([
   'write_file',
   'delete_file',
@@ -912,4 +913,9 @@ export const ALL_TOOLS: ToolDefinition<any>[] = [
   memorySearchTool,
   memorySetTool,
   memoryDeleteTool,
+  ...AGENT_TOOLS,
 ];
+
+// Register the shared registry on the fleet executor (breaks the import cycle:
+// executor never imports ALL_TOOLS — tool-definitions injects it here).
+getAgentExecutor().setRegistry(new ToolRegistry(ALL_TOOLS));
