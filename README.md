@@ -34,6 +34,7 @@ Generate your project's code graph with SPECGEN and visualize it in SpecsMap. Us
 **Git** — Branch visualization, staging, diffs, and commit tooling  
 **SpecsMap** — Living architecture graph: SPECGEN feature specs rendered as an interactive map, continuously validated (edge/cycle/drift rules) and structurally reconciled against the source tree; agents query it for dense feature context  
 **Cockpit Agent** — Built-in AI with canvas, file, editor, terminal, and git control  
+**Agents** — Orchestrate a sub-agent fleet: spawn/kill/inspect from a live bubble graph, mailbox messaging, guardrailed skills  
 **File Search** — `Ctrl+P` fuzzy file finder across the workspace  
 
 ---
@@ -74,10 +75,7 @@ npm run test:ui        # vitest UI dashboard
 ```bash
 npm run build       # compile TypeScript + bundle renderer
 npm run build:prod  # production build (separate tsconfig)
-npm run pack        # build installer (all platforms)
-npm run pack:win    # Windows NSIS installer
-npm run pack:mac    # macOS DMG
-npm run pack:linux  # Linux AppImage
+npm run pack        # build Windows NSIS installer
 ```
 
 ## Stack
@@ -91,7 +89,7 @@ npm run pack:linux  # Linux AppImage
 **File watching:** chokidar 5  
 **MCP:** @modelcontextprotocol/sdk + ws (WebSocket IDE server)  
 **Validation:** zod 4  
-**Testing:** vitest 4 + jsdom (26 test files, 755+ tests)
+**Testing:** vitest 4 + jsdom (51 test files, 1490+ tests)
 
 ## Design
 
