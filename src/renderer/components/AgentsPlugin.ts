@@ -66,19 +66,24 @@ export class AgentsPlugin {
           </div>
           <div class="agents-inspector"></div>
           <div class="agents-spawn">
-            <div class="agents-spawn-title">Spawn agent</div>
-            <select class="agents-spawn-skill">
-              ${SKILL_NAMES.map(s => `<option value="${s}">${SKILLS[s].icon} ${SKILLS[s].label}</option>`).join('')}
-            </select>
-            <textarea class="agents-spawn-context" rows="3" placeholder="Context: files, plan, results… (keep short)"></textarea>
-            <input class="agents-spawn-expected" type="text" placeholder="Expected result…">
-            <input class="agents-spawn-guardrails" type="text" placeholder="Guardrails (comma-separated, optional)">
-            <div class="agents-spawn-actions">
-              <button class="agents-spawn-btn">▶ Spawn</button>
-              <button class="agents-purge-btn" title="Purge finished agents">🧹</button>
-              <button class="agents-killall-btn" title="Kill all agents">⛔</button>
+            <button class="agents-spawn-toggle" aria-expanded="false">
+              <span class="agents-spawn-title">Spawn agent</span>
+              <span class="agents-spawn-chevron">▸</span>
+            </button>
+            <div class="agents-spawn-fields">
+              <select class="agents-spawn-skill">
+                ${SKILL_NAMES.map(s => `<option value="${s}">${SKILLS[s].icon} ${SKILLS[s].label}</option>`).join('')}
+              </select>
+              <textarea class="agents-spawn-context" rows="3" placeholder="Context: files, plan, results… (keep short)"></textarea>
+              <input class="agents-spawn-expected" type="text" placeholder="Expected result…">
+              <input class="agents-spawn-guardrails" type="text" placeholder="Guardrails (comma-separated, optional)">
+              <div class="agents-spawn-actions">
+                <button class="agents-spawn-btn">▶ Spawn</button>
+                <button class="agents-purge-btn" title="Purge finished agents">🧹</button>
+                <button class="agents-killall-btn" title="Kill all agents">⛔</button>
+              </div>
+              <div class="agents-spawn-msg"></div>
             </div>
-            <div class="agents-spawn-msg"></div>
           </div>
         </div>
       </div>
@@ -90,6 +95,13 @@ export class AgentsPlugin {
     const spawnBtn = this.root.querySelector<HTMLButtonElement>('.agents-spawn-btn');
     const purgeBtn = this.root.querySelector<HTMLButtonElement>('.agents-purge-btn');
     const killAllBtn = this.root.querySelector<HTMLButtonElement>('.agents-killall-btn');
+    const toggleBtn = this.root.querySelector<HTMLButtonElement>('.agents-spawn-toggle');
+    const spawnEl = this.root.querySelector<HTMLElement>('.agents-spawn');
+
+    toggleBtn?.addEventListener('click', () => {
+      const expanded = spawnEl?.classList.toggle('is-expanded') ?? false;
+      toggleBtn.setAttribute('aria-expanded', String(expanded));
+    });
 
     spawnBtn?.addEventListener('click', () => {
       const skill = (this.root.querySelector<HTMLSelectElement>('.agents-spawn-skill')?.value || 'implementer') as SkillName;
@@ -238,13 +250,12 @@ export class AgentsPlugin {
       const p = positions.get(a.id)!;
       const ringDot = a.state === 'done' ? '✓' : a.state === 'error' ? '✗' : a.state === 'killed' ? '✕' : a.state === 'waiting' ? '◌' : '●';
       const badge = a.mailboxCount > 0 ? `<span class="agents-badge-mail">${a.mailboxCount}</span>` : '';
-      const title = `${a.label} — ${a.state}${a.error ? ` · ${a.error}` : ''}`;
+      const title = `${a.label} — ${a.state}${a.mailboxCount > 0 ? ` · ${a.mailboxCount} mail` : ''}${a.error ? ` · ${a.error}` : ''}`;
       parts.push(`<div class="agents-bubble is-${a.state}" data-id="${a.id}" title="${this.escapeAttr(title)}" style="left:${p.x.toFixed(1)}px;top:${p.y.toFixed(1)}px;--agent-color:${a.color}">
         <div class="agents-bubble-ring"><span class="agents-bubble-ring-dot">${ringDot}</span></div>
         <div class="agents-bubble-body">
           <span class="agents-bubble-icon">${a.icon}</span>
           <span class="agents-bubble-label">${this.escapeHtml(a.label)}</span>
-          <span class="agents-bubble-state">${a.state}${a.mailboxCount > 0 ? ` · ${a.mailboxCount} mail` : ''}</span>
         </div>
         ${badge}
       </div>`);
@@ -260,12 +271,11 @@ export class AgentsPlugin {
   }
 
   private bubbleHtml(id: string, label: string, icon: string, color: string, state: string, x: number, y: number): string {
-    return `<div class="agents-bubble is-${state}" data-id="${id}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;--agent-color:${color}">
+    return `<div class="agents-bubble is-${state}" data-id="${id}" title="${this.escapeAttr(`${label} — ${state}`)}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;--agent-color:${color}">
       <div class="agents-bubble-ring"><span class="agents-bubble-ring-dot">${state === 'active' ? '●' : '◆'}</span></div>
       <div class="agents-bubble-body">
         <span class="agents-bubble-icon">${icon}</span>
         <span class="agents-bubble-label">${this.escapeHtml(label)}</span>
-        <span class="agents-bubble-state">${state}</span>
       </div>
     </div>`;
   }

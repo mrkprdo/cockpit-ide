@@ -467,7 +467,7 @@ export class AiDrawer {
         </div>
         <div class="ai-queue-bar" style="display:none"></div>
         <div class="ai-token-progress">
-          <div class="ai-token-progress-fill" style="width: 0%"></div>
+          <div class="ai-token-progress-fill" style="transform: scaleX(0)"></div>
           <div class="ai-token-progress-label">0 / 8,192 (0%)</div>
         </div>
         <div class="ai-chat-input-area">
@@ -999,7 +999,7 @@ export class AiDrawer {
     const pct = Math.min(budget.percent, 100);
     const label = `${used.toLocaleString()} / ${budget.limit.toLocaleString()} (${budget.percent}%)`;
     if (this.tokenProgressFillEl) {
-      this.tokenProgressFillEl.style.width = `${pct}%`;
+      this.tokenProgressFillEl.style.transform = `scaleX(${pct / 100})`;
       this.tokenProgressFillEl.classList.toggle('is-high', budget.percent >= 80);
     }
     if (this.tokenProgressLabelEl) {
