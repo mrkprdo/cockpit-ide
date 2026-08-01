@@ -90,6 +90,21 @@ describe('applyGridPattern', () => {
     applyGridPattern(el, 'none', 'data:x', 28);
     expect(el.style.backgroundImage).toBe('none');
   });
+
+  it('phases the pattern from element left/top so tiles align to the world grid', () => {
+    const el = document.createElement('div');
+    el.style.left = '-4000px';
+    el.style.top = '-2250px';
+    const dataURL = 'data:image/png;base64,mockdata';
+    applyGridPattern(el, 'dots', dataURL, 28);
+    expect(el.style.backgroundPosition).toBe('24px 10px'); // (-left mod 28, -top mod 28)
+  });
+
+  it('keeps origin-aligned phase when element sits at 0 0', () => {
+    const el = document.createElement('div');
+    applyGridPattern(el, 'dots', 'data:image/png;base64,mockdata', 28);
+    expect(el.style.backgroundPosition).toBe('0px 0px');
+  });
 });
 
 describe('applyViewTransform', () => {

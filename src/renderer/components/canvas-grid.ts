@@ -30,16 +30,21 @@ export function generateGridPattern(style: GridStyle, patternSize: number): stri
   return c.toDataURL();
 }
 
-/** Paint a fixed-size tile pattern (zoom/pan applied via applyViewTransform on a parent/world layer). */
+/** Paint a fixed-size tile pattern (zoom/pan applied via applyViewTransform on a parent/world layer).
+ *  The phase is derived from the element's left/top so tile corners always land on world-grid
+ *  multiples of patternSize, regardless of where the layer is placed. */
 export function applyGridPattern(el: HTMLElement, style: GridStyle, dataURL: string, patternSize: number): void {
   if (style === 'none' || !dataURL) {
     el.style.backgroundImage = 'none';
     return;
   }
+  const left = parseFloat(el.style.left) || 0;
+  const top = parseFloat(el.style.top) || 0;
+  const phase = (v: number) => ((-v % patternSize) + patternSize) % patternSize;
   el.style.backgroundImage = `url(${dataURL})`;
   el.style.backgroundRepeat = 'repeat';
   el.style.backgroundSize = `${patternSize}px ${patternSize}px`;
-  el.style.backgroundPosition = '0 0';
+  el.style.backgroundPosition = `${phase(left)}px ${phase(top)}px`;
 }
 
 /** Compositor-friendly pan/zoom transform (origin top-left). */
