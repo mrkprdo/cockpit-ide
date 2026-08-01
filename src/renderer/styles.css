@@ -1123,7 +1123,7 @@ textarea,
 
 /* ===== AI Drawer (glass card over canvas — same material as .ai-float-input) ===== */
 .ai-drawer {
-  --ai-shell-inset: 8px;
+  --ai-shell-inset: 0;
   position: absolute;
   left: var(--ai-shell-inset);
   top: var(--ai-shell-inset);
@@ -1137,7 +1137,7 @@ textarea,
   backdrop-filter: blur(12px) saturate(1.4);
   -webkit-backdrop-filter: blur(12px) saturate(1.4);
   border: 1px dashed transparent;
-  border-radius: var(--radius-md);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   box-shadow: none;
   opacity: 0;
   pointer-events: none;
@@ -1176,8 +1176,8 @@ textarea,
 /* ===== AI Drawer Resize Handle ===== */
 .ai-drawer-resize {
   position: absolute;
-  top: var(--ai-shell-inset, 8px);
-  bottom: var(--ai-shell-inset, 8px);
+  top: 0;
+  bottom: 0;
   left: 0;
   width: 4px;
   z-index: var(--z-ai-resize);
