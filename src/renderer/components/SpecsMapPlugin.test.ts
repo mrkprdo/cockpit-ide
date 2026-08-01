@@ -251,7 +251,7 @@ describe('SpecsMapPlugin', () => {
     const themeNode = container.querySelector('.sm-node') as HTMLElement;
     expect(themeNode).toBeTruthy();
     themeNode.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-    expect(themeNode.style.borderStyle).toBe('solid');
+    expect(themeNode.style.borderColor).not.toBe('');
     themeNode.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
   });
 

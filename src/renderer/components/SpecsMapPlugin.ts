@@ -394,7 +394,7 @@ export class SpecsMapPlugin {
     // Tab bar (hidden by default, shown when 2+ collections found)
     this.tabBar = document.createElement('div');
     this.tabBar.style.cssText =
-      'display:none;flex-shrink:0;padding:0 6px;border-bottom:1px dashed var(--border);' +
+      'display:none;flex-shrink:0;padding:0 6px;border-bottom:1px solid var(--border);' +
       'background:var(--bg);gap:0;overflow-x:auto;overflow-y:hidden';
     this.tabBar.style.display = 'none';
     this.el.appendChild(this.tabBar);
@@ -438,14 +438,14 @@ export class SpecsMapPlugin {
     this.panel.className = 'sm-panel-el';
     this.panel.style.cssText =
       `position:absolute;right:0;top:0;bottom:0;width:${PANEL_W}px;` +
-      'background:var(--surface);border-left:1px dashed var(--border);z-index:20;' +
+      'background:var(--surface);border-left:1px solid var(--border);z-index:20;' +
       'transform:translateX(100%);' +
       'display:flex;flex-direction:column;overflow:hidden;pointer-events:none';
 
     // Fixed header (never scrolls)
     this.panelHeaderEl = document.createElement('div');
     this.panelHeaderEl.style.cssText =
-      'flex-shrink:0;border-bottom:1px dashed var(--border)';
+      'flex-shrink:0;border-bottom:1px solid var(--border)';
     this.panel.appendChild(this.panelHeaderEl);
 
     // Scrollable body
@@ -529,17 +529,16 @@ export class SpecsMapPlugin {
     style.textContent = `
       .sm-node {
         position: absolute;
-        border: 1px dashed var(--border);
+        border: 1px solid var(--border);
         border-radius: 8px;
         background: var(--surface);
         cursor: pointer;
-        transition: box-shadow 0.15s, border-color 0.15s, opacity 0.15s, border-style 0.1s;
+        transition: box-shadow 0.15s, border-color 0.15s, opacity 0.15s;
         box-shadow: var(--shadow);
         overflow: visible;
         box-sizing: border-box;
       }
       .sm-node.sm-selected {
-        border-style: solid;
         border-color: var(--accent);
         box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent), 0 0 18px color-mix(in oklab, var(--accent) 18%, transparent);
       }
@@ -603,7 +602,7 @@ export class SpecsMapPlugin {
       .sm-empty-btn {
         pointer-events: auto;
         background: transparent;
-        border: 1px dashed var(--border);
+        border: 1px solid var(--border);
         border-radius: 8px;
         padding: 10px 24px;
         font-family: "Space Mono", "Courier New", monospace;
@@ -616,7 +615,6 @@ export class SpecsMapPlugin {
       }
       .sm-empty-btn:hover {
         border-color: var(--accent);
-        border-style: solid;
         color: var(--accent);
         box-shadow: 0 0 12px color-mix(in oklab, var(--accent) 20%, transparent);
       }
@@ -1464,19 +1462,16 @@ export class SpecsMapPlugin {
           const nc = this.nodes.find(n => n.id === nid)!;
           const hex = LAYER_COLORS_HEX[nc.layer] ?? '#94a3b8';
           el.style.borderColor = hex;
-          el.style.borderStyle = 'solid';
           el.style.boxShadow = `0 0 0 1px ${hex}33, 0 0 14px ${hex}22`;
           el.style.opacity = '1';
         } else {
           el.style.opacity = '0.14';
           el.style.borderColor = '';
-          el.style.borderStyle = '';
           el.style.boxShadow = '';
         }
       } else {
         el.style.opacity = '';
         el.style.borderColor = nid === this.selectedId ? LAYER_COLORS_HEX[this.nodes.find(n => n.id === nid)?.layer ?? ''] ?? '' : '';
-        el.style.borderStyle = nid === this.selectedId ? 'solid' : '';
         el.style.boxShadow = '';
       }
     }
@@ -1654,12 +1649,12 @@ export class SpecsMapPlugin {
       `</div></div>` +
       cyclesSection +
       this.validationSectionHtml(esc) +
-      `<div class="sm-panel-section" style="border-top:1px dashed var(--border)">` +
+      `<div class="sm-panel-section" style="border-top:1px solid var(--border)">` +
       `<div class="sm-panel-label">RECONCILE</div>` +
       `<div style="font-size:10px;color:var(--tertiary);margin-bottom:8px;line-height:1.5">Syncs structural fields (exports, dependencies, referenced by, IPC) from source. Prose is never touched. Report writes nothing.</div>` +
       `<div style="display:flex;gap:6px">` +
-      `<button id="sm-reconcile-report-btn" class="sm-reconcile-btn" style="background:transparent;border:1px dashed var(--border);border-radius:6px;padding:8px 10px;font-family:inherit;font-size:11px;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">Report</button>` +
-      `<button id="sm-reconcile-apply-btn" class="sm-reconcile-btn" style="background:transparent;border:1px dashed var(--border);border-radius:6px;padding:8px 10px;font-family:inherit;font-size:11px;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">⚡ Apply structural</button>` +
+      `<button id="sm-reconcile-report-btn" class="sm-reconcile-btn" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit;font-size:11px;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">Report</button>` +
+      `<button id="sm-reconcile-apply-btn" class="sm-reconcile-btn" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit;font-size:11px;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">⚡ Apply structural</button>` +
       `</div>` +
       `<div id="sm-reconcile-result" style="font-size:10px;color:var(--tertiary);margin-top:8px;line-height:1.5;white-space:pre-wrap;word-break:break-word"></div>` +
       `</div>`;
@@ -1682,11 +1677,11 @@ export class SpecsMapPlugin {
 
     for (const btn of this.panelInner.querySelectorAll<HTMLButtonElement>('.sm-reconcile-btn')) {
       btn.addEventListener('mouseenter', () => {
-        btn.style.borderColor = 'var(--accent)'; btn.style.borderStyle = 'solid';
+        btn.style.borderColor = 'var(--accent)';
         btn.style.color = 'var(--accent)';
       });
       btn.addEventListener('mouseleave', () => {
-        btn.style.borderColor = ''; btn.style.borderStyle = ''; btn.style.color = '';
+        btn.style.borderColor = ''; btn.style.color = '';
       });
     }
     this.panelInner.querySelector('#sm-reconcile-report-btn')
@@ -1714,7 +1709,7 @@ export class SpecsMapPlugin {
         `<span style="color:${sevColor[i.severity]};font-weight:700;flex-shrink:0">${i.severity.toUpperCase()}</span>` +
         `<span style="color:var(--secondary);word-break:break-word">${esc(i.message)}</span></div>`;
     }).join('');
-    return `<div class="sm-panel-section" style="border-top:1px dashed var(--border)">` +
+    return `<div class="sm-panel-section" style="border-top:1px solid var(--border)">` +
       `<div class="sm-panel-label">VALIDATION — ${esc(summarizeReport(r))}${this.driftDirty ? ' · DRIFT' : ''}</div>` +
       (r.issues.length ? items : `<div style="font-size:11px;color:var(--green)">✓ All validation rules pass</div>`) +
       (r.issues.length > 40 ? `<div style="font-size:10px;color:var(--tertiary);padding-top:4px">… +${r.issues.length - 40} more</div>` : '') +
@@ -2000,12 +1995,12 @@ export class SpecsMapPlugin {
       for (const c of candidates) {
         const chip = document.createElement('button');
         chip.style.cssText =
-          'background:none;border:1px dashed var(--border);border-radius:5px;' +
+          'background:none;border:1px solid var(--border);border-radius:5px;' +
           'padding:3px 10px;font-family:"Space Mono","Courier New",monospace;font-size:10px;' +
           'color:var(--tertiary);cursor:pointer;transition:border-color 0.12s,color 0.12s';
         chip.textContent = c;
-        chip.addEventListener('mouseenter', () => { chip.style.borderColor = 'var(--accent)'; chip.style.color = 'var(--accent)'; chip.style.borderStyle = 'solid'; });
-        chip.addEventListener('mouseleave', () => { chip.style.borderColor = ''; chip.style.color = ''; chip.style.borderStyle = ''; });
+        chip.addEventListener('mouseenter', () => { chip.style.borderColor = 'var(--accent)'; chip.style.color = 'var(--accent)'; });
+        chip.addEventListener('mouseleave', () => { chip.style.borderColor = ''; chip.style.color = ''; });
         chip.addEventListener('click', () => { entryInput.value = c; entryInput.focus(); });
         chipRow.appendChild(chip);
       }
@@ -2018,11 +2013,11 @@ export class SpecsMapPlugin {
     entryInput.value = candidates[0] ?? 'src/';
     entryInput.placeholder = 'e.g. src/ or docker-compose.yml';
     entryInput.style.cssText =
-      'width:100%;box-sizing:border-box;background:var(--bg);border:1px dashed var(--border);' +
+      'width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);' +
       'border-radius:6px;padding:6px 12px;font-family:"Space Mono","Courier New",monospace;' +
       'font-size:11px;color:var(--primary);outline:none;transition:border-color 0.12s;';
-    entryInput.addEventListener('focus', () => { entryInput.style.borderColor = 'var(--accent)'; entryInput.style.borderStyle = 'solid'; });
-    entryInput.addEventListener('blur', () => { entryInput.style.borderColor = ''; entryInput.style.borderStyle = ''; });
+    entryInput.addEventListener('focus', () => { entryInput.style.borderColor = 'var(--accent)'; });
+    entryInput.addEventListener('blur', () => { entryInput.style.borderColor = ''; });
     entrySection.appendChild(entryInput);
 
     // Integrity badge
@@ -2139,14 +2134,12 @@ export class SpecsMapPlugin {
     const label = specgenAlreadyExists ? '✓ Prompt Copied' : '✓ SPECGEN.md Written + Prompt Copied';
     btn.textContent = label;
     btn.style.borderColor = 'var(--green)';
-    btn.style.borderStyle = 'solid';
     btn.style.color = 'var(--green)';
 
     setTimeout(() => {
       btn.disabled = false;
       btn.textContent = '⚡ Copy Generation Prompt';
       btn.style.borderColor = '';
-      btn.style.borderStyle = '';
       btn.style.color = '';
     }, 3000);
   }
