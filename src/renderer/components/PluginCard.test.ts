@@ -333,24 +333,29 @@ describe('PluginCard — drag interaction', () => {
     expect(onTerminate).toHaveBeenCalledOnce();
   });
 
-  it('mousemove updates card position while dragging', () => {
+  it('mousemove updates card position while dragging', async () => {
     const card = createCard();
     const header = card.el.querySelector('.card-header')!;
-    const startLeft = card.el.style.left;
-    const startTop = card.el.style.top;
+    const startTransform = card.el.style.transform;
 
     // Start drag at (150, 250) relative to viewport
     header.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 150, clientY: 250 }));
 
     // Move 56px right and 28px down
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 206, clientY: 278, bubbles: true }));
+    // Drag moves via a rAF-batched transform (compositor-only, no per-move layout reflow)
+    await new Promise((r) => requestAnimationFrame(r));
 
-    // Position should have changed from start
-    expect(card.el.style.left).not.toBe(startLeft);
-    expect(card.el.style.top).not.toBe(startTop);
+    expect(card.el.style.transform).not.toBe(startTransform);
+
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    // Final position commits to left/top on mouseup (x:100+56 snapped to 28 -> 168, y:200+28 snapped -> 224)
+    expect(card.el.style.left).toBe('168px');
+    expect(card.el.style.top).toBe('224px');
+    expect(card.el.style.transform).toBe('');
   });
 
-  it('onDragStart called on mousedown and onDragMove during mouse move', () => {
+  it('onDragStart called on mousedown and onDragMove during mouse move', async () => {
     const onDragStart = vi.fn();
     const onDragMove = vi.fn();
     const card = createCard({ onDragStart, onDragMove });
@@ -360,6 +365,7 @@ describe('PluginCard — drag interaction', () => {
     expect(onDragStart).toHaveBeenCalledWith(150, 250);
 
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 200, clientY: 280, bubbles: true }));
+    await new Promise((r) => requestAnimationFrame(r));
     expect(onDragMove).toHaveBeenCalledWith(200, 280);
   });
 

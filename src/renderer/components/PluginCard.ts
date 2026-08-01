@@ -140,30 +140,51 @@ export class PluginCard {
   }
 
   private dragHandlers: { mousemove: (e: MouseEvent) => void; mouseup: () => void } | null = null;
+  private dragEndWorldX = 0;
+  private dragEndWorldY = 0;
+  private dragRafId = 0;
+  private pendingDragEvent: MouseEvent | null = null;
 
   private initDrag(): void {
     // Cards live in world space under a parent that applies pan/zoom via CSS transform.
     // left/top are world coords; client deltas convert with scale only.
-    const onMouseMove = (e: MouseEvent) => {
-      if (!this.isDragging) return;
+    // While dragging, move via a CSS transform (compositor-only, no reflow) and only
+    // commit left/top once on mouseup — matches the canvas pan pattern.
+    const applyDrag = (e: MouseEvent) => {
+      this.dragRafId = 0;
       const t = this.getTransform();
       const worldRawX = this.startWorldX + (e.clientX - this.dragOffsetX) / t.scale;
       const worldRawY = this.startWorldY + (e.clientY - this.dragOffsetY) / t.scale;
       const snappedWorldX = Math.round(worldRawX / SNAP) * SNAP;
       const snappedWorldY = Math.round(worldRawY / SNAP) * SNAP;
-      this.el.style.left = `${snappedWorldX}px`;
-      this.el.style.top = `${snappedWorldY}px`;
+      this.dragEndWorldX = snappedWorldX;
+      this.dragEndWorldY = snappedWorldY;
+      this.el.style.transform = `translate(${snappedWorldX - this.startWorldX}px, ${snappedWorldY - this.startWorldY}px)`;
       this.opts.onDragMove?.(e.clientX, e.clientY);
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!this.isDragging) return;
+      this.pendingDragEvent = e;
+      if (this.dragRafId) return;
+      this.dragRafId = requestAnimationFrame(() => {
+        if (this.pendingDragEvent) applyDrag(this.pendingDragEvent);
+      });
     };
 
     const onMouseUp = () => {
       if (this.isDragging) {
         this.isDragging = false;
+        if (this.dragRafId) {
+          cancelAnimationFrame(this.dragRafId);
+          this.dragRafId = 0;
+        }
+        this.pendingDragEvent = null;
         this.el.style.transition = '';
-        this.opts.onDragEnd?.(
-          parseFloat(this.el.style.left) || 0,
-          parseFloat(this.el.style.top) || 0,
-        );
+        this.el.style.transform = '';
+        this.el.style.left = `${this.dragEndWorldX}px`;
+        this.el.style.top = `${this.dragEndWorldY}px`;
+        this.opts.onDragEnd?.(this.dragEndWorldX, this.dragEndWorldY);
       }
     };
 
@@ -179,6 +200,8 @@ export class PluginCard {
       this.dragOffsetY = e.clientY;
       this.startWorldX = parseFloat(this.el.style.left) || 0;
       this.startWorldY = parseFloat(this.el.style.top) || 0;
+      this.dragEndWorldX = this.startWorldX;
+      this.dragEndWorldY = this.startWorldY;
       this.el.style.transition = 'none';
       this.opts.onDragStart?.(e.clientX, e.clientY);
     });
@@ -277,6 +300,10 @@ export class PluginCard {
   }
 
   remove(): void {
+    if (this.dragRafId) {
+      cancelAnimationFrame(this.dragRafId);
+      this.dragRafId = 0;
+    }
     if (this.dragHandlers) {
       document.removeEventListener('mousemove', this.dragHandlers.mousemove);
       document.removeEventListener('mouseup', this.dragHandlers.mouseup);
