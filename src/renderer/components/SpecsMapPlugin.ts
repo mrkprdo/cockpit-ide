@@ -12,7 +12,6 @@ import {
 } from '../specs/layout';
 import { CyclesController, CYCLE_COLORS, type CyclesHost } from './specsmap/cycles';
 import { SearchController, type SearchHost } from './specsmap/search';
-import { FlockController, flockNodeDiameter, ORBIT_SENSITIVITY, type FlockHost } from './specsmap/flock';
 
 interface SpecData {
   name?: string;
@@ -96,9 +95,7 @@ export class SpecsMapPlugin {
   private readonly onSearchKeydown: (e: KeyboardEvent) => void;
   private scale = 1;
   private fitScale = 1;
-  private dragMode: 'none' | 'pan' | 'orbit' = 'none';
-  private orbitStartYaw = 0;
-  private orbitStartPitch = 0;
+  private dragMode: 'none' | 'pan' = 'none';
   private panStartX = 0;
   private panStartY = 0;
   private panStartPanX = 0;
@@ -121,12 +118,6 @@ export class SpecsMapPlugin {
   // Search state
   private search!: SearchController;
   private searchBtn!: HTMLButtonElement;
-
-  // View mode: deterministic layered stack vs physics-driven constellation
-  private viewMode: 'stack' | 'constellation' = 'stack';
-  private flock!: FlockController;
-  private viewToggleStackBtn!: HTMLButtonElement;
-  private viewToggleFlockBtn!: HTMLButtonElement;
 
   onFileOpen: ((filePath: string) => void) | null = null;
 
@@ -294,16 +285,9 @@ export class SpecsMapPlugin {
       if (!this.rafPanPending) {
         this.rafPanPending = true;
         requestAnimationFrame(() => {
-          if (this.dragMode === 'pan') {
-            this.panX = this.panStartPanX + (this.pendingMouseX - this.panStartX);
-            this.panY = this.panStartPanY + (this.pendingMouseY - this.panStartY);
-            this.applyTransform();
-          } else if (this.dragMode === 'orbit') {
-            this.flock?.setCamera(
-              this.orbitStartYaw + (this.pendingMouseX - this.panStartX) / ORBIT_SENSITIVITY,
-              this.orbitStartPitch + (this.pendingMouseY - this.panStartY) / ORBIT_SENSITIVITY,
-            );
-          }
+          this.panX = this.panStartPanX + (this.pendingMouseX - this.panStartX);
+          this.panY = this.panStartPanY + (this.pendingMouseY - this.panStartY);
+          this.applyTransform();
           this.rafPanPending = false;
         });
       }
@@ -395,29 +379,11 @@ export class SpecsMapPlugin {
     header.appendChild(headerPath);
     header.appendChild(this.validationBadge);
 
-    // View toggle: Stack (layered) | Constellation (floating flock)
-    const viewToggle = document.createElement('div');
-    viewToggle.className = 'sm-view-toggle';
-    viewToggle.title = 'Graph layout: Stack (layered by architecture layer) or Constellation (floating flock — connected nodes drift together, unconnected repel, no overlap)';
-    this.viewToggleStackBtn = document.createElement('button');
-    this.viewToggleStackBtn.className = 'sm-view-opt active';
-    this.viewToggleStackBtn.textContent = 'Stack';
-    this.viewToggleStackBtn.title = 'Stack view — nodes stacked by layer (foundation → plugin)';
-    this.viewToggleStackBtn.addEventListener('click', () => this.setViewMode('stack'));
-    this.viewToggleFlockBtn = document.createElement('button');
-    this.viewToggleFlockBtn.className = 'sm-view-opt';
-    this.viewToggleFlockBtn.textContent = 'Constellation';
-    this.viewToggleFlockBtn.title = 'Constellation view — nodes float; connected nodes flock closer, unconnected repel, no overlap';
-    this.viewToggleFlockBtn.addEventListener('click', () => this.setViewMode('constellation'));
-    viewToggle.appendChild(this.viewToggleStackBtn);
-    viewToggle.appendChild(this.viewToggleFlockBtn);
-
     this.searchBtn = document.createElement('button');
     this.searchBtn.className = 'sm-header-btn';
     this.searchBtn.innerHTML = SVG_SEARCH;
     this.searchBtn.title = 'Search nodes (Ctrl+F)';
     this.searchBtn.addEventListener('click', () => this.search.toggle());
-    header.appendChild(viewToggle);
     header.appendChild(this.searchBtn);
 
     header.appendChild(this.cycleBtn);
@@ -513,15 +479,6 @@ export class SpecsMapPlugin {
       this.updateCycleBtnColor();
       if (this.panelShowingSettings) this.renderSettingsContent();
     });
-
-    // Constellation view: physics-driven floating flock
-    const flockHost: FlockHost = {
-      getNodes: () => this.nodes,
-      getNodeEls: () => this.nodeEls,
-      getEdgePaths: () => this.cachedEdgePaths,
-      onFrame: () => this.syncEdgesFromNodes(),
-    };
-    this.flock = new FlockController(flockHost, () => this.updateViewToggleStyles());
 
     container.appendChild(this.el);
 
@@ -670,49 +627,6 @@ export class SpecsMapPlugin {
       .sm-isolated {
         box-shadow: 0 0 0 1px #fbbf2444, 0 0 14px #fbbf2433 !important;
       }
-      .sm-node.sm-flock-node {
-        border-radius: 50%;
-        border-width: 2px;
-        border-style: solid;
-        border-color: var(--sm-flock-color, var(--border));
-        background: color-mix(in oklab, var(--sm-flock-color, var(--border)) 12%, var(--surface));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        padding: 0;
-        box-shadow: 0 0 12px color-mix(in oklab, var(--sm-flock-color, var(--border)) 25%, transparent);
-      }
-      .sm-flock-node .sm-node-inner {
-        width: 100%;
-        height: 100%;
-        padding: 0 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0;
-      }
-      .sm-flock-node .sm-node-head { display: block; width: 100%; }
-      .sm-flock-node .sm-dot,
-      .sm-flock-node .sm-layer-badge,
-      .sm-flock-node .sm-file,
-      .sm-flock-node .sm-meta,
-      .sm-flock-node .sm-port {
-        display: none;
-      }
-      .sm-flock-node .sm-name {
-        font-size: 9px;
-        line-height: 1.2;
-        text-align: center;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .sm-node-ui.sm-flock-node .sm-name { display: none; }
-      .sm-node.sm-flock-node.sm-selected {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent), 0 0 18px color-mix(in oklab, var(--accent) 18%, transparent);
-      }
       .sm-port {
         position: absolute;
         width: 6px; height: 6px;
@@ -738,30 +652,6 @@ export class SpecsMapPlugin {
         border-radius: 2px;
         padding: 0 2px;
       }
-      .sm-view-toggle {
-        display: flex;
-        align-items: stretch;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        overflow: hidden;
-        flex-shrink: 0;
-        user-select: none;
-      }
-      .sm-view-opt {
-        background: none;
-        border: none;
-        outline: none;
-        cursor: pointer;
-        font-family: "Space Mono", "Courier New", monospace;
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 0.8px;
-        color: var(--tertiary);
-        padding: 4px 8px;
-        transition: color 0.15s, background 0.15s;
-      }
-      .sm-view-opt:hover { color: var(--primary); }
-      .sm-view-opt.active { background: var(--surface); color: var(--accent); }
     `;
     document.head.appendChild(style);
   }
@@ -784,20 +674,12 @@ export class SpecsMapPlugin {
     this.viewport.addEventListener('mousedown', (e) => {
       if (e.button !== 0 && e.button !== 1) return;
       if ((e.target as HTMLElement).closest('.sm-node')) return;
-      // Constellation: left-drag orbits the camera in 3D, middle-drag pans.
-      // Stack: left/middle-drag pans as before.
-      const orbit = this.viewMode === 'constellation' && e.button === 0;
-      this.dragMode = orbit ? 'orbit' : 'pan';
+      this.dragMode = 'pan';
       this.panStartX = e.clientX;
       this.panStartY = e.clientY;
       this.panStartPanX = this.panX;
       this.panStartPanY = this.panY;
-      if (orbit && this.flock) {
-        const cam = this.flock.getCamera();
-        this.orbitStartYaw = cam.yaw;
-        this.orbitStartPitch = cam.pitch;
-      }
-      this.viewport.style.cursor = orbit ? 'crosshair' : 'grabbing';
+      this.viewport.style.cursor = 'grabbing';
       this.nodeLayer.style.willChange = 'transform';
       this.svg.style.willChange = 'transform';
     });
@@ -1013,7 +895,6 @@ export class SpecsMapPlugin {
       this.renderGraph();
       this.lastRendered = renderKey;
       this.showValidation();
-      this.syncFlockMode();
       return;
     }
 
@@ -1067,7 +948,6 @@ export class SpecsMapPlugin {
     this.renderGraph();
     this.lastRendered = renderKey;
     this.showValidation();
-    this.syncFlockMode();
   }
 
   private async findAllCollections(): Promise<SpecCollection[]> {
@@ -1291,7 +1171,6 @@ export class SpecsMapPlugin {
 
     this.renderSVGDefs();
     this.renderLayerHeaders();
-    if (this.viewMode === 'constellation') this.hideLayerHeaders();
     this.renderEdges(nodeMap);
 
     for (const node of this.nodes) {
@@ -1357,7 +1236,6 @@ export class SpecsMapPlugin {
       this.nodeEls.set(node.id, el);
     }
 
-    if (this.viewMode === 'constellation') this.applyFlockNodeStyle();
     this.fitGraph();
   }
 
@@ -1640,8 +1518,8 @@ export class SpecsMapPlugin {
     const rect = this.viewport.getBoundingClientRect();
     const cw = rect.width || 800;
     const ch = rect.height || 600;
-    const nw = this.viewMode === 'constellation' ? flockNodeDiameter(node) : node.w;
-    const nh = this.viewMode === 'constellation' ? flockNodeDiameter(node) : node.h;
+    const nw = node.w;
+    const nh = node.h;
 
     const availableW = cw - PANEL_W;
     const targetScale = Math.min(availableW / (nw * 3), ch / (nh * 3), 1.5);
@@ -2020,13 +1898,10 @@ export class SpecsMapPlugin {
     const cw = rect.width || 800;
     const ch = rect.height || 600;
 
-    // In Constellation the nodes are circles; fit to their real footprint.
-    const wOf = (n: SpecNode) => this.viewMode === 'constellation' ? flockNodeDiameter(n) : n.w;
-    const hOf = (n: SpecNode) => this.viewMode === 'constellation' ? flockNodeDiameter(n) : n.h;
     const minX = Math.min(...this.nodes.map(n => n.x));
-    const maxX = Math.max(...this.nodes.map(n => n.x + wOf(n)));
+    const maxX = Math.max(...this.nodes.map(n => n.x + n.w));
     const minY = Math.min(...this.nodes.map(n => n.y));
-    const maxY = Math.max(...this.nodes.map(n => n.y + hOf(n)));
+    const maxY = Math.max(...this.nodes.map(n => n.y + n.h));
     const graphW = maxX - minX;
     const graphH = maxY - minY;
 
@@ -2047,110 +1922,7 @@ export class SpecsMapPlugin {
     this.scale = target.scale;
     this.panX = target.panX;
     this.panY = target.panY;
-    this.flock?.resetCamera();
     this.applyTransform();
-  }
-
-  /**
-   * Switch between the layered Stack view and the floating Constellation view.
-   * Entering Constellation disables cycle/isolated analysis overlays (they are
-   * anchored to stack-space positions) and starts the flock physics loop.
-   * Leaving it restores the deterministic layer layout and rebuilds the DOM.
-   */
-  private setViewMode(mode: 'stack' | 'constellation'): void {
-    if (mode === this.viewMode) return;
-    this.viewMode = mode;
-    this.updateViewToggleStyles();
-    if (mode === 'constellation') {
-      this.cycles.reset();
-      this.updateCycleBtnColor();
-      this.hideLayerHeaders();
-      this.applyFlockNodeStyle();
-      this.setHeaderHint('drag to orbit · wheel to zoom · middle-drag to pan');
-      this.flock.start();
-    } else {
-      this.flock.stop();
-      this.nodes = computeLayout(this.nodes);
-      this.renderGraph();
-      if (this.selectedId) this.nodeEls.get(this.selectedId)?.classList.add('sm-selected');
-      this.updateHeaderCounts();
-    }
-  }
-
-  private setHeaderHint(text: string): void {
-    const sub = this.el.querySelector<HTMLElement>('.sm-header-sub');
-    if (sub) sub.textContent = text;
-  }
-
-  private updateViewToggleStyles(): void {
-    this.viewToggleStackBtn.classList.toggle('active', this.viewMode === 'stack');
-    this.viewToggleFlockBtn.classList.toggle('active', this.viewMode === 'constellation');
-  }
-
-  /** Ensure the flock loop matches the current view mode (after reloads/tab switches). */
-  private syncFlockMode(): void {
-    if (this.viewMode === 'constellation') this.flock.restart();
-    else this.flock.stop();
-  }
-
-  /** Re-curve all cached SVG edges from the (possibly flock-moved) node positions. */
-  private syncEdgesFromNodes(): void {
-    const nodeMap = new Map(this.nodes.map(n => [n.id, n]));
-    if (this.viewMode === 'constellation') {
-      // Circles: connect center to center, pulling endpoints back to the
-      // perimeters so lines kiss the dots instead of running through them.
-      for (const path of this.cachedEdgePaths) {
-        const src = nodeMap.get(path.dataset.source!);
-        const tgt = nodeMap.get(path.dataset.target!);
-        if (!src || !tgt) continue;
-        const r1 = flockNodeDiameter(src) / 2;
-        const r2 = flockNodeDiameter(tgt) / 2;
-        const x1 = src.x + r1;
-        const y1 = src.y + r1;
-        const x2 = tgt.x + r2;
-        const y2 = tgt.y + r2;
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        const len = Math.hypot(dx, dy) || 1;
-        const ux = dx / len;
-        const uy = dy / len;
-        path.setAttribute('d',
-          `M${x1 + ux * r1},${y1 + uy * r1} L${x2 - ux * r2},${y2 - uy * r2}`);
-      }
-      return;
-    }
-    for (const path of this.cachedEdgePaths) {
-      const src = nodeMap.get(path.dataset.source!);
-      const tgt = nodeMap.get(path.dataset.target!);
-      if (!src || !tgt) continue;
-      const pts = this.curvePoints(src, tgt, path.dataset.etype === 'ui');
-      path.setAttribute('d', `M${pts.x1},${pts.y1} C${pts.cx1},${pts.cy1} ${pts.cx2},${pts.cy2} ${pts.x2},${pts.y2}`);
-    }
-  }
-
-  /** Layer labels are stack-space; hide them while the flock floats. */
-  private hideLayerHeaders(): void {
-    for (const h of this.nodeLayer.querySelectorAll<HTMLElement>('.sm-layer-header')) {
-      h.style.display = 'none';
-    }
-  }
-
-  /** Restyle nodes as clean circles for the Constellation view (still clickable).
-   *  Each circle is sized to `flockNodeDiameter` — the same footprint the flock
-   *  physics collides against — and tinted by its layer color via a per-node
-   *  CSS custom property so hover/selection resets don't lose the ring. */
-  private applyFlockNodeStyle(): void {
-    for (const node of this.nodes) {
-      const el = this.nodeEls.get(node.id);
-      if (!el) continue;
-      const d = flockNodeDiameter(node);
-      const hex = LAYER_COLORS_HEX[node.layer] ?? '#94a3b8';
-      el.classList.add('sm-flock-node');
-      el.style.width = `${d}px`;
-      el.style.height = `${d}px`;
-      el.style.setProperty('--sm-flock-color', hex);
-      el.title = node.name;
-    }
   }
 
   private detectEntrycandidates(entries: DirEntry[]): string[] {
@@ -2554,7 +2326,6 @@ export class SpecsMapPlugin {
     document.removeEventListener('keydown', this.onSearchKeydown);
     if (this.fileUnsub) { this.fileUnsub(); this.fileUnsub = null; }
     if (this.specReloadTimer) { clearTimeout(this.specReloadTimer); this.specReloadTimer = null; }
-    this.flock?.stop();
     this.nodeEls.clear();
     this.specRawMap.clear();
     this.specDocs.clear();
