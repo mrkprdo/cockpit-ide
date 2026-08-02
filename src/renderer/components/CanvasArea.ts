@@ -1438,6 +1438,12 @@ export class CanvasArea {
     return true;
   }
 
+  killAllTerminals(): void {
+    for (const cs of this.cards) {
+      if (cs.savedTitle.startsWith('Terminal')) cs.terminalPlugin?.destroy();
+    }
+  }
+
   terminateCard(cs: CardState): void {
     const idx = this.cards.indexOf(cs);
     if (idx === -1) return;
@@ -1600,6 +1606,7 @@ export class CanvasArea {
         p.cs.worldY = p.ry + oy;
         p.cs.savedWX = p.cs.worldX;
         p.cs.savedWY = p.cs.worldY;
+        this.positionCard(p.cs);
       }
     }
     this.scale = 1;

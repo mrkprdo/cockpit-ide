@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CanvasArea } from './CanvasArea';
 import { TerminalPlugin } from './TerminalPlugin';
 import { ExplorerPlugin } from './ExplorerPlugin';
+import { mockElectronAPI } from '../../test/setup';
 
 function makeCanvasEl(): HTMLElement {
   const el = document.createElement('div');
@@ -609,6 +610,13 @@ describe('fitViewport', () => {
     // Other cards are placed below (wrapped to next row)
     expect(cs2.worldY).toBeGreaterThan(cs.worldY);
     expect(cs3.worldY).toBeGreaterThan(cs.worldY);
+    // DOM left/top synced to new world positions
+    expect(cs.card.el.style.left).toBe(`${cs.worldX}px`);
+    expect(cs.card.el.style.top).toBe(`${cs.worldY}px`);
+    expect(cs2.card.el.style.left).toBe(`${cs2.worldX}px`);
+    expect(cs2.card.el.style.top).toBe(`${cs2.worldY}px`);
+    expect(cs3.card.el.style.left).toBe(`${cs3.worldX}px`);
+    expect(cs3.card.el.style.top).toBe(`${cs3.worldY}px`);
   });
 
   it('skips minimized (isOpen=false) cards when arranging', async () => {
@@ -1029,6 +1037,32 @@ describe('auto arrange', () => {
       (canvas as any).terminateCard(cs);
       await new Promise(r => setTimeout(r, 50));
       expect(onChange).toHaveBeenCalled();
+    });
+
+    it('killAllTerminals() kills PTY for every terminal card', async () => {
+      canvas.addTerminal();
+      canvas.addTerminal();
+      canvas.addExplorer('/test');
+      await new Promise(r => setTimeout(r, 50));
+      const uuids = (canvas as any).cards
+        .filter((c: any) => c.savedTitle.startsWith('Terminal'))
+        .map((c: any) => c.card.uuid);
+      expect(uuids.length).toBe(2);
+      (mockElectronAPI.terminal.kill as any).mockClear();
+      canvas.killAllTerminals();
+      expect(mockElectronAPI.terminal.kill).toHaveBeenCalledTimes(2);
+      const killed = (mockElectronAPI.terminal.kill as any).mock.calls.map((c: any[]) => c[0]);
+      expect(killed).toEqual(expect.arrayContaining(uuids));
+    });
+
+    it('killAllTerminals() leaves non-terminal cards untouched', async () => {
+      canvas.addTerminal();
+      canvas.addExplorer('/test');
+      await new Promise(r => setTimeout(r, 50));
+      (mockElectronAPI.terminal.kill as any).mockClear();
+      canvas.killAllTerminals();
+      const plugins = canvas.getSaveState().plugins;
+      expect(plugins.map((p: any) => p.title)).toContain('Explorer');
     });
 
     it('reopenTerminal() makes minimized terminal visible again', async () => {

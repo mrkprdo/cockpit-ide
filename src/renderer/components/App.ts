@@ -222,8 +222,26 @@ export class App {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
     await this.saveNow();
-    const path = await ws.select();
-    if (path) await this.loadWorkspace(path);
+    // Open the WelcomeModal (recent list + native folder dialog) instead of a
+    // bare native picker — this is the same picker used at startup.
+    this.canvas.locked = true;
+    const modal = new WelcomeModal();
+    const path = await modal.open();
+    this.canvas.locked = false;
+    if (!path) return;
+    await this.resetWindowToWorkspace(path);
+  }
+
+  private async resetWindowToWorkspace(path: string): Promise<void> {
+    const ws = window.electronAPI?.workspace;
+    if (!ws) return;
+    // Kill live terminal PTYs first so the reload doesn't leave orphan processes.
+    this.canvas.killAllTerminals();
+    // Register the new workspace with main so the reloaded window boots straight into it.
+    const ok = await ws.setPath(path);
+    if (!ok) return;
+    // Reset the entire window and open to the selected workspace.
+    window.location.reload();
   }
 
   private registerCockpitGlobal(): void {

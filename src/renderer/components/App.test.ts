@@ -29,6 +29,24 @@ function makeAppDOM(): void {
   document.body.appendChild(tbClose);
 }
 
+// jsdom's Location#reload is non-configurable and window.location is an own
+// accessor — capture it so we can restore it after stubbing reload.
+const originalLocationDescriptor = Object.getOwnPropertyDescriptor(window, 'location')!;
+
+function stubLocationReload(): ReturnType<typeof vi.fn> {
+  const reload = vi.fn();
+  const originalLocation = window.location;
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    writable: true,
+    value: {
+      href: originalLocation.href,
+      reload,
+    },
+  });
+  return reload;
+}
+
 describe('App', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -43,6 +61,9 @@ describe('App', () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([]);
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('content');
     (mockElectronAPI.fs.writeFile as any).mockResolvedValue(true);
+
+    // Restore the real window.location accessor after any stubLocationReload
+    Object.defineProperty(window, 'location', originalLocationDescriptor);
 
     vi.stubGlobal('close', vi.fn());
   });
@@ -270,5 +291,45 @@ describe('App', () => {
     await new Promise(r => setTimeout(r, 50));
     const overlay = document.querySelector('.tutorial-overlay') as HTMLElement;
     expect(overlay.style.display).toBe('none');
+  });
+
+  it('Open Workspace opens the WelcomeModal and reloads into the selected workspace', async () => {
+    const reload = stubLocationReload();
+    (mockElectronAPI.workspace.getRecent as any).mockResolvedValue(['/new/ws']);
+
+    const app = new App();
+    await new Promise(r => setTimeout(r, 50));
+    (mockElectronAPI.workspace.setPath as any).mockClear();
+
+    const promise = (app as any).openWorkspace();
+    await new Promise(r => setTimeout(r, 50));
+
+    const item = document.querySelector('.welcome-recent-item') as HTMLElement;
+    expect(item).toBeTruthy();
+    item.click();
+
+    await promise;
+    expect(mockElectronAPI.workspace.setPath).toHaveBeenCalledWith('/new/ws');
+    expect(mockElectronAPI.terminal.kill).toHaveBeenCalled();
+    expect(reload).toHaveBeenCalled();
+  });
+
+  it('Open Workspace canceled does not switch workspace', async () => {
+    const reload = stubLocationReload();
+    (mockElectronAPI.workspace.getRecent as any).mockResolvedValue([]);
+
+    const app = new App();
+    await new Promise(r => setTimeout(r, 50));
+    (mockElectronAPI.workspace.setPath as any).mockClear();
+
+    const promise = (app as any).openWorkspace();
+    await new Promise(r => setTimeout(r, 50));
+
+    const closeBtn = document.querySelector('#welcome-close') as HTMLElement;
+    closeBtn.click();
+
+    await promise;
+    expect(mockElectronAPI.workspace.setPath).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
   });
 });
