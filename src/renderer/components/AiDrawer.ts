@@ -445,7 +445,7 @@ export class AiDrawer {
         <div class="ai-drawer-header">
           <div class="ai-drawer-header-row">
             <span class="ai-drawer-title">COCKPIT AGENT</span>
-            <button class="ai-drawer-close-btn" aria-label="Close AI panel" title="Close">&#x2715;</button>
+            <button class="ai-drawer-close-btn" aria-label="Close AI panel" title="Close"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4l-4 4 4 4"/><path d="M6 4l-4 4 4 4"/></svg></button>
           </div>
         </div>
         <div class="ai-drawer-body">
