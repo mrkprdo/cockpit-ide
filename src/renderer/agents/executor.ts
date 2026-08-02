@@ -3,7 +3,8 @@ import { ToolRegistry } from '../ai/tool-registry';
 import { getToolContext } from '../ai/cockpit-context';
 import type { ToolContext } from '../ai/types';
 import { getDefaultBus, type AgentBus } from './bus';
-import { getSkill } from './skills';
+import { getDefinition, isCustomDefinition } from './definitions';
+import { HookRunner } from './hooks';
 import { SubAgentSession } from './session';
 import type {
   AgentBrief,
@@ -11,8 +12,10 @@ import type {
   AgentMessage,
   AgentStatus,
   AgentState,
+  PermissionMode,
   SkillName,
   SpawnResult,
+  SubAgentDefinition,
   WaitResult,
 } from './types';
 
@@ -21,18 +24,27 @@ export interface LLMConfigProvider {
 }
 
 export interface SpawnParams {
-  skill: SkillName;
+  /** Custom definition id (from .cockpit/agents/ or a built-in name). */
+  agent?: string;
+  /** Legacy built-in skill name (back-compat with existing callers). */
+  skill?: SkillName;
   context: string;
   expectedResult: string;
   guardrails?: string[];
   timeoutMs?: number;
   seedSummary?: string;
   correlationId?: string;
+  /** Per-agent model override (else definition.model, else executor config). */
+  model?: string;
+  /** Per-agent permission mode override (else definition.permissionMode). */
+  permissionMode?: PermissionMode;
+  /** Per-agent maxTurns override (else definition.maxTurns). */
+  maxTurns?: number;
 }
 
 interface AgentRuntime {
   id: AgentId;
-  skill: SkillName;
+  definitionName: string;
   session: SubAgentSession;
   runPromise: Promise<string>;
   briefSummary: string;
@@ -52,6 +64,7 @@ const RESPOND_CACHE_SIZE = 100;
  * - status() feeds the UI card.
  * - dispatch() lets capable agents message each other.
  * - waitFor() is the non-blocking collector await used by agent_wait.
+ * - approve() resolves a parked ask-gated tool call (agent_approve).
  *
  * Use getAgentExecutor() — a lazy singleton so `ai/tool-definitions.ts`
  * (which imports the agent_* tools) can reference it without a module-cycle
@@ -127,6 +140,25 @@ export class AgentExecutor {
     return { endpoint: 'https://opencode.ai/zen/go/v1', apiKey: '', model: 'deepseek-v4-flash' };
   }
 
+  /**
+   * Resolve the model config for a definition+spawn pair. Order:
+   * spawn override > definition.model > executor override > provider > default.
+   */
+  private resolveConfigFor(defn: SubAgentDefinition, params: SpawnParams): { endpoint: string; apiKey: string; model: string } {
+    const base = this.resolveConfig();
+    const model = params.model ?? defn.model ?? base.model;
+    return { ...base, model };
+  }
+
+  /** Build the hook runner wired to the renderer's shell.exec (guarded). */
+  private buildHookRunner(): HookRunner {
+    return new HookRunner((opts) => {
+      const api = window.electronAPI?.shell?.exec;
+      if (!api) return Promise.resolve({ exitCode: 0, stdout: '', stderr: '' });
+      return api(opts);
+    });
+  }
+
   /** Remember the latest respond per correlationId (bounded, oldest evicted). */
   private captureRespond(msg: AgentMessage): void {
     if (msg.type !== 'respond' || !msg.correlationId) return;
@@ -137,7 +169,26 @@ export class AgentExecutor {
     }
   }
 
-  /** Spawn a sub-agent for a skill. Returns agentId + correlationId. Non-blocking. */
+  /**
+   * Resolve a definition by `agent` or `skill`. `skill` maps to the built-in
+   * of the same name (back-compat); `agent` can be a custom or built-in id.
+   */
+  private resolveDefinition(params: SpawnParams): { defn: SubAgentDefinition; name: string } {
+    const agent = params.agent;
+    if (agent) {
+      const defn = getDefinition(agent);
+      if (!defn) throw new Error(`Unknown agent definition "${agent}". Use definitions_list or agent_status.`);
+      return { defn, name: defn.name };
+    }
+    if (params.skill) {
+      const defn = getDefinition(params.skill);
+      if (!defn) throw new Error(`Unknown skill "${params.skill}"`);
+      return { defn, name: defn.name };
+    }
+    throw new Error('spawn requires either agent (definition id) or skill');
+  }
+
+  /** Spawn a sub-agent for a definition/skill. Returns agentId + correlationId. Non-blocking. */
   spawn(params: SpawnParams): SpawnResult {
     const running = Array.from(this.agents.values()).filter(a =>
       ['active', 'waiting', 'spawning'].includes(a.session.state)
@@ -146,12 +197,12 @@ export class AgentExecutor {
       throw new Error(`Agent cap reached (${this.maxConcurrent} concurrent). Kill an agent or wait.`);
     }
 
-    const skill = getSkill(params.skill);
+    const { defn, name } = this.resolveDefinition(params);
     const agentId: AgentId = `agent:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const correlationId = params.correlationId ?? `corr-${agentId.slice(6)}`;
 
     const brief: AgentBrief = {
-      skill: params.skill,
+      skill: params.skill ?? (defn.name as SkillName),
       context: params.context,
       expectedResult: params.expectedResult,
       guardrails: params.guardrails ?? [],
@@ -160,13 +211,23 @@ export class AgentExecutor {
       correlationId,
     };
 
-    const cfg = this.resolveConfig();
+    // Effective definition with per-spawn overrides applied (no mutation).
+    const effectiveDefn: SubAgentDefinition = {
+      ...defn,
+      model: params.model ?? defn.model,
+      permissionMode: params.permissionMode ?? defn.permissionMode,
+      maxTurns: params.maxTurns ?? defn.maxTurns,
+    };
+
+    const cfg = this.resolveConfigFor(effectiveDefn, params);
     const llm = new LLMClient(cfg);
-    const session = new SubAgentSession(agentId, skill, brief, correlationId, {
+    const session = new SubAgentSession(agentId, effectiveDefn, brief, correlationId, {
       bus: this.bus,
       registry: this.registry,
       llm,
       ctx: (): ToolContext | null => getToolContext(),
+      hooks: this.buildHookRunner(),
+      workspacePath: () => getToolContext()?.cockpit.getWorkspacePath() ?? null,
       onStateChange: () => {
         this.notifyStatus();
         this.persist('roster', this.serializeRoster());
@@ -177,7 +238,7 @@ export class AgentExecutor {
 
     const runtime: AgentRuntime = {
       id: agentId,
-      skill: params.skill,
+      definitionName: name,
       session,
       runPromise: Promise.resolve().then(() => session.run()),
       briefSummary: params.context.slice(0, 140) + (params.context.length > 140 ? '…' : ''),
@@ -200,7 +261,9 @@ export class AgentExecutor {
       expectsResponse: true,
       replyTo: 'main',
       payload: {
-        skill: params.skill,
+        skill: params.skill ?? null,
+        agent: params.agent ?? null,
+        definition: name,
         context: params.context,
         expectedResult: params.expectedResult,
         guardrails: brief.guardrails,
@@ -211,6 +274,22 @@ export class AgentExecutor {
     this.persist('bus', dispatchMsg);
     this.notifyStatus();
     return { agentId, correlationId };
+  }
+
+  /** Resolve a parked ask-gated tool call on an agent (agent_approve). */
+  approve(correlationId: string, yes: boolean): boolean {
+    for (const r of this.agents.values()) {
+      const s = r.session;
+      if (s.pendingApproval && (s.pendingApproval.toolCallId === correlationId || s.correlationId === correlationId)) {
+        return s.approve(correlationId, yes);
+      }
+    }
+    return false;
+  }
+
+  /** Find the definition a running agent was spawned from (UI/status). */
+  getDefinitionName(agentId: AgentId): string | null {
+    return this.agents.get(agentId)?.definitionName ?? null;
   }
 
   /** Send a message to a running agent (peer messaging / updates / requests). */
@@ -274,12 +353,20 @@ export class AgentExecutor {
 
   /** Non-blocking wait on the collector for a correlationId. */
   async waitFor(correlationId: string, timeoutMs = 120_000): Promise<WaitResult> {
-    // Fast path: the respond may already be on the bus (agent finished or
+    // Fast path 1: the respond may already be on the bus (agent finished or
     // failed before the caller called agent_wait). Never burn the timeout
     // for a message we already saw.
     const cached = this.respondCache.get(correlationId);
     if (cached) {
       return { ok: true, correlationId, message: cached, reason: 'respond' };
+    }
+    // Fast path 2: an ask-gated tool is parked awaiting approval — resolve the
+    // wait immediately so the orchestrator can agent_approve instead of hanging.
+    for (const r of this.agents.values()) {
+      const p = r.session.pendingApproval;
+      if (p && (p.toolCallId === correlationId || r.session.correlationId === correlationId)) {
+        return { ok: false, correlationId, message: null, reason: 'needs-approval' };
+      }
     }
     try {
       const msg = await this.bus.waitFor(correlationId, { timeoutMs });
@@ -300,16 +387,21 @@ export class AgentExecutor {
     const list: AgentStatus[] = [];
     for (const r of this.agents.values()) {
       const s = r.session;
+      const defn = s.def;
       list.push({
         id: r.id,
-        skill: r.skill,
+        skill: (defn.name as SkillName) ?? null,
+        definition: defn.name,
+        definitionDescription: defn.description,
+        isCustom: isCustomDefinition(defn.name),
+        permissionMode: s.def.permissionMode ?? 'acceptEdits',
         state: s.state,
-        label: `${getSkill(r.skill).label} ${r.id.slice(6, 10)}`,
-        icon: getSkill(r.skill).icon,
-        color: getSkill(r.skill).color,
+        label: `${defn.label ?? defn.name} ${r.id.slice(6, 10)}`,
+        icon: defn.icon ?? '🤖',
+        color: defn.color ?? '#78909c',
         steps: s.steps,
         tokensUsed: s.tokensUsed,
-        contextTokens: getSkill(r.skill).contextTokens,
+        contextTokens: defn.contextTokens ?? s.skill.contextTokens,
         startedAt: s.startedAt,
         finishedAt: s.finishedAt,
         briefSummary: r.briefSummary,
@@ -368,6 +460,10 @@ export class AgentExecutor {
     return this.status().map(s => ({
       id: s.id,
       skill: s.skill,
+      definition: s.definition,
+      definitionDescription: s.definitionDescription,
+      isCustom: s.isCustom,
+      permissionMode: s.permissionMode,
       state: s.state,
       briefSummary: s.briefSummary,
       expectedResult: s.expectedResult,

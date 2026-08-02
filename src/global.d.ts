@@ -81,6 +81,7 @@ interface Window {
     };
     shell: {
       openExternal: (url: string) => Promise<boolean>;
+      exec: (opts: { command: string; cwd?: string; timeoutMs?: number; input?: string }) => Promise<{ exitCode: number | null; stdout: string; stderr: string }>;
     };
     prefs: {
       load: () => Promise<any>;

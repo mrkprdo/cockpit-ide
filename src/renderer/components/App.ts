@@ -8,6 +8,7 @@ import { Tutorial } from './Tutorial';
 import { theme } from '../theme';
 import { memoryStore } from '../ai/memory-store';
 import { getAgentExecutor } from '../agents/executor';
+import { loadDefinitionsFromWorkspace } from '../agents/definition-file';
 
 export class App {
   private canvas: CanvasArea;
@@ -314,6 +315,16 @@ export class App {
     // Register workspace with main process (sets per-window workspacePath, starts watcher + ide-server)
     await ws.setPath(path);
     await memoryStore.loadWorkspace(path);
+
+    // Load custom subagent definitions from .cockpit/agents/*.json.
+    try {
+      const res = await loadDefinitionsFromWorkspace(path);
+      const errors = res.errors.length > 0 ? ` (${res.errors.length} definition errors)` : '';
+      const loaded = res.loaded.length > 0 ? ` · ${res.loaded.map(d => d.name).join(', ')}` : '';
+      console.debug(`[agents] definitions loaded${loaded}${errors}`);
+    } catch (err) {
+      console.debug('[agents] definition load failed', err);
+    }
 
     // Fleet persistence: bus log + roster under .cockpit/agents/.
     const agentsDir = path + '/.cockpit/agents';

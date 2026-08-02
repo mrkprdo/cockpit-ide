@@ -3,8 +3,9 @@ import { AgentBus } from './bus';
 import { ToolRegistry } from '../ai/tool-registry';
 import { ALL_TOOLS } from '../ai/tool-definitions';
 import { SubAgentSession } from './session';
-import { SKILLS } from './skills';
-import type { AgentBrief, AgentMessage } from './types';
+import { BUILTIN_DEFINITIONS } from './definitions';
+import { HookRunner } from './hooks';
+import type { AgentBrief, AgentMessage, SubAgentDefinition } from './types';
 import type { LLMMessage, LLMResponse } from '../ai/types';
 
 interface FakeLLM {
@@ -41,9 +42,13 @@ function brief(overrides: Partial<AgentBrief> = {}): AgentBrief {
   };
 }
 
-function makeSession(skillName: keyof typeof SKILLS, b: AgentBrief, llm: FakeLLM, bus: AgentBus, contextTokens?: number) {
-  const skill = { ...SKILLS[skillName], contextTokens: contextTokens ?? SKILLS[skillName].contextTokens };
-  return new SubAgentSession(`agent:test`, skill, b, 'corr-test', {
+function makeSession(definitionName: keyof typeof BUILTIN_DEFINITIONS | string, b: AgentBrief, llm: FakeLLM, bus: AgentBus, contextTokens?: number, defnOverride?: Partial<SubAgentDefinition>) {
+  const defn: SubAgentDefinition = {
+    ...BUILTIN_DEFINITIONS[definitionName as keyof typeof BUILTIN_DEFINITIONS],
+    ...defnOverride,
+    contextTokens: contextTokens ?? BUILTIN_DEFINITIONS[definitionName as keyof typeof BUILTIN_DEFINITIONS]?.contextTokens,
+  };
+  return new SubAgentSession(`agent:test`, defn, b, 'corr-test', {
     bus,
     registry: new ToolRegistry(ALL_TOOLS),
     llm: llm as any,
@@ -93,7 +98,7 @@ describe('SubAgentSession', () => {
     const result = await s.run();
     expect(result).toBe('recovered');
     // The guardrail denial was injected as a tool result.
-    const toolMsg = s.transcript.find(m => m.role === 'tool');
+    const toolMsg = s.transcriptSnapshot.find(m => m.role === 'tool');
     expect(toolMsg?.content).toContain('Guardrail');
   });
 
@@ -154,5 +159,58 @@ describe('SubAgentSession', () => {
     expect(respond?.payload).toContain('[ERROR]');
     expect(respond?.payload).toContain('kaboom');
     expect(respond?.topic).toContain('implementer.error');
+  });
+});
+
+describe('SubAgentSession permission + hooks', () => {
+  it('denies a write tool under plan mode even when allowlisted', async () => {
+    const bus = new AgentBus();
+    const llm = makeLLM([
+      { content: 'write attempt', tool_calls: [{ id: 'tc1', type: 'function', function: { name: 'write_file', arguments: '{"path":"/tmp/a.ts","content":"x"}' } }] },
+      { content: 'recovered' },
+    ]);
+    const s = makeSession('implementer', brief(), llm, bus, undefined, { permissionMode: 'plan' });
+    await s.run();
+    const toolMsg = s.transcriptSnapshot.find(m => m.role === 'tool');
+    expect(toolMsg?.content).toContain('Permission denied');
+  });
+
+  it('ask-gated tool parks the session; approve(true) re-runs the tool', async () => {
+    const bus = new AgentBus();
+    const llm = makeLLM([
+      { content: 'ask', tool_calls: [{ id: 'tc1', type: 'function', function: { name: 'write_file', arguments: '{"path":"/tmp/a.ts","content":"x"}' } }] },
+      { content: 'after approval' },
+    ]);
+    // Bash(npm *) allow + npm install ask → write_file uses Bash family args.
+    const s = makeSession('implementer', brief(), llm, bus, undefined, {
+      permissionMode: 'default',
+      permissions: { allow: ['Write(/tmp/**)'], ask: ['Write(/tmp/*.ts)'] },
+    });
+    // Run in the background so parkForApproval can be resolved mid-loop.
+    const runPromise = s.run();
+    // Let the loop reach the ask gate.
+    await new Promise(r => setTimeout(r, 30));
+    expect(s.pendingApproval).not.toBeNull();
+    // Approve via the session API.
+    expect(s.approve('tc1', true)).toBe(true);
+    const result = await runPromise;
+    expect(result).toBe('after approval');
+    const toolMsgs = s.transcriptSnapshot.filter(m => m.role === 'tool');
+    expect(toolMsgs[toolMsgs.length - 1].content).toContain('APPROVED');
+  });
+
+  it('PreToolUse hook exit 2 blocks the tool with HOOK BLOCKED output', async () => {
+    const bus = new AgentBus();
+    const llm = makeLLM([
+      { content: 'blocked', tool_calls: [{ id: 'tc1', type: 'function', function: { name: 'write_file', arguments: '{"path":"/tmp/a.ts","content":"x"}' } }] },
+      { content: 'recovered' },
+    ]);
+    const hookRunner = new HookRunner(vi.fn(() => Promise.resolve({ exitCode: 2, stdout: 'read-only policy', stderr: '' })) as never);
+    const s = makeSession('implementer', brief(), llm, bus, undefined, { hooks: { PreToolUse: [{ matcher: 'Write', command: 'policy.sh' }] } });
+    const deps = (s as any).deps;
+    deps.hooks = hookRunner;
+    await s.run();
+    const toolMsg = s.transcriptSnapshot.find(m => m.role === 'tool');
+    expect(toolMsg?.content).toContain('HOOK BLOCKED');
   });
 });

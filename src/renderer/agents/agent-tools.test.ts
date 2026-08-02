@@ -6,6 +6,9 @@ import {
   AgentDispatchArgs,
   AgentWaitArgs,
   AgentKillArgs,
+  AgentApproveArgs,
+  agentApproveTool,
+  definitionsListTool,
 } from './agent-tools';
 
 /**
@@ -111,5 +114,61 @@ describe('agent_* tool parameter aliases', () => {
     type SpawnData = z.infer<typeof AgentSpawnArgs>;
     const data: SpawnData = { skill: 'planner', context: 'c', expected_result: 'e' };
     expect(data.skill).toBe('planner');
+  });
+
+  it('agent_spawn accepts agent (definition id) instead of skill', () => {
+    const parsed = AgentSpawnArgs.safeParse({
+      agent: 'db-reader',
+      context: 'query the DB',
+      expected_result: 'rows',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.agent).toBe('db-reader');
+      expect(parsed.data.skill).toBeUndefined();
+    }
+  });
+
+  it('agent_spawn accepts model/permissionMode/maxTurns overrides (camelCase + snake)', () => {
+    const parsed = AgentSpawnArgs.safeParse({
+      skill: 'implementer',
+      context: 'c',
+      expected_result: 'e',
+      permissionMode: 'plan',
+      maxTurns: 5,
+      model: 'deepseek-v4-pro',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.permission_mode).toBe('plan');
+      expect(parsed.data.max_turns).toBe(5);
+      expect(parsed.data.model).toBe('deepseek-v4-pro');
+    }
+    // Invalid permission mode is rejected.
+    expect(AgentSpawnArgs.safeParse({ skill: 'planner', context: 'c', expected_result: 'e', permission_mode: 'banana' }).success).toBe(false);
+  });
+
+  it('agent_approve accepts correlationId/approve with aliases', () => {
+    const parsed = AgentApproveArgs.safeParse({ correlationId: 'corr-x', approve: true });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.correlation_id).toBe('corr-x');
+      expect(parsed.data.approve).toBe(true);
+    }
+  });
+
+  it('agent_approve tool reports no parked approval for unknown correlation', async () => {
+    const out = await agentApproveTool.execute({ correlation_id: 'corr-nope', approve: true } as never, {} as never);
+    expect(out).toContain('No parked approval');
+  });
+
+  it('definitions_list lists built-ins and reports structure', async () => {
+    const out = await definitionsListTool.execute({} as never, {} as never);
+    const parsed = JSON.parse(out);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed.some((d: any) => d.name === 'implementer')).toBe(true);
+    const impl = parsed.find((d: any) => d.name === 'implementer');
+    expect(impl.builtin).toBe(true);
+    expect(impl.permissionMode).toBe('acceptEdits');
   });
 });

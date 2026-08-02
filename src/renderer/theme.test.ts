@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { theme, defaultDarkTheme, defaultLightTheme, monokaiDarkTheme, monokaiLightTheme, idolDarkTheme, idolLightTheme, carbonDarkTheme, carbonLightTheme } from './theme';
+import { theme, defaultDarkTheme, defaultLightTheme, monokaiDarkTheme, monokaiLightTheme, idolDarkTheme, idolLightTheme, carbonDarkTheme, carbonLightTheme, alienDarkTheme, alienLightTheme } from './theme';
 
 describe('theme', () => {
   beforeEach(() => {
@@ -154,6 +154,14 @@ describe('theme', () => {
     for (const k of allKeys) expect(carbonLightTheme[k]).toBeDefined();
   });
 
+  it('alienDarkTheme has all required color keys', () => {
+    for (const k of allKeys) expect(alienDarkTheme[k]).toBeDefined();
+  });
+
+  it('alienLightTheme has all required color keys', () => {
+    for (const k of allKeys) expect(alienLightTheme[k]).toBeDefined();
+  });
+
   it('apply sets idol-dark CSS properties', () => {
     theme.setTheme('idol', 'dark');
     const root = document.documentElement;
@@ -222,6 +230,36 @@ describe('theme', () => {
     expect(theme.colors).toBe(carbonDarkTheme);
   });
 
+  it('setTheme alien+dark switches correctly', () => {
+    theme.setTheme('alien', 'dark');
+    expect(theme.base).toBe('alien');
+    expect(theme.mode).toBe('dark');
+    expect(theme.colors).toBe(alienDarkTheme);
+  });
+
+  it('setTheme alien+light switches correctly', () => {
+    theme.setTheme('alien', 'light');
+    expect(theme.base).toBe('alien');
+    expect(theme.mode).toBe('light');
+    expect(theme.colors).toBe(alienLightTheme);
+  });
+
+  it('setBase alien keeps current mode', () => {
+    theme.setMode('dark');
+    theme.setBase('alien');
+    expect(theme.base).toBe('alien');
+    expect(theme.mode).toBe('dark');
+    expect(theme.colors).toBe(alienDarkTheme);
+  });
+
+  it('toggle preserves alien base theme', () => {
+    theme.setTheme('alien', 'dark');
+    theme.toggle();
+    expect(theme.base).toBe('alien');
+    expect(theme.mode).toBe('light');
+    expect(theme.colors).toBe(alienLightTheme);
+  });
+
   it('apply sets carbon-dark CSS properties', () => {
     theme.setTheme('carbon', 'dark');
     const root = document.documentElement;
@@ -242,6 +280,32 @@ describe('theme', () => {
     expect(root.style.getPropertyValue('--accent')).toBe('#E86A00');
   });
 
+  it('apply sets alien-dark CSS properties', () => {
+    theme.setTheme('alien', 'dark');
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--bg')).toBe('#394330');
+    expect(root.style.getPropertyValue('--surface')).toBe('#45523A');
+    expect(root.style.getPropertyValue('--panel')).toBe('#406059');
+    expect(root.style.getPropertyValue('--primary')).toBe('#EDF2E6');
+    expect(root.style.getPropertyValue('--secondary')).toBe('#A9BD9E');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#7E8F76');
+    expect(root.style.getPropertyValue('--border')).toBe('#54684B');
+    expect(root.style.getPropertyValue('--accent')).toBe('#A1C27F');
+    expect(root.style.getPropertyValue('--accent2')).toBe('#D7894E');
+    expect(root.style.getPropertyValue('--green')).toBe('#A1C27F');
+    expect(root.style.getPropertyValue('--amber')).toBe('#C9843C');
+    expect(root.style.getPropertyValue('--red')).toBe('#D96A5A');
+  });
+
+  it('apply sets alien-light CSS properties', () => {
+    theme.setTheme('alien', 'light');
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--bg')).toBe('#F4F7EF');
+    expect(root.style.getPropertyValue('--primary')).toBe('#2E3A2A');
+    expect(root.style.getPropertyValue('--accent')).toBe('#5E8540');
+    expect(root.style.getPropertyValue('--accent2')).toBe('#B06A2E');
+  });
+
   it('apply sets green, amber, red, onAccent, scrim CSS custom properties', () => {
     theme.setDark(true);
     const root = document.documentElement;
@@ -260,14 +324,23 @@ describe('theme', () => {
     expect(idolDarkTheme.tertiary).toBe('#5A6A6A');
   });
 
-  it('all eight palettes are distinct', () => {
+  it('alien-dark palette anchors match the core five-color palette', () => {
+    expect(alienDarkTheme.bg).toBe('#394330');
+    expect(alienDarkTheme.panel).toBe('#406059');
+    expect(alienDarkTheme.accent).toBe('#A1C27F');
+    expect(alienDarkTheme.accent2).toBe('#D7894E');
+    expect(alienLightTheme.tertiary).toBe('#74886D');
+  });
+
+  it('all ten palettes are distinct', () => {
     const bgs = [
       defaultDarkTheme.bg, defaultLightTheme.bg,
       monokaiDarkTheme.bg, monokaiLightTheme.bg,
       idolDarkTheme.bg, idolLightTheme.bg,
       carbonDarkTheme.bg, carbonLightTheme.bg,
+      alienDarkTheme.bg, alienLightTheme.bg,
     ];
     const unique = new Set(bgs);
-    expect(unique.size).toBe(8);
+    expect(unique.size).toBe(10);
   });
 });

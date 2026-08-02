@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { SKILLS, getSkill, guardToolCall, SKILL_NAMES, type Skill } from './skills';
+import { SKILLS, getSkill, guardToolCall, SKILL_NAMES } from './skills';
+import type { Skill, SkillName } from './types';
 
 describe('skills registry', () => {
   it('exposes all ten SDLC skills', () => {
@@ -16,7 +17,7 @@ describe('skills registry', () => {
 
   it('read-only skills (reviewer, spec-orienter, planner) have no mutating tools', () => {
     const mutating = ['write_file', 'delete_file', 'git_commit', 'write_to_terminal', 'specs_reconcile', 'memory_set'];
-    for (const skillName of ['reviewer', 'spec-orienter', 'planner']) {
+    for (const skillName of ['reviewer', 'spec-orienter', 'planner'] as SkillName[]) {
       const s = SKILLS[skillName];
       for (const tool of mutating) {
         expect(s.allowedTools, `${skillName} must not allow ${tool}`).not.toContain(tool);

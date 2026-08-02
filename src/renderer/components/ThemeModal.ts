@@ -5,6 +5,7 @@ const baseOptions = [
   { value: 'monokai', label: 'Monokai' },
   { value: 'idol', label: 'Idol' },
   { value: 'carbon', label: 'Carbon' },
+  { value: 'alien', label: 'Alien' },
 ];
 
 const modeOptions = [

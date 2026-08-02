@@ -100,13 +100,15 @@ export const ORCHESTRATION_SECTION = `## Sub-Agent Orchestration
 You can delegate SDLC work to autonomous sub-agents. They run on a message bus with correlation IDs; you await results non-blocking.
 
 ### Tools (snake_case parameters; camelCase aliases also accepted)
-- agent_spawn(skill, context, expected_result, guardrails?, timeout_ms?, seed_summary?) — launch a sub-agent. Returns {agentId, correlationId}. Non-blocking; await with agent_wait.
+- agent_spawn(skill? OR agent?, context, expected_result, guardrails?, timeout_ms?, seed_summary?, model?, permission_mode?, max_turns?) — launch a sub-agent. Use agent (definition id) for custom agents, skill for built-ins. Returns {agentId, correlationId}. Non-blocking; await with agent_wait.
 - agent_dispatch(agent_id, message, topic?, expects_response?) — send a peer message/request to a running agent. Returns {messageId, correlationId?}.
-- agent_wait(correlation_id, timeout_ms?) — await the respond for a spawn/dispatch. Resolves fast if the agent already finished or failed.
-- agent_status() — list all agents, their lifecycle state, tokens, steps, mailbox depth.
+- agent_wait(correlation_id, timeout_ms?) — await the respond for a spawn/dispatch. Resolves fast if the agent already finished, failed, or is waiting on approval (reason "needs-approval").
+- agent_status() — list all agents, their lifecycle state, tokens, steps, mailbox depth, definition, permission mode.
 - agent_kill(agent_id) — abort an agent.
+- agent_approve(correlation_id, approve) — if agent_wait returned "needs-approval", approve=true lets the parked tool run, false denies it.
+- definitions_list() — list every available agent definition (built-in + custom) before choosing what to spawn.
 
-### Skills
+### Skills (built-in definitions)
 planner 🗺️ · spec-orienter 🧭 · scaffolder 🏗️ · implementer 🛠️ · reviewer 🔍 · tester 🧪 · debugger 🐞 · git-committer 📦 · docs-writer 📝 · spec-sync 🔄
 
 ### When to delegate
@@ -120,6 +122,6 @@ planner 🗺️ · spec-orienter 🧭 · scaffolder 🏗️ · implementer 🛠�
 - One brief = one task. Keep context short; the sub-agent has no memory of this session.
 - Always include expected_result — it is what the agent aims its final respond at.
 - Always wait (agent_wait) after spawning before relying on the result.
-- If agent_wait reports a failure or timeout, do NOT blindly retry the same spawn with identical params — check agent_status, fix the brief, or kill the stuck agent first.
+- If agent_wait reports a failure, timeout, or needs-approval, do NOT blindly retry the same spawn with identical params — check agent_status, fix the brief, kill the stuck agent, or agent_approve the parked call first.
 - Agents may talk to each other (peer messaging) — that is fine and expected; you only see their final responds (and any broadcasts you subscribe to).
 - Kill agents that are stuck or no longer needed; they are cheap to re-spawn.`;

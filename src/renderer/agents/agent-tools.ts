@@ -2,14 +2,17 @@ import { z } from 'zod/v3';
 import type { ToolDefinition } from '../ai/types';
 import { getAgentExecutor } from './executor';
 import { SKILL_NAMES } from './skills';
+import { listDefinitions } from './definitions';
+import type { PermissionMode } from './types';
 
 /**
  * Sub-agent orchestration tools. Registered in ALL_TOOLS via tool-definitions.ts
- * so the main session (and capable peers) can spawn/dispatch/wait/kill.
+ * so the main session (and capable peers) can spawn/dispatch/wait/kill/approve.
  *
  * Guardrails for these tools are enforced both here (existence checks) and in
  * the skill layer (skills.ts HARD_DENY: spawn/kill need 'orchestrate',
- * dispatch needs 'peer').
+ * dispatch needs 'peer'). Custom definitions can restrict which agents may be
+ * spawned via `permissions.deny: ["Agent(name)"]`.
  *
  * Parameter naming: the canonical keys are snake_case (what the JSON schema
  * advertises to the model). camelCase aliases (expectedResult, agentId, …) are
@@ -19,6 +22,7 @@ import { SKILL_NAMES } from './skills';
  */
 
 const SkillEnum = z.enum(SKILL_NAMES as unknown as [string, ...string[]]);
+const PermissionModeEnum = z.enum(['default', 'acceptEdits', 'auto', 'plan', 'dontAsk']);
 
 /**
  * Normalize camelCase aliases onto their canonical snake_case keys before
@@ -43,16 +47,22 @@ function withAliases<T extends z.ZodRawShape>(shape: T, aliases: Record<string, 
 }
 
 export const AgentSpawnArgs = withAliases({
-  skill: SkillEnum.describe('SDLC skill to launch'),
+  skill: SkillEnum.optional().describe('Built-in SDLC skill to launch (mutually exclusive with agent)'),
+  agent: z.string().optional().describe('Custom or built-in subagent definition id (mutually exclusive with skill)'),
   context: z.string().describe('Task context: files, plan, previous results — keep it tight, the agent has no other memory'),
   expected_result: z.string().describe('What "done" looks like — the agent aims its final respond at this'),
   guardrails: z.array(z.string()).optional().describe('Extra human-readable guardrails for this dispatch'),
-  timeout_ms: z.number().int().positive().optional().describe('Override the skill default timeout in ms'),
+  timeout_ms: z.number().int().positive().optional().describe('Override the definition default timeout in ms'),
   seed_summary: z.string().optional().describe('Compaction summary from a prior agent (memory handoff)'),
+  model: z.string().optional().describe('Per-agent model override (falls back to definition.model, then the executor config)'),
+  permission_mode: PermissionModeEnum.optional().describe('Per-agent permission mode override (default|acceptEdits|auto|plan|dontAsk)'),
+  max_turns: z.number().int().positive().optional().describe('Per-agent step cap override'),
 }, {
   expectedResult: 'expected_result',
   timeoutMs: 'timeout_ms',
   seedSummary: 'seed_summary',
+  permissionMode: 'permission_mode',
+  maxTurns: 'max_turns',
 });
 
 export const AgentDispatchArgs = withAliases({
@@ -81,20 +91,31 @@ export const AgentKillArgs = withAliases({
   agentId: 'agent_id',
 });
 
+export const AgentApproveArgs = withAliases({
+  correlation_id: z.string().describe('Correlation id whose ask-gated tool call should be approved/denied'),
+  approve: z.boolean().describe('true = allow the parked tool to run; false = deny it'),
+}, {
+  correlationId: 'correlation_id',
+});
+
 export const agentSpawnTool: ToolDefinition<typeof AgentSpawnArgs> = {
   name: 'agent_spawn',
-  description: 'Launch an autonomous sub-agent with the given SDLC skill. Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). Params: skill, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?.',
+  description: 'Launch an autonomous sub-agent. Pass EITHER skill (built-in SDLC skill) OR agent (custom definition id). Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). Params: skill?/agent?, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?, model?, permission_mode? (alias permissionMode), max_turns?.',
   parameters: AgentSpawnArgs,
   execute: async (args) => {
     const ex = getAgentExecutor();
     try {
       const res = ex.spawn({
         skill: args.skill as never,
+        agent: args.agent,
         context: args.context,
         expectedResult: args.expected_result,
         guardrails: args.guardrails,
         timeoutMs: args.timeout_ms,
         seedSummary: args.seed_summary,
+        model: args.model,
+        permissionMode: args.permission_mode as PermissionMode | undefined,
+        maxTurns: args.max_turns,
       });
       return JSON.stringify(res, null, 2);
     } catch (err: any) {
@@ -151,7 +172,7 @@ export const agentWaitTool: ToolDefinition<typeof AgentWaitArgs> = {
 
 export const agentStatusTool: ToolDefinition<typeof AgentStatusArgs> = {
   name: 'agent_status',
-  description: 'List all sub-agents: id, skill, lifecycle state, steps, tokens, mailbox depth, brief summary, result preview. Also reports the current LLM config source and concurrency cap.',
+  description: 'List all sub-agents: id, definition/skill, lifecycle state, steps, tokens, mailbox depth, brief summary, result preview. Also reports the current LLM config source and concurrency cap.',
   parameters: AgentStatusArgs,
   execute: async () => {
     const ex = getAgentExecutor();
@@ -160,6 +181,9 @@ export const agentStatusTool: ToolDefinition<typeof AgentStatusArgs> = {
       agents: ex.status().map(a => ({
         id: a.id,
         skill: a.skill,
+        definition: a.definition,
+        isCustom: a.isCustom,
+        permissionMode: a.permissionMode,
         state: a.state,
         steps: a.steps,
         tokensUsed: a.tokensUsed,
@@ -187,10 +211,45 @@ export const agentKillTool: ToolDefinition<typeof AgentKillArgs> = {
   },
 };
 
+export const agentApproveTool: ToolDefinition<typeof AgentApproveArgs> = {
+  name: 'agent_approve',
+  description: 'Approve or deny a parked ask-gated tool call on a sub-agent (agent_wait returned reason "needs-approval"). approve=true re-runs the tool; false injects an approval-declined note. Params: correlation_id (alias correlationId), approve.',
+  parameters: AgentApproveArgs,
+  execute: async (args) => {
+    const ex = getAgentExecutor();
+    const ok = ex.approve(args.correlation_id, args.approve);
+    return ok
+      ? `Approval ${args.approve ? 'granted' : 'denied'} for ${args.correlation_id}`
+      : `No parked approval for "${args.correlation_id}"`;
+  },
+};
+
+export const DefinitionsListArgs = z.object({});
+
+export const definitionsListTool: ToolDefinition<typeof DefinitionsListArgs> = {
+  name: 'definitions_list',
+  description: 'List every available subagent definition: id, built-in vs custom, description, permission mode, max turns, tool count. Use before agent_spawn to pick an agent id.',
+  parameters: DefinitionsListArgs,
+  execute: async () => {
+    const list = listDefinitions();
+    return JSON.stringify(list.map(d => ({
+      name: d.name,
+      builtin: SKILL_NAMES.includes(d.name as never),
+      description: d.description,
+      permissionMode: d.permissionMode ?? 'acceptEdits',
+      maxTurns: d.maxTurns ?? 24,
+      model: d.model ?? null,
+      tools: d.tools ? d.tools.length : 'read-only',
+    })), null, 2);
+  },
+};
+
 export const AGENT_TOOLS: ToolDefinition<any>[] = [
   agentSpawnTool,
   agentDispatchTool,
   agentWaitTool,
   agentStatusTool,
   agentKillTool,
+  agentApproveTool,
+  definitionsListTool,
 ];

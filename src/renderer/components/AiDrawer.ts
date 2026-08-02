@@ -1,6 +1,8 @@
 import { AGENT_SYSTEM_PROMPT } from '../ai/prompts';
 import { getAgentExecutor } from '../agents/executor';
 import { ORCHESTRATION_SECTION } from '../agents/prompts';
+import { listDefinitions } from '../agents/definitions';
+import { SKILL_NAMES } from '../agents/skills';
 import { ALL_TOOLS } from '../ai/tool-definitions';
 import { LLMClient } from '../ai/llm-client';
 import { ToolRegistry } from '../ai/tool-registry';
@@ -984,6 +986,13 @@ export class AiDrawer {
     if (wsPath) parts.push(`Workspace: ${wsPath}`);
     parts.push(memoryStore.buildIndexPrompt());
     parts.push(ORCHESTRATION_SECTION);
+    const customs = listDefinitions().filter(d => !SKILL_NAMES.includes(d.name as never));
+    if (customs.length > 0) {
+      parts.push(
+        '## Custom subagents\n' +
+        customs.map(d => `- ${d.name}: ${d.description}`).join('\n')
+      );
+    }
     return parts.join('\n\n');
   }
 

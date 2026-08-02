@@ -1,6 +1,7 @@
 import { getAgentExecutor } from '../agents/executor';
 import { SKILLS, SKILL_NAMES } from '../agents/skills';
-import type { AgentMessage, AgentStatus, SkillName } from '../agents/types';
+import { listDefinitions } from '../agents/definitions';
+import type { AgentMessage, AgentStatus } from '../agents/types';
 
 interface Connection {
   id: string;
@@ -70,10 +71,13 @@ export class AgentsPlugin {
               <span class="agents-spawn-title">Spawn agent</span>
               <span class="agents-spawn-chevron">▸</span>
             </button>
-            <div class="agents-spawn-fields">
-              <select class="agents-spawn-skill">
-                ${SKILL_NAMES.map(s => `<option value="${s}">${SKILLS[s].icon} ${SKILLS[s].label}</option>`).join('')}
-              </select>
+              <div class="agents-spawn-fields">
+                <select class="agents-spawn-skill">
+                  <optgroup label="Built-in skills">
+                    ${SKILL_NAMES.map(s => `<option value="${s}">${SKILLS[s].icon} ${SKILLS[s].label}</option>`).join('')}
+                  </optgroup>
+                  ${this.customOptions()}
+                </select>
               <textarea class="agents-spawn-context" rows="3" placeholder="Context: files, plan, results… (keep short)"></textarea>
               <input class="agents-spawn-expected" type="text" placeholder="Expected result…">
               <input class="agents-spawn-guardrails" type="text" placeholder="Guardrails (comma-separated, optional)">
@@ -91,6 +95,14 @@ export class AgentsPlugin {
     this.bindSpawnControls();
   }
 
+  private customOptions(): string {
+    const customs = listDefinitions().filter(d => !SKILL_NAMES.includes(d.name as never));
+    if (customs.length === 0) return '';
+    return `<optgroup label="Custom agents">
+      ${customs.map(d => `<option value="${d.name}">${d.icon ?? '🤖'} ${d.label ?? d.name}</option>`).join('')}
+    </optgroup>`;
+  }
+
   private bindSpawnControls(): void {
     const spawnBtn = this.root.querySelector<HTMLButtonElement>('.agents-spawn-btn');
     const purgeBtn = this.root.querySelector<HTMLButtonElement>('.agents-purge-btn');
@@ -104,7 +116,7 @@ export class AgentsPlugin {
     });
 
     spawnBtn?.addEventListener('click', () => {
-      const skill = (this.root.querySelector<HTMLSelectElement>('.agents-spawn-skill')?.value || 'implementer') as SkillName;
+      const skill = (this.root.querySelector<HTMLSelectElement>('.agents-spawn-skill')?.value || 'implementer') as string;
       const context = this.root.querySelector<HTMLTextAreaElement>('.agents-spawn-context')?.value.trim() || '';
       const expected = this.root.querySelector<HTMLInputElement>('.agents-spawn-expected')?.value.trim() || '';
       const guardrailStr = this.root.querySelector<HTMLInputElement>('.agents-spawn-guardrails')?.value.trim() || '';
@@ -116,7 +128,11 @@ export class AgentsPlugin {
         return;
       }
       try {
-        const res = getAgentExecutor().spawn({ skill, context, expectedResult: expected, guardrails });
+        // Built-in skills spawn via skill; custom definitions spawn via agent.
+        const isBuiltin = SKILL_NAMES.includes(skill as never);
+        const res = isBuiltin
+          ? getAgentExecutor().spawn({ skill: skill as never, context, expectedResult: expected, guardrails })
+          : getAgentExecutor().spawn({ agent: skill, context, expectedResult: expected, guardrails });
         if (msgEl) { msgEl.textContent = `Spawned ${res.agentId} (${skill})`; msgEl.className = 'agents-spawn-msg is-ok'; }
         this.selectedId = res.agentId;
         this.scheduleRefresh();
@@ -315,12 +331,14 @@ export class AgentsPlugin {
         </div>
         <div class="agents-inspector-grid">
           <span>state</span><b class="agents-state-${st.state}">${st.state}</b>
-          <span>skill</span><b>${st.skill}</b>
+          <span>definition</span><b>${this.escapeHtml(st.definition)}${st.isCustom ? ' (custom)' : ''}</b>
+          <span>permission</span><b>${st.permissionMode}</b>
           <span>steps</span><b>${st.steps}</b>
           <span>tokens</span><b>${st.tokensUsed.toLocaleString()} / ${st.contextTokens.toLocaleString()}</b>
           <span>mailbox</span><b>${st.mailboxCount}</b>
           <span>age</span><b>${age}</b>
         </div>
+        ${st.definitionDescription ? `<div class="agents-inspector-section"><span class="agents-inspector-label">Definition</span><p class="agents-inspector-text">${this.escapeHtml(st.definitionDescription)}</p></div>` : ''}
         <div class="agents-inspector-section"><span class="agents-inspector-label">Brief</span><p class="agents-inspector-text">${this.escapeHtml(st.briefSummary)}</p></div>
         <div class="agents-inspector-section"><span class="agents-inspector-label">Expected result</span><p class="agents-inspector-text">${this.escapeHtml(st.expectedResult)}</p></div>
         <div class="agents-inspector-section"><span class="agents-inspector-label">Guardrails</span><ul class="agents-inspector-guard">${guardrails}</ul></div>

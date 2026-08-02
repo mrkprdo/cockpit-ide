@@ -49,6 +49,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+    exec: (opts: { command: string; cwd?: string; timeoutMs?: number; input?: string }) =>
+      ipcRenderer.invoke('shell:exec', opts),
   },
   prefs: {
     load: () => ipcRenderer.invoke('prefs:load'),

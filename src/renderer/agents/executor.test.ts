@@ -174,4 +174,64 @@ describe('AgentExecutor', () => {
     expect(st.mailboxCount).toBe(0);
     expect(st.tokensUsed).toBeGreaterThanOrEqual(0);
   });
+
+  it('spawns a custom definition by agent id; status reports definition + mode', async () => {
+    const ex = new AgentExecutor();
+    ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
+    const res = ex.spawn({
+      agent: 'reviewer',
+      context: 'review it',
+      expectedResult: 'report',
+      permissionMode: 'plan',
+    });
+    await ex.waitFor(res.correlationId, 2000);
+    const st = ex.status().find(s => s.id === res.agentId);
+    expect(st?.definition).toBe('reviewer');
+    expect(st?.permissionMode).toBe('plan');
+    expect(st?.isCustom).toBe(false);
+  });
+
+  it('unknown agent definition throws a readable error', () => {
+    const ex = new AgentExecutor();
+    expect(() => ex.spawn({ agent: 'nope', context: 'x', expectedResult: 'y' })).toThrow(/Unknown agent definition/);
+  });
+
+  it('resolves the model chain: spawn override > definition.model > provider', () => {
+    const ex = new AgentExecutor();
+    const provider = vi.fn(() => ({ endpoint: 'https://prov.local/v1', apiKey: 'kp', model: 'provider-model' }));
+    ex.setConfigProvider(provider);
+    // Custom definition with its own model.
+    const sessionModel = (ex as any).resolveConfigFor({ name: 'custom', description: 'd', systemPrompt: 'sp', model: 'defn-model' }, { model: 'spawn-model' });
+    expect(sessionModel.model).toBe('spawn-model');
+    const defnModel = (ex as any).resolveConfigFor({ name: 'custom', description: 'd', systemPrompt: 'sp', model: 'defn-model' }, {});
+    expect(defnModel.model).toBe('defn-model');
+    const defaultModel = (ex as any).resolveConfigFor({ name: 'custom', description: 'd', systemPrompt: 'sp' }, {});
+    expect(defaultModel.model).toBe('provider-model');
+  });
+
+  it('waitFor returns needs-approval for a parked ask-gated tool', async () => {
+    const ex = new AgentExecutor();
+    ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
+    // Create an agent and manually park an approval on its session.
+    const res = ex.spawn({ skill: 'implementer', context: 'x', expectedResult: 'y' });
+    const session = ex.getAgentSession(res.agentId)!;
+    (session as any).pendingApproval = { toolName: 'write_file', rawArgs: '{}', toolCallId: 'corr-parked', permissionDecision: 'ask' };
+    const wait = await ex.waitFor('corr-parked', 5000);
+    expect(wait.ok).toBe(false);
+    expect(wait.reason).toBe('needs-approval');
+  });
+
+  it('approve() resolves a parked approval; false denies', async () => {
+    const ex = new AgentExecutor();
+    ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
+    const res = ex.spawn({ skill: 'implementer', context: 'x', expectedResult: 'y' });
+    const session = ex.getAgentSession(res.agentId)!;
+    let resolved = false;
+    (session as any).pendingApproval = { toolName: 'write_file', rawArgs: '{}', toolCallId: 'corr-approve', permissionDecision: 'ask' };
+    (session as any).approvalWaiters = [{ corrId: 'corr-approve', resolve: (yes: boolean) => { resolved = yes; } }];
+    expect(ex.approve('corr-approve', true)).toBe(true);
+    expect(resolved).toBe(true);
+    // Unknown correlation → no parked approval.
+    expect(ex.approve('corr-missing', true)).toBe(false);
+  });
 });

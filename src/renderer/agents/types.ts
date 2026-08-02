@@ -86,6 +86,11 @@ export type AgentState =
 export interface AgentStatus {
   id: AgentId;
   skill: SkillName | null;       // null for the main bubble
+  /** Definition id this agent was spawned from (built-in or custom). */
+  definition: string;
+  definitionDescription: string;
+  isCustom: boolean;
+  permissionMode: PermissionMode;
   state: AgentState;
   label: string;                 // short display label
   icon: string;
@@ -121,10 +126,72 @@ export interface SpawnResult {
   correlationId: string;
 }
 
+/** Session-level permission gate (Claude Code §L1). */
+export type PermissionMode = 'default' | 'acceptEdits' | 'auto' | 'plan' | 'dontAsk';
+
+/** Pattern-based permission matchers: `Tool(glob)` entries, e.g. 'Bash(npm run test *)'. */
+export interface PermissionSet {
+  allow?: string[];
+  deny?: string[];
+  ask?: string[];
+}
+
+export type HookEventName = 'PreToolUse' | 'PostToolUse' | 'SubagentStart' | 'SubagentStop';
+
+export interface HookSpec {
+  /** Tool name matcher (e.g. 'Bash', 'Edit|Write', '*' default). */
+  matcher?: string;
+  /** Shell command; receives JSON on stdin. PreToolUse exit 2 blocks. */
+  command: string;
+}
+
+export interface HooksSpec {
+  PreToolUse?: HookSpec[];
+  PostToolUse?: HookSpec[];
+  SubagentStart?: HookSpec[];
+  SubagentStop?: HookSpec[];
+}
+
+/**
+ * Declarative subagent definition — the Claude-Code-style harness contract.
+ * Built-ins (the ten SDLC skills) are data of this shape; users can add more
+ * via `.cockpit/agents/<name>.json`.
+ */
+export interface SubAgentDefinition {
+  /** Unique lowercase-hyphen id, e.g. 'code-reviewer'. */
+  name: string;
+  /** When to delegate — drives agent_spawn and the UI. */
+  description: string;
+  /** Markdown system-prompt body (role / constraints / output format). */
+  systemPrompt: string;
+  /** Optional model override (else executor config). */
+  model?: string;
+  /** Tool allowlist. Defaults to READ_ONLY_TOOLS when absent. */
+  tools?: string[];
+  /** Subtract from the allowlist (denylist removes inherited tools). */
+  disallowedTools?: string[];
+  /** Step cap (maps to the session's internal maxSteps). */
+  maxTurns?: number;
+  permissionMode?: PermissionMode;
+  permissions?: PermissionSet;
+  hooks?: HooksSpec;
+  capabilities?: AgentCapability[];
+  color?: string;
+  timeoutMs?: number;
+  contextTokens?: number;
+  /** Reserved for worktree isolation; not yet enforced. */
+  background?: boolean;
+  /** Agent-scoped persistent memory directory. */
+  memoryScope?: 'user' | 'project' | 'local';
+  /** UI convenience (built-ins). */
+  label?: string;
+  icon?: string;
+}
+
 export interface WaitResult {
   ok: boolean;
   correlationId: string;
   message: AgentMessage | null;
-  reason: 'respond' | 'timeout' | 'aborted' | 'expired' | 'error';
+  reason: 'respond' | 'timeout' | 'aborted' | 'expired' | 'error' | 'needs-approval';
 }
 

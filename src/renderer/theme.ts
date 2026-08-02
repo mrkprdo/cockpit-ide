@@ -151,15 +151,52 @@ export const carbonLightTheme: ThemeColors = {
   scrim: 'rgba(0,0,0,0.35)',
 };
 
+export const alienDarkTheme: ThemeColors = {
+  bg: '#394330',
+  surface: '#45523A',
+  panel: '#406059',
+  primary: '#EDF2E6',
+  secondary: '#A9BD9E',
+  tertiary: '#7E8F76',
+  border: '#54684B',
+  accent: '#A1C27F',
+  accent2: '#D7894E',
+  green: '#A1C27F',
+  amber: '#C9843C',
+  red: '#D96A5A',
+  onAccent: '#22301F',
+  scrim: 'rgba(24,30,20,0.78)',
+};
+
+export const alienLightTheme: ThemeColors = {
+  bg: '#F4F7EF',
+  surface: '#E8EEDE',
+  panel: '#DDE8D2',
+  primary: '#2E3A2A',
+  secondary: '#455A4F',
+  tertiary: '#74886D',
+  border: '#C2CEB4',
+  accent: '#5E8540',
+  accent2: '#B06A2E',
+  green: '#5E8540',
+  amber: '#9C6A2A',
+  red: '#C05448',
+  onAccent: '#ffffff',
+  scrim: 'rgba(28,36,24,0.35)',
+};
+
 const palettes: Record<string, Record<string, ThemeColors>> = {
   default: { dark: defaultDarkTheme, light: defaultLightTheme },
   monokai: { dark: monokaiDarkTheme, light: monokaiLightTheme },
   idol: { dark: idolDarkTheme, light: idolLightTheme },
   carbon: { dark: carbonDarkTheme, light: carbonLightTheme },
+  alien: { dark: alienDarkTheme, light: alienLightTheme },
 };
 
+type ThemeBase = 'default' | 'monokai' | 'idol' | 'carbon' | 'alien';
+
 class Theme {
-  private _base: 'default' | 'monokai' | 'idol' | 'carbon' = 'default';
+  private _base: ThemeBase = 'default';
   private _mode: 'dark' | 'light' = 'dark';
 
   get base(): string { return this._base; }
@@ -170,7 +207,7 @@ class Theme {
 
   setBase(base: string): void {
     if (palettes[base]) {
-      this._base = base as 'default' | 'monokai' | 'idol' | 'carbon';
+      this._base = base as ThemeBase;
       this.apply();
     }
   }
@@ -193,14 +230,14 @@ class Theme {
 
   setTheme(base: string, mode?: string): void {
     if (mode && palettes[base]?.[mode]) {
-      this._base = base as 'default' | 'monokai' | 'idol' | 'carbon';
+      this._base = base as ThemeBase;
       this._mode = mode as 'dark' | 'light';
     } else if (palettes[base]?.[this._mode]) {
-      this._base = base as 'default' | 'monokai' | 'idol' | 'carbon';
+      this._base = base as ThemeBase;
     } else {
       const mapped = this.parseLegacy(base);
       if (mapped && palettes[mapped.base]?.[mapped.mode]) {
-        this._base = mapped.base as 'default' | 'monokai' | 'idol' | 'carbon';
+        this._base = mapped.base as ThemeBase;
         this._mode = mapped.mode as 'dark' | 'light';
       }
     }

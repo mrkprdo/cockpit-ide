@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { ideServer } from './ide-server';
+import { runShellCommand } from './shell';
 
 process.noDeprecation = true;
 
@@ -850,6 +851,24 @@ app.whenReady().then(async () => {
       await shell.openExternal(url);
       return true;
     } catch { return false; }
+  });
+
+  // Hook command runner (PreToolUse/PostToolUse/SubagentStart/Stop). The renderer
+  // supplies the whole command string — same trust model as terminal:create. The
+  // workspace path gate applies to cwd so a hook can't reach outside the sandbox.
+  ipcMain.handle('shell:exec', async (_event, opts: { command?: string; cwd?: string; timeoutMs?: number; input?: string }) => {
+    if (!opts || typeof opts.command !== 'string' || !opts.command.trim()) {
+      return { exitCode: -1, stdout: '', stderr: 'shell:exec: command is required' };
+    }
+    const cwd = opts.cwd && opts.cwd.trim() ? opts.cwd : undefined;
+    if (cwd && !isPathSafe(cwd, _event)) {
+      return { exitCode: -1, stdout: '', stderr: 'shell:exec: cwd outside the workspace sandbox' };
+    }
+    return runShellCommand(opts.command, {
+      cwd,
+      timeoutMs: typeof opts.timeoutMs === 'number' ? opts.timeoutMs : undefined,
+      input: typeof opts.input === 'string' ? opts.input : undefined,
+    });
   });
 
   // User preferences (saved to userData, not workspace-specific)
