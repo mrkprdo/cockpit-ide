@@ -63,8 +63,8 @@ export class AiDrawer {
   private escHandler: ((e: KeyboardEvent) => void) | null = null;
   private isDragging = false;
   private drawerWidth = 420;
-  /** Matches CSS `--ai-shell-inset` — gap so canvas peeks around the glass card. */
-  private readonly shellInset = 8;
+  /** Matches CSS `--ai-shell-inset` (now 0 — drawer is edge-to-edge). */
+  private readonly shellInset = 0;
 
   private messages: ChatMessage[] = [];
   private isLoading = false;
@@ -469,7 +469,7 @@ export class AiDrawer {
             </div>
           </div>
         </div>
-        <div class="ai-queue-bar" style="display:none"></div>
+        <div class="ai-queue-bar"></div>
         <div class="ai-token-progress">
           <div class="ai-token-progress-fill" style="transform: scaleX(0)"></div>
           <div class="ai-token-progress-label">0 / 8,192 (0%)</div>
@@ -775,7 +775,7 @@ export class AiDrawer {
     this.renderTokenUsage();
     // Defer scroll so browser has painted the new content and scrollHeight is final
     requestAnimationFrame(() => {
-      this.bodyEl.scrollTop = this.bodyEl.scrollHeight;
+      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     });
   }
 
@@ -801,7 +801,7 @@ export class AiDrawer {
     }
 
     requestAnimationFrame(() => {
-      this.bodyEl.scrollTop = this.bodyEl.scrollHeight;
+      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     });
   }
 
@@ -875,7 +875,7 @@ export class AiDrawer {
     this.steeringMessage = text;
     this.messages.push({ role: 'user', content: text, timestamp: Date.now(), isSteer: true });
     this.renderMessages();
-    requestAnimationFrame(() => { this.bodyEl.scrollTop = this.bodyEl.scrollHeight; });
+    requestAnimationFrame(() => { this.messagesEl.scrollTop = this.messagesEl.scrollHeight; });
   }
 
   private queueMessage(text: string): void {

@@ -1344,26 +1344,27 @@ textarea,
 /* ===== AI Drawer Body ===== */
 .ai-drawer-body {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
 }
-.ai-drawer-body::-webkit-scrollbar { width: 3px; }
-.ai-drawer-body::-webkit-scrollbar-track { background: transparent; }
-.ai-drawer-body::-webkit-scrollbar-thumb { background: var(--border); }
-.ai-drawer-body::-webkit-scrollbar-thumb:hover { background: var(--tertiary); }
 
 /* ===== Chat Messages ===== */
 .ai-chat-messages {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 14px 16px 8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.ai-chat-messages::-webkit-scrollbar { width: 3px; }
+.ai-chat-messages::-webkit-scrollbar-track { background: transparent; }
+.ai-chat-messages::-webkit-scrollbar-thumb { background: var(--border); }
+.ai-chat-messages::-webkit-scrollbar-thumb:hover { background: var(--tertiary); }
 
 .ai-chat-empty {
   flex: 1;
@@ -1461,6 +1462,7 @@ textarea,
   font-size: var(--text-xs);
   line-height: var(--lh-loose);
   word-break: break-word;
+  overflow: hidden;
 }
 .ai-chat-msg-user .ai-chat-msg-bubble {
   background: color-mix(in srgb, var(--accent) 82%, transparent);
@@ -1676,20 +1678,18 @@ textarea,
 
 /* ===== Agentic Controls ===== */
 .ai-step-controls {
-  display: grid;
-  grid-template-rows: 0fr;
-  overflow: hidden;
+  display: none;
   flex-shrink: 0;
-  opacity: 0;
-  pointer-events: none;
-  transition: grid-template-rows 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 210ms ease;
 }
 .ai-step-controls.is-visible {
-  grid-template-rows: 1fr;
+  display: block;
   border-top: 1px solid color-mix(in srgb, var(--accent2) 30%, transparent);
   background: color-mix(in srgb, var(--accent2) 5%, transparent);
-  opacity: 1;
-  pointer-events: auto;
+  animation: ai-panel-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes ai-panel-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .ai-step-controls-inner { min-height: 0; }
 .ai-step-controls-inner {
@@ -1804,20 +1804,15 @@ textarea,
 
 /* ===== Queue Bar ===== */
 .ai-queue-bar {
-  display: grid;
-  grid-template-rows: 0fr;
+  display: none;
   flex-shrink: 0;
-  border-top: 1px solid color-mix(in srgb, var(--accent2) 25%, transparent);
-  background: color-mix(in srgb, var(--accent2) 4%, transparent);
   font-family: var(--font);
-  opacity: 0;
-  pointer-events: none;
-  transition: grid-template-rows 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 210ms ease;
 }
 .ai-queue-bar.is-visible {
-  grid-template-rows: 1fr;
-  opacity: 1;
-  pointer-events: auto;
+  display: block;
+  border-top: 1px solid color-mix(in srgb, var(--accent2) 25%, transparent);
+  background: color-mix(in srgb, var(--accent2) 4%, transparent);
+  animation: ai-panel-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .ai-queue-bar-inner {
   min-height: 0;
@@ -1939,9 +1934,7 @@ textarea,
 
 /* ===== Chat Loading — vertical scan bars (no bounce) ===== */
 .ai-chat-loading {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 3px;
@@ -1965,7 +1958,6 @@ textarea,
 /* ===== Chat Input Area ===== */
 .ai-chat-input-area {
   padding: 8px 16px 16px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   flex-shrink: 0;
   background: color-mix(in srgb, var(--surface) 40%, transparent);
 }
@@ -2131,6 +2123,7 @@ textarea,
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow), 0 16px 48px color-mix(in srgb, var(--bg) 55%, transparent);
+  overflow: hidden;
   animation: ai-float-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
   transition: left 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -2716,6 +2709,8 @@ textarea,
   .ai-drawer-title::before { animation: none; }
   .ai-drawer-notch.is-loading .ai-drawer-notch-label { animation: none; }
   .ai-chat-msg.is-new { animation: none; }
+  .ai-step-controls.is-visible,
+  .ai-queue-bar.is-visible { animation: none; }
   .ai-chat-empty-logo,
   .ai-logo-c { animation: none; }
   .ai-tool-details[open] .ai-tool-result,
