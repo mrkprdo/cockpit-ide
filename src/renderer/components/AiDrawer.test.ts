@@ -1189,6 +1189,37 @@ describe('AiDrawer', () => {
         expect(drawer['messages'][idx].role).toBe('assistant');
       });
     });
+
+    it('message copy button copies the full message text', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue(makeTextResponse('Intro\n```js\nconst x = 1\n```\nOutro'));
+      drawer = await createDrawer();
+      await drawer.toggle();
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'Ask';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      const btn = q('.ai-chat-messages').querySelector<HTMLButtonElement>('.ai-chat-copy-btn')!;
+      expect(btn.title).toBe('Copy text');
+      expect(btn.querySelector('svg')).toBeTruthy();
+      btn.click();
+      await flush();
+      expect((window as any).electronAPI.clipboard.writeText).toHaveBeenCalledWith('Intro\n```js\nconst x = 1\n```\nOutro');
+    });
+
+    it('code block renders a copy button that copies only the code', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue(makeTextResponse('Here is code:\n```ts\nconst y = 2;\n\nconst z = 3;\n```\nDone.'));
+      drawer = await createDrawer();
+      await drawer.toggle();
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'Ask';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      const codeBtn = q('.ai-chat-messages').querySelector<HTMLButtonElement>('.ai-chat-code-copy')!;
+      expect(codeBtn).toBeTruthy();
+      expect(codeBtn.title).toBe('Copy code');
+      expect(codeBtn.querySelector('svg')).toBeTruthy();
+      codeBtn.click();
+      await flush();
+      expect((window as any).electronAPI.clipboard.writeText).toHaveBeenCalledWith('const y = 2;\n\nconst z = 3;');
+    });
   });
 
   // ─── FORMAT AGE ──────────────────────────────────────────────────────────────

@@ -40,6 +40,10 @@ interface SlashCommand {
 /** How many consecutive empty completions before the endpoint is considered wedged. */
 export const MAX_CONSECUTIVE_EMPTIES = 5;
 
+/** Two-overlapping-squares copy icon (stroke inherits button color). */
+const COPY_ICON_SVG =
+  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
 /**
  * Safety ceiling for the in-flight tool-loop request — older tool rounds are
  * folded above this. Set to match the real context windows of the preset models
@@ -568,20 +572,30 @@ export class AiDrawer {
     this.detachBtn = this.el.querySelector('.ai-chat-detach-btn')!;
 
     this.bindEvents();
+    this.bindMessageActions();
     this.renderMessages();
   }
 
   private formatBody(content: string): string {
     // Escape all HTML first so raw LLM output can never inject tags.
-    // Backticks and asterisks are not HTML-special — patterns still match below.
-    return this.escapeHtml(content)
-      .replace(/```(\w*)\n([\s\S]*?)```/g, (_: string, lang: string, code: string) => {
-        // code is already escaped; lang is \w* so safe in class attribute
-        return `<pre class="ai-chat-code"><code class="${lang ? `lang-${lang}` : ''}">${code.trim()}</code></pre>`;
-      })
+    // Fenced code blocks are pulled aside so the bold/italic/line-break rules
+    // never touch code content (newlines and ** are preserved verbatim).
+    const blocks: string[] = [];
+    const prose = this.escapeHtml(content).replace(/```(\w*)\n([\s\S]*?)```/g, (_: string, lang: string, code: string) => {
+      // code is already escaped; lang is \w* so safe in class attribute
+      blocks.push(
+        `<div class="ai-chat-code-wrap">` +
+        `<button class="ai-chat-code-copy" title="Copy code" aria-label="Copy code">${COPY_ICON_SVG}</button>` +
+        `<pre class="ai-chat-code"><code class="${lang ? `lang-${lang}` : ''}">${code.trim()}</code></pre>` +
+        `</div>`
+      );
+      return `\u0000${blocks.length - 1}\u0000`;
+    });
+    return prose
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n/g, '<br>');
+      .replace(/\n/g, '<br>')
+      .replace(/\u0000(\d+)\u0000/g, (_: string, i: string) => blocks[parseInt(i, 10)]);
   }
 
   private escapeHtml(str: string): string {
@@ -758,7 +772,6 @@ export class AiDrawer {
     // Mark only the last message for entrance animation; previous messages render instantly
     const last = this.messagesEl.lastElementChild as HTMLElement | null;
     if (last) last.classList.add('is-new');
-    this.bindMessageActions();
     this.renderTokenUsage();
     // Defer scroll so browser has painted the new content and scrollHeight is final
     requestAnimationFrame(() => {
@@ -829,23 +842,28 @@ export class AiDrawer {
           <div class="ai-chat-msg-text">${body}</div>
           <div class="ai-chat-msg-meta">
             <span class="ai-chat-msg-time">${time}</span>
-            ${m.role === 'assistant' ? `<button class="ai-chat-copy-btn" data-msg-index="${index}" title="Copy code">&#x2398;</button>` : ''}
+            ${m.role === 'assistant' ? `<button class="ai-chat-copy-btn" data-msg-index="${index}" title="Copy text">${COPY_ICON_SVG}</button>` : ''}
           </div>
         </div>
       </div>`;
   }
 
+  /** Delegated copy handling survives innerHTML rewrites (incl. streaming text updates). */
   private bindMessageActions(): void {
-    this.messagesEl.querySelectorAll<HTMLButtonElement>('.ai-chat-copy-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.msgIndex ?? '-1', 10);
+    this.messagesEl.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const copyBtn = target.closest<HTMLButtonElement>('.ai-chat-copy-btn');
+      if (copyBtn) {
+        const idx = parseInt(copyBtn.dataset.msgIndex ?? '-1', 10);
         const msg = idx >= 0 ? this.messages[idx] : undefined;
-        if (msg) {
-          const codeMatch = msg.content.match(/```\w*\n([\s\S]*?)```/);
-          const text = codeMatch ? codeMatch[1].trim() : msg.content;
-          navigator.clipboard.writeText(text).catch(() => {});
-        }
-      });
+        if (msg) window.electronAPI?.clipboard.writeText(msg.content).catch(() => {});
+        return;
+      }
+      const codeBtn = target.closest<HTMLButtonElement>('.ai-chat-code-copy');
+      if (codeBtn) {
+        const pre = codeBtn.closest('.ai-chat-code-wrap')?.querySelector<HTMLElement>('pre');
+        if (pre) window.electronAPI?.clipboard.writeText(pre.textContent ?? '').catch(() => {});
+      }
     });
   }
 
@@ -1353,7 +1371,16 @@ export class AiDrawer {
     this.floatPreviewEl.style.display = 'none';
     // Delegated so the close button survives innerHTML rewrites
     this.floatPreviewEl.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('.ai-float-preview-close')) this.updateFloatPreview('hidden');
+      const target = e.target as HTMLElement;
+      if (target.closest('.ai-float-preview-close')) {
+        this.updateFloatPreview('hidden');
+        return;
+      }
+      const codeBtn = target.closest<HTMLButtonElement>('.ai-chat-code-copy');
+      if (codeBtn) {
+        const pre = codeBtn.closest('.ai-chat-code-wrap')?.querySelector<HTMLElement>('pre');
+        if (pre) window.electronAPI?.clipboard.writeText(pre.textContent ?? '').catch(() => {});
+      }
     });
     this.floatEl.appendChild(this.floatPreviewEl);
     this.floatEl.appendChild(this.inputAreaEl);
