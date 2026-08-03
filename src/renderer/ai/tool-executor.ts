@@ -37,7 +37,7 @@ export async function executeToolCall(
 
   const validation = tool.parameters.safeParse(parsed);
   if (!validation.success) {
-    const issues = validation.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ');
+    const issues = validation.error.issues.map((i: { path: Array<string | number>; message: string }) => `${i.path.join('.')}: ${i.message}`).join('; ');
     return { ok: false, output: `Invalid arguments for ${name}: ${issues}` };
   }
 

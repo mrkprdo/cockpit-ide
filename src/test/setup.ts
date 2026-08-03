@@ -242,6 +242,13 @@ if (isDOM) {
     diagnostics: {
       reportError: vi.fn(),
     },
+    health: {
+      onMainFailure: vi.fn().mockReturnValue(vi.fn()),
+    },
+    __trace: {
+      subscribe: vi.fn().mockReturnValue(vi.fn()),
+      getRecent: vi.fn().mockReturnValue([]),
+    },
   };
 
   (window as any).electronAPI = mockElectronAPI;

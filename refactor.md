@@ -1,6 +1,6 @@
 # Refactor Plan — Modularization + Self-Healing + Dev Console
 
-**Status:** 📋 Planned (no code changes made yet)
+**Status:** 🔧 Phases 0b–7 implemented in working tree, uncommitted, all in one pile (not one-PR-per-phase per §E) — **closer, still not merge-ready, see §G / §G.8 re-audit.** `npm test` now green (61/61 files, 1698/1698 tests) and `npm run loc:check` now passes — both G.1 and G.2 fixed. Still open: 2 real `tsc` errors from the split (G.3), CI/pre-commit guardrails still unwired (G.4), and everything still sitting in one uncommitted diff instead of phased PRs (G.7). See §G.8 for the re-audit delta.
 **Owner:** Cockpit Agent + user
 **Relation to existing code:** builds on the existing `src/renderer/components/specsmap/` split (already 2 files extracted from `SpecsMapPlugin.ts`), the SPECGEN specs graph (`SPECGEN.md`, `.spec.md` files under `src/specs/`), and the existing crash-recovery substrate (`src/main/main.ts` `logFatal`/`wireCrashRecovery`, `src/renderer/index.ts` `window.onerror`/`unhandledrejection` → `diagnostics:rendererError`).
 
@@ -320,3 +320,71 @@ Both checks are built in the infra phase — see §E for the number — so the c
 - `loc:check` ships in the infra phase, alongside the splitting work, not after — see §E for the phase number (stated once, there only).
 - Phase order confirmed. A (housekeeping/file-size split) is the actual deliverable; B and C are support tooling for A, not features in their own right.
 - B (self-healing) is log-only this pass — `reportFailure(signal)` at existing error sites, no retry/remediation/escalation engine. That's future work (§B.5), revisit after phase 6 once real failure patterns exist to design procedures against.
+
+---
+
+## G. Audit (2026-08-03) — grilled against actual working-tree state
+
+Ran the real checks (`tsc --noEmit` on both tsconfigs, `npm run loc:check`, `npm run console:check`, `npx vitest run`, diffed against a stash of the tracked baseline, grepped CI/Makefile) instead of trusting the plan doc. Findings, worst first.
+
+### G.1 Blocker — full test suite fails, isolated files pass
+`npx vitest run`: **7 test files fail, 115 tests fail, 74 uncaught-exception errors.** Every failure is the same crash: `TypeError: this.initEditor is not a function` inside `MonacoEditorPlugin`'s constructor, reached via `new ExplorerPlugin(...)` from the `requestAnimationFrame`-deferred callback in `canvas-area/plugin-factories.ts:66-79` (`addExplorer`). `src/test/setup.ts` stubs `requestAnimationFrame` as a real `setTimeout(..., 0)`, so the callback fires *after* the scheduling test has already returned, and lands on whatever test happens to be running next (hence it's blamed on unrelated tests — `e2e-advanced.test.ts`, `CanvasArea.test.ts`, `App.test.ts`).
+- Confirmed isolated: `vitest run src/renderer/components/CanvasArea.test.ts` alone → 128/128 pass. `MonacoEditorPlugin.test.ts` alone → 57/57 pass. Only the full-suite run cascades.
+- Confirmed new: stashing tracked changes (untracked new files stay in place) drops this to 3 pre-existing failures, not 115. This regression was introduced by this refactor's tracked-file changes, not inherited.
+- This is exactly the "full test suite green" gate §E requires before any phase is done. Currently failing — **no phase in §E can be honestly marked complete yet**, regardless of how much code exists.
+- Not root-caused to the byte here — needs a real fix session (likely: `addExplorer` needs to await/flush the RAF in tests, or `MonacoEditorPlugin` construction needs to not depend on timing that a stubbed RAF changes across file boundaries).
+
+### G.2 Blocker — `loc:check` fails, the one file the plan explicitly flagged
+`npm run loc:check` → **FAIL: `src/renderer/components/MonacoEditorPlugin.ts` at 734 lines**, over the 700 hard ceiling. §A.4 named this file by number (636 LOC) as a "watch item — no action now, re-check LOC before the next non-trivial change." It received a non-trivial change (Monaco/markdown extraction partially happened — `monaco-bootstrap.ts`, `markdown-render.ts` exist as new siblings) and grew past the ceiling instead of being watched. Needs its own split (facade + `monaco-bootstrap.ts`/`markdown-render.ts` already partially extracted — finish it) before this can land.
+
+### G.3 Blocker — `tsc -p tsconfig.renderer.json --noEmit` has 3 new errors
+Diffed against tracked baseline (stash) to separate pre-existing debt from new breakage:
+- **New, real:** `CanvasArea.ts:495` — `git.restoreState(p.gitState)` inside a `setTimeout` closure; TS can't narrow `GitState | undefined` → `GitState` through the closure even though the enclosing `if (git && p.gitState)` checked it. `npm run build` fails on this today.
+- **New, real:** `tool-executor.test.ts:89` and `:102` — `new ToolRegistry([specsExploreTool])` fails: `ToolDefinition<typeof ExploreSpecsMapArgs>` not assignable to `ToolDefinition<ZodTypeAny>`. The split gave each tool a narrower, more specific type than the old monolith did; `ToolRegistry`'s constructor signature (or the individual tool exports) needs a variance fix — not investigated further here, flagged for the fix pass.
+- **Pre-existing, not this refactor's fault:** `SearchOverlay.test.ts` (mock typing), `TerminalPlugin.ts:11` (`ready` field), `tool-executor.test.ts` zod version mismatch elsewhere — confirmed present in the stashed baseline too. Don't waste a fix cycle chasing these under this plan.
+- Note: `SpecsMapPlugin.ts`'s two baseline errors (`onSearchKeydown` read-only/uninitialized) are **fixed** by the split. Net progress, not just regression.
+- `tsc -p tsconfig.main.json --noEmit` is clean — main-process split (phase 1) has no type errors.
+
+### G.4 Gap — §F guardrails aren't wired to anything
+§F promises `loc:check`/`console:check` run in "CI + pre-commit." Checked both: no `.husky/` directory exists (no pre-commit hook at all), and `.github/workflows/test.yml` → `make test` → `npm test` only — no `loc:check`, no `console:check` anywhere in `.github/workflows/*.yml` or the `Makefile`. The scripts exist (`scripts/loc-check.js`, wired as `npm run loc:check`/`console:check`) but nothing calls them automatically. G.2's regression is the direct, predicted consequence of this gap — the plan even says as much in §F's last paragraph ("without this check... erodes the same way ungoverned console.error calls already have"), and it's already happened once, on the file the plan called out by name. Wire both checks into `.github/workflows/test.yml` before this refactor can claim the guardrail exists.
+
+### G.5 Facades landed well over their own estimates — watch, not yet a rule violation
+Per §A.3.9 (max 2 files per monolith in the (500,700] buffer zone):
+- `CanvasArea.ts` facade: estimated ~300 LOC, actual **624** — over double. Combined with `card-lifecycle.ts` (592), that's already 2 files in canvas-area's buffer zone — at the rule's limit. Any further CanvasArea feature work needs a facade split, not just a sub-controller split.
+- `SpecsMapPlugin.ts` facade: estimated ~500, actual **696** — 4 LOC from the hard ceiling. One file in specsmap's buffer zone; still within the rule, but there's no room left before the next change trips loc:check on this file too (once G.2's check is actually enforced per G.4).
+- `AiDrawer.ts` facade: estimated ~450, actual 506 — marginal, fine.
+- `GitPlugin.ts` facade: estimated ~250, actual 339 — fine, under buffer threshold.
+- Not a blocker, but the estimates in §A.4 were optimistic enough on the two biggest files that re-running the promised §A.3.10 "re-run the line-range check before opening a phase's PR" step would have caught G.2/this section before merge, not after.
+
+### G.6 What's actually solid — don't re-litigate these
+- All 8 monolith/new-module targets from §A.4/§B.3/§C.2 exist on disk with the right subfolder names, matching §A.3.6's kebab-case convention exactly.
+- `main/ipc/*` implements the exact 3-way wrapper split (`withHandlerLogging`/`withListenerLogging`/`withSyncListenerLogging`) and `security.ts`/`state.ts` dependency direction described in §A.4 and §B.4 — matches the plan's code sample near-verbatim.
+- `console:check` passes clean — no `console.error`/`console.warn` under any monitored folder. B/C's logging discipline is actually being followed, not just documented.
+- Main→renderer failure path is wired: `health:mainFailure` pushed from `main/ipc/logging.ts`'s `pushMainFailure`, received via `preload.ts`'s `electronAPI.health.onMainFailure`, consumed in `src/renderer/health/monitor.ts`. `__trace` (§C.2's `wrapTraced`) is also present in `preload.ts`.
+- `DevConsolePlugin` is fully wired into the card system (`canvas-area/plugin-factories.ts`, `card-lifecycle.ts`) and into `TopBar.ts`'s menu with the backtick shortcut, per §C.3.
+- Phase 7 (`terminal.pty-exit`) is done — `main/ipc/terminal.ts` logs via `logFatal` and pushes `health:mainFailure` on unexpected PTY exit, explicitly comment-tagged `refactor.md §B.4`.
+- Specs exist for the new files (`health-failure-kinds.spec.md`, `health-failure-types.spec.md`, `health-feed.spec.md`, `dev-console-plugin.spec.md` found under `src/specs/`) — §D is being followed during the split, not deferred.
+- `tsc -p tsconfig.main.json` clean; `main.ts` itself shrank to 250 LOC, well under cap.
+
+### G.7 Process gap — §E's one-PR-per-phase didn't happen
+Every phase from 0b through 7 is sitting in the same uncommitted working tree simultaneously, including phase 0a's own gate ("commit or stash WIP before phase 1 touches main.ts") — that gate was never satisfied; `main.ts` was touched anyway, alongside everything else, in one undifferentiated diff. This makes G.1–G.3 harder to attribute to a specific phase and impossible to bisect. Before continuing: commit what's here in the phase order §E lays out (or as close to it as the current diff allows), fixing G.1/G.2/G.3 as part of whichever phase actually owns each broken file (G.1/G.2 → phase 6/MonacoEditorPlugin's own future split; G.3's `CanvasArea.ts:495` → phase 4; G.3's `tool-executor.test.ts` → phase 2), not as one giant final commit.
+
+---
+
+### G.8 Re-audit (2026-08-03, same day) — after user fixes
+
+Re-ran every check in §G from scratch (`tsc` both configs, `loc:check`, `console:check`, full `vitest run`, CI/Makefile grep, `git status`). Verdict per finding:
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| G.1 | Full suite cascades to 115 failed tests | **FIXED** | `npx vitest run` → 61/61 files, 1698/1698 tests, clean. RAF/`MonacoEditorPlugin` init race is gone. |
+| G.2 | `MonacoEditorPlugin.ts` over 700-line hard ceiling | **FIXED** | File split: `monaco-bootstrap.ts` and `markdown-render.ts` extracted as new siblings (both untracked, not yet committed). Facade now 585 LOC. `npm run loc:check` → `ok — no in-scope file exceeds 700 lines`. |
+| G.3a | `CanvasArea.ts:495` — `GitState \| undefined` not narrowed through `setTimeout` closure | **STILL OPEN** | Same error, same line, unchanged. `tsc -p tsconfig.renderer.json --noEmit` still reports it. `npm run build` still fails on this. |
+| G.3b | `tool-executor.test.ts:89,102` — `ToolDefinition<Specific>` not assignable to `ToolDefinition<ZodTypeAny>` | **STILL OPEN** | Same two errors, unchanged. |
+| G.3 (pre-existing) | `SearchOverlay.test.ts`, `TerminalPlugin.ts:11`, `CanvasArea.test.ts` `.click`/`GitPlugin.test.ts` `.style` DOM-typing errors | unchanged, still not this refactor's problem (present in baseline) | not re-verified against stash this pass — no tracked-file churn since first audit suggests baseline classification still holds |
+| G.4 | §F guardrails not wired to CI/pre-commit | **STILL OPEN** | No `.husky/` dir. `.github/workflows/*.yml` and `Makefile` still have zero references to `loc:check`/`console:check` — grepped both, no hits. |
+| G.5 | Facades over estimate (CanvasArea 624, SpecsMapPlugin 696) | **unchanged, still just a watch item** | Same LOC as first audit — no regression, no fix attempted, correctly out of scope for a "fix some issues" pass. |
+| G.6 | Wiring/discipline (main/ipc pattern, health push path, dev-console, specs) | **still solid** | `console:check` still clean; `tsc -p tsconfig.main.json` still clean. |
+| G.7 | One giant uncommitted diff, no phased PRs | **STILL OPEN** | `git status` unchanged in shape — same ~25 modified + ~15 untracked paths, nothing committed yet. |
+
+**Net: 2 of 4 blockers cleared (G.1, G.2). 2 remain (G.3's two `tsc` errors, G.4's missing CI wiring) plus the standing process gap (G.7).** `npm run build` still does not succeed end-to-end because of G.3a. Next fix pass should take G.3a (narrow with a local `const gitState = p.gitState` before the closure, or an `!`-assert now that it's already been null-checked one line up) and G.3b (loosen `ToolRegistry`'s constructor param to accept covariant `ToolDefinition<any>` elements, or have the split's tool files export through a widening helper like the monolith implicitly did) — both are small, contained fixes, not architectural. G.4 is a one-line addition to `.github/workflows/test.yml`'s `make test` step or the `Makefile`'s `test:` target. G.7 is a commit-ordering exercise once G.3/G.4 are clear, not new code.

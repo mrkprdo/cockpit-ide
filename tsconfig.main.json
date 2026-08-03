@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "sourceMap": true
   },
-  "include": ["src/main/**/*", "src/preload/**/*", "src/global.d.ts"]
+  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*", "src/global.d.ts"]
 }

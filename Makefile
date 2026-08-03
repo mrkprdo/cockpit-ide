@@ -23,3 +23,5 @@ clean:
 
 test:
 	npm test
+	npm run loc:check
+	npm run console:check

@@ -6,20 +6,20 @@ import { zodToJsonSchema } from './zod-to-openai';
  * function schemas for LLM function calling.
  */
 export class ToolRegistry {
-  private byName = new Map<string, ToolDefinition>();
+  private byName = new Map<string, ToolDefinition<any>>();
 
-  constructor(tools: ToolDefinition[] = []) {
+  constructor(tools: ToolDefinition<any>[] = []) {
     for (const tool of tools) this.register(tool);
   }
 
-  register(tool: ToolDefinition): void {
+  register(tool: ToolDefinition<any>): void {
     if (this.byName.has(tool.name)) {
       throw new Error(`Duplicate tool registration: ${tool.name}`);
     }
     this.byName.set(tool.name, tool);
   }
 
-  get(name: string): ToolDefinition | undefined {
+  get(name: string): ToolDefinition<any> | undefined {
     return this.byName.get(name);
   }
 
@@ -31,7 +31,7 @@ export class ToolRegistry {
     return Array.from(this.byName.keys());
   }
 
-  all(): ToolDefinition[] {
+  all(): ToolDefinition<any>[] {
     return Array.from(this.byName.values());
   }
 

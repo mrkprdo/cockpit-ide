@@ -1,5 +1,67 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+// --- IPC tracing -----------------------------------------------------------
+// contextIsolation is on, so the renderer has no ipcRenderer to wrap — tracing
+// happens here, in preload, around every exposed method. Not every call is
+// request-response (refactor.md §C.2):
+//   invoke-backed   -> Promise  -> { channel, durationMs, payloadSize, ok }
+//   send-backed     -> void     -> { channel, payloadSize }
+//   sendSync-backed -> T        -> { channel, durationMs, payloadSize }
+
+export interface TraceEntry {
+  channel: string;
+  type: 'invoke' | 'send' | 'sendSync';
+  at: number;
+  payloadSize: number;
+  durationMs?: number;
+  ok?: boolean;
+}
+
+const MAX_TRACE = 300;
+const traceBuffer: TraceEntry[] = [];
+const traceListeners = new Set<(entry: TraceEntry) => void>();
+
+function pushTrace(entry: TraceEntry): void {
+  traceBuffer.push(entry);
+  if (traceBuffer.length > MAX_TRACE) traceBuffer.splice(0, traceBuffer.length - MAX_TRACE);
+  for (const cb of [...traceListeners]) {
+    try { cb(entry); } catch { /* never let a subscriber break tracing */ }
+  }
+}
+
+function payloadSize(args: unknown[]): number {
+  try { return JSON.stringify(args).length; } catch { return 0; }
+}
+
+function tracedInvoke<T = unknown>(channel: string): (...args: unknown[]) => Promise<T> {
+  return (...args) => {
+    const at = Date.now();
+    const start = performance.now();
+    const size = payloadSize(args);
+    const p = ipcRenderer.invoke(channel, ...args) as Promise<T>;
+    p.then(() => pushTrace({ channel, type: 'invoke', at, payloadSize: size, durationMs: performance.now() - start, ok: true }))
+      .catch(() => pushTrace({ channel, type: 'invoke', at, payloadSize: size, durationMs: performance.now() - start, ok: false }));
+    return p;
+  };
+}
+
+function tracedSend(channel: string): (...args: unknown[]) => void {
+  return (...args) => {
+    pushTrace({ channel, type: 'send', at: Date.now(), payloadSize: payloadSize(args) });
+    ipcRenderer.send(channel, ...args);
+  };
+}
+
+function tracedSendSync<T = unknown>(channel: string): (...args: unknown[]) => T {
+  return (...args) => {
+    const at = Date.now();
+    const start = performance.now();
+    const result = ipcRenderer.sendSync(channel, ...args) as T;
+    pushTrace({ channel, type: 'sendSync', at, payloadSize: payloadSize(args), durationMs: performance.now() - start });
+    return result;
+  };
+}
+
 const appVersion: string = ipcRenderer.sendSync('app:version');
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -11,22 +73,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     app: appVersion,
   },
   window: {
-    newWindow: () => ipcRenderer.invoke('window:new'),
-    minimize: () => ipcRenderer.send('window:minimize'),
-    maximize: () => ipcRenderer.send('window:maximize'),
-    close: () => ipcRenderer.send('window:close'),
-    isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
-    reload: () => ipcRenderer.send('window:reload'),
+    newWindow: tracedInvoke('window:new'),
+    minimize: tracedSend('window:minimize'),
+    maximize: tracedSend('window:maximize'),
+    close: tracedSend('window:close'),
+    isMaximized: tracedInvoke('window:isMaximized'),
+    reload: tracedSend('window:reload'),
   },
   clipboard: {
-    readText: () => ipcRenderer.sendSync('clipboard:readText'),
-    writeText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text),
+    readText: tracedSendSync('clipboard:readText'),
+    writeText: tracedInvoke('clipboard:writeText'),
   },
   terminal: {
-    create: (uuid: string, cwd?: string) => ipcRenderer.invoke('terminal:create', uuid, cwd),
-    write: (uuid: string, data: string) => ipcRenderer.send('terminal:write', uuid, data),
-    resize: (uuid: string, cols: number, rows: number) => ipcRenderer.send('terminal:resize', uuid, cols, rows),
-    kill: (uuid: string) => ipcRenderer.send('terminal:kill', uuid),
+    create: tracedInvoke('terminal:create'),
+    write: tracedSend('terminal:write'),
+    resize: tracedSend('terminal:resize'),
+    kill: tracedSend('terminal:kill'),
     onData: (callback: (uuid: string, data: string) => void) => {
       const handler = (_event: any, uuid: string, data: string) => callback(uuid, data);
       ipcRenderer.on('terminal:data', handler);
@@ -39,59 +101,58 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
   workspace: {
-    select: () => ipcRenderer.invoke('workspace:select'),
-    setPath: (p: string) => ipcRenderer.invoke('workspace:setPath', p),
-    getPath: () => ipcRenderer.invoke('workspace:getPath'),
-    load: (wsPath?: string) => ipcRenderer.invoke('workspace:load', wsPath),
-    save: (state: any, wsPath?: string) => ipcRenderer.invoke('workspace:save', state, wsPath),
-    getRecent: () => ipcRenderer.invoke('workspace:getRecent'),
-    addRecent: (p: string) => ipcRenderer.invoke('workspace:addRecent', p),
-    removeRecent: (p: string) => ipcRenderer.invoke('workspace:removeRecent', p),
+    select: tracedInvoke('workspace:select'),
+    setPath: tracedInvoke('workspace:setPath'),
+    getPath: tracedInvoke('workspace:getPath'),
+    load: tracedInvoke('workspace:load'),
+    save: tracedInvoke('workspace:save'),
+    getRecent: tracedInvoke('workspace:getRecent'),
+    addRecent: tracedInvoke('workspace:addRecent'),
+    removeRecent: tracedInvoke('workspace:removeRecent'),
   },
   shell: {
-    openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
-    exec: (opts: { command: string; cwd?: string; timeoutMs?: number; input?: string }) =>
-      ipcRenderer.invoke('shell:exec', opts),
+    openExternal: tracedInvoke('shell:openExternal'),
+    exec: tracedInvoke('shell:exec'),
   },
   prefs: {
-    load: () => ipcRenderer.invoke('prefs:load'),
-    save: (prefs: any) => ipcRenderer.invoke('prefs:save', prefs),
+    load: tracedInvoke('prefs:load'),
+    save: tracedInvoke('prefs:save'),
   },
   memory: {
-    loadGlobal: () => ipcRenderer.invoke('memory:loadGlobal'),
-    saveGlobal: (data: any) => ipcRenderer.invoke('memory:saveGlobal', data),
-    loadWorkspace: (wsPath: string) => ipcRenderer.invoke('memory:loadWorkspace', wsPath),
-    saveWorkspace: (wsPath: string, data: any) => ipcRenderer.invoke('memory:saveWorkspace', wsPath, data),
+    loadGlobal: tracedInvoke('memory:loadGlobal'),
+    saveGlobal: tracedInvoke('memory:saveGlobal'),
+    loadWorkspace: tracedInvoke('memory:loadWorkspace'),
+    saveWorkspace: tracedInvoke('memory:saveWorkspace'),
   },
   git: {
-    remotes: (repoPath: string) => ipcRenderer.invoke('git:remotes', repoPath),
-    branches: (repoPath: string) => ipcRenderer.invoke('git:branches', repoPath),
-    checkout: (repoPath: string, branch: string) => ipcRenderer.invoke('git:checkout', repoPath, branch),
-    log: (repoPath: string, maxCount?: number) => ipcRenderer.invoke('git:log', repoPath, maxCount),
-    showTree: (repoPath: string, commit: string) => ipcRenderer.invoke('git:showTree', repoPath, commit),
-    diff: (repoPath: string, commit: string, filePath?: string) => ipcRenderer.invoke('git:diff', repoPath, commit, filePath),
-    currentBranch: (repoPath: string) => ipcRenderer.invoke('git:currentBranch', repoPath),
-    stagedFiles: (repoPath: string) => ipcRenderer.invoke('git:stagedFiles', repoPath),
-    unstagedFiles: (repoPath: string) => ipcRenderer.invoke('git:unstagedFiles', repoPath),
-    stagedDiff: (repoPath: string, filePath: string) => ipcRenderer.invoke('git:stagedDiff', repoPath, filePath),
-    unstagedDiff: (repoPath: string, filePath: string) => ipcRenderer.invoke('git:unstagedDiff', repoPath, filePath),
-    commitBody: (repoPath: string, commit: string) => ipcRenderer.invoke('git:commitBody', repoPath, commit),
-    stage: (repoPath: string, filePath: string) => ipcRenderer.invoke('git:stage', repoPath, filePath),
-    unstage: (repoPath: string, filePath: string) => ipcRenderer.invoke('git:unstage', repoPath, filePath),
-    commit: (repoPath: string, message: string) => ipcRenderer.invoke('git:commit', repoPath, message),
-    push: (repoPath: string) => ipcRenderer.invoke('git:push', repoPath),
-    checkAhead: (repoPath: string) => ipcRenderer.invoke('git:checkAhead', repoPath),
+    remotes: tracedInvoke('git:remotes'),
+    branches: tracedInvoke('git:branches'),
+    checkout: tracedInvoke('git:checkout'),
+    log: tracedInvoke('git:log'),
+    showTree: tracedInvoke('git:showTree'),
+    diff: tracedInvoke('git:diff'),
+    currentBranch: tracedInvoke('git:currentBranch'),
+    stagedFiles: tracedInvoke('git:stagedFiles'),
+    unstagedFiles: tracedInvoke('git:unstagedFiles'),
+    stagedDiff: tracedInvoke('git:stagedDiff'),
+    unstagedDiff: tracedInvoke('git:unstagedDiff'),
+    commitBody: tracedInvoke('git:commitBody'),
+    stage: tracedInvoke('git:stage'),
+    unstage: tracedInvoke('git:unstage'),
+    commit: tracedInvoke('git:commit'),
+    push: tracedInvoke('git:push'),
+    checkAhead: tracedInvoke('git:checkAhead'),
   },
   fs: {
-    readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),
-    readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
-    writeFile: (filePath: string, content: string) => ipcRenderer.invoke('fs:writeFile', filePath, content),
-    mkdir: (dirPath: string) => ipcRenderer.invoke('fs:mkdir', dirPath),
-    delete: (targetPath: string) => ipcRenderer.invoke('fs:delete', targetPath),
-    copy: (src: string, dest: string) => ipcRenderer.invoke('fs:copy', src, dest),
-    rename: (oldPath: string, newPath: string) => ipcRenderer.invoke('fs:rename', oldPath, newPath),
-    watch: (dir: string) => ipcRenderer.invoke('file:watch', dir),
-    unwatch: () => ipcRenderer.invoke('file:unwatch'),
+    readDir: tracedInvoke('fs:readDir'),
+    readFile: tracedInvoke('fs:readFile'),
+    writeFile: tracedInvoke('fs:writeFile'),
+    mkdir: tracedInvoke('fs:mkdir'),
+    delete: tracedInvoke('fs:delete'),
+    copy: tracedInvoke('fs:copy'),
+    rename: tracedInvoke('fs:rename'),
+    watch: tracedInvoke('file:watch'),
+    unwatch: tracedInvoke('file:unwatch'),
     onChanged: (callback: (filePath: string) => void) => {
       const handler = (_event: any, filePath: string) => callback(filePath);
       ipcRenderer.on('file:changed', handler);
@@ -99,10 +160,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
   ide: {
-    editorState: (state: { filePath: string | null; text: string | null; selection: { startLine: number; startColumn: number; endLine: number; endColumn: number } | null }) => {
-      ipcRenderer.send('ide:editorState', state);
-    },
-    status: () => ipcRenderer.invoke('ide:status'),
+    editorState: tracedSend('ide:editorState'),
+    status: tracedInvoke('ide:status'),
     onOpenFile: (callback: (filePath: string) => void) => {
       const handler = (_event: any, filePath: string) => callback(filePath);
       ipcRenderer.on('ide:openFile', handler);
@@ -110,6 +169,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
   diagnostics: {
-    reportError: (kind: string, message: string) => ipcRenderer.send('diagnostics:rendererError', kind, message),
+    reportError: tracedSend('diagnostics:rendererError'),
+  },
+  health: {
+    onMainFailure: (callback: (signal: { kind: string; message: string }) => void) => {
+      const handler = (_event: any, signal: { kind: string; message: string }) => callback(signal);
+      ipcRenderer.on('health:mainFailure', handler);
+      return () => ipcRenderer.removeListener('health:mainFailure', handler);
+    },
+  },
+  __trace: {
+    subscribe: (callback: (entry: TraceEntry) => void) => {
+      traceListeners.add(callback);
+      return () => traceListeners.delete(callback);
+    },
+    getRecent: () => [...traceBuffer],
   },
 });

@@ -16,6 +16,8 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "loc:check": "node scripts/loc-check.js loc",
+    "console:check": "node scripts/loc-check.js console",
     "user-stories:verify": "node scripts/ralph/verify-user-stories.mjs",
     "ralph": "node scripts/ralph/runner.mjs"
   },

@@ -21,6 +21,11 @@ export default defineConfig({
     },
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.ts'],
+    // Forward the headless reconcile opt-in (src/test/specs-reconcile.test.ts)
+    // into workers — vitest doesn't inherit arbitrary shell env vars.
+    env: {
+      SPECS_RECONCILE: process.env.SPECS_RECONCILE ?? 'report',
+    },
     // Color green for <20ms, yellow for <100ms, red for >=100ms
     slowTestThreshold: 100,
     coverage: {

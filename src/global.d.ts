@@ -137,5 +137,21 @@ interface Window {
     diagnostics: {
       reportError: (kind: string, message: string) => void;
     };
+    health: {
+      onMainFailure: (callback: (signal: { kind: string; message: string }) => void) => () => void;
+    };
+    __trace: {
+      subscribe: (callback: (entry: IpcTraceEntry) => void) => () => void;
+      getRecent: () => IpcTraceEntry[];
+    };
   };
+}
+
+interface IpcTraceEntry {
+  channel: string;
+  type: 'invoke' | 'send' | 'sendSync';
+  at: number;
+  payloadSize: number;
+  durationMs?: number;
+  ok?: boolean;
 }

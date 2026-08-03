@@ -21,3 +21,7 @@ jobs:
       - run: npm ci
       - run: node scripts/gen-specgen-hash.js
       - run: make test
+      - name: Guardrails — file-size cap (refactor.md §F)
+        run: npm run loc:check
+      - name: Guardrails — console-usage in monitored folders (refactor.md §F)
+        run: npm run console:check
