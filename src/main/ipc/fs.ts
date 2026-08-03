@@ -19,6 +19,10 @@ function isEnoent(err: unknown): boolean {
   return (err as NodeJS.ErrnoException)?.code === 'ENOENT';
 }
 
+function isNotDirectory(err: unknown): boolean {
+  return (err as NodeJS.ErrnoException)?.code === 'ENOTDIR';
+}
+
 export function registerFsHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
   const { security, startWatching, stopWatching, state } = ctx;
 
@@ -32,7 +36,8 @@ export function registerFsHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
       const entries = fs.readdirSync(canon, { withFileTypes: true });
       return entries.map(e => ({ name: e.name, isDirectory: e.isDirectory() }));
     } catch (err) {
-      if (isEnoent(err)) return null; // directory legitimately doesn't exist yet
+      if (isEnoent(err)) return null;          // directory legitimately doesn't exist yet
+      if (isNotDirectory(err)) return null;    // path exists but is a file, not a directory
       throw err;
     }
   }, null);
