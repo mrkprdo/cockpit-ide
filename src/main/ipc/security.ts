@@ -47,25 +47,85 @@ export function isTrustedWorkspacePath(p: string): boolean {
   try { return trustedWorkspacePaths.has(trustKey(p)); } catch { return false; }
 }
 
-export function isPathSafe(targetPath: string, event?: IpcMainInvokeEvent | IpcMainEvent): boolean {
+/** Resolve the workspace a given window is scoped to (falling back to the default). */
+function scopeFor(event?: IpcMainInvokeEvent | IpcMainEvent): string | null {
   const win = event?.sender ? BrowserWindow.fromWebContents(event.sender) : null;
-  const wsPath = (win && state.windowWorkspaces.has(win.id)) ? state.windowWorkspaces.get(win.id)! : state.defaultWorkspacePath;
+  return (win && state.windowWorkspaces.has(win.id)) ? state.windowWorkspaces.get(win.id)! : state.defaultWorkspacePath;
+}
+
+/** Case-aware containment: is `p` (resolved) inside the (resolved) workspace `ws`? */
+function isWithin(ws: string, p: string): boolean {
+  const sep = path.sep;
+  const isWin = process.platform === 'win32';
+  const a = isWin ? p.toLowerCase() : p;
+  const b = isWin ? path.resolve(ws).toLowerCase() : path.resolve(ws);
+  return a === b || a.startsWith(b + sep);
+}
+
+export function isPathSafe(targetPath: string, event?: IpcMainInvokeEvent | IpcMainEvent): boolean {
+  const wsPath = scopeFor(event);
   // No workspace scoped to this window yet — only allow paths already known-trusted
   // (e.g. WelcomeModal checking whether a recent workspace still exists on disk).
   if (!wsPath) return isTrustedWorkspacePath(targetPath);
   const resolved = path.resolve(targetPath);
-  const ws = path.resolve(wsPath);
-  const sep = path.sep;
-  const isWin = process.platform === 'win32';
-  const a = isWin ? resolved.toLowerCase() : resolved;
-  const b = isWin ? ws.toLowerCase() : ws;
-  if (!a.startsWith(b + sep) && a !== b) return false;
+  if (!isWithin(wsPath, resolved)) return false;
   try {
     const real = fs.realpathSync(resolved);
-    const c = isWin ? real.toLowerCase() : real;
-    if (!c.startsWith(b + sep) && c !== b) return false;
+    if (!isWithin(wsPath, real)) return false;
   } catch { }
   return true;
+}
+
+/**
+ * Resolve a path to its canonical (symlink-free) form at call time and verify
+ * the result still lives inside the window's workspace. Unlike isPathSafe —
+ * which validates the caller-supplied string and swallows realpath failures —
+ * this walks up to the nearest existing ancestor, realpaths THAT, re-joins the
+ * not-yet-existing tail, and re-checks containment on the canonical result.
+ *
+ * Mutating fs:* handlers use this instead of isPathSafe so a symlink swapped
+ * in between check and write (TOCTOU) is resolved against on-disk reality, not
+ * the stale caller string.
+ *
+ * When the workspace itself is not yet materialized on disk (no realpath
+ * available — e.g. a fresh path from the folder picker, or a mocked fs in
+ * tests), it falls back to the same string-containment check isPathSafe uses:
+ * there is no on-disk tree to symlink-escape through until the workspace
+ * exists, and the original path string is returned so callers keep operating
+ * on exactly what they were given.
+ *
+ * Returns null when the path is outside the sandbox or unresolvable (e.g. the
+ * filesystem root).
+ */
+export function resolvePathInsideWorkspace(targetPath: string, event?: IpcMainInvokeEvent | IpcMainEvent): string | null {
+  const wsPath = scopeFor(event);
+  const resolved = path.resolve(targetPath);
+  if (!wsPath) {
+    // No workspace scoped to this window yet — trusted paths only (same rule as isPathSafe).
+    return isTrustedWorkspacePath(resolved) ? targetPath : null;
+  }
+  // Workspace not materialized yet → string-containment only; pass the caller's
+  // original string through (old isPathSafe semantics).
+  let wsReal: string;
+  try { wsReal = fs.realpathSync(wsPath); } catch {
+    return isWithin(wsPath, resolved) ? targetPath : null;
+  }
+  // Workspace exists on disk: walk up to the nearest existing ancestor so a
+  // not-yet-created leaf (a new file or dir being written) still resolves
+  // through real symlink chains, then re-verify containment on the canonical
+  // result and return it (TOCTOU hardening).
+  let cur = resolved;
+  const tail: string[] = [];
+  while (!fs.existsSync(cur)) {
+    const parent = path.dirname(cur);
+    if (parent === cur) return null; // hit the filesystem root — unresolvable
+    tail.unshift(path.basename(cur));
+    cur = parent;
+  }
+  let real: string;
+  try { real = fs.realpathSync(cur); } catch { return null; }
+  const canon = tail.length > 0 ? path.join(real, ...tail) : real;
+  return isWithin(wsReal, canon) ? canon : null;
 }
 
 /** Environment whitelist for spawned shells (terminal:create). */

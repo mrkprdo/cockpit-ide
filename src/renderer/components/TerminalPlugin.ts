@@ -26,7 +26,10 @@ export class TerminalPlugin {
     container.appendChild(this.element);
 
     const api = (window as any).electronAPI;
-    if (!api) return;
+    if (!api) {
+      this.ready = Promise.resolve(uuid);
+      return;
+    }
 
     const termTheme = TerminalPlugin.readTheme();
     const term = new Terminal({

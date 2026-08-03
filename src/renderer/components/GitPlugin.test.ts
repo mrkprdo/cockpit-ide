@@ -935,7 +935,7 @@ describe('GitPlugin', () => {
 
       await git.refreshChanges();
       // Should still be collapsed
-      expect(files[0].style.display).toBe('none');
+      expect((files[0] as HTMLElement).style.display).toBe('none');
     });
 
     it('refreshChanges enables commit button when staged files and message exist', async () => {

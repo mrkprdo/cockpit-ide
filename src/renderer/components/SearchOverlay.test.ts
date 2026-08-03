@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { SearchOverlay } from './SearchOverlay';
 import { mockElectronAPI } from '../../test/setup';
 
@@ -12,11 +12,11 @@ const fileList = [
 const wsPath = '/test/ws';
 
 describe('SearchOverlay', () => {
-  let onSelect: ReturnType<typeof vi.fn>;
+  let onSelect: Mock<(filePath: string, lineNumber: number) => void>;
 
   beforeEach(() => {
     document.body.innerHTML = '';
-    onSelect = vi.fn();
+    onSelect = vi.fn<(filePath: string, lineNumber: number) => void>();
     // Return fileList for root, empty for any subdirectory (avoid infinite recursion)
     (mockElectronAPI.fs.readDir as any).mockImplementation(async (dir: string) => {
       if (dir === wsPath) return fileList;

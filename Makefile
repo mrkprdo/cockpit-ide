@@ -23,5 +23,7 @@ clean:
 
 test:
 	npm test
+	npx tsc -p tsconfig.main.json --noEmit
+	npx tsc -p tsconfig.renderer.json --noEmit
 	npm run loc:check
 	npm run console:check

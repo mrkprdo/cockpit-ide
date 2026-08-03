@@ -1386,7 +1386,7 @@ describe('auto arrange', () => {
       item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 200 }));
 
       const ctxItems = document.querySelectorAll('.ctx-item');
-      ctxItems[1].click();
+      (ctxItems[1] as HTMLElement).click();
       await new Promise(r => setTimeout(r, 50));
       expect(canvas.getSaveState().plugins.length).toBe(0);
     });
@@ -1401,7 +1401,7 @@ describe('auto arrange', () => {
 
       expect(document.querySelector('.ctx-menu')).toBeTruthy();
       const ctxItems = document.querySelectorAll('.ctx-item');
-      ctxItems[1].click();
+      (ctxItems[1] as HTMLElement).click();
       expect(document.querySelector('.ctx-menu')).toBeNull();
     });
 

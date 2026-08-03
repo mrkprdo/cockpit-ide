@@ -4,7 +4,7 @@
 
 import { BrowserWindow } from 'electron';
 import type { IpcMain } from 'electron';
-import type { IpcCtx } from './context';
+import type { IpcCtx } from './ipc-types';
 import { withHandlerLogging } from './logging';
 
 let watcher: any = null;

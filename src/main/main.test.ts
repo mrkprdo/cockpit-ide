@@ -171,6 +171,17 @@ describe('main.ts IPC handlers', () => {
       const result = await handler({}, '/nonexistent');
       expect(result).toBeNull();
     });
+
+    it('returns null on ENOTDIR (path is a file, not a directory)', async () => {
+      const main = await import('../main/main');
+      main._testTrustPath('/test');
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:readDir')!;
+      vi.mocked(fs.readdirSync).mockImplementation(() => { throw new Error('ENOTDIR'); });
+
+      const result = await handler({}, '/test/file.txt');
+      expect(result).toBeNull();
+    });
   });
 
   describe('fs:readFile behavior', () => {
