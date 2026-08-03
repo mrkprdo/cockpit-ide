@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AGENT_SYSTEM_PROMPT } from './prompts';
+import { AGENT_SYSTEM_PROMPT, ROUTING_POLICY } from './prompts';
 
 describe('AGENT_SYSTEM_PROMPT', () => {
   it('is a non-empty string', () => {
@@ -50,5 +50,31 @@ describe('AGENT_SYSTEM_PROMPT', () => {
   it('does not contain obvious placeholders or template markers', () => {
     expect(AGENT_SYSTEM_PROMPT).not.toContain('TODO');
     expect(AGENT_SYSTEM_PROMPT).not.toContain('{{');
+  });
+});
+
+describe('ROUTING_POLICY', () => {
+  it('is a non-empty string', () => {
+    expect(typeof ROUTING_POLICY).toBe('string');
+    expect(ROUTING_POLICY.length).toBeGreaterThan(0);
+  });
+
+  it('defines all three routing modes', () => {
+    expect(ROUTING_POLICY).toContain('Just respond');
+    expect(ROUTING_POLICY).toContain('Call tools directly');
+    expect(ROUTING_POLICY).toContain('Delegate to a sub-agent');
+  });
+
+  it('states the cost ladder', () => {
+    expect(ROUTING_POLICY).toContain('respond < tools < sub-agent');
+  });
+
+  it('discourages sub-agents for small tasks', () => {
+    expect(ROUTING_POLICY).toContain('Do NOT spawn them for');
+  });
+
+  it('is a well-formed markdown section', () => {
+    expect(ROUTING_POLICY).toMatch(/## /);
+    expect(ROUTING_POLICY).toContain('\n');
   });
 });

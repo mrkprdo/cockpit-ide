@@ -17,7 +17,7 @@ import { SKILL_NAMES } from '../../agents/skills';
 import { getToolContext } from '../../ai/cockpit-context';
 import { LLMClient } from '../../ai/llm-client';
 import { memoryStore } from '../../ai/memory-store';
-import { AGENT_SYSTEM_PROMPT } from '../../ai/prompts';
+import { AGENT_SYSTEM_PROMPT, ROUTING_POLICY } from '../../ai/prompts';
 import { ToolRegistry } from '../../ai/tool-registry';
 import { executeToolCall } from '../../ai/tool-executor';
 import type { LLMMessage, LLMToolCall, ToolContext } from '../../ai/types';
@@ -119,6 +119,7 @@ export class LlmLoop {
     const parts = [AGENT_SYSTEM_PROMPT];
     if (wsPath) parts.push(`Workspace: ${wsPath}`);
     parts.push(memoryStore.buildIndexPrompt());
+    parts.push(ROUTING_POLICY);
     parts.push(ORCHESTRATION_SECTION);
     parts.push(ROUNDTABLE_SECTION);
     const customs = listDefinitions().filter(d => !SKILL_NAMES.includes(d.name as never));
@@ -447,6 +448,14 @@ export class LlmLoop {
       // A real tool round — reset the consecutive-empty counter.
       recoveryState.consecutiveEmpties = 0;
 
+      // Some relays/models omit `id` on tool_calls. Every tool result MUST
+      // carry a tool_call_id (a tool message without one is rejected with
+      // "missing field `tool_call_id`"). Synthesize ids in place so the
+      // assistant turn, the rendered chips, and the API tool messages agree.
+      toolCalls.forEach((tc, idx) => {
+        if (!tc.id) tc.id = `tc-${Date.now().toString(36)}-${idx}`;
+      });
+
       // STEP mode pauses before every batch. auto and plan already run without
       // per-call confirmation (plan gates upfront on the approved plan), so a
       // destructive tool batch proceeds immediately in those modes.
@@ -457,8 +466,11 @@ export class LlmLoop {
         if (!proceed || this.host.getAbortRequested()) return 'Aborted.';
       }
 
-      // Add assistant turn with tool_calls
-      apiMessages.push({ role: 'assistant', content: streamedContent || null, tool_calls: toolCalls });
+      // Add assistant turn with tool_calls. Omit `content` (not `null`) when
+      // there is no text — strict gateways reject null content on this shape.
+      const assistantTurn: LLMMessage = { role: 'assistant', tool_calls: toolCalls };
+      if (streamedContent) assistantTurn.content = streamedContent;
+      apiMessages.push(assistantTurn);
 
       // Execute each tool and collect results
       for (const tc of toolCalls) {
@@ -559,10 +571,18 @@ export class LlmLoop {
 
   private async callLLMBasic(apiMessages: LLMMessage[]): Promise<string> {
     const client = this.settings.createClient();
+    // Keep tool_call_id / tool_calls intact — collapsing every message to
+    // {role, content} (as this used to) turns tool messages into payloads the
+    // gateway rejects with "missing field tool_call_id".
+    const msgs = apiMessages.map(m => {
+      const out: LLMMessage = { role: m.role, content: m.content || '' };
+      if (m.role === 'tool' && m.tool_call_id) out.tool_call_id = m.tool_call_id;
+      if (m.role === 'assistant' && m.tool_calls) out.tool_calls = m.tool_calls;
+      return out;
+    });
     if (this.settings.streamResponses) {
-      return this.streamPlainText(client, apiMessages.map(m => ({ role: m.role, content: m.content || '' })));
+      return this.streamPlainText(client, msgs);
     }
-    const msgs = apiMessages.map(m => ({ role: m.role, content: m.content || '' }));
     return client.complete(msgs, this.host.getFetchController()?.signal);
   }
 }

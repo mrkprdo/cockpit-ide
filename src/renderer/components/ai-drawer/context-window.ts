@@ -141,7 +141,19 @@ export class ContextWindow {
   buildHistoryForLLM(): LLMMessage[] {
     const session = this.host.getActiveSession();
     if (session?.context && session.context.length > 0) {
-      return session.context.map(m => ({ role: m.role, content: m.content || '' }));
+      // Preserve tool pairing from compacted context; drop malformed tool
+      // messages that lack a call id (stale sessions) — a tool message
+      // without tool_call_id makes strict gateways reject the request.
+      const out: LLMMessage[] = [];
+      for (const m of session.context) {
+        if (m.role === 'tool') {
+          if (!m.tool_call_id) continue;
+          out.push({ role: 'tool', tool_call_id: m.tool_call_id, content: m.content || '' });
+          continue;
+        }
+        out.push({ role: m.role, content: m.content || '' });
+      }
+      return out;
     }
     // Rebuild the API message list from the rendered transcript. Tool results
     // MUST survive between runs — dropping them (as we used to) leaves the model
@@ -178,7 +190,9 @@ export class ContextWindow {
           j++;
         }
         if (results.length === ids.size) {
-          out.push({ role: 'assistant', content: null, tool_calls: m.toolCalls });
+          // Omit `content` (not `null`) — strict gateways fail to deserialize
+          // a null content on an assistant tool-call message.
+          out.push({ role: 'assistant', tool_calls: m.toolCalls });
           out.push(...results);
         }
         i = j;

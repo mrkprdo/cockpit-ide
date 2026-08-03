@@ -217,7 +217,11 @@ export class SubAgentSession {
           break;
         }
 
-        this.transcript.push({ role: 'assistant', content: content || null, tool_calls: msg.tool_calls });
+        // Omit `content` (not `null`) — strict gateways fail to deserialize
+        // a null content on an assistant tool-call message.
+        const assistantTurn: LLMMessage = { role: 'assistant', tool_calls: msg.tool_calls };
+        if (content) assistantTurn.content = content;
+        this.transcript.push(assistantTurn);
         this.tokensUsed += estimateTokens(content) + msg.tool_calls.reduce((n, tc) => n + estimateTokens(tc.function?.name) + estimateTokens(tc.function?.arguments), 0);
 
         // Execute each tool (guarded + permission-gated + hook-checked).

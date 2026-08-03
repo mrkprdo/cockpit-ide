@@ -84,7 +84,7 @@ export class LLMClient {
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => '');
-      throw new Error(`API error ${res.status}: ${errBody.slice(0, 200)}`);
+      throw new Error(`API error ${res.status}: ${errBody}`);
     }
 
     return res.json();
@@ -110,7 +110,7 @@ export class LLMClient {
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => '');
-      throw new Error(`API error ${res.status}: ${errBody.slice(0, 200)}`);
+      throw new Error(`API error ${res.status}: ${errBody}`);
     }
 
     // If the server returns a plain JSON response (e.g. proxies that ignore stream: true),

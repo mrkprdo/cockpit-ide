@@ -1560,7 +1560,7 @@ describe('AiDrawer', () => {
       const history = drawer['buildHistoryForLLM']();
       expect(history).toEqual([
         { role: 'user', content: 'read the file' },
-        { role: 'assistant', content: null, tool_calls: toolCalls },
+        { role: 'assistant', tool_calls: toolCalls },
         { role: 'tool', tool_call_id: 'call_a', content: 'export const x = 1;' },
         { role: 'tool', tool_call_id: 'call_b', content: '/x.ts:3: foo()' },
         { role: 'assistant', content: 'done' },
