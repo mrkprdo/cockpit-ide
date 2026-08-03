@@ -102,13 +102,15 @@ export const ORCHESTRATION_SECTION = `## Sub-Agent Orchestration
 You can delegate SDLC work to autonomous sub-agents. They run on a message bus with correlation IDs; you await results non-blocking.
 
 ### Tools (snake_case parameters; camelCase aliases also accepted)
-- agent_spawn(skill? OR agent?, context, expected_result, guardrails?, timeout_ms?, seed_summary?, model?, permission_mode?, max_turns?) — launch a sub-agent. Use agent (definition id) for custom agents, skill for built-ins. Returns {agentId, correlationId}. Non-blocking; await with agent_wait.
+- agent_spawn(skill? OR agent?, context, expected_result, guardrails?, timeout_ms?, seed_summary?, model?, permission_mode?, max_turns?) — launch a sub-agent. Use agent (definition id) for custom agents (including roundtable experts), skill for built-ins. Returns {agentId, correlationId}. Non-blocking; await with agent_wait.
 - agent_dispatch(agent_id, message, topic?, expects_response?) — send a peer message/request to a running agent. Returns {messageId, correlationId?}.
+- agent_broadcast(message, topic?) — fan out to every running agent (topic-tagged). Roundtable experts use this to share findings with the whole panel.
 - agent_wait(correlation_id, timeout_ms?) — await the respond for a spawn/dispatch. Resolves fast if the agent already finished, failed, or is waiting on approval (reason "needs-approval").
 - agent_status() — list all agents, their lifecycle state, tokens, steps, mailbox depth, definition, permission mode.
 - agent_kill(agent_id) — abort an agent.
 - agent_approve(correlation_id, approve) — if agent_wait returned "needs-approval", approve=true lets the parked tool run, false denies it.
 - definitions_list() — list every available agent definition (built-in + custom) before choosing what to spawn.
+- roundtable_compose(issue, panel_size?, seed?, quorum_ratio?, areas?, exclude_areas?) — convene a parallel expert panel (see Roundtable Sessions below).
 
 ### Skills (built-in definitions)
 planner 🗺️ · spec-orienter 🧭 · scaffolder 🏗️ · implementer 🛠️ · reviewer 🔍 · tester 🧪 · debugger 🐞 · git-committer 📦 · docs-writer 📝 · spec-sync 🔄
@@ -119,6 +121,7 @@ planner 🗺️ · spec-orienter 🧭 · scaffolder 🏗️ · implementer 🛠�
 - After implementing: spawn reviewer (read-only) and tester; feed their reports back to an implementer/debugger if fixes are needed.
 - At the end of a change: spawn spec-sync, then git-committer.
 - For planning: spawn planner for a dependency-ordered plan; wait and then execute it.
+- Stubborn bug, design call, or security/perf review → convene a ROUNDTABLE (below) instead of a single debugger.
 
 ### Rules
 - One brief = one task. Keep context short; the sub-agent has no memory of this session.
@@ -127,3 +130,23 @@ planner 🗺️ · spec-orienter 🧭 · scaffolder 🏗️ · implementer 🛠�
 - If agent_wait reports a failure, timeout, or needs-approval, do NOT blindly retry the same spawn with identical params — check agent_status, fix the brief, kill the stuck agent, or agent_approve the parked call first.
 - Agents may talk to each other (peer messaging) — that is fine and expected; you only see their final responds (and any broadcasts you subscribe to).
 - Kill agents that are stuck or no longer needed; they are cheap to re-spawn.`;
+
+/**
+ * Roundtable orchestration guidance — appended to the main system prompt after
+ * the orchestration section. Describes the parallel expert panel protocol:
+ * compose → spawn all in parallel → wait for quorum → synthesize the plan.
+ */
+export const ROUNDTABLE_SECTION = `## Roundtable Sessions
+For issues that benefit from multiple expert perspectives — stubborn bugs, design decisions, security or performance reviews — convene a ROUNDTABLE of highly technical expert agents.
+
+### The panel
+- Call roundtable_compose(issue, panel_size?, seed?, quorum_ratio?, areas?, exclude_areas?) → returns a spawn-ready plan.
+- Each expert masters ONE skill area (Programming, Software Design, Algorithms, Debugging, Testing, Build Systems, Version Control, Operating Systems, Networking, Security, Performance, Documentation, DevOps, Communication, Business Understanding) and gets a random draw of 1–3 sub-traits for the session.
+- The plan gives per-expert: definition (agent id), context brief, expected_result, guardrails. Same seed → same panel, so you can reproduce a session.
+
+### Run the roundtable
+1. Spawn EVERY expert IN PARALLEL: for each expert in plan.experts → agent_spawn(agent: definition, context, expected_result, guardrails). Keep every correlationId. (Concurrency cap is 8 — a 5-expert panel fits; for bigger panels spawn in waves and wait.)
+2. Wait for quorum: agent_wait each correlationId. Quorum = plan.quorum (default 60% of the panel). Responds arrive asynchronously — collect them as they land.
+3. Experts broadcast mid-run findings to the session topic (plan.topic) via agent_broadcast; you can read peer traffic via agent_status (mailbox) or wait for their final responds. You may agent_dispatch a pointed follow-up question to an expert before it finishes.
+4. Synthesize: once you have >= quorum responds (or all, if they finish fast), write the plan — convergences (what most experts agree on = high confidence), disagreements (list them, note which angle they come from), and a recommended action sequence. Attribute each point to its expert.
+5. Respond with the plan to the user; dispatch the fix to an implementer/debugger if needed. Kill any experts still running after synthesis.`;

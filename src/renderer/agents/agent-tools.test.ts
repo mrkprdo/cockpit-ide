@@ -7,9 +7,15 @@ import {
   AgentWaitArgs,
   AgentKillArgs,
   AgentApproveArgs,
+  AgentBroadcastArgs,
+  RoundtableComposeArgs,
   agentApproveTool,
   definitionsListTool,
+  agentBroadcastTool,
+  roundtableComposeTool,
 } from './agent-tools';
+import { getAgentExecutor } from './executor';
+import { AgentBus } from './bus';
 
 /**
  * The orchestrator LLM is told about these tools in prose (ORCHESTRATION_SECTION)
@@ -84,6 +90,87 @@ describe('agent_* tool parameter aliases', () => {
     if (parsed.success) {
       expect(parsed.data.agent_id).toBe('agent:zzz');
     }
+  });
+
+  it('agent_broadcast accepts message + topic (both spellings)', () => {
+    const parsed = AgentBroadcastArgs.safeParse({
+      message: 'found a lead',
+      topic: 'roundtable.rt-abc.findings',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.message).toBe('found a lead');
+      expect(parsed.data.topic).toBe('roundtable.rt-abc.findings');
+    }
+  });
+
+  it('agent_broadcast tool fans out to all mailboxes (topic-tagged)', async () => {
+    const ex = getAgentExecutor();
+    const bus = new AgentBus();
+    const mailbox = bus.registerMailbox('agent:probe');
+
+    // Swap the executor's bus to a fresh one so the test is hermetic.
+    const original = ex.getBus();
+    // @ts-expect-error test seam: swap the bus
+    ex.bus = bus;
+    try {
+      const out = await agentBroadcastTool.execute(
+        { message: 'panel update', topic: 'roundtable.rt-x.findings' } as never,
+        {} as never,
+      );
+      expect(out).toContain('messageId');
+      expect(out).toContain('topic');
+      expect(mailbox.length).toBeGreaterThan(0);
+      expect(mailbox.peek()[0].topic).toBe('roundtable.rt-x.findings');
+    } finally {
+      // @ts-expect-error test seam: restore the bus
+      ex.bus = original;
+      bus.unregisterMailbox('agent:probe');
+    }
+  });
+
+  it('roundtable_compose accepts camelCase panelSize/quorumRatio/excludeAreas', () => {
+    const parsed = RoundtableComposeArgs.safeParse({
+      issue: 'editor undo crashes',
+      panelSize: 5,
+      seed: 42,
+      quorumRatio: 0.6,
+      excludeAreas: ['expert-business'],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.panel_size).toBe(5);
+      expect(parsed.data.seed).toBe(42);
+      expect(parsed.data.quorum_ratio).toBe(0.6);
+      expect(parsed.data.exclude_areas).toEqual(['expert-business']);
+    }
+  });
+
+  it('roundtable_compose returns a spawn-ready panel plan', async () => {
+    const out = await roundtableComposeTool.execute(
+      { issue: 'editor undo crashes', panel_size: 5, seed: 7 } as never,
+      {} as never,
+    );
+    const plan = JSON.parse(out);
+    expect(plan.sessionId).toMatch(/^rt-/);
+    expect(plan.topic).toMatch(/^roundtable\.rt-/);
+    expect(plan.panelSize).toBe(5);
+    expect(plan.quorum).toBe(3);
+    expect(plan.experts).toHaveLength(5);
+    for (const e of plan.experts) {
+      expect(e.definition).toMatch(/^expert-/);
+      expect(e.context).toContain('editor undo crashes');
+      expect(e.expectedResult).toBeTruthy();
+      expect(Array.isArray(e.guardrails)).toBe(true);
+    }
+  });
+
+  it('roundtable_compose is deterministic with a seed', async () => {
+    const a = JSON.parse(await roundtableComposeTool.execute({ issue: 'x', panel_size: 5, seed: 3 } as never, {} as never));
+    const b = JSON.parse(await roundtableComposeTool.execute({ issue: 'x', panel_size: 5, seed: 3 } as never, {} as never));
+    // Same seed → same experts/traits (session id/time suffix differs).
+    expect(a.experts.map((e: any) => e.definition)).toEqual(b.experts.map((e: any) => e.definition));
+    expect(a.experts[0].traits).toEqual(b.experts[0].traits);
   });
 
   it('explicit snake_case wins when both spellings are provided', () => {

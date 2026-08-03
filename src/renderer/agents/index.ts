@@ -4,9 +4,10 @@
  * - types.ts  — envelope/brief/status contracts
  * - bus.ts    — pub/sub transport, mailboxes, collector ("who captures what")
  * - skills.ts — SDLC skill registry + code-enforced guardrails
- * - prompts.ts— skill prompt templates + orchestration section
+ * - prompts.ts— skill prompt templates + orchestration + roundtable sections
  * - session.ts— headless SubAgentSession loop (short context + compaction)
  * - executor.ts — AgentExecutor singleton (spawn/kill/status/dispatch/wait)
+ * - roundtable.ts — parallel expert panel composition (15 areas + quorum)
  */
 export * from './types';
 export * from './bus';
@@ -19,3 +20,4 @@ export * from './memory-scopes';
 export * from './prompts';
 export * from './session';
 export * from './executor';
+export * from './roundtable';

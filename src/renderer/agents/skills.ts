@@ -70,6 +70,7 @@ const HARD_DENY: Record<string, AgentCapability> = {
   agent_kill: 'orchestrate',
   agent_approve: 'orchestrate',
   agent_dispatch: 'peer',
+  agent_broadcast: 'peer',
 };
 
 export interface GuardResult {

@@ -51,7 +51,7 @@ interface AgentRuntime {
   guardrails: string[];
 }
 
-const MAX_CONCURRENT = 5;
+const MAX_CONCURRENT = 8; // roundtable panels (5 experts) + headroom
 /** How many recent respond payloads to keep for fast agent_wait resolution. */
 const RESPOND_CACHE_SIZE = 100;
 

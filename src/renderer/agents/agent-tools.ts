@@ -3,16 +3,18 @@ import type { ToolDefinition } from '../ai/types';
 import { getAgentExecutor } from './executor';
 import { SKILL_NAMES } from './skills';
 import { listDefinitions } from './definitions';
+import { composeRoundtable, EXPERT_AREAS } from './roundtable';
 import type { PermissionMode } from './types';
 
 /**
  * Sub-agent orchestration tools. Registered in ALL_TOOLS via tool-definitions.ts
- * so the main session (and capable peers) can spawn/dispatch/wait/kill/approve.
+ * so the main session (and capable peers) can spawn/dispatch/wait/kill/approve
+ * and convene roundtable expert panels.
  *
  * Guardrails for these tools are enforced both here (existence checks) and in
- * the skill layer (skills.ts HARD_DENY: spawn/kill need 'orchestrate',
- * dispatch needs 'peer'). Custom definitions can restrict which agents may be
- * spawned via `permissions.deny: ["Agent(name)"]`.
+ * the skill layer (skills.ts HARD_DENY: spawn/kill/approve need 'orchestrate',
+ * dispatch/broadcast need 'peer'). Custom definitions can restrict which agents
+ * may be spawned via `permissions.deny: ["Agent(name)"]`.
  *
  * Parameter naming: the canonical keys are snake_case (what the JSON schema
  * advertises to the model). camelCase aliases (expectedResult, agentId, …) are
@@ -98,9 +100,27 @@ export const AgentApproveArgs = withAliases({
   correlationId: 'correlation_id',
 });
 
+export const AgentBroadcastArgs = withAliases({
+  message: z.string().describe('Payload to fan out to every running agent'),
+  topic: z.string().optional().describe('Topic tag, e.g. "roundtable.<sessionId>.findings"'),
+}, {});
+
+export const RoundtableComposeArgs = withAliases({
+  issue: z.string().describe('The problem/feature/question the roundtable should tackle'),
+  panel_size: z.number().int().min(3).max(15).optional().describe('Panel size (default 5, max 15)'),
+  seed: z.number().int().optional().describe('Deterministic seed: same seed + issue → same panel every time'),
+  quorum_ratio: z.number().min(0.5).max(1).optional().describe('Quorum as a fraction of the panel (default 0.6)'),
+  areas: z.array(z.string()).optional().describe('Restrict the candidate pool to these expert ids (see EXPERT_AREAS)'),
+  exclude_areas: z.array(z.string()).optional().describe('Exclude these expert ids from the candidate pool'),
+}, {
+  panelSize: 'panel_size',
+  quorumRatio: 'quorum_ratio',
+  excludeAreas: 'exclude_areas',
+});
+
 export const agentSpawnTool: ToolDefinition<typeof AgentSpawnArgs> = {
   name: 'agent_spawn',
-  description: 'Launch an autonomous sub-agent. Pass EITHER skill (built-in SDLC skill) OR agent (custom definition id). Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). Params: skill?/agent?, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?, model?, permission_mode? (alias permissionMode), max_turns?.',
+  description: 'Launch an autonomous sub-agent. Pass EITHER skill (built-in SDLC skill) OR agent (custom definition id, including the roundtable experts like expert-debugging). Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). Params: skill?/agent?, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?, model?, permission_mode? (alias permissionMode), max_turns?.',
   parameters: AgentSpawnArgs,
   execute: async (args) => {
     const ex = getAgentExecutor();
@@ -144,6 +164,21 @@ export const agentDispatchTool: ToolDefinition<typeof AgentDispatchArgs> = {
       return JSON.stringify({ messageId: msgId, correlationId: correlationId ?? null }, null, 2);
     } catch (err: any) {
       return `Error dispatching: ${err?.message || String(err)}`;
+    }
+  },
+};
+
+export const agentBroadcastTool: ToolDefinition<typeof AgentBroadcastArgs> = {
+  name: 'agent_broadcast',
+  description: 'Fan out a message to every running agent (topic-tagged). This is how roundtable experts share findings with the whole panel simultaneously — broadcast to the session topic (roundtable.<sessionId>.findings). Requires the peer capability. Params: message, topic?.',
+  parameters: AgentBroadcastArgs,
+  execute: async (args) => {
+    const ex = getAgentExecutor();
+    try {
+      const msgId = ex.broadcast(args.message, args.topic);
+      return JSON.stringify({ messageId: msgId, topic: args.topic ?? null }, null, 2);
+    } catch (err: any) {
+      return `Error broadcasting: ${err?.message || String(err)}`;
     }
   },
 };
@@ -224,11 +259,27 @@ export const agentApproveTool: ToolDefinition<typeof AgentApproveArgs> = {
   },
 };
 
+export const roundtableComposeTool: ToolDefinition<typeof RoundtableComposeArgs> = {
+  name: 'roundtable_compose',
+  description: `Convene a roundtable expert panel for an issue. Returns a spawn-ready plan: sessionId, shared findings topic, panel size, quorum (responds needed), and one expert per seat — each a master of ONE skill area (${EXPERT_AREAS.length} areas available) with random sub-traits. Deterministic when seed is given. Then spawn every expert with agent_spawn(agent: definition, context, expected_result, guardrails) IN PARALLEL, wait for quorum of responds, and synthesize the plan. Params: issue, panel_size? (alias panelSize), seed?, quorum_ratio? (alias quorumRatio), areas?, exclude_areas? (alias excludeAreas).`,
+  parameters: RoundtableComposeArgs,
+  execute: async (args) => {
+    const plan = composeRoundtable(args.issue, {
+      panelSize: args.panel_size,
+      seed: args.seed,
+      quorumRatio: args.quorum_ratio,
+      areas: args.areas,
+      excludeAreas: args.exclude_areas,
+    });
+    return JSON.stringify(plan, null, 2);
+  },
+};
+
 export const DefinitionsListArgs = z.object({});
 
 export const definitionsListTool: ToolDefinition<typeof DefinitionsListArgs> = {
   name: 'definitions_list',
-  description: 'List every available subagent definition: id, built-in vs custom, description, permission mode, max turns, tool count. Use before agent_spawn to pick an agent id.',
+  description: 'List every available subagent definition: id, built-in vs custom, description, permission mode, max turns, tool count. Use before agent_spawn to pick an agent id (built-in skills AND roundtable experts).',
   parameters: DefinitionsListArgs,
   execute: async () => {
     const list = listDefinitions();
@@ -247,9 +298,11 @@ export const definitionsListTool: ToolDefinition<typeof DefinitionsListArgs> = {
 export const AGENT_TOOLS: ToolDefinition<any>[] = [
   agentSpawnTool,
   agentDispatchTool,
+  agentBroadcastTool,
   agentWaitTool,
   agentStatusTool,
   agentKillTool,
   agentApproveTool,
+  roundtableComposeTool,
   definitionsListTool,
 ];

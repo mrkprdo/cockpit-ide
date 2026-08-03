@@ -9,6 +9,7 @@ import { theme } from '../theme';
 import { memoryStore } from '../ai/memory-store';
 import { getAgentExecutor } from '../agents/executor';
 import { loadDefinitionsFromWorkspace } from '../agents/definition-file';
+import { registerRoundtableExperts } from '../agents/roundtable';
 import { createLogger } from '../logging/logger';
 import { viewPrefs } from '../ai/view-prefs';
 
@@ -355,6 +356,8 @@ export class App {
     // Load custom subagent definitions from .cockpit/agents/*.json.
     try {
       const res = await loadDefinitionsFromWorkspace(path);
+    // The 15 roundtable experts are code-registered (they must survive .cockpit reloads).
+    registerRoundtableExperts();
       const errors = res.errors.length > 0 ? ` (${res.errors.length} definition errors)` : '';
       const loaded = res.loaded.length > 0 ? ` · ${res.loaded.map(d => d.name).join(', ')}` : '';
       console.debug(`[agents] definitions loaded${loaded}${errors}`);

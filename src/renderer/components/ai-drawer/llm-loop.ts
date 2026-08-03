@@ -11,7 +11,7 @@
 // (refactor.md §B.4) instead of console.error — the ai-drawer modules keep the
 // no-new-console-error discipline.
 
-import { ORCHESTRATION_SECTION } from '../../agents/prompts';
+import { ORCHESTRATION_SECTION, ROUNDTABLE_SECTION } from '../../agents/prompts';
 import { listDefinitions } from '../../agents/definitions';
 import { SKILL_NAMES } from '../../agents/skills';
 import { getToolContext } from '../../ai/cockpit-context';
@@ -120,6 +120,7 @@ export class LlmLoop {
     if (wsPath) parts.push(`Workspace: ${wsPath}`);
     parts.push(memoryStore.buildIndexPrompt());
     parts.push(ORCHESTRATION_SECTION);
+    parts.push(ROUNDTABLE_SECTION);
     const customs = listDefinitions().filter(d => !SKILL_NAMES.includes(d.name as never));
     if (customs.length > 0) {
       parts.push(
