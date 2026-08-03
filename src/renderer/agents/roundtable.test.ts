@@ -10,7 +10,7 @@ import {
   registerRoundtableExperts,
   _resetRoundtableRegistrationForTests,
 } from './roundtable';
-import { getDefinition } from './definitions';
+import { clearCustomDefinitions, getDefinition } from './definitions';
 
 describe('roundtable roster', () => {
   it('has the 15 skill areas with unique ids', () => {
@@ -67,6 +67,20 @@ describe('expert definitions', () => {
     _resetRoundtableRegistrationForTests();
     registerRoundtableExperts();
     registerRoundtableExperts(); // idempotent
+    for (const a of EXPERT_AREAS) {
+      expect(getDefinition(a.id)?.name).toBe(a.id);
+    }
+  });
+
+  it('re-registers experts after a workspace reload clears the custom registry', () => {
+    _resetRoundtableRegistrationForTests();
+    registerRoundtableExperts();
+    // loadDefinitionsFromWorkspace() → clearCustomDefinitions() wipes ALL custom
+    // definitions on every workspace load — including these code-registered ones.
+    clearCustomDefinitions();
+    expect(getDefinition('expert-programming')).toBeNull();
+    // App.loadWorkspace() calls registerRoundtableExperts() again after the clear.
+    registerRoundtableExperts();
     for (const a of EXPERT_AREAS) {
       expect(getDefinition(a.id)?.name).toBe(a.id);
     }

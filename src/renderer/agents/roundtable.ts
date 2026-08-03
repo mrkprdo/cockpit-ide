@@ -15,7 +15,7 @@
  * Pure logic module: no DOM, no executor. Everything is testable.
  */
 
-import { registerDefinition } from './definitions';
+import { getDefinition, registerDefinition } from './definitions';
 import type { PermissionMode, SubAgentDefinition } from './types';
 
 /** One row of the roundtable roster (the user's skill-area table). */
@@ -195,7 +195,12 @@ export const EXPERT_DEFINITIONS: SubAgentDefinition[] = EXPERT_AREAS.map(buildEx
 /** Idempotent registration — call at boot and/or before composing. */
 let expertsRegistered = false;
 export function registerRoundtableExperts(): void {
-  if (expertsRegistered) return;
+  // Self-heal across workspace reloads: App.loadWorkspace() runs
+  // loadDefinitionsFromWorkspace() (which calls clearCustomDefinitions() and
+  // wipes EVERY custom definition, including these code-registered experts)
+  // before calling us. Trusting the boolean alone leaves the roster empty on
+  // the second load — so re-register whenever the first expert is missing.
+  if (expertsRegistered && getDefinition(EXPERT_AREAS[0].id)) return;
   for (const defn of EXPERT_DEFINITIONS) registerDefinition(defn);
   expertsRegistered = true;
 }

@@ -146,7 +146,7 @@ For issues that benefit from multiple expert perspectives — stubborn bugs, des
 
 ### Run the roundtable
 1. Spawn EVERY expert IN PARALLEL: for each expert in plan.experts → agent_spawn(agent: definition, context, expected_result, guardrails). Keep every correlationId. (Concurrency cap is 8 — a 5-expert panel fits; for bigger panels spawn in waves and wait.)
-2. Wait for quorum: agent_wait each correlationId. Quorum = plan.quorum (default 60% of the panel). Responds arrive asynchronously — collect them as they land.
+2. Wait for quorum: agent_wait each correlationId with timeout_ms >= the expert timeout (experts default to 300s; the wait default is 120s — pass timeout_ms explicitly so slow experts don't read as timed out). Quorum = plan.quorum (default 60% of the panel). Responds arrive asynchronously — collect them as they land.
 3. Experts broadcast mid-run findings to the session topic (plan.topic) via agent_broadcast; you can read peer traffic via agent_status (mailbox) or wait for their final responds. You may agent_dispatch a pointed follow-up question to an expert before it finishes.
 4. Synthesize: once you have >= quorum responds (or all, if they finish fast), write the plan — convergences (what most experts agree on = high confidence), disagreements (list them, note which angle they come from), and a recommended action sequence. Attribute each point to its expert.
 5. Respond with the plan to the user; dispatch the fix to an implementer/debugger if needed. Kill any experts still running after synthesis.`;

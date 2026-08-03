@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AgentExecutor } from './executor';
+import { AgentBus } from './bus';
+import type { AgentMessage } from './types';
 
 /** Canned OpenAI-style completion with the given content (or a tool call). */
 function jsonResponse(content: string, toolCalls?: any[]): string {
@@ -42,6 +44,22 @@ describe('AgentExecutor', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('broadcast() attributes the sender when a peer calls it (roundtable experts)', () => {
+    const bus = new AgentBus();
+    const ex = new AgentExecutor(bus);
+    bus.registerMailbox('agent:expert-debugging');
+    const seen: AgentMessage[] = [];
+    bus.subscribe('*', (m) => seen.push(m));
+    ex.broadcast('panel finding', 'roundtable.rt-xyz.findings', 'agent:expert-debugging');
+    expect(seen.length).toBe(1);
+    expect(seen[0].from).toBe('agent:expert-debugging');
+    expect(seen[0].topic).toBe('roundtable.rt-xyz.findings');
+    expect(seen[0].type).toBe('broadcast');
+    // Default sender stays 'main' when no from is passed (orchestrator broadcasts).
+    ex.broadcast('orchestrator note', 'orchestrator.note');
+    expect(seen[1].from).toBe('main');
   });
 
   it('spawns an agent that responds on the bus; waitFor captures it', async () => {

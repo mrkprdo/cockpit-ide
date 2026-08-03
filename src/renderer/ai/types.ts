@@ -70,6 +70,8 @@ export interface EditorStateLike {
 export interface ToolContext {
   electronAPI: Window['electronAPI'];
   cockpit: CockpitGlobal;
+  /** Set when a sub-agent session runs a tool: the calling agent's id (peer-message attribution). */
+  agentId?: string;
 }
 
 /** A single tool definition: schema, metadata, and executor. */

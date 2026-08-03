@@ -317,11 +317,11 @@ export class AgentExecutor {
   }
 
   /** Broadcast to all registered mailboxes or a topic. */
-  broadcast(payload: unknown, topic?: string): string {
+  broadcast(payload: unknown, topic?: string, from: AgentId = 'main'): string {
     const msg: AgentMessage = {
       id: `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       type: 'broadcast',
-      from: 'main',
+      from,
       to: '*',
       topic,
       payload,

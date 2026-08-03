@@ -65,6 +65,8 @@ export class SubAgentSession {
   summary: string | null = null;
   /** Set when an ask-gated tool is awaiting agent_approve; tool call is parked. */
   pendingApproval: PendingApproval | null = null;
+  /** Peer/main requests that expect a respond on THEIR correlationId (answered at finish). */
+  private pendingRequests: Array<{ from: AgentId; correlationId: string }> = [];
 
   private transcript: LLMMessage[] = [];
   /** Retained tool outputs folded out of the rolling window (real data, not a pointer). */
@@ -310,7 +312,7 @@ export class SubAgentSession {
     // 4. Execute.
     const ctx = this.deps.ctx();
     const result = ctx
-      ? await executeToolCall(this.deps.registry, name, rawArgs, ctx)
+      ? await executeToolCall(this.deps.registry, name, rawArgs, { ...ctx, agentId: this.id })
       : { ok: false, output: 'ToolContext unavailable (canvas not ready)' };
     const output = result.output;
 
@@ -338,7 +340,7 @@ export class SubAgentSession {
       // Re-run the call now that it's approved (guards re-checked above).
       const ctx = this.deps.ctx();
       const result = ctx
-        ? await executeToolCall(this.deps.registry, name, rawArgs, ctx)
+        ? await executeToolCall(this.deps.registry, name, rawArgs, { ...ctx, agentId: this.id })
         : { ok: false, output: 'ToolContext unavailable (canvas not ready)' };
       return `APPROVED by main session. ${result.output}`;
     }
@@ -407,6 +409,14 @@ export class SubAgentSession {
     if (!mb || mb.length === 0) return;
     const pending = mb.drain();
     if (pending.length === 0) return;
+
+    // Remember peer requests so we can reply to their correlationIds on finish —
+    // without this, agent_dispatch(expects_response) → agent_wait never resolves.
+    for (const m of pending) {
+      if (m.type === 'request' && m.correlationId) {
+        this.pendingRequests.push({ from: m.from, correlationId: m.correlationId });
+      }
+    }
 
     if (this.state === 'waiting') this.setState('active');
 
@@ -520,6 +530,25 @@ export class SubAgentSession {
       ts: Date.now(),
     };
     this.deps.bus.publish(msg);
+
+    // Answer any open peer requests so the requester's agent_wait resolves.
+    // The collector keys on the request's correlationId; peers (and main)
+    // awaiting a pointed question get the answer on the bus, not a timeout.
+    const pending = this.pendingRequests;
+    this.pendingRequests = [];
+    for (const req of pending) {
+      this.deps.bus.publish({
+        id: `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        type: 'respond',
+        from: this.id,
+        to: req.from,
+        correlationId: req.correlationId,
+        replyTo: req.from,
+        expectsResponse: false,
+        payload: text,
+        ts: Date.now(),
+      });
+    }
   }
 
   private postStatus(state: AgentState, note?: string): void {

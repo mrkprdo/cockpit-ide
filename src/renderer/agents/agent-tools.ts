@@ -1,10 +1,10 @@
 import { z } from 'zod/v3';
-import type { ToolDefinition } from '../ai/types';
+import type { ToolContext, ToolDefinition } from '../ai/types';
 import { getAgentExecutor } from './executor';
 import { SKILL_NAMES } from './skills';
 import { listDefinitions } from './definitions';
 import { composeRoundtable, EXPERT_AREAS } from './roundtable';
-import type { PermissionMode } from './types';
+import type { AgentId, PermissionMode } from './types';
 
 /**
  * Sub-agent orchestration tools. Registered in ALL_TOOLS via tool-definitions.ts
@@ -148,7 +148,7 @@ export const agentDispatchTool: ToolDefinition<typeof AgentDispatchArgs> = {
   name: 'agent_dispatch',
   description: 'Send a message/request to a running sub-agent (peer messaging). Use topic for fan-out (e.g. "review.request"). Returns the message id. Params: agent_id (alias agentId), message, topic?, expects_response? (alias expectsResponse).',
   parameters: AgentDispatchArgs,
-  execute: async (args) => {
+  execute: async (args, ctx) => {
     const ex = getAgentExecutor();
     const correlationId = args.expects_response
       ? `corr-msg-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
@@ -159,6 +159,7 @@ export const agentDispatchTool: ToolDefinition<typeof AgentDispatchArgs> = {
         topic: args.topic,
         correlationId,
         expectsResponse: args.expects_response,
+        from: (ctx?.agentId ?? 'main') as AgentId,
         payload: args.message,
       });
       return JSON.stringify({ messageId: msgId, correlationId: correlationId ?? null }, null, 2);
@@ -172,11 +173,11 @@ export const agentBroadcastTool: ToolDefinition<typeof AgentBroadcastArgs> = {
   name: 'agent_broadcast',
   description: 'Fan out a message to every running agent (topic-tagged). This is how roundtable experts share findings with the whole panel simultaneously — broadcast to the session topic (roundtable.<sessionId>.findings). Requires the peer capability. Params: message, topic?.',
   parameters: AgentBroadcastArgs,
-  execute: async (args) => {
+  execute: async (args, ctx) => {
     const ex = getAgentExecutor();
     try {
-      const msgId = ex.broadcast(args.message, args.topic);
-      return JSON.stringify({ messageId: msgId, topic: args.topic ?? null }, null, 2);
+      const msgId = ex.broadcast(args.message, args.topic, (ctx?.agentId ?? 'main') as AgentId);
+      return JSON.stringify({ messageId: msgId, topic: args.topic ?? null, from: ctx?.agentId ?? 'main' }, null, 2);
     } catch (err: any) {
       return `Error broadcasting: ${err?.message || String(err)}`;
     }

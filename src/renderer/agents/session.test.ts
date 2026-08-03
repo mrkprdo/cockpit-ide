@@ -174,6 +174,39 @@ describe('SubAgentSession', () => {
     expect(respond?.payload).toContain('kaboom');
     expect(respond?.topic).toContain('implementer.error');
   });
+
+  it('replies to a peer request correlationId when it finishes (peer Q&A)', async () => {
+    const bus = new AgentBus();
+    bus.registerMailbox('main');
+    bus.registerMailbox('agent:asker');
+    bus.registerMailbox('agent:test'); // executor registers this on spawn
+    const llm = makeLLM([{ content: 'answer: the loop drops the corrId' }]);
+    const s = makeSession('implementer', brief(), llm, bus);
+    // A peer asks a pointed question on ITS OWN correlationId.
+    bus.publish({
+      id: 'msg-q',
+      type: 'request',
+      from: 'agent:asker',
+      to: 'agent:test',
+      correlationId: 'corr-q1',
+      expectsResponse: true,
+      payload: 'is the bug in the collector?',
+      ts: Date.now(),
+    });
+    // Register the collector waiter before the run finishes.
+    const waited = bus.waitFor('corr-q1', { timeoutMs: 2000 });
+    await s.run();
+
+    const reply = await waited;
+    expect(reply.correlationId).toBe('corr-q1');
+    expect(reply.from).toBe('agent:test');
+    expect(reply.payload).toBe('answer: the loop drops the corrId');
+
+    // The asking peer's mailbox also receives the reply.
+    const askerMsgs = bus.getMailbox('agent:asker')!.drain();
+    const delivered = askerMsgs.find(m => m.type === 'respond' && m.correlationId === 'corr-q1');
+    expect(delivered?.from).toBe('agent:test');
+  });
 });
 
 describe('SubAgentSession permission + hooks', () => {
