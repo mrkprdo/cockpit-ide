@@ -140,6 +140,9 @@ interface Window {
     health: {
       onMainFailure: (callback: (signal: { kind: string; message: string }) => void) => () => void;
     };
+    log: {
+      onPush: (callback: (signal: { source: string; level: 'debug' | 'info' | 'log' | 'warn' | 'error'; message: string; at: number }) => void) => () => void;
+    };
     __trace: {
       subscribe: (callback: (entry: IpcTraceEntry) => void) => () => void;
       getRecent: () => IpcTraceEntry[];

@@ -2,6 +2,9 @@ import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
 import { CommandPalette } from './CommandPalette';
 import { SearchOverlay } from './SearchOverlay';
+import { createLogger } from '../logging/logger';
+
+const log = createLogger('explorer');
 
 export type ExplorerEditorState = {
   openFiles: string[];
@@ -121,6 +124,7 @@ export class ExplorerPlugin {
   getAgentEditorState() { return this.editor.getAgentEditorState(); }
 
   openFile(filePath: string): void {
+    log.debug('open file', filePath);
     this.editor.openFile(filePath);
     this.revealFile(filePath);
     this.syncVisibility();
@@ -128,6 +132,7 @@ export class ExplorerPlugin {
 
   /** Open a Markdown file as a rendered preview tab in the same tab bar. */
   openInMarkdown(filePath: string): void {
+    log.debug('open markdown preview', filePath);
     this.editor.openMarkdown(filePath);
     this.revealFile(filePath);
     this.syncVisibility();

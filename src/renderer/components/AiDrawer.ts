@@ -10,7 +10,10 @@ import { ALL_TOOLS } from '../ai/tool-definitions';
 import { ToolRegistry } from '../ai/tool-registry';
 import type { LLMMessage } from '../ai/types';
 import { bindGuarded } from '../health/monitor';
+import { createLogger } from '../logging/logger';
 import { ContextWindow } from './ai-drawer/context-window';
+
+const log = createLogger('ai-drawer');
 import { DrawerLayout } from './ai-drawer/layout';
 import { LlmLoop } from './ai-drawer/llm-loop';
 import { RenderController, escapeHtml } from './ai-drawer/render';
@@ -304,6 +307,8 @@ export class AiDrawer {
 
   private submitSteer(): void {
     const text = this.dom.inputEl.value.trim();
+    if (!text) return;
+    log.debug('ai steer', text.slice(0, 80));
     if (!text || !this.isLoading) return;
     this.historyIndex = -1;
     this.dom.inputEl.value = '';
@@ -352,6 +357,8 @@ export class AiDrawer {
 
   private async sendMessage(): Promise<void> {
     const text = this.dom.inputEl.value.trim();
+    if (!text) return;
+    log.info('ai send', { mode: this.agentMode, len: text.length });
     if (!text) return;
     this.historyIndex = -1;
 

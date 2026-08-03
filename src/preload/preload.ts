@@ -178,6 +178,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('health:mainFailure', handler);
     },
   },
+  log: {
+    onPush: (callback: (signal: { source: string; level: string; message: string; at: number }) => void) => {
+      const handler = (_event: any, signal: { source: string; level: string; message: string; at: number }) => callback(signal);
+      ipcRenderer.on('log:push', handler);
+      return () => ipcRenderer.removeListener('log:push', handler);
+    },
+  },
   __trace: {
     subscribe: (callback: (entry: TraceEntry) => void) => {
       traceListeners.add(callback);

@@ -9,6 +9,7 @@ import { mockElectronAPI } from '../../../test/setup';
 // (module-level, idempotent) — capture that callback so tests can inject trace
 // entries into the shared unified stream.
 const traceCbs: Array<(e: unknown) => void> = [];
+const logPushCbs: Array<(sig: unknown) => void> = [];
 
 function makeContainer(): HTMLElement {
   const el = document.createElement('div');
@@ -28,6 +29,10 @@ describe('DevConsolePlugin', () => {
     container = makeContainer();
     (window as any).electronAPI.__trace.subscribe = vi.fn((cb: (e: unknown) => void) => {
       traceCbs.push(cb);
+      return vi.fn();
+    });
+    (window as any).electronAPI.log.onPush = vi.fn((cb: (sig: unknown) => void) => {
+      logPushCbs.push(cb);
       return vi.fn();
     });
     plugin = new DevConsolePlugin(container, '/test/ws');
@@ -107,6 +112,14 @@ describe('DevConsolePlugin', () => {
     ipcBox.dispatchEvent(new Event('change'));
     expect(contentOf(plugin).textContent).not.toContain('git:status');
     expect(contentOf(plugin).textContent).toContain('kept line');
+  });
+
+  it('shows main-process logs pushed over log:push', () => {
+    const cb = logPushCbs[0];
+    cb?.({ source: 'main', level: 'warn', message: 'workspace selected /ws', at: Date.now() });
+    const text = contentOf(plugin).textContent;
+    expect(text).toContain('workspace selected /ws');
+    expect(text).toContain('main');
   });
 
   it('filters console entries by minimum level', () => {

@@ -8,6 +8,9 @@ import { GitPlugin } from '../GitPlugin';
 import { SpecsMapPlugin } from '../SpecsMapPlugin';
 import { AgentsPlugin } from '../AgentsPlugin';
 import { DevConsolePlugin } from '../dev-console/DevConsolePlugin';
+import { createLogger } from '../../logging/logger';
+
+const log = createLogger('canvas');
 
 export interface PluginFactoriesHost {
   getWsPath(): string;
@@ -95,6 +98,7 @@ export class PluginFactories {
     }
     this.lifecycle.setGitCounter(1);
     const cs = this.lifecycle.addCard('Git', '', -400, -250, 800, 500);
+    log.info('add git card');
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {
@@ -132,6 +136,7 @@ export class PluginFactories {
       return;
     }
     const cs = this.lifecycle.addCard('SpecsMap', '', -400, -250, 800, 500);
+    log.info('add specsmap card');
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {
@@ -163,6 +168,7 @@ export class PluginFactories {
       return;
     }
     const cs = this.lifecycle.addCard('Agents', '', -400, -250, 800, 500);
+    log.info('add agents card');
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {
@@ -182,6 +188,7 @@ export class PluginFactories {
   addTerminal(cwd?: string): Promise<string> {
     const name = `Terminal ${this.lifecycle.nextTerminalNumber()}`;
     const cs = this.lifecycle.addCard(name, '', -280, -210, 560, 420);
+    log.info('add terminal card', name);
     return new Promise(resolve => {
       requestAnimationFrame(() => {
         const body = cs.card.el.querySelector('.card-body');
@@ -223,6 +230,7 @@ export class PluginFactories {
       return;
     }
     const cs = this.lifecycle.addCard('DevConsole', '', -400, -250, 720, 480);
+    log.info('toggle dev console card');
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
       if (body) {

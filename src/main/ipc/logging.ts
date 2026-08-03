@@ -14,6 +14,7 @@ import * as path from 'path';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import type { IpcMainEvent, IpcMainInvokeEvent } from 'electron';
 import type { FailureSignalKind } from '../../shared/health-types';
+import type { LogLevel, LogSignal } from '../../shared/log-types';
 
 /** Shared stringification for logFatal + pushMainFailure. */
 export function formatError(err: unknown): string {
@@ -37,6 +38,26 @@ export function pushMainFailure(event: IpcMainEvent | IpcMainInvokeEvent, kind: 
       'health:mainFailure', { kind, message: formatError(err) },
     );
   } catch { /* best effort, same as logFatal's own crash.log write */ }
+}
+
+/**
+ * Structured operational logging from main. Writes to the main console and
+ * pushes the line to every live window (log:push) so it shows up in the dev
+ * console's unified stream — main-process activity is otherwise invisible to
+ * the renderer. Best-effort: a window that died mid-push must never throw here.
+ */
+export function logMain(level: LogLevel, source: string, ...args: unknown[]): void {
+  const message = args.map(a => (a instanceof Error ? (a.stack || a.message) : String(a))).join(' ');
+  try {
+    const fn = ({ debug: console.debug, info: console.info, log: console.log, warn: console.warn, error: console.error })[level];
+    fn(`[${source}]`, ...args);
+  } catch { /* best effort */ }
+  const sig: LogSignal = { source, level, message, at: Date.now() };
+  try {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('log:push', sig);
+    }
+  } catch { /* best effort */ }
 }
 
 // ipcMain.handle (promise-returning) — preserves the exact fallback the

@@ -245,6 +245,9 @@ if (isDOM) {
     health: {
       onMainFailure: vi.fn().mockReturnValue(vi.fn()),
     },
+    log: {
+      onPush: vi.fn().mockReturnValue(vi.fn()),
+    },
     __trace: {
       subscribe: vi.fn().mockReturnValue(vi.fn()),
       getRecent: vi.fn().mockReturnValue([]),

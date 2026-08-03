@@ -4,6 +4,9 @@ import { HistoryPanel } from './git-plugin/history';
 import { ChangesPanel } from './git-plugin/changes';
 import { DiffView } from './git-plugin/diff-view';
 import { bindGuarded } from '../health/monitor';
+import { createLogger } from '../logging/logger';
+
+const log = createLogger('git');
 
 export type { GitState } from './git-plugin/types';
 
@@ -220,6 +223,7 @@ export class GitPlugin {
     if (!branch || branch === this.history.currentBranchName) return;
     const res = this.opResult(await window.electronAPI?.git.checkout(this.wsPath, branch));
     if (res.ok) {
+      log.info('git checkout', branch);
       this.history.currentBranchName = branch;
       this.showStatus(`Switched to ${branch}`, false);
     } else {
@@ -237,6 +241,7 @@ export class GitPlugin {
   private async handleCommit(): Promise<void> {
     const msg = this.commitInput?.value.trim();
     if (!msg) return;
+    log.info('git commit', msg);
     const res = this.opResult(await window.electronAPI?.git.commit(this.wsPath, msg));
     if (res.ok) {
       if (this.commitInput) this.commitInput.value = '';
@@ -254,6 +259,7 @@ export class GitPlugin {
 
   private async handlePush(): Promise<void> {
     if (!this.pushBtn || this.pushBtn.disabled) return;
+    log.info('git push');
     this.pushBtn.disabled = true;
     this.pushBtn.textContent = 'Pushing…';
     const res = this.opResult(await window.electronAPI?.git.push(this.wsPath));
@@ -311,6 +317,7 @@ export class GitPlugin {
     this.diffView.diffContent = '';
     this.changes.selectedFilePath = null;
     this.history.clearSelection();
+    log.debug('git refresh');
     await Promise.all([
       this.history.loadRemotes(),
       this.history.loadBranches(),

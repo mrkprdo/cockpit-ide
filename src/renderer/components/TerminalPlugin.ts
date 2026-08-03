@@ -1,7 +1,9 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { createLogger } from '../logging/logger';
 
 const BASE_FONT_SIZE = 13;
+const log = createLogger('terminal');
 
 export class TerminalPlugin {
   readonly uuid: string;
@@ -78,7 +80,10 @@ export class TerminalPlugin {
     }) ?? null;
 
     this.unlistenExit = api.terminal.onExit((id: string) => {
-      if (id === uuid) this.onExit?.();
+      if (id === uuid) {
+        log.info('terminal exited', uuid);
+        this.onExit?.();
+      }
     }) ?? null;
 
     // Adapt cols/rows only when physical container dimensions change (card resize).
@@ -94,7 +99,10 @@ export class TerminalPlugin {
     });
 
     this.ready = api.terminal.create(uuid, cwd)
-      .then(() => uuid)
+      .then((ok) => {
+        log.info('terminal created', uuid, ok ? '' : '(failed)');
+        return uuid;
+      })
       .catch(() => uuid);
   }
 

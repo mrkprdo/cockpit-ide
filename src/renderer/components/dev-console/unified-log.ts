@@ -111,6 +111,12 @@ export function installUnifiedLog(): () => void {
     push({ category: 'agent', kind: msg.type, title: `${String(msg.from ?? '')} → ${to}`, message: text });
   }));
 
+  // Main-process structured logs (log:push) arrive as console-category entries
+  // with the main source as the title column.
+  unbinds.push(window.electronAPI?.log?.onPush((sig) => {
+    push({ category: 'console', level: sig.level, title: sig.source, message: sig.message });
+  }) ?? (() => {}));
+
   return () => {
     for (const u of unbinds) {
       try { u(); } catch { /* best effort */ }

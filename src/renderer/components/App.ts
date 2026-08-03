@@ -9,6 +9,9 @@ import { theme } from '../theme';
 import { memoryStore } from '../ai/memory-store';
 import { getAgentExecutor } from '../agents/executor';
 import { loadDefinitionsFromWorkspace } from '../agents/definition-file';
+import { createLogger } from '../logging/logger';
+
+const log = createLogger('app');
 
 export class App {
   private canvas: CanvasArea;
@@ -22,6 +25,7 @@ export class App {
 
   constructor() {
     document.title = 'Cockpit IDE';
+    log.info('app init');
 
     // Load persisted theme preference before any UI renders
     this.loadThemePref();
@@ -73,6 +77,7 @@ export class App {
       // Backtick — toggle dev console
       if (e.key === '`' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
+        log.debug('toggle dev console');
         this.canvas.addDevConsole(this.wsPath);
       }
     });
@@ -189,7 +194,6 @@ export class App {
     state.aiDrawerDetached = this.aiDrawer.isDetached;
     await ws.save(state, this.wsPath);
   }
-
   private async loadThemePref(): Promise<void> {
     try {
       const prefs = await window.electronAPI?.prefs.load();
@@ -228,6 +232,7 @@ export class App {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
     await this.saveNow();
+    log.info('open workspace picker');
     // Open the WelcomeModal (recent list + native folder dialog) instead of a
     // bare native picker — this is the same picker used at startup.
     this.canvas.locked = true;
@@ -241,6 +246,7 @@ export class App {
   private async resetWindowToWorkspace(path: string): Promise<void> {
     const ws = window.electronAPI?.workspace;
     if (!ws) return;
+    log.info('switching workspace, reloading', path);
     // Kill live terminal PTYs first so the reload doesn't leave orphan processes.
     this.canvas.killAllTerminals();
     // Register the new workspace with main so the reloaded window boots straight into it.
@@ -333,6 +339,7 @@ export class App {
 
   private async loadWorkspace(path: string): Promise<void> {
     this.wsPath = path;
+    log.info('load workspace', path);
     this.registerCockpitGlobal();
     this.aiDrawer.resetSessions();
     const ws = window.electronAPI?.workspace;
