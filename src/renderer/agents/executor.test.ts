@@ -193,6 +193,21 @@ describe('AgentExecutor', () => {
     expect(st.tokensUsed).toBeGreaterThanOrEqual(0);
   });
 
+  it('status() surfaces roundtableSessionId when a spawn is tagged; null otherwise', async () => {
+    const ex = new AgentExecutor();
+    ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
+    const tagged = ex.spawn({
+      skill: 'implementer',
+      context: 'ctx',
+      expectedResult: 'exp',
+      roundtableSessionId: 'rt-abc123',
+    });
+    const untagged = ex.spawn({ skill: 'reviewer', context: 'ctx', expectedResult: 'exp' });
+    const statuses = ex.status();
+    expect(statuses.find(s => s.id === tagged.agentId)?.roundtableSessionId).toBe('rt-abc123');
+    expect(statuses.find(s => s.id === untagged.agentId)?.roundtableSessionId).toBeNull();
+  });
+
   it('spawns a custom definition by agent id; status reports definition + mode', async () => {
     const ex = new AgentExecutor();
     ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });

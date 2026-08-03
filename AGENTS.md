@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cockpit IDE (`0.0.20260701`) — spatial/floating-panel IDE built in Electron. Monaco editor, xterm.js terminal, file explorer, and markdown viewer live as draggable/resizable cards on a zoomable/pannable canvas. Sessions persist to `.cockpit/window.json`. An in-app AI agent (drawer) drives the IDE via MCP-style tools; SpecsMap validates this repo's own spec graph.
+Cockpit IDE (`0.0.20260731`) — spatial/floating-panel IDE built in Electron. Monaco editor, xterm.js terminal, file explorer, and markdown viewer live as draggable/resizable cards on a zoomable/pannable canvas. Sessions persist to `.cockpit/window.json`. An in-app AI agent (drawer) drives the IDE via MCP-style tools; SpecsMap validates this repo's own spec graph.
 
 **Stack:** Electron 42 · TypeScript 5.8 · esbuild (renderer bundle) · tsc (main/preload) · Monaco 0.52 (AMD-loaded) · @xterm/xterm 6 + node-pty · marked · zod · vitest 4 (jsdom).
 
@@ -26,9 +26,20 @@ Cockpit IDE (`0.0.20260701`) — spatial/floating-panel IDE built in Electron. M
 | Single test file | `npx vitest run src/renderer/components/TerminalPlugin.test.ts` |
 | Single test | `npx vitest run src/main/main.test.ts -t "workspace:getRecent"` |
 | Coverage | `vitest` enforces thresholds: statements 70 / branches 60 / functions 65 / lines 70 — a passing test run can still fail on coverage |
+| File-size guardrail | `npm run loc:check` — fails on any in-scope `.ts` file over 700 lines |
+| Console-usage guardrail | `npm run console:check` — fails on `console.error`/`console.warn` in monitored folders |
 | Package | `npm run pack` (electron-packager + NSIS via `scripts/pack.js`) |
 
 `Makefile` wraps `build`/`dev`/`prod`/`package`/`test`/`clean`. `dev.js` is the legacy watcher — prefer the `dev`/`dev:watch` npm scripts.
+
+## Code Standards (Guardrails)
+
+- **File-size policy** (`refactor.md` §A.2; enforced by `npm run loc:check`, wired into CI `test.yml` + `make test`):
+  - Target ≤500 LOC per file; buffer zone (500, 700] is tolerated but not a default landing zone; **hard ceiling 700 LOC** — a file over it must be split before further changes merge.
+  - Applies to working source only: `src/main/**/*.ts` and `src/renderer/**/*.ts`. Exempt: `*.test.ts`, `src/test/**`, `scripts/**`, `*.config.ts`.
+  - Split pattern: the original file stays as a thin facade (constructor + wiring + delegation + one-line forwarders for every externally-called method); groups move into a kebab-case subfolder (`AiDrawer.ts` → `ai-drawer/`). Extracted sub-controllers/utilities depend inward only — never import the facade back. Tests split 1:1 alongside (a thin `<Facade>.test.ts` stays for wiring/public-API coverage).
+- **Console-usage guardrail** (`npm run console:check`): no `console.error`/`console.warn` under monitored folders — `src/renderer/health`, `src/renderer/components/dev-console`, `git-plugin`, `canvas-area`, `ai-drawer`, `specsmap`. Scope grows by one entry per refactor phase (§E in `refactor.md`).
+- **Failure logging convention**: log via `reportFailure({ kind, source, message })` and `bindGuarded(el, event, handler, source)` from `src/renderer/health/monitor.ts` — never ad-hoc `console.error`. Signals land in the dev-console Health tab and main-process `diagnostics:rendererError`/`health:mainFailure`.
 
 ## Spec System
 
@@ -43,6 +54,7 @@ Cockpit IDE (`0.0.20260701`) — spatial/floating-panel IDE built in Electron. M
 1. **Read the spec first** — `src/specs/<feature>.spec.md` (and `*-ui.spec.md` if present) is the authoritative contract: public interface, IPC channels, DOM structure, interactions, states. Schema in `SPECGEN.md`. Fix the spec before or alongside the source change, never after.
 2. **Traverse neighbors** — check `dependencies` / `referenced_by` in the spec, then read those sources. Read at least one peer modal/card/panel (e.g. editing `ConfirmModal` → also `AboutModal`, `WelcomeModal`). Trace both ends of any IPC channel (`preload.ts` ↔ `main.ts`) and re-read `src/global.d.ts` for boundary types.
 3. **Apply + ripple check** — mirror peer structure exactly (method naming like `open()`/`close()`, CSS class names, DOM nesting, event delegation). Re-read neighboring sources after the change: optional chaining (`?.`) hides broken callsites silently. Verify sync/async stays consistent across IPC. Update the spec to match before calling the task done.
+4. **Verify guardrails** — before declaring done, run `npm run loc:check` and `npm run console:check` (plus the relevant typecheck/test) on any change touching `src/main/**` or `src/renderer/**`. New `reportFailure`/`bindGuarded` call sites go through `src/renderer/health/monitor.ts`.
 
 > Bugs here have repeatedly come from: wrong method names via `?.`, sync/async IPC mismatches, private methods listed in public interfaces, duplicate init blocks, and structural spec fields edited by hand.
 
@@ -80,11 +92,11 @@ Main-process APIs cross to the renderer exclusively via `window.electronAPI` (pr
 
 ## Testing conventions
 
-- 48 test files, 1430 tests. Global mocks in `src/test/setup.ts` (IPC, Canvas, xterm, DOM, ResizeObserver) — most tests need no extra mocking. `.md` files are imported as text via the `md-text` vitest plugin.
-- Unit tests live next to each source file; `src/test/` holds cross-cutting suites: `edge-cases.test.ts` (63), `workflows.test.ts` (36), `e2e-advanced.test.ts`.
+- 63 test files, 1757 tests. Global mocks in `src/test/setup.ts` (IPC, Canvas, xterm, DOM, ResizeObserver) — most tests need no extra mocking. `.md` files are imported as text via the `md-text` vitest plugin.
+- Unit tests live next to each source file; `src/test/` holds cross-cutting suites: `edge-cases.test.ts`, `workflows.test.ts`, `e2e-advanced.test.ts`.
 - Integration tests that touch the main process use `main._testTrustPath(...)` (test-only export) to bypass the workspace-path trust gate.
-- **Known pre-existing failures (as of 2026-07-30):** `src/main/main.test.ts` — "workspace:addRecent adds path to recent list" and "workspace:addRecent caps list at 5 entries" fail (2 tests). Cause: recent `workspace:addRecent` trust-gate change; tests still assert the old push-unshift shape. Don't confuse these with regressions from your work.
-- `src/test/README.md` ("23 files, 755 tests") is stale — the suite is ~48 files / ~1430 tests.
+- Full suite is green (as of 2026-08-03): 1757/1757 pass with no known pre-existing failures.
+- `src/test/README.md` ("23 files, 755 tests") is stale — the suite is 63 files / 1757 tests.
 
 ## Gotchas
 

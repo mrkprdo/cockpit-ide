@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   EXPERT_AREAS,
   EXPERT_DEFINITIONS,
@@ -9,6 +9,10 @@ import {
   buildExpertDefinition,
   registerRoundtableExperts,
   _resetRoundtableRegistrationForTests,
+  listRoundtablePlans,
+  getRoundtablePlan,
+  forgetRoundtablePlan,
+  _resetRoundtablePlansForTests,
 } from './roundtable';
 import { clearCustomDefinitions, getDefinition } from './definitions';
 
@@ -203,5 +207,31 @@ describe('composeRoundtable', () => {
     expect(p.quorum).toBe(quorumFor(5, 0.6));
     const pFull = composeRoundtable('x', { seed: 4, panelSize: 5, quorumRatio: 1 });
     expect(pFull.quorum).toBe(5);
+  });
+});
+
+describe('live roundtable plan registry', () => {
+  beforeEach(() => {
+    _resetRoundtablePlansForTests();
+  });
+
+  it('composeRoundtable records the plan so it can be found by sessionId', () => {
+    const p = composeRoundtable('leaky abstraction in the tool registry', { seed: 21 });
+    expect(getRoundtablePlan(p.sessionId)).toEqual(p);
+    expect(listRoundtablePlans().map(pl => pl.sessionId)).toContain(p.sessionId);
+  });
+
+  it('forgetRoundtablePlan removes it from the registry', () => {
+    const p = composeRoundtable('x', { seed: 22 });
+    forgetRoundtablePlan(p.sessionId);
+    expect(getRoundtablePlan(p.sessionId)).toBeUndefined();
+    expect(listRoundtablePlans().map(pl => pl.sessionId)).not.toContain(p.sessionId);
+  });
+
+  it('evicts the oldest plan once the registry exceeds its cap', () => {
+    const first = composeRoundtable('x', { seed: 100 });
+    for (let i = 0; i < 25; i++) composeRoundtable('x', { seed: 200 + i });
+    expect(getRoundtablePlan(first.sessionId)).toBeUndefined();
+    expect(listRoundtablePlans().length).toBeLessThanOrEqual(20);
   });
 });

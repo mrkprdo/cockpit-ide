@@ -17,7 +17,7 @@ import { SKILL_NAMES } from '../../agents/skills';
 import { getToolContext } from '../../ai/cockpit-context';
 import { LLMClient } from '../../ai/llm-client';
 import { memoryStore } from '../../ai/memory-store';
-import { AGENT_SYSTEM_PROMPT, ROUTING_POLICY } from '../../ai/prompts';
+import { AGENT_SYSTEM_PROMPT, ROUTING_POLICY, buildPlatformPrompt, detectHostPlatform } from '../../ai/prompts';
 import { ToolRegistry } from '../../ai/tool-registry';
 import { executeToolCall } from '../../ai/tool-executor';
 import type { LLMMessage, LLMToolCall, ToolContext } from '../../ai/types';
@@ -31,6 +31,14 @@ import type { AgentMode, AiDrawerDom, ChatMessage, FloatPreviewState } from './t
 
 /** How many consecutive empty completions before the endpoint is considered wedged. */
 export const MAX_CONSECUTIVE_EMPTIES = 5;
+
+/**
+ * How many consecutive failures of the SAME tool before the auto-escalation
+ * watchdog interrupts the model — a deterministic backstop for "stuck
+ * retrying the same broken call" that doesn't depend on the model noticing
+ * ROUTING_POLICY/ORCHESTRATION_SECTION on its own.
+ */
+export const MAX_SAME_TOOL_FAILURES = 3;
 
 export interface LlmLoopHost {
   toolRegistry: ToolRegistry;
@@ -121,6 +129,8 @@ export class LlmLoop {
     parts.push(memoryStore.buildIndexPrompt());
     parts.push(ROUTING_POLICY);
     parts.push(ORCHESTRATION_SECTION);
+    const platform = buildPlatformPrompt(detectHostPlatform());
+    if (platform) parts.push(platform);
     parts.push(ROUNDTABLE_SECTION);
     const customs = listDefinitions().filter(d => !SKILL_NAMES.includes(d.name as never));
     if (customs.length > 0) {
@@ -133,17 +143,25 @@ export class LlmLoop {
   }
 
   /**
+   * Execute a tool and report success/failure — used by the main loop's
+   * auto-escalation watchdog (see MAX_SAME_TOOL_FAILURES below) to notice
+   * when the model is stuck retrying the same failing call.
+   */
+  async executeToolWithStatus(name: string, args: Record<string, any>): Promise<{ ok: boolean; output: string }> {
+    if (!this.host.toolRegistry.has(name)) {
+      return { ok: false, output: `Unknown tool: ${name}` };
+    }
+    const ctx = this.host.getToolContext();
+    if (!ctx) return { ok: false, output: 'Canvas not ready' };
+    return executeToolCall(this.host.toolRegistry, name, JSON.stringify(args), ctx);
+  }
+
+  /**
    * Backward-compatible wrapper used by tests and the agent loop.
    * Delegates to the shared tool executor with the current IDE context.
    */
   async executeTool(name: string, args: Record<string, any>): Promise<string> {
-    if (!this.host.toolRegistry.has(name)) {
-      return `Unknown tool: ${name}`;
-    }
-    const ctx = this.host.getToolContext();
-    if (!ctx) return 'Canvas not ready';
-    const result = await executeToolCall(this.host.toolRegistry, name, JSON.stringify(args), ctx);
-    return result.output;
+    return (await this.executeToolWithStatus(name, args)).output;
   }
 
   private formatToolChip(name: string, args: Record<string, any>): string {
@@ -254,9 +272,17 @@ export class LlmLoop {
       { role: 'system', content: systemContent },
     ];
 
+    // Rebuild history WITHOUT collapsing to {role, content} — buildHistoryForLLM
+    // already returns properly-shaped messages, and stripping tool_call_id /
+    // tool_calls here turns tool results into payloads strict gateways reject
+    // with "missing field `tool_call_id`" (same fix as callLLMBasic below).
     const history = this.contextWindow.buildHistoryForLLM();
     for (const m of history) {
-      apiMessages.push({ role: m.role, content: m.content });
+      const out: LLMMessage = { role: m.role };
+      if (m.content !== undefined && m.content !== null) out.content = m.content;
+      if (m.role === 'tool' && m.tool_call_id) out.tool_call_id = m.tool_call_id;
+      if (m.role === 'assistant' && m.tool_calls) out.tool_calls = m.tool_calls;
+      apiMessages.push(out);
     }
     const last = apiMessages[apiMessages.length - 1];
     if (!last || last.role !== 'user') {
@@ -311,6 +337,10 @@ export class LlmLoop {
     let firstIter = true;
     let stepCount = 0;
     const recoveryState: EmptyRecoveryState = { emptyRecoveries: 0, autoCompacted: false, consecutiveEmpties: 0 };
+    // Auto-escalation watchdog state (see MAX_SAME_TOOL_FAILURES): counts
+    // consecutive failures of the SAME tool across the whole run.
+    let sameToolFailures = 0;
+    let lastFailedTool: string | null = null;
     for (;;) {
       if (this.host.getAbortRequested()) return 'Aborted.';
 
@@ -490,7 +520,17 @@ export class LlmLoop {
         });
         this.render.renderMessages();
 
-        const result = await this.executeTool(toolName, toolArgs);
+        const { ok, output: result } = await this.executeToolWithStatus(toolName, toolArgs);
+
+        if (ok) {
+          sameToolFailures = 0;
+          lastFailedTool = null;
+        } else if (toolName === lastFailedTool) {
+          sameToolFailures++;
+        } else {
+          lastFailedTool = toolName;
+          sameToolFailures = 1;
+        }
 
         // Update chip with result so it becomes collapsible
         this.render.messages[this.render.messages.length - 1].toolResult = result;
@@ -503,11 +543,33 @@ export class LlmLoop {
         });
       }
 
-      // Inject any steering message the user submitted mid-run
-      if (this.host.getSteeringMessage()) {
-        const steer = this.host.getSteeringMessage()!;
-        this.host.setSteeringMessage(null);
-        apiMessages.push({ role: 'user', content: steer });
+      // Auto-escalation watchdog: the same tool failed MAX_SAME_TOOL_FAILURES
+      // times in a row — interrupt with a forcing directive instead of letting
+      // the model retry it again. Deterministic backstop for
+      // ORCHESTRATION_SECTION's "don't blindly retry" rule — doesn't depend on
+      // the model noticing that guidance on its own.
+      let escalationNote: string | null = null;
+      if (sameToolFailures >= MAX_SAME_TOOL_FAILURES && lastFailedTool) {
+        const failedTool = lastFailedTool;
+        sameToolFailures = 0;
+        lastFailedTool = null;
+        escalationNote = `⚠️ AUTO-ESCALATION: "${failedTool}" has failed ${MAX_SAME_TOOL_FAILURES} times in a row. Do NOT call it again with the same arguments. Investigate first (agent_status, re-read the error), then either fix your approach, or delegate: agent_spawn a debugger, or roundtable_compose for a harder issue.`;
+        this.render.messages.push({
+          role: 'system',
+          content: `**Auto-escalation:** "${failedTool}" failed ${MAX_SAME_TOOL_FAILURES}x in a row — nudged the model to stop retrying and investigate or delegate instead.`,
+          timestamp: Date.now(),
+        });
+        this.render.renderMessages();
+      }
+
+      // Inject the escalation note and/or any steering message the user
+      // submitted mid-run as ONE user turn — never two consecutive user
+      // messages back to back (see the PLAN-mode comment above: many models
+      // skip tool calls when they see back-to-back user turns).
+      const steer = this.host.getSteeringMessage();
+      if (escalationNote || steer) {
+        if (steer) this.host.setSteeringMessage(null);
+        apiMessages.push({ role: 'user', content: [escalationNote, steer].filter(Boolean).join('\n\n') });
       }
     }
 

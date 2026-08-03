@@ -6,6 +6,7 @@
 
 import { getToolContext } from '../ai/cockpit-context';
 import type { LLMClient } from '../ai/llm-client';
+import { detectHostPlatform } from '../ai/prompts';
 import { ALL_TOOLS } from '../ai/tool-definitions';
 import { ToolRegistry } from '../ai/tool-registry';
 import type { LLMMessage } from '../ai/types';
@@ -47,6 +48,11 @@ export class AiDrawer {
   onDetachChange?: (detached: boolean) => void;
 
   constructor() {
+    // Detect the host OS ONCE at boot. buildSystemPrompt injects the matching
+    // command guidance from this cached value — detection never re-runs per
+    // prompt build (see ai/prompts.ts detectHostPlatform).
+    detectHostPlatform();
+
     const canvas = document.getElementById('canvas')!;
     const canvasParent = canvas.parentElement!;
 

@@ -59,12 +59,14 @@ export const AgentSpawnArgs = withAliases({
   model: z.string().optional().describe('Per-agent model override (falls back to definition.model, then the executor config)'),
   permission_mode: PermissionModeEnum.optional().describe('Per-agent permission mode override (default|acceptEdits|auto|plan|dontAsk)'),
   max_turns: z.number().int().positive().optional().describe('Per-agent step cap override'),
+  roundtable_session_id: z.string().optional().describe('Tag this spawn as belonging to a roundtable session (pass plan.sessionId from roundtable_compose) so the Agents UI can group it into a live quorum tracker'),
 }, {
   expectedResult: 'expected_result',
   timeoutMs: 'timeout_ms',
   seedSummary: 'seed_summary',
   permissionMode: 'permission_mode',
   maxTurns: 'max_turns',
+  roundtableSessionId: 'roundtable_session_id',
 });
 
 export const AgentDispatchArgs = withAliases({
@@ -120,7 +122,7 @@ export const RoundtableComposeArgs = withAliases({
 
 export const agentSpawnTool: ToolDefinition<typeof AgentSpawnArgs> = {
   name: 'agent_spawn',
-  description: 'Launch an autonomous sub-agent. Pass EITHER skill (built-in SDLC skill) OR agent (custom definition id, including the roundtable experts like expert-debugging). Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). Params: skill?/agent?, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?, model?, permission_mode? (alias permissionMode), max_turns?.',
+  description: 'Launch an autonomous sub-agent. Pass EITHER skill (built-in SDLC skill) OR agent (custom definition id, including the roundtable experts like expert-debugging). Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). Params: skill?/agent?, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?, model?, permission_mode? (alias permissionMode), max_turns?, roundtable_session_id? (alias roundtableSessionId — pass plan.sessionId when spawning a roundtable expert).',
   parameters: AgentSpawnArgs,
   execute: async (args) => {
     const ex = getAgentExecutor();
@@ -136,6 +138,7 @@ export const agentSpawnTool: ToolDefinition<typeof AgentSpawnArgs> = {
         model: args.model,
         permissionMode: args.permission_mode as PermissionMode | undefined,
         maxTurns: args.max_turns,
+        roundtableSessionId: args.roundtable_session_id,
       });
       return JSON.stringify(res, null, 2);
     } catch (err: any) {

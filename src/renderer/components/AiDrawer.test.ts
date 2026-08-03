@@ -1016,6 +1016,86 @@ describe('AiDrawer', () => {
       expect(result).toContain('Unknown tool');
     });
 
+    it('auto-escalates when the same tool fails 3 times in a row', async () => {
+      let call = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        call++;
+        if (call <= 3) return Promise.resolve(makeToolResponse('nonexistent_tool_xyz'));
+        return Promise.resolve(makeTextResponse('Done after escalation.'));
+      });
+
+      drawer = await createDrawer();
+      drawer['sessionsLoaded'] = true;
+      await drawer.toggle();
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'do a thing';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      const texts = drawer['messages'].map((m: any) => m.content).join('\n');
+      expect(texts).toContain('Auto-escalation');
+      expect(texts).toContain('nonexistent_tool_xyz');
+      expect(texts).toContain('Done after escalation.');
+      expect(call).toBe(4);
+    });
+
+    it('does not auto-escalate when different tools fail instead of the same one 3x', async () => {
+      let call = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(makeToolResponse('nonexistent_tool_a'));
+        if (call === 2) return Promise.resolve(makeToolResponse('nonexistent_tool_b'));
+        if (call === 3) return Promise.resolve(makeToolResponse('nonexistent_tool_a'));
+        return Promise.resolve(makeTextResponse('Done.'));
+      });
+
+      drawer = await createDrawer();
+      drawer['sessionsLoaded'] = true;
+      await drawer.toggle();
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'do a thing';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      const texts = drawer['messages'].map((m: any) => m.content).join('\n');
+      expect(texts).not.toContain('Auto-escalation');
+    });
+
+    it('combines an auto-escalation with a same-round steering message into one user turn', async () => {
+      let call = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        call++;
+        // Steering arrives mid-run, right as the 3rd same-tool failure lands.
+        if (call === 3) drawer['steeringMessage'] = 'focus on the config file instead';
+        if (call <= 3) return Promise.resolve(makeToolResponse('nonexistent_tool_xyz'));
+        return Promise.resolve(makeTextResponse('Done.'));
+      });
+
+      drawer = await createDrawer();
+      drawer['sessionsLoaded'] = true;
+      await drawer.toggle();
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'do a thing';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      const bodies = (globalThis.fetch as any).mock.calls.map((c: any[]) => JSON.parse(c[1].body));
+      const lastMessages = bodies[bodies.length - 1].messages;
+      // No two consecutive user-role turns — many models skip tool calls when
+      // they see back-to-back user messages.
+      for (let i = 1; i < lastMessages.length; i++) {
+        if (lastMessages[i].role === 'user') {
+          expect(lastMessages[i - 1].role).not.toBe('user');
+        }
+      }
+      const combined = lastMessages.filter((m: any) => m.role === 'user').map((m: any) => m.content).join('\n');
+      expect(combined).toContain('AUTO-ESCALATION');
+      expect(combined).toContain('focus on the config file instead');
+    });
+
     it('runs a destructive tool call immediately in auto mode (no confirmation)', async () => {
       let callCount = 0;
       globalThis.fetch = vi.fn().mockImplementation(() => {
@@ -1589,6 +1669,42 @@ describe('AiDrawer', () => {
 
       const history = drawer['buildHistoryForLLM']();
       expect(history).toEqual([{ role: 'user', content: 'read' }]);
+    });
+
+    it('rebuilds the next run\'s history with tool_call_id intact (no gateway rejection)', async () => {
+      let call = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        call++;
+        if (call === 1) return Promise.resolve(makeToolResponse('read_file', '{"path":"/x.ts"}', 'call_a'));
+        if (call === 2) return Promise.resolve(makeTextResponse('Done reading.'));
+        return Promise.resolve(makeTextResponse('Continuing.'));
+      });
+
+      drawer = await createDrawer();
+      drawer['sessionsLoaded'] = true;
+      await drawer.toggle();
+
+      // First run: model calls a tool, the tool executes, the model answers.
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'read /x.ts';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      // Second run: the transcript now holds the previous tool round. The rebuilt
+      // history MUST keep tool_call_id / tool_calls — collapsing it to
+      // {role, content} makes strict gateways reject with "missing field tool_call_id".
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'continue';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      const bodies = (globalThis.fetch as any).mock.calls.map((c: any[]) => JSON.parse(c[1].body));
+      const lastMessages = bodies[bodies.length - 1].messages;
+      const toolMsgs = lastMessages.filter((m: any) => m.role === 'tool');
+      expect(toolMsgs.length).toBeGreaterThan(0);
+      for (const m of toolMsgs) expect(m.tool_call_id).toBeTruthy();
+      const assistantToolMsg = lastMessages.find((m: any) => m.tool_calls);
+      expect(assistantToolMsg?.tool_calls?.[0]?.id).toBeTruthy();
     });
 
     it('auto-compacts when context usage reaches 80%', async () => {

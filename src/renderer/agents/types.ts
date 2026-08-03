@@ -107,6 +107,8 @@ export interface AgentStatus {
   lastActivityAt: number;
   resultPreview: string | null;  // final respond preview
   error: string | null;
+  /** Roundtable session this agent belongs to, if spawned as a panel expert. */
+  roundtableSessionId: string | null;
 }
 
 /** What a spawned agent is asked to do. */

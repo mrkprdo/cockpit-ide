@@ -25,6 +25,54 @@ Use ONLY when the task is genuinely large or long-running: multi-file changes, a
 - Cost ladder when in doubt: respond < tools < sub-agent. Prefer the cheapest mode that fully resolves the request.
 - After delegating, always agent_wait before relying on the result, and report the agent's respond back to the user.`;
 
+/**
+ * Detect the host operating system ONCE and cache it. Prefers the
+ * authoritative main-process value (`process.platform` exposed by the preload
+ * bridge), which is reliable in dev, prod, and packaged builds; falls back to
+ * navigator.platform. Call at boot to pin the host; the system prompt is then
+ * injected from this cached value instead of re-detecting per prompt build.
+ */
+let cachedHostPlatform: string | null = null;
+
+export function detectHostPlatform(): string {
+  if (cachedHostPlatform === null) {
+    cachedHostPlatform = window.electronAPI?.platform || navigator.platform || '';
+  }
+  return cachedHostPlatform;
+}
+
+/** Test hook — force a fresh host detection on the next call. */
+export function resetHostPlatform(): void {
+  cachedHostPlatform = null;
+}
+
+/**
+ * Build a host-platform prompt section. Injects Windows-only command guidance
+ * when the host is Windows (the repo's primary OS); light Unix guidance for
+ * macOS/Linux; empty string when the platform is unknown.
+ */
+export function buildPlatformPrompt(platform: string): string {
+  const p = platform.toLowerCase();
+  if (p === 'win32' || p.startsWith('win')) {
+    return `## Host Platform: Windows
+This IDE is running on **Windows**. When you act through the terminal, use Windows-native commands only:
+- Shells: cmd.exe or PowerShell (via write_to_terminal / run_command / send_key_to_terminal).
+- Command equivalents: dir (not ls), type (not cat), copy (not cp), move (not mv), del (not rm), findstr (not grep), cls (not clear).
+- Paths use backslashes and drive letters (e.g. C:\\repo\\src); always quote paths that contain spaces.
+- Avoid bash-only tools (grep -r, sed -i, awk, curl pipes) unless you invoke PowerShell equivalents.
+- run_command should receive a command that cmd.exe can execute directly.`;
+  }
+  if (p.includes('darwin') || p.includes('mac')) {
+    return `## Host Platform: macOS
+This IDE is running on **macOS**. When you act through the terminal, use standard Unix commands (ls, cat, grep, sed, cp, mv, rm) and forward-slash paths.`;
+  }
+  if (p.includes('linux')) {
+    return `## Host Platform: Linux
+This IDE is running on **Linux**. When you act through the terminal, use standard Unix commands (ls, cat, grep, sed, cp, mv, rm) and forward-slash paths.`;
+  }
+  return '';
+}
+
 export const AGENT_SYSTEM_PROMPT = `You are Cockpit Agent, an AI assistant embedded in Cockpit IDE — a spatial, canvas-based IDE where plugin cards (Explorer, Terminal, Git, Markdown, SpecsMap) float on an infinite canvas.
 
 ## Capabilities

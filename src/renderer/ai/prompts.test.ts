@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { AGENT_SYSTEM_PROMPT, ROUTING_POLICY } from './prompts';
+import {
+  AGENT_SYSTEM_PROMPT,
+  ROUTING_POLICY,
+  buildPlatformPrompt,
+  detectHostPlatform,
+  resetHostPlatform,
+} from './prompts';
 
 describe('AGENT_SYSTEM_PROMPT', () => {
   it('is a non-empty string', () => {
@@ -76,5 +82,52 @@ describe('ROUTING_POLICY', () => {
   it('is a well-formed markdown section', () => {
     expect(ROUTING_POLICY).toMatch(/## /);
     expect(ROUTING_POLICY).toContain('\n');
+  });
+});
+
+describe('buildPlatformPrompt', () => {
+  it('injects Windows-native command guidance on Windows hosts', () => {
+    const prompt = buildPlatformPrompt('win32');
+    expect(prompt).toContain('Host Platform: Windows');
+    expect(prompt).toContain('dir (not ls)');
+    expect(prompt).toContain('findstr (not grep)');
+    expect(prompt).toContain('cmd.exe');
+  });
+
+  it('accepts navigator-style platform strings', () => {
+    expect(buildPlatformPrompt('Win32')).toContain('Host Platform: Windows');
+    expect(buildPlatformPrompt('win32')).toContain('Host Platform: Windows');
+  });
+
+  it('injects Unix guidance for macOS', () => {
+    const prompt = buildPlatformPrompt('darwin');
+    expect(prompt).toContain('Host Platform: macOS');
+    expect(prompt).toContain('standard Unix commands');
+  });
+
+  it('injects Unix guidance for Linux', () => {
+    const prompt = buildPlatformPrompt('linux');
+    expect(prompt).toContain('Host Platform: Linux');
+    expect(prompt).toContain('standard Unix commands');
+  });
+
+  it('returns an empty string for unknown platforms', () => {
+    expect(buildPlatformPrompt('')).toBe('');
+    expect(buildPlatformPrompt('haiku-ppc')).toBe('');
+  });
+
+  it('detectHostPlatform reads the electronAPI platform value once', () => {
+    resetHostPlatform();
+    (window as any).electronAPI = { platform: 'win32' };
+    expect(detectHostPlatform()).toBe('win32');
+  });
+
+  it('detectHostPlatform caches the first detection', () => {
+    resetHostPlatform();
+    (window as any).electronAPI = { platform: 'linux' };
+    expect(detectHostPlatform()).toBe('linux');
+    // Changing the bridge afterwards must NOT re-detect — the host is pinned.
+    (window as any).electronAPI = { platform: 'darwin' };
+    expect(detectHostPlatform()).toBe('linux');
   });
 });

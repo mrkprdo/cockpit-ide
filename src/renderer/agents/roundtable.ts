@@ -230,6 +230,40 @@ export function buildExpertContext(area: ExpertArea, traits: string[], issue: st
 }
 
 /**
+ * Live registry of composed roundtable plans, keyed by sessionId. This is what
+ * lets the Agents UI show a quorum tracker for whatever the LLM has composed
+ * — no manual composer needed. Bounded + oldest-evicted, same pattern as
+ * executor.ts's respondCache.
+ */
+const ACTIVE_PLANS_MAX = 20;
+const activePlans = new Map<string, RoundtablePlan>();
+
+export function recordRoundtablePlan(plan: RoundtablePlan): void {
+  activePlans.set(plan.sessionId, plan);
+  if (activePlans.size > ACTIVE_PLANS_MAX) {
+    const oldest = activePlans.keys().next().value;
+    if (oldest !== undefined) activePlans.delete(oldest);
+  }
+}
+
+export function getRoundtablePlan(sessionId: string): RoundtablePlan | undefined {
+  return activePlans.get(sessionId);
+}
+
+export function listRoundtablePlans(): RoundtablePlan[] {
+  return Array.from(activePlans.values());
+}
+
+export function forgetRoundtablePlan(sessionId: string): void {
+  activePlans.delete(sessionId);
+}
+
+/** Reset the registry (tests). */
+export function _resetRoundtablePlansForTests(): void {
+  activePlans.clear();
+}
+
+/**
  * Compose a roundtable panel for an issue.
  *
  * Deterministic given a seed: same issue + same seed + same options → the same
@@ -279,7 +313,9 @@ export function composeRoundtable(issue: string, opts: ComposeOptions = {}): Rou
     };
   });
 
-  return { sessionId, topic, panelSize, quorum, seed, experts };
+  const plan: RoundtablePlan = { sessionId, topic, panelSize, quorum, seed, experts };
+  recordRoundtablePlan(plan);
+  return plan;
 }
 
 /** Reset the registration flag (tests). */

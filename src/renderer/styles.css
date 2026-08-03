@@ -3732,43 +3732,16 @@ textarea,
 .agents-inspector-actions { margin-top: 6px; }
 .agents-inspector-kill { background: none; border: 1px solid #ef5350; color: #ef5350; border-radius: 4px; padding: 3px 8px; font-family: var(--font, monospace); font-size: 10px; cursor: pointer; }
 .agents-inspector-kill:hover { background: #ef5350; color: #0b0f16; }
-.agents-spawn { border-top: 1px solid var(--border, #2a3a4a); padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; max-height: 46%; overflow-y: auto; }
-.agents-spawn-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit; }
-.agents-spawn-title { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--tertiary, #546e7a); }
-.agents-spawn-chevron { font-size: 10px; color: var(--tertiary, #546e7a); transition: transform 140ms ease-out; }
-.agents-spawn.is-expanded .agents-spawn-chevron { transform: rotate(90deg); }
-.agents-spawn-fields { display: none; flex-direction: column; gap: 5px; margin-top: 5px; }
-.agents-spawn.is-expanded .agents-spawn-fields { display: flex; }
-.agents-spawn select, .agents-spawn input, .agents-spawn textarea { width: 100%; background: var(--panel, #243248); color: var(--primary, #c8d6e5); border: 1px solid var(--border, #2a3a4a); border-radius: 4px; padding: 4px 6px; font-family: var(--font, monospace); font-size: 11px; box-sizing: border-box; }
-.agents-spawn select { cursor: pointer; }
-.agents-spawn-actions { display: flex; gap: 6px; }
-.agents-spawn-actions button { flex: 1; background: none; border: 1px solid var(--accent, #00e5ff); color: var(--accent, #00e5ff); border-radius: 4px; padding: 4px 8px; font-family: var(--font, monospace); font-size: 11px; cursor: pointer; }
-.agents-spawn-actions button:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
-.agents-spawn-actions .agents-purge-btn, .agents-spawn-actions .agents-killall-btn { flex: 0 0 auto; }
-.agents-spawn-msg { font-size: 10px; min-height: 14px; }
-.agents-spawn-msg.is-ok { color: #66bb6a; }
-.agents-spawn-msg.is-error { color: #ef5350; }
+/* Fleet ops (purge/kill-all) — safety-valve controls, not manual setup */
+.agents-side-ops { display: flex; gap: 4px; }
+.agents-side-ops button { background: none; border: 1px solid var(--border, #2a3a4a); color: var(--primary, #c8d6e5); border-radius: 4px; padding: 2px 6px; font-family: var(--font, monospace); font-size: 11px; cursor: pointer; }
+.agents-side-ops button:hover { border-color: var(--accent, #00e5ff); color: var(--accent, #00e5ff); }
 
-/* ── Roundtable (Agents UI) ──────────────────────────────────────────────── */
+/* ── Roundtable (Agents UI) — live telemetry only, no compose form ────────── */
 .agents-rt { border-top: 1px solid var(--border, #2a3a4a); padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; max-height: 42%; overflow-y: auto; }
-.agents-rt-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit; }
-.agents-rt-title { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #ffd54f; }
-.agents-rt-chevron { font-size: 10px; color: var(--tertiary, #546e7a); transition: transform 140ms ease-out; }
-.agents-rt.is-expanded .agents-rt-chevron { transform: rotate(90deg); }
-.agents-rt-fields { display: none; flex-direction: column; gap: 5px; margin-top: 5px; }
-.agents-rt.is-expanded .agents-rt-fields { display: flex; }
-.agents-rt textarea, .agents-rt input { width: 100%; background: var(--panel, #243248); color: var(--primary, #c8d6e5); border: 1px solid var(--border, #2a3a4a); border-radius: 4px; padding: 4px 6px; font-family: var(--font, monospace); font-size: 10px; box-sizing: border-box; }
-.agents-rt-row { display: flex; gap: 6px; }
-.agents-rt-field { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-.agents-rt-field span { font-size: 8px; text-transform: uppercase; letter-spacing: .08em; color: var(--tertiary, #546e7a); }
+.agents-rt[hidden] { display: none; }
+.agents-rt-sessions { display: flex; flex-direction: column; gap: 8px; }
 .agents-rt-actions { display: flex; gap: 6px; }
-.agents-rt-actions button { background: none; border: 1px solid var(--border, #2a3a4a); color: var(--primary, #c8d6e5); border-radius: 4px; padding: 4px 8px; font-family: var(--font, monospace); font-size: 10px; cursor: pointer; }
-.agents-rt-actions button:hover { border-color: #ffd54f; color: #ffd54f; }
-.agents-rt-compose-btn { flex: 1; border-color: #ffd54f !important; color: #ffd54f !important; }
-.agents-rt-clear-btn { flex: 0 0 auto; }
-.agents-rt-msg { font-size: 10px; min-height: 14px; }
-.agents-rt-msg.is-ok { color: #66bb6a; }
-.agents-rt-msg.is-error { color: #ef5350; }
 .agents-rt-plan { display: flex; flex-direction: column; gap: 5px; border: 1px dashed #ffd54f55; border-radius: 6px; padding: 6px 8px; }
 .agents-rt-plan-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .agents-rt-plan-id { font-size: 9px; color: var(--tertiary, #546e7a); word-break: break-all; }
@@ -3785,8 +3758,7 @@ textarea,
 .agents-rt-chip.is-killed { opacity: .45; }
 .agents-rt-chip.is-active { border-color: var(--agent-color, #ffd54f); animation: agents-blink 1.4s linear infinite; }
 .agents-rt-chip-mail { font-size: 8px; background: var(--accent, #00e5ff); color: #0b0f16; border-radius: 8px; padding: 0 4px; }
-.agents-rt-launch-btn:disabled { opacity: .55; cursor: default; border-color: #66bb6a !important; color: #66bb6a !important; }
-.agents-rt-killall-btn { border-color: #ef5350 !important; color: #ef5350 !important; }
+.agents-rt-killall-btn { background: none; border: 1px solid #ef5350 !important; color: #ef5350 !important; border-radius: 4px; padding: 4px 8px; font-family: var(--font, monospace); font-size: 10px; cursor: pointer; }
 .agents-rt-killall-btn:hover { background: #ef5350 !important; color: #0b0f16 !important; }
 
 /* Side-header roundtable chip */

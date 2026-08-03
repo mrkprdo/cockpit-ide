@@ -40,6 +40,8 @@ export interface SpawnParams {
   permissionMode?: PermissionMode;
   /** Per-agent maxTurns override (else definition.maxTurns). */
   maxTurns?: number;
+  /** Tag this spawn as belonging to a roundtable session (see agents/roundtable.ts). */
+  roundtableSessionId?: string;
 }
 
 interface AgentRuntime {
@@ -49,6 +51,7 @@ interface AgentRuntime {
   runPromise: Promise<string>;
   briefSummary: string;
   guardrails: string[];
+  roundtableSessionId: string | null;
 }
 
 const MAX_CONCURRENT = 8; // roundtable panels (5 experts) + headroom
@@ -243,6 +246,7 @@ export class AgentExecutor {
       runPromise: Promise.resolve().then(() => session.run()),
       briefSummary: params.context.slice(0, 140) + (params.context.length > 140 ? '…' : ''),
       guardrails: [...(params.guardrails ?? [])],
+      roundtableSessionId: params.roundtableSessionId ?? null,
     };
 
     // Rejections are already surfaced via status messages; keep the promise from
@@ -411,6 +415,7 @@ export class AgentExecutor {
         lastActivityAt: s.lastActivityAt,
         resultPreview: s.result ? s.result.slice(0, 200) : null,
         error: s.error,
+        roundtableSessionId: r.roundtableSessionId,
       });
     }
     // Oldest first (stable order for the UI).

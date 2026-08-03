@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod/v3';
 import { zodToJsonSchema } from '../ai/zod-to-openai';
 import {
@@ -9,6 +9,7 @@ import {
   AgentApproveArgs,
   AgentBroadcastArgs,
   RoundtableComposeArgs,
+  agentSpawnTool,
   agentApproveTool,
   definitionsListTool,
   agentBroadcastTool,
@@ -59,6 +60,36 @@ describe('agent_* tool parameter aliases', () => {
   it('agent_spawn still requires the expected result (either spelling)', () => {
     const missing = AgentSpawnArgs.safeParse({ skill: 'planner', context: 'x' });
     expect(missing.success).toBe(false);
+  });
+
+  it('agent_spawn accepts camelCase roundtableSessionId and normalizes to snake_case', () => {
+    const parsed = AgentSpawnArgs.safeParse({
+      agent: 'expert-debugging',
+      context: 'investigate the undo crash',
+      expectedResult: 'findings brief',
+      roundtableSessionId: 'rt-abc123',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.roundtable_session_id).toBe('rt-abc123');
+      expect(parsed.data).not.toHaveProperty('roundtableSessionId');
+    }
+  });
+
+  it('agent_spawn tool forwards roundtable_session_id to the executor (Agents UI grouping)', async () => {
+    const ex = getAgentExecutor();
+    const spy = vi.spyOn(ex, 'spawn').mockReturnValue({ agentId: 'agent:x', correlationId: 'corr-x' });
+    try {
+      await agentSpawnTool.execute({
+        agent: 'expert-debugging',
+        context: 'investigate',
+        expected_result: 'findings',
+        roundtable_session_id: 'rt-abc123',
+      } as never, {} as never);
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ roundtableSessionId: 'rt-abc123' }));
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('agent_dispatch accepts camelCase agentId/expectsResponse', () => {
@@ -122,6 +153,29 @@ describe('agent_* tool parameter aliases', () => {
       expect(out).toContain('topic');
       expect(mailbox.length).toBeGreaterThan(0);
       expect(mailbox.peek()[0].topic).toBe('roundtable.rt-x.findings');
+    } finally {
+      // @ts-expect-error test seam: restore the bus
+      ex.bus = original;
+      bus.unregisterMailbox('agent:probe');
+    }
+  });
+
+  it('agent_broadcast attributes the sender from ctx.agentId (roundtable attribution)', async () => {
+    const ex = getAgentExecutor();
+    const bus = new AgentBus();
+    bus.registerMailbox('agent:probe');
+    const original = ex.getBus();
+    // @ts-expect-error test seam: swap the bus
+    ex.bus = bus;
+    try {
+      const out = await agentBroadcastTool.execute(
+        { message: 'finding from the debugging expert', topic: 'roundtable.rt-x.findings' } as never,
+        { agentId: 'agent:expert-debugging' } as never,
+      );
+      expect(out).toContain('messageId');
+      expect(out).toContain('agent:expert-debugging');
+      const msg = bus.getMailbox('agent:probe')!.peek()[0];
+      expect(msg.from).toBe('agent:expert-debugging');
     } finally {
       // @ts-expect-error test seam: restore the bus
       ex.bus = original;
