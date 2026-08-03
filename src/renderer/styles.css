@@ -3748,3 +3748,53 @@ textarea,
 .agents-spawn-msg { font-size: 10px; min-height: 14px; }
 .agents-spawn-msg.is-ok { color: #66bb6a; }
 .agents-spawn-msg.is-error { color: #ef5350; }
+
+/* ── Roundtable (Agents UI) ──────────────────────────────────────────────── */
+.agents-rt { border-top: 1px solid var(--border, #2a3a4a); padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; max-height: 42%; overflow-y: auto; }
+.agents-rt-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit; }
+.agents-rt-title { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #ffd54f; }
+.agents-rt-chevron { font-size: 10px; color: var(--tertiary, #546e7a); transition: transform 140ms ease-out; }
+.agents-rt.is-expanded .agents-rt-chevron { transform: rotate(90deg); }
+.agents-rt-fields { display: none; flex-direction: column; gap: 5px; margin-top: 5px; }
+.agents-rt.is-expanded .agents-rt-fields { display: flex; }
+.agents-rt textarea, .agents-rt input { width: 100%; background: var(--panel, #243248); color: var(--primary, #c8d6e5); border: 1px solid var(--border, #2a3a4a); border-radius: 4px; padding: 4px 6px; font-family: var(--font, monospace); font-size: 10px; box-sizing: border-box; }
+.agents-rt-row { display: flex; gap: 6px; }
+.agents-rt-field { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.agents-rt-field span { font-size: 8px; text-transform: uppercase; letter-spacing: .08em; color: var(--tertiary, #546e7a); }
+.agents-rt-actions { display: flex; gap: 6px; }
+.agents-rt-actions button { background: none; border: 1px solid var(--border, #2a3a4a); color: var(--primary, #c8d6e5); border-radius: 4px; padding: 4px 8px; font-family: var(--font, monospace); font-size: 10px; cursor: pointer; }
+.agents-rt-actions button:hover { border-color: #ffd54f; color: #ffd54f; }
+.agents-rt-compose-btn { flex: 1; border-color: #ffd54f !important; color: #ffd54f !important; }
+.agents-rt-clear-btn { flex: 0 0 auto; }
+.agents-rt-msg { font-size: 10px; min-height: 14px; }
+.agents-rt-msg.is-ok { color: #66bb6a; }
+.agents-rt-msg.is-error { color: #ef5350; }
+.agents-rt-plan { display: flex; flex-direction: column; gap: 5px; border: 1px dashed #ffd54f55; border-radius: 6px; padding: 6px 8px; }
+.agents-rt-plan-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.agents-rt-plan-id { font-size: 9px; color: var(--tertiary, #546e7a); word-break: break-all; }
+.agents-rt-plan-quorum { font-size: 9px; color: #ffd54f; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+.agents-rt-plan-issue { font-size: 10px; color: var(--primary, #c8d6e5); opacity: .85; max-height: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agents-rt-progress { height: 6px; background: var(--panel, #243248); border-radius: 3px; overflow: hidden; }
+.agents-rt-progress-fill { height: 100%; background: #ffd54f; transition: width 300ms ease-out; }
+.agents-rt-progress-fill.is-met { background: #66bb6a; }
+.agents-rt-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.agents-rt-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 2px 7px; border: 1px solid var(--border, #2a3a4a); border-radius: 10px; background: var(--panel, #243248); color: var(--primary, #c8d6e5); cursor: pointer; font-family: var(--font, monospace); }
+.agents-rt-chip:hover { border-color: var(--accent, #00e5ff); }
+.agents-rt-chip.is-done { border-color: #66bb6a; color: #66bb6a; }
+.agents-rt-chip.is-error { border-color: #ef5350; color: #ef5350; }
+.agents-rt-chip.is-killed { opacity: .45; }
+.agents-rt-chip.is-active { border-color: var(--agent-color, #ffd54f); animation: agents-blink 1.4s linear infinite; }
+.agents-rt-chip-mail { font-size: 8px; background: var(--accent, #00e5ff); color: #0b0f16; border-radius: 8px; padding: 0 4px; }
+.agents-rt-launch-btn:disabled { opacity: .55; cursor: default; border-color: #66bb6a !important; color: #66bb6a !important; }
+.agents-rt-killall-btn { border-color: #ef5350 !important; color: #ef5350 !important; }
+.agents-rt-killall-btn:hover { background: #ef5350 !important; color: #0b0f16 !important; }
+
+/* Side-header roundtable chip */
+.agents-side-rt-wrap { display: flex; align-items: center; gap: 6px; }
+.agents-side-rt-chip { background: none; border: 1px solid #ffd54f88; color: #ffd54f; border-radius: 10px; padding: 1px 7px; font-size: 9px; font-family: var(--font, monospace); cursor: pointer; }
+.agents-side-rt-chip:hover { background: #ffd54f22; }
+
+/* Expert bubbles in the fleet */
+.agents-bubble.is-expert { border-style: dashed; border-color: #ffd54f88; }
+.agents-bubble-rt-badge { position: absolute; top: -7px; right: -7px; font-size: 9px; line-height: 1; background: #ffd54f; color: #0b0f16; border-radius: 8px; padding: 1px 4px; box-shadow: 0 1px 3px #0008; }
+
