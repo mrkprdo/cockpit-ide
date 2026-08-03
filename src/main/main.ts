@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, session } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ideServer } from './ide-server';
-import { logFatal } from './ipc/logging';
+import { logFatal, logMain } from './ipc/logging';
 import { state } from './ipc/state';
 import * as security from './ipc/security';
 import * as store from './ipc/workspace-store';
@@ -31,6 +31,7 @@ process.on('unhandledRejection', (err) => logFatal('unhandledRejection', err));
 // workspace:save) instead of a dead window.
 function wireCrashRecovery(win: BrowserWindow): void {
   win.webContents.on('render-process-gone', (_event, details) => {
+    logMain('error', 'main', 'renderer process gone', `reason=${details.reason} exitCode=${details.exitCode}`);
     logFatal('render-process-gone', new Error(`reason=${details.reason} exitCode=${details.exitCode}`));
     if (!win.isDestroyed()) win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   });
@@ -83,6 +84,7 @@ function createWindow(): void {
   state.mainWindow = win;
   win.maximize();
   win.show();
+  logMain('info', 'main', 'window created', win.id);
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
@@ -154,6 +156,7 @@ function createNewWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  logMain('info', 'main', 'app ready', `packaged=${app.isPackaged}`);
   // No remote content is ever loaded, so there's never a legitimate reason to
   // grant a permission request (camera, notifications, etc.) — deny by default
   // instead of relying on Electron's own default.
@@ -170,6 +173,7 @@ app.whenReady().then(async () => {
   // CLI workspace path takes precedence over saved state
   const cliPath = security.resolveCliWorkspace();
   if (cliPath) {
+    logMain('info', 'main', 'CLI workspace', cliPath);
     security.cockpitDir(path.join(cliPath, '.cockpit'));
     state.defaultWorkspacePath = cliPath;
     security.trustWorkspacePath(cliPath);

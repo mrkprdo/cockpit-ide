@@ -9,6 +9,7 @@ import type { IpcMain } from 'electron';
 import { dialog, BrowserWindow } from 'electron';
 import type { IpcCtx } from './context';
 import { withHandlerLogging } from './logging';
+import { logMain } from './logging';
 import * as store from './workspace-store';
 import { ideServer } from '../ide-server';
 
@@ -23,6 +24,7 @@ export function registerWorkspaceHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
     });
     if (result.canceled || !result.filePaths.length) return null;
     const wsPath = result.filePaths[0];
+    logMain('info', 'main', 'workspace selected', wsPath);
     security.trustWorkspacePath(wsPath);
     security.cockpitDir(path.join(wsPath, '.cockpit'));
     if (win) state.windowWorkspaces.set(win.id, wsPath);
@@ -46,6 +48,7 @@ export function registerWorkspaceHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
     // widen the fs sandbox to an arbitrary renderer-supplied string.
     if (!security.isTrustedWorkspacePath(wsPath)) return false;
     try { if (!fs.statSync(wsPath).isDirectory()) return false; } catch { return false; }
+    logMain('info', 'main', 'workspace setPath', wsPath);
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) state.windowWorkspaces.set(win.id, wsPath);
     security.cockpitDir(path.join(wsPath, '.cockpit'));
@@ -62,7 +65,11 @@ export function registerWorkspaceHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
     if (!targetPath) return null;
     if (wsPath && !security.isPathSafe(wsPath, event)) return null;
     const f = path.join(targetPath, '.cockpit', 'window.json');
-    try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch { return null; }
+    try {
+      const parsed = JSON.parse(fs.readFileSync(f, 'utf-8'));
+      logMain('debug', 'main', 'workspace loaded', targetPath);
+      return parsed;
+    } catch { return null; }
   }, null);
 
   withHandlerLogging('workspace:save', (event, stateArg: any, wsPath?: string) => {

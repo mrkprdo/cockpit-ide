@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import type { IpcMain } from 'electron';
 import type { IpcCtx } from './context';
-import { withHandlerLogging, withListenerLogging, logFatal } from './logging';
+import { withHandlerLogging, withListenerLogging, logFatal, logMain } from './logging';
 
 // Reference-counted stderr suppression around the node-pty dynamic import (it
 // prints native-binding noise on load). Concurrent terminal:create calls each
@@ -97,6 +97,7 @@ export function registerTerminalHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
     });
 
     state.ptyProcesses.set(uuid, pty);
+    logMain('info', 'terminal', 'pty created', uuid);
     return true;
   }, false);
 
@@ -112,6 +113,7 @@ export function registerTerminalHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
 
   withListenerLogging('terminal:kill', (event, uuid: string) => {
     if (state.terminalSenders.get(uuid) !== event.sender) return;
+    logMain('debug', 'terminal', 'pty killed', uuid);
     const pty = state.ptyProcesses.get(uuid);
     if (pty) { pty.kill(); state.ptyProcesses.delete(uuid); }
     state.terminalSenders.delete(uuid);
