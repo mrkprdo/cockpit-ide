@@ -192,7 +192,8 @@ export const WRITE_TOOLS = new Set<string>(TOOL_FAMILIES.Write.concat(TOOL_FAMIL
  *
  * Modes (doc §L1):
  *  default    → allow/deny/ask as matched; unset = reads allowed, writes denied
- *  acceptEdits→ Write/Edit auto-approved; Bash still gated
+ *  acceptEdits→ Write/Edit auto-approved; Bash still gated; reads/grep/web/agent
+ *               allowed on unset (agent tools still capability-gated elsewhere)
  *  auto       → allow + ask both approved (deny still blocks)
  *  plan       → read-only: all writes/bash denied, reads allowed
  *  dontAsk    → only explicit allow runs; everything else denied
@@ -216,9 +217,15 @@ export function applyMode(decision: PermissionDecision, mode: PermissionMode | u
     case 'acceptEdits':
     default:
       if (decision === 'deny') return 'deny';
-      // Write/Edit auto-approved under acceptEdits; Bash and agent tools still gated.
+      // Write/Edit auto-approved under acceptEdits; Bash stays gated (deny on
+      // unset, keep ask). Reads/grep/web/agent default to allowed on unset —
+      // agent tools are still capability-gated by guardToolCall, so allowing
+      // them here opens no hole. Without this, a definition with no explicit
+      // permissions (all built-ins) resolves every tool to 'unset' and locks
+      // the agent out of even read_file.
       const writeFamily = TOOL_FAMILIES.Write.includes(toolName) || TOOL_FAMILIES.Edit.includes(toolName);
       if (writeFamily) return 'allow';
-      return decision === 'unset' ? 'deny' : decision;
+      if (TOOL_FAMILIES.Bash.includes(toolName)) return decision === 'unset' ? 'deny' : decision;
+      return decision === 'unset' ? 'allow' : decision;
   }
 }

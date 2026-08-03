@@ -136,6 +136,20 @@ describe('applyMode', () => {
     expect(applyMode('ask', 'acceptEdits', 'write_to_terminal')).toBe('ask');
     expect(applyMode('deny', 'acceptEdits', 'write_file')).toBe('deny');
   });
+
+  it('acceptEdits allows reads on unset (definitions with no explicit permissions)', () => {
+    // Built-in definitions carry no `permissions` rules, so every tool resolves
+    // to 'unset'. Under acceptEdits the agent must still be able to read/grep —
+    // only Bash stays gated. Regression: sub-agents were locked out of read_file.
+    expect(applyMode('unset', 'acceptEdits', 'read_file')).toBe('allow');
+    expect(applyMode('unset', 'acceptEdits', 'grep_workspace')).toBe('allow');
+    expect(applyMode('unset', 'acceptEdits', 'list_directory')).toBe('allow');
+    expect(applyMode('unset', 'acceptEdits', 'get_canvas_state')).toBe('allow');
+  });
+
+  it('acceptEdits keeps explicit ask for non-Bash tools', () => {
+    expect(applyMode('ask', 'acceptEdits', 'read_file')).toBe('ask');
+  });
 });
 
 describe('familyForTool', () => {
