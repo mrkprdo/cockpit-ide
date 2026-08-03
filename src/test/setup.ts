@@ -166,6 +166,7 @@ if (isDOM) {
       maximize: vi.fn(),
       close: vi.fn(),
       isMaximized: vi.fn().mockResolvedValue(false),
+      reload: vi.fn(),
     },
     terminal: {
       create: vi.fn().mockResolvedValue(true),

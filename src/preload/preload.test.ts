@@ -82,6 +82,7 @@ describe('preload.ts — exposed API shape', () => {
     expect(typeof api.window.maximize).toBe('function');
     expect(typeof api.window.close).toBe('function');
     expect(typeof api.window.isMaximized).toBe('function');
+    expect(typeof api.window.reload).toBe('function');
   });
 
   it('exposes clipboard namespace', () => {
@@ -298,6 +299,12 @@ describe('preload.ts — IPC wiring (invoke-based)', () => {
     invokeCalls.length = 0;
     api.window.isMaximized();
     expect(invokeCalls.some(c => c[0] === 'window:isMaximized')).toBe(true);
+  });
+
+  it('window.reload sends window:reload', () => {
+    sendCalls.length = 0;
+    api.window.reload();
+    expect(sendCalls.some(c => c[0] === 'window:reload')).toBe(true);
   });
 
   it('clipboard.readText invokes clipboard:readText', () => {

@@ -487,6 +487,16 @@ describe('main.ts IPC handlers', () => {
       expect(result).toEqual([]);
     });
 
+    it('fs:readDir allows a trusted path outside the current workspace (recent picker)', async () => {
+      const main = await import('../main/main');
+      main._testTrustPath('/other/workspace');
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:readDir')!;
+      vi.mocked(fs.readdirSync).mockReturnValue([{ name: 'a', isDirectory: () => false }] as any);
+      const result = await handler({}, '/other/workspace');
+      expect(result).toHaveLength(1);
+    });
+
     it('fs:readFile rejects path outside workspace', async () => {
       const handler = handleMap.get('fs:readFile')!;
       const result = await handler({}, '/etc/passwd');
@@ -898,6 +908,17 @@ describe('main.ts IPC handlers', () => {
     });
   });
 
+  describe('window:reload behavior', () => {
+    it('reloads the window that sent the event', async () => {
+      const reload = vi.fn();
+      const { BrowserWindow } = await import('electron');
+      (BrowserWindow as any).fromWebContents = vi.fn(() => ({ webContents: { reload } }));
+      const handler = onMap.get('window:reload')!;
+      handler({ sender: {} });
+      expect(reload).toHaveBeenCalled();
+    });
+  });
+
   describe('clipboard:readText behavior', () => {
     it('returns clipboard text', async () => {
       const { clipboard } = await import('electron');
@@ -1118,6 +1139,10 @@ describe('main.ts IPC handlers', () => {
 
     it('window:close listener is registered', () => {
       expect(onMap.has('window:close')).toBe(true);
+    });
+
+    it('window:reload listener is registered', () => {
+      expect(onMap.has('window:reload')).toBe(true);
     });
 
     it('terminal:write listener is registered', () => {

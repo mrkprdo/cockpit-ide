@@ -120,7 +120,10 @@ ipcMain.on('clipboard:readText', (e) => { e.returnValue = clipboard.readText(); 
 
 // File system IPC
 ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
-  if (!isPathSafe(dirPath, _event)) return null;
+  // Read-only existence/directory check. Allow trusted paths (e.g. recent
+  // workspaces from another session) even when they lie outside the current
+  // window's workspace — the WelcomeModal uses this to show them as pickable.
+  if (!isPathSafe(dirPath, _event) && !isTrustedWorkspacePath(dirPath)) return null;
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     return entries.map(e => ({ name: e.name, isDirectory: e.isDirectory() }));
@@ -440,6 +443,12 @@ app.whenReady().then(async () => {
   ipcMain.handle('window:isMaximized', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     return win?.isMaximized() ?? false;
+  });
+  ipcMain.on('window:reload', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    // Must reload from main: renderer-initiated location.reload() is blocked by
+    // the will-navigate preventDefault guard in createWindow().
+    win?.webContents.reload();
   });
   ipcMain.handle('clipboard:writeText', (_event, text: string) => { clipboard.writeText(text); });
 

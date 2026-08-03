@@ -240,8 +240,10 @@ export class App {
     // Register the new workspace with main so the reloaded window boots straight into it.
     const ok = await ws.setPath(path);
     if (!ok) return;
-    // Reset the entire window and open to the selected workspace.
-    window.location.reload();
+    // Reset the entire window and open to the selected workspace. Reload goes
+    // through main (webContents.reload) — renderer location.reload() is blocked
+    // by the will-navigate guard in main.
+    window.electronAPI?.window.reload();
   }
 
   private registerCockpitGlobal(): void {

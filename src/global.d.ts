@@ -60,6 +60,7 @@ interface Window {
       maximize: () => void;
       close: () => void;
       isMaximized: () => Promise<boolean>;
+      reload: () => void;
     };
     terminal: {
       create: (uuid: string, cwd?: string) => Promise<boolean>;
