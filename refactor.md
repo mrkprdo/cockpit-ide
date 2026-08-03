@@ -1,6 +1,6 @@
 # Refactor Plan — Modularization + Self-Healing + Dev Console
 
-**Status:** 🔧 Phases 0b–7 implemented and committed (2 commits on `refactor-file-split`: plumbing, then component layer). `npm test` green (61/61 files, 1698/1698), `npm run loc:check` + `console:check` green and wired into CI + the Makefile test target. G.1/G.2 were already fixed; **G.3a, G.3b, G.4 now fixed too** — see §G.9 for the resolution delta. Only pre-existing `tsc` debt remains (G.3 pre-existing list). G.7's uncommitted-pile gap is closed; §E's one-PR-per-phase ideal still not followed (2 commits instead of 7) — acceptable for an already-entangled diff.
+**Status:** ✅ **Complete.** Phases 0b–7 plus the post-plan additions (unified dev-console log stream, structured app-wide logging with main→renderer `log:push`, keep-view-still-on-tool-calls toggle, SpecsMapPlugin facade API extraction) are all implemented and committed on `refactor-file-split` (9 commits). Full audit (2026-08-03, §G.10): `npm test` 62/62 files / 1711/1711 green, `loc:check` + `console:check` green and wired into CI + the Makefile test target, `tsc` main clean and renderer down to only the pre-existing baseline debt (SearchOverlay.test, TerminalPlugin `.ready`, `.click`/`.style` DOM-typing), reconcile gate green (only the two pre-existing stale `flock` specs). §E's one-PR-per-phase ideal wasn't followed (entangled diff → a few logical commits), recorded in §G.7/G.9.
 **Owner:** Cockpit Agent + user
 **Relation to existing code:** builds on the existing `src/renderer/components/specsmap/` split (already 2 files extracted from `SpecsMapPlugin.ts`), the SPECGEN specs graph (`SPECGEN.md`, `.spec.md` files under `src/specs/`), and the existing crash-recovery substrate (`src/main/main.ts` `logFatal`/`wireCrashRecovery`, `src/renderer/index.ts` `window.onerror`/`unhandledrejection` → `diagnostics:rendererError`).
 
@@ -399,4 +399,23 @@ All three remaining blockers from G.8 are fixed and committed. Verified from scr
 | G.3b | `tool-executor.test.ts:89,102` — `ToolDefinition<Specific>` not assignable to `ToolDefinition<ZodTypeAny>` | **FIXED** — `ToolRegistry` now holds `ToolDefinition<any>` (constructor/register/get/all), per G.8's variance recommendation; one downstream implicit-`any` in `tool-executor.ts` annotated. |
 | G.4 | §F guardrails not wired to CI/pre-commit | **FIXED** — `npm run loc:check` + `console:check` added to the `Makefile` `test:` target (after `npm test`) and as explicit named steps in `.github/workflows/test.yml`. No `.husky/` pre-commit hook added (not installed in this repo). |
 | G.7 | One giant uncommitted diff | **FIXED** — committed in 2 logical commits on `refactor-file-split`: `c176fd5` (plumbing: guardrails, health core, dev console, preload trace, main/ipc, tool-definitions, G.3b/G.4) and `cfed164` (component layer: phases 3–7 splits, unified markdown tabs, G.3a). §E's 7-PR ideal not followed (diff too entangled to slice into 7 compiling phase commits); the user's unrelated `agents/` WIP was left uncommitted. |
+
+### G.10 Final audit (2026-08-03)
+
+Full pass over the completed tree after the post-G.9 feature work. All checks re-run from scratch; verdict: **complete and green.**
+
+| Area | Check | Result |
+|---|---|---|
+| Tests | `npx vitest run` | 62/62 files, **1711/1711** pass |
+| File cap | `npm run loc:check` | ok — no in-scope file >700 (facades: GitPlugin 346, CanvasArea 625, AiDrawer 513, SpecsMapPlugin 584, main 254) |
+| Logging discipline | `npm run console:check` | ok — no `console.error/warn` under monitored folders |
+| Types | `tsc` main / renderer | main clean; renderer only the pre-existing baseline debt (SearchOverlay.test, TerminalPlugin `.ready`, `.click`/`.style` DOM-typing) — one new implicit-`any` from this pass's logging edit (`TerminalPlugin` `.then((ok))`) found and fixed |
+| Guardrails | Makefile `test:` + `.github/workflows/test.yml` | both wired (`loc:check`, `console:check`) |
+| Specs | reconcile gate | green — only the two pre-existing stale `flock` specs; 160 specs in `src/specs/` (gitignored, not committed) |
+| Build | `npm run build` | succeeds |
+
+Post-G.9 additions, all committed: **unified dev-console log stream** (no tabs, checkbox filter — `f2b068b`), **structured app-wide logging** with `logMain` → `log:push` main→renderer (`48ea37e` + `463bf13`), **keep-view-still-on-tool-calls** toggle (`a5ea392`), **SpecsMapPlugin facade API extraction** to `specsmap/api.ts` (kept the facade under 700 when logging pushed it to 703), **agents permissions** WIP (`bf31719`).
+
+Known non-blocking debt (pre-existing, not this refactor): the two stale `flock.spec.md`/`specs-flock.spec.md` specs, the `SearchOverlay.test.ts`/`CanvasArea.test.ts`/`GitPlugin.test.ts`/`TerminalPlugin.ts` tsc errors, and §E's phased-PR ideal (records §G.7/G.9).
+
 

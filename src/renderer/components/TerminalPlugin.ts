@@ -99,7 +99,7 @@ export class TerminalPlugin {
     });
 
     this.ready = api.terminal.create(uuid, cwd)
-      .then((ok) => {
+      .then((ok: boolean) => {
         log.info('terminal created', uuid, ok ? '' : '(failed)');
         return uuid;
       })
