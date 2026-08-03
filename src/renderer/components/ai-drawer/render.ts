@@ -142,6 +142,10 @@ export class RenderController {
             <input class="ai-settings-input" type="checkbox" ${snap.streamResponses ? 'checked' : ''} data-key="stream">
             Stream responses
           </label>
+          <label class="ai-settings-label ai-settings-checkbox">
+            <input class="ai-settings-input" type="checkbox" ${snap.suppressViewMove ? 'checked' : ''} data-key="suppressViewMove">
+            Keep view still on tool calls
+          </label>
           <label class="ai-settings-label">
             Context limit (tokens)
             <input class="ai-settings-input" type="number" min="1024" step="1024" value="${snap.contextTokenLimit}" data-key="contextLimit" placeholder="8192">

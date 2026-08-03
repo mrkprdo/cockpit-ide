@@ -366,14 +366,14 @@ export class CanvasArea {
 
   panToActiveExplorer(): void { this.lifecycle.panToActiveExplorer(); }
 
-  ensureExplorer(): Promise<ExplorerPlugin> { return this.lifecycle.ensureExplorer(); }
+  ensureExplorer(opts?: { pan?: boolean }): Promise<ExplorerPlugin> { return this.lifecycle.ensureExplorer(opts); }
 
-  ensureSpecsmap(): Promise<SpecsMapPlugin | null> { return this.lifecycle.ensureSpecsmap(); }
+  ensureSpecsmap(opts?: { pan?: boolean }): Promise<SpecsMapPlugin | null> { return this.lifecycle.ensureSpecsmap(opts); }
 
   openFileAndReveal(filePath: string): void { this.focus.openFileAndReveal(filePath); }
 
-  async openInMarkdown(filePath: string, _label?: string): Promise<void> {
-    const explorer = this.getActiveExplorerPlugin() || await this.ensureExplorer();
+  async openInMarkdown(filePath: string, _label?: string, pan = true): Promise<void> {
+    const explorer = this.getActiveExplorerPlugin() || await this.ensureExplorer({ pan });
     explorer.openInMarkdown(filePath);
   }
 

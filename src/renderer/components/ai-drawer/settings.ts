@@ -5,6 +5,7 @@
 import { getAgentExecutor } from '../../agents/executor';
 import { LLMClient } from '../../ai/llm-client';
 import { resolveModelLimit } from '../../ai/model-metadata';
+import { viewPrefs } from '../../ai/view-prefs';
 import type { AiDrawerDom } from './types';
 
 export interface ZenModel {
@@ -37,6 +38,7 @@ export interface SettingsSnapshot {
   model: string;
   streamResponses: boolean;
   contextTokenLimit: number;
+  suppressViewMove: boolean;
 }
 
 export class SettingsStore {
@@ -45,6 +47,8 @@ export class SettingsStore {
   endpoint = 'https://opencode.ai/zen/go/v1';
   streamResponses = true;
   contextTokenLimit = 8192;
+  /** Keep the camera still when tool calls open/reveal files or specs. */
+  suppressViewMove = false;
   /** Official max output tokens for the active model — seeded from presets, refreshed from models.dev. */
   modelMaxOutput = 65536;
 
@@ -57,6 +61,7 @@ export class SettingsStore {
       model: this.model,
       streamResponses: this.streamResponses,
       contextTokenLimit: this.contextTokenLimit,
+      suppressViewMove: this.suppressViewMove,
     };
   }
 
@@ -76,6 +81,10 @@ export class SettingsStore {
         }
         if (typeof prefs.aiContextLimit === 'number' && prefs.aiContextLimit >= 1024) {
           this.contextTokenLimit = prefs.aiContextLimit;
+        }
+        if (typeof prefs.aiSuppressViewMove === 'boolean') {
+          this.suppressViewMove = prefs.aiSuppressViewMove;
+          viewPrefs.suppressViewMove = this.suppressViewMove;
         }
       }
       getAgentExecutor().setConfigProvider(() => ({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model }));
@@ -117,6 +126,7 @@ export class SettingsStore {
       prefs.aiEndpoint = this.endpoint;
       prefs.aiStreamResponses = this.streamResponses;
       prefs.aiContextLimit = this.contextTokenLimit;
+      prefs.aiSuppressViewMove = this.suppressViewMove;
       window.electronAPI?.prefs.save(prefs);
     } catch {}
   }
@@ -181,6 +191,7 @@ export class SettingsStore {
         if (key === 'endpoint') this.endpoint = input.value;
         else if (key === 'apiKey') this.apiKey = input.value;
         else if (key === 'stream') this.streamResponses = input.checked;
+        else if (key === 'suppressViewMove') this.suppressViewMove = input.checked;
         else if (key === 'contextLimit') {
           const parsed = parseInt(input.value, 10);
           let limit = isNaN(parsed) || parsed < 1024 ? 8192 : parsed;
@@ -204,6 +215,7 @@ export class SettingsStore {
       this.seedMaxOutput();
       this.refreshModelMetadata();
       this.saveSettings();
+      viewPrefs.suppressViewMove = this.suppressViewMove;
       settingsEl.classList.remove('is-visible');
     });
   }

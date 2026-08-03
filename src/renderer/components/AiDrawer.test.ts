@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AiDrawer } from './AiDrawer';
 import { estimateMessagesTokens } from '../ai/token-counter';
+import { mockElectronAPI } from '../../test/setup';
 
 function flush(): Promise<void> {
   return new Promise(r => setTimeout(r, 10));
@@ -864,6 +865,23 @@ describe('AiDrawer', () => {
       expect(drawer['apiKey']).toBe('sk-new');
       expect(drawer['model']).toBe('gpt-4');
       expect(drawer['settingsEl'].classList.contains('is-visible')).toBe(false);
+    });
+
+    it('toggles keep-view-still and persists aiSuppressViewMove', async () => {
+      const { viewPrefs } = await import('../ai/view-prefs');
+      drawer = await createDrawer();
+      await drawer.toggle();
+      q('.ai-drawer-settings-btn').click();
+
+      const toggle = drawer['el'].querySelector<HTMLInputElement>('.ai-settings-input[data-key="suppressViewMove"]')!;
+      expect(toggle).toBeTruthy();
+      toggle.checked = true;
+      q('.ai-settings-save').click();
+      await flush();
+
+      expect(viewPrefs.suppressViewMove).toBe(true);
+      const prefs = (mockElectronAPI.prefs.save as any).mock.calls.at(-1)?.[0];
+      expect(prefs?.aiSuppressViewMove).toBe(true);
     });
   });
 

@@ -10,6 +10,7 @@ import { memoryStore } from '../ai/memory-store';
 import { getAgentExecutor } from '../agents/executor';
 import { loadDefinitionsFromWorkspace } from '../agents/definition-file';
 import { createLogger } from '../logging/logger';
+import { viewPrefs } from '../ai/view-prefs';
 
 const log = createLogger('app');
 
@@ -262,7 +263,9 @@ export class App {
     (window as any).__cockpit = {
       getCanvasState: () => this.canvas.getSaveState(),
       getWorkspacePath: () => this.wsPath,
-      openFile: async (p: string) => { const e = await this.canvas.ensureExplorer(); e.openFile(p); },
+      // When "keep view still on tool calls" is on, tools that open/reveal
+      // files or specs still do their work but never drag the camera.
+      openFile: async (p: string) => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); e.openFile(p); },
       addPlugin: (type: string) => {
         switch (type) {
           case 'terminal': this.canvas.addTerminal(this.wsPath); break;
@@ -283,21 +286,21 @@ export class App {
       fitCardToViewport: (title: string) => this.canvas.fitCardToViewport(title),
       writeToTerminal: (uuid: string, command: string) => {
         window.electronAPI?.terminal.write(uuid, command + '\r');
-        this.canvas.panToCardByUuid(uuid);
+        if (!viewPrefs.suppressViewMove) this.canvas.panToCardByUuid(uuid);
       },
       sendKeyToTerminal: (uuid: string, sequence: string) => {
         window.electronAPI?.terminal.write(uuid, sequence);
-        this.canvas.panToCardByUuid(uuid);
+        if (!viewPrefs.suppressViewMove) this.canvas.panToCardByUuid(uuid);
       },
-      insertInEditor: async (text: string) => { const e = await this.canvas.ensureExplorer(); e.insertText(text); },
+      insertInEditor: async (text: string) => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); e.insertText(text); },
       readTerminal: (uuid: string) => {
         return this.canvas.getTerminalPlugin(uuid)?.getScreenBuffer() ?? 'Terminal not found';
       },
-      readEditor: async () => { const e = await this.canvas.ensureExplorer(); return e.editor.getContent() ?? ''; },
-      getEditorState: async () => { const e = await this.canvas.ensureExplorer(); return e.getAgentEditorState() ?? null; },
-      getSelectionText: async () => { const e = await this.canvas.ensureExplorer(); return e.getSelectionText() ?? ''; },
-      setEditorContent: async (content: string) => { const e = await this.canvas.ensureExplorer(); e.setEditorContent(content); },
-      goToLine: async (line: number, col?: number) => { const e = await this.canvas.ensureExplorer(); e.goToLine(line, col); },
+      readEditor: async () => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); return e.editor.getContent() ?? ''; },
+      getEditorState: async () => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); return e.getAgentEditorState() ?? null; },
+      getSelectionText: async () => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); return e.getSelectionText() ?? ''; },
+      setEditorContent: async (content: string) => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); e.setEditorContent(content); },
+      goToLine: async (line: number, col?: number) => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); e.goToLine(line, col); },
       reopenCard: (title: string) => {
         const ok = this.canvas.reopenCardByTitle(title);
         if (ok) this.canvas.focusCardByTitle(title);
@@ -309,28 +312,28 @@ export class App {
       setCanvasOverlay: (left: number) => { this.canvas.overlayLeft = left; },
       zoomIn: () => this.canvas.zoomIn(),
       zoomOut: () => this.canvas.zoomOut(),
-      openInMarkdown: (filePath: string) => this.canvas.openInMarkdown(filePath),
-      revealFile: async (filePath: string) => { const e = await this.canvas.ensureExplorer(); e.revealFile(filePath); },
+      openInMarkdown: (filePath: string) => this.canvas.openInMarkdown(filePath, undefined, !viewPrefs.suppressViewMove),
+      revealFile: async (filePath: string) => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); e.revealFile(filePath); },
       killTerminal: (uuid: string) => {
         window.electronAPI?.terminal.kill(uuid);
       },
       exploreSpecsMap: async (query: string) => {
-        const sm = await this.canvas.ensureSpecsmap();
+        const sm = await this.canvas.ensureSpecsmap({ pan: !viewPrefs.suppressViewMove });
         if (!sm) return 'Unable to open specs map.';
         return sm.explore(query);
       },
       validateSpecsMap: async () => {
-        const sm = await this.canvas.ensureSpecsmap();
+        const sm = await this.canvas.ensureSpecsmap({ pan: !viewPrefs.suppressViewMove });
         if (!sm) return 'Unable to open specs map.';
         return sm.validateSpecs();
       },
       reconcileSpecsMap: async (mode: 'report' | 'structural', createSkeletons: boolean) => {
-        const sm = await this.canvas.ensureSpecsmap();
+        const sm = await this.canvas.ensureSpecsmap({ pan: !viewPrefs.suppressViewMove });
         if (!sm) return 'Unable to open specs map.';
         return sm.reconcileSpecs(mode, createSkeletons);
       },
       reloadSpecsMap: async () => {
-        const sm = await this.canvas.ensureSpecsmap();
+        const sm = await this.canvas.ensureSpecsmap({ pan: !viewPrefs.suppressViewMove });
         if (!sm) return 'Unable to open specs map.';
         return sm.reloadSpecs();
       },

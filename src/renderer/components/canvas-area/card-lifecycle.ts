@@ -510,7 +510,8 @@ export class CardLifecycle {
     this.host.getOnStateChange()?.();
   }
 
-  ensureExplorer(): Promise<ExplorerPlugin> {
+  ensureExplorer(opts?: { pan?: boolean }): Promise<ExplorerPlugin> {
+    const pan = opts?.pan !== false;
     const existing = this.cards.find(c => c.savedTitle === 'Explorer');
     if (existing) {
       existing.isOpen = true;
@@ -528,7 +529,7 @@ export class CardLifecycle {
         existing.explorerPlugin = dev;
       }
       this.bringToFront(existing.card);
-      this.viewport.panToCard(existing);
+      if (pan) this.viewport.panToCard(existing);
       this.notifier.notifyExplorersChanged();
       return Promise.resolve(existing.explorerPlugin!);
     }
@@ -545,7 +546,7 @@ export class CardLifecycle {
           cs.explorerPlugin = dev;
           this.notifier.notifyExplorersChanged();
           this.bringToFront(cs.card);
-          this.viewport.panToCard(cs);
+          if (pan) this.viewport.panToCard(cs);
           resolve(dev);
         } else if (cs.explorerPlugin) {
           resolve(cs.explorerPlugin);
@@ -554,7 +555,8 @@ export class CardLifecycle {
     });
   }
 
-  ensureSpecsmap(): Promise<SpecsMapPlugin | null> {
+  ensureSpecsmap(opts?: { pan?: boolean }): Promise<SpecsMapPlugin | null> {
+    const pan = opts?.pan !== false;
     const existing = this.cards.find(c => c.savedTitle === 'SpecsMap');
     if (existing && existing.specsmapPlugin) {
       existing.isOpen = true;
@@ -563,7 +565,7 @@ export class CardLifecycle {
       existing.worldY = existing.savedWY;
       this.positionCard(existing);
       this.bringToFront(existing.card);
-      this.viewport.panToCard(existing);
+      if (pan) this.viewport.panToCard(existing);
       this.notifier.notifySpecsmapChanged();
       return Promise.resolve(existing.specsmapPlugin);
     }
@@ -584,7 +586,7 @@ export class CardLifecycle {
         cs.card.onDestroy = () => sm.destroy();
         this.notifier.notifySpecsmapChanged();
         this.bringToFront(cs.card);
-        this.viewport.panToCard(cs);
+        if (pan) this.viewport.panToCard(cs);
         resolve(sm);
       });
     });
