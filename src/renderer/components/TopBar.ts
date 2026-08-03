@@ -21,6 +21,7 @@ interface TopBarCallbacks {
   onNewAgents?: () => void;
   onFocusAgents?: (uuid: string) => void;
   onReopenAgents?: (uuid: string) => void;
+  onNewDevConsole?: () => void;
   onAbout?: () => void;
   onTheme?: () => void;
   onAi?: () => void;
@@ -237,6 +238,8 @@ export class TopBar {
         <div class="menu-dropdown" role="menu">
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-specsmap">SpecsMap</div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-agents">Agents</div>
+          <div class="menu-dropdown-separator" role="separator"></div>
+          <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-dev-console">Dev Console&nbsp;<span class="menu-shortcut">\`</span></div>
           <div class="menu-dropdown-separator" role="separator"></div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-ai">Cockpit Agent&nbsp;<span class="menu-shortcut">Ctrl+Space</span></div>
           <div class="menu-dropdown-separator" role="separator"></div>
@@ -458,6 +461,11 @@ export class TopBar {
     document.getElementById('menu-new-agents')?.addEventListener('click', () => {
       closeAllMenus();
       this.callbacks.onNewAgents?.();
+    });
+
+    document.getElementById('menu-new-dev-console')?.addEventListener('click', () => {
+      closeAllMenus();
+      this.callbacks.onNewDevConsole?.();
     });
 
     this.el.querySelectorAll('[data-grid]').forEach(el => {

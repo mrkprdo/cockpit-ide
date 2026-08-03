@@ -466,3 +466,93 @@ describe('MonacoEditorPlugin — getActiveOriginalPath', () => {
     expect((editor as any).getActiveOriginalPath()).toBeNull();
   });
 });
+
+describe('MonacoEditorPlugin — markdown preview tabs', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Title\n\nSome *text*.');
+    // Monaco never loads in jsdom — stub the global so initMonaco resolves
+    // synchronously (this.editor = a mock) instead of hanging on loadScript.
+    const editorMock = {
+      getValue: vi.fn(() => ''),
+      setValue: vi.fn(),
+      getPosition: vi.fn(() => null),
+      getScrollTop: vi.fn(() => 0),
+      setPosition: vi.fn(),
+      setScrollTop: vi.fn(),
+      getSelection: vi.fn(() => null),
+      getModel: vi.fn(() => ({})),
+      addAction: vi.fn(),
+      onDidChangeModelContent: vi.fn(() => ({ dispose: vi.fn() })),
+      onDidChangeCursorSelection: vi.fn(() => ({ dispose: vi.fn() })),
+      focus: vi.fn(),
+      executeEdits: vi.fn(),
+      revealLineInCenter: vi.fn(),
+      revealPositionInCenter: vi.fn(),
+    };
+    (window as any).monaco = {
+      editor: {
+        create: vi.fn(() => editorMock),
+        setModelLanguage: vi.fn(),
+        defineTheme: vi.fn(),
+        setTheme: vi.fn(),
+      },
+      KeyMod: { CtrlCmd: 0 },
+      KeyCode: { KeyS: 0 },
+    };
+  });
+
+  it('openMarkdown adds a markdown-kind tab to the same tab bar', async () => {
+    const editor = new MonacoEditorPlugin(container);
+    await editor.openMarkdown('/test/readme.md');
+    expect(editor.tabs).toHaveLength(1);
+    expect(editor.tabs[0].kind).toBe('markdown');
+    expect(editor.tabs[0].originalPath).toBe('/test/readme.md');
+    expect((editor as any).activeTab).toBe('/test/readme.md');
+  });
+
+  it('switching to a markdown tab hides the Monaco editor and shows the preview', async () => {
+    const editor = new MonacoEditorPlugin(container);
+    await editor.openFile('/test/a.ts');
+    await editor.openMarkdown('/test/readme.md');
+
+    expect((editor as any).editorEl.style.display).toBe('none');
+    const preview = (editor as any).markdownPreviewEl;
+    expect(preview.style.display).toBe('');
+    expect(preview.innerHTML).toContain('md-content');
+    expect(preview.textContent).toContain('Title');
+
+    // Switching back to the code tab restores the editor
+    editor.switchTab('/test/a.ts');
+    expect((editor as any).editorEl.style.display).toBe('');
+    expect(preview.style.display).toBe('none');
+  });
+
+  it('reopening a markdown tab via openFile flips it back to code mode', async () => {
+    const editor = new MonacoEditorPlugin(container);
+    await editor.openMarkdown('/test/readme.md');
+    await editor.openFile('/test/readme.md');
+    expect(editor.tabs[0].kind).toBeUndefined();
+    expect((editor as any).editorEl.style.display).toBe('');
+  });
+
+  it('getState reports markdown files separately and round-trips through restoreState', async () => {
+    const editor = new MonacoEditorPlugin(container);
+    await editor.openFile('/test/a.ts');
+    await editor.openMarkdown('/test/readme.md');
+
+    const state = editor.getState();
+    expect(state!.openFiles).toContain('/test/readme.md');
+    expect(state!.markdownFiles).toEqual(['/test/readme.md']);
+    expect(state!.activeFile).toBe('/test/readme.md');
+
+    const editor2 = new MonacoEditorPlugin(makeContainer());
+    await editor2.restoreState(state!);
+    expect(editor2.tabs.find(t => t.originalPath === '/test/readme.md')?.kind).toBe('markdown');
+    expect((editor2 as any).activeTab).toBe('/test/readme.md');
+  });
+});

@@ -70,6 +70,11 @@ export class App {
         if (!this.aiDrawer.isDetached) this.aiDrawer.detach();
         this.aiDrawer.toggle();
       }
+      // Backtick — toggle dev console
+      if (e.key === '`' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        this.canvas.addDevConsole(this.wsPath);
+      }
     });
 
     this.canvas = new CanvasArea(document.getElementById('canvas')!);
@@ -129,6 +134,7 @@ export class App {
       onNewAgents: () => this.canvas.addAgents(this.wsPath),
       onFocusAgents: (uuid) => this.canvas.focusAgents(uuid),
       onReopenAgents: (uuid) => this.canvas.reopenAgents(uuid),
+      onNewDevConsole: () => this.canvas.addDevConsole(this.wsPath),
       onAbout: () => {
         this.canvas.locked = true;
         this.about.open(() => { this.canvas.locked = false; });

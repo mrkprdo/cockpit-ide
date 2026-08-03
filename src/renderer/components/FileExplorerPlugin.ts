@@ -9,6 +9,8 @@ export class FileExplorerPlugin {
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubFiles: (() => void) | null = null;
   selectedPath: string | null = null;
+  /** Optional: opens a .md file in the Markdown preview pane (vs. the code editor). */
+  onViewMarkdown: ((path: string) => void) | null = null;
 
   constructor(container: HTMLElement, private rootPath: string, private onFileOpen: (path: string) => void) {
     this.el = document.createElement('div');
@@ -362,6 +364,11 @@ export class FileExplorerPlugin {
             { label: 'Copy', action: () => { this.copiedPath = fullPath; } },
             { label: 'Paste', action: () => this.pasteHere(dirPath), disabled: !this.copiedPath },
           ];
+          const ext = fullPath.split('.').pop()?.toLowerCase();
+          if (ext === 'md' && this.onViewMarkdown) {
+            items.push({ separator: true });
+            items.push({ label: 'View as Markdown', action: () => this.onViewMarkdown?.(fullPath) });
+          }
           items.push({ separator: true });
           items.push({ label: 'Rename', action: () => this.renameItem(item, fullPath) });
           items.push({ separator: true });

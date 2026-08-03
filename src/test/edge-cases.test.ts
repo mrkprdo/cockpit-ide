@@ -968,15 +968,17 @@ describe('Cross-component edge cases', () => {
     (mockElectronAPI.terminal.create as any).mockResolvedValue(true);
   });
 
-  it('ExplorerPlugin opens .md files in the integrated markdown viewer', () => {
+  it('ExplorerPlugin opens .md files in the editor; openInMarkdown routes to a markdown preview tab', () => {
     const devContainer = makeContainer(800, 500);
     const dev = new ExplorerPlugin(devContainer, '/test/ws');
 
-    const loadFileSpy = vi.spyOn(dev.markdownViewer, 'loadFile');
+    const openMarkdownSpy = vi.spyOn(dev.editor, 'openMarkdown');
 
     dev.openFile('/test/readme.md');
+    expect(openMarkdownSpy).not.toHaveBeenCalled();
 
-    expect(loadFileSpy).toHaveBeenCalledWith('/test/readme.md');
+    dev.openInMarkdown('/test/readme.md');
+    expect(openMarkdownSpy).toHaveBeenCalledWith('/test/readme.md');
   });
 
   it('theme toggle propagates through ExplorerPlugin.editor chain', () => {

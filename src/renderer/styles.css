@@ -873,6 +873,8 @@ textarea,
 .editor-tab.is-active .editor-tab-close { opacity: 1; }
 .editor-tab-close:hover { color: var(--red); }
 .editor-tab.is-dragging { opacity: 0.35; }
+.editor-tab.is-markdown .editor-tab-name { color: var(--accent2, #B388FF); }
+.md-preview-area { padding: 12px 16px 24px; }
 .editor-tab.is-dragover {
   border-left: 2px solid var(--accent);
   border-top-color: transparent;

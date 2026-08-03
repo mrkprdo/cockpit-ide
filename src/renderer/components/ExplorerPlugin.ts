@@ -1,6 +1,5 @@
 import { FileExplorerPlugin } from './FileExplorerPlugin';
 import { MonacoEditorPlugin } from './MonacoEditorPlugin';
-import { MarkdownPlugin, MarkdownState } from './MarkdownPlugin';
 import { CommandPalette } from './CommandPalette';
 import { SearchOverlay } from './SearchOverlay';
 
@@ -17,16 +16,13 @@ export type ExplorerEditorState = {
 export class ExplorerPlugin {
   onStateChange: (() => void) | null = null;
   editor: MonacoEditorPlugin;
-  markdownViewer: MarkdownPlugin;
   palette: CommandPalette | null = null;
   searchOverlay: SearchOverlay | null = null;
   private splitEl: HTMLDivElement;
   private isDragging = false;
   private explorerCol: HTMLDivElement;
   private editorArea: HTMLDivElement;
-  private markdownArea: HTMLDivElement;
   private editorCol: HTMLDivElement;
-  private activePane: 'editor' | 'markdown' = 'editor';
   private wsPath: string;
   private explorer: FileExplorerPlugin;
 
@@ -83,10 +79,7 @@ export class ExplorerPlugin {
 
     this.editorArea = document.createElement('div');
     this.editorArea.style.cssText = 'width:100%;height:100%;';
-    this.markdownArea = document.createElement('div');
-    this.markdownArea.style.cssText = 'width:100%;height:100%;display:none';
     this.editorCol.appendChild(this.editorArea);
-    this.editorCol.appendChild(this.markdownArea);
 
     this.editor = new MonacoEditorPlugin(this.editorArea);
     this.editor.onStateChange = () => {
@@ -97,38 +90,15 @@ export class ExplorerPlugin {
       this.explorer.selectFile(filePath);
     };
 
-    this.markdownViewer = new MarkdownPlugin(this.markdownArea);
-    this.markdownViewer.onDestroy = () => {
-      // Markdown instances don't have onStateChange built-in, so we use onDestroy to sync.
-      // We wrap our own sync: the markdown plugin has getState method we can check.
-    };
-
     this.explorer = new FileExplorerPlugin(this.explorerCol, wsPath, (filePath) => {
       this.openFile(filePath);
     });
+    this.explorer.onViewMarkdown = (filePath) => this.openInMarkdown(filePath);
     setTimeout(() => this.explorer.refresh(), 1000);
   }
 
   private syncVisibility(): void {
-    const editorHasTabs = this.editor.tabs.length > 0;
-    const mdHasTabs = this.markdownViewer.getState() !== null;
-
-    if (!editorHasTabs && !mdHasTabs) {
-      this.editorCol.style.display = 'none';
-      return;
-    }
-    this.editorCol.style.display = '';
-
-    if (editorHasTabs && mdHasTabs) {
-      this.editorArea.style.display = this.activePane === 'editor' ? '' : 'none';
-      this.markdownArea.style.display = this.activePane === 'markdown' ? '' : 'none';
-    } else if (editorHasTabs) {
-      this.editorArea.style.display = '';
-      this.markdownArea.style.display = 'none';
-    } else {
-      this.editorArea.style.display = 'none';
-      this.markdownArea.style.display = '';
-    }
+    this.editorCol.style.display = this.editor.tabs.length > 0 ? '' : 'none';
   }
 
   private isHidden(): boolean {
@@ -151,24 +121,20 @@ export class ExplorerPlugin {
   getAgentEditorState() { return this.editor.getAgentEditorState(); }
 
   openFile(filePath: string): void {
-    const ext = filePath.split('.').pop()?.toLowerCase();
-    if (ext === 'md') {
-      this.activePane = 'markdown';
-      this.markdownViewer.loadFile(filePath);
-    } else {
-      this.activePane = 'editor';
-      this.editor.openFile(filePath);
-    }
+    this.editor.openFile(filePath);
+    this.revealFile(filePath);
+    this.syncVisibility();
+  }
+
+  /** Open a Markdown file as a rendered preview tab in the same tab bar. */
+  openInMarkdown(filePath: string): void {
+    this.editor.openMarkdown(filePath);
     this.revealFile(filePath);
     this.syncVisibility();
   }
 
   closeActiveTab(): void {
-    if (this.activePane === 'markdown') {
-      this.markdownViewer.closeActiveTab();
-    } else {
-      this.editor.closeActiveTab();
-    }
+    this.editor.closeActiveTab();
     this.syncVisibility();
   }
 
@@ -201,21 +167,19 @@ export class ExplorerPlugin {
 
   getEditorState(): ExplorerEditorState | null {
     const editorState = this.editor.getState();
-    const mdState = this.markdownViewer.getState();
 
-    if (!editorState && !mdState) return null;
+    if (!editorState) return null;
 
     const result: ExplorerEditorState = {
-      openFiles: editorState?.openFiles || [],
-      activeFile: editorState?.activeFile || '',
+      openFiles: editorState.openFiles,
+      activeFile: editorState.activeFile,
       explorerWidth: this.explorerCol.offsetWidth,
-      cursors: editorState?.cursors || {},
+      cursors: editorState.cursors,
     };
 
-    if (mdState) {
-      result.markdownOpenFiles = mdState.openFiles;
-      result.markdownActiveFile = mdState.activeFile;
-      result.markdownScrollTops = mdState.scrollTops;
+    if (editorState.markdownFiles.length > 0) {
+      result.markdownOpenFiles = editorState.markdownFiles;
+      result.markdownActiveFile = editorState.activeFile;
     }
 
     return result;
@@ -226,18 +190,20 @@ export class ExplorerPlugin {
     if (state.explorerWidth) {
       this.explorerCol.style.width = state.explorerWidth + 'px';
     }
-    if (state.markdownOpenFiles && state.markdownOpenFiles.length > 0) {
-      const mdState: MarkdownState = {
-        openFiles: state.markdownOpenFiles,
-        activeFile: state.markdownActiveFile || '',
-        scrollTops: state.markdownScrollTops || {},
-      };
-      await this.markdownViewer.restoreState(mdState);
-      if (mdState.activeFile) this.activePane = 'markdown';
+    const openFiles = [...(state.openFiles || [])];
+    const mdFiles = state.markdownOpenFiles || [];
+    // Legacy state: markdown tabs lived in a separate list — fold them in.
+    const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+    for (const f of mdFiles) {
+      if (!openFiles.some(p => norm(p) === norm(f))) openFiles.push(f);
     }
-    if (state.openFiles && state.openFiles.length > 0) {
-      await this.editor.restoreState(state as any);
-    }
+    const activeFile = state.activeFile || state.markdownActiveFile || '';
+    await this.editor.restoreState({
+      openFiles,
+      activeFile,
+      cursors: state.cursors || {},
+      markdownFiles: mdFiles,
+    });
     this.syncVisibility();
   }
 }
