@@ -1,86 +1,143 @@
-// Console filter bar — search + level filter for the dev console (refactor.md §C.2).
+// Dev-console filter bar — search + minimum log level + a category checkbox
+// dropdown (refactor.md §C). Applies to the unified stream: which categories
+// show, which console severities qualify, and a text search over message/title.
 
 import type { LogLevel } from './log-capture';
 import { logLevelRank } from './log-capture';
+import type { UnifiedCategory, UnifiedEntry } from './unified-log';
 
 export interface ConsoleFilter {
   search: string;
-  /** Minimum log level rank (error=0 … debug=4). 0 = show everything. */
-  minLevel: number;
+  /** Minimum console severity to show ('all' = every console line). */
+  level: 'all' | LogLevel;
+  /** Enabled stream categories (unchecked categories are hidden). */
+  categories: UnifiedCategory[];
 }
+
+export const ALL_CATEGORIES: UnifiedCategory[] = ['console', 'ipc', 'health', 'agent', 'specs'];
+
+export const CATEGORY_LABELS: Record<UnifiedCategory, string> = {
+  console: 'Console',
+  ipc: 'IPC',
+  health: 'Health',
+  agent: 'Agents',
+  specs: 'Specs',
+};
 
 export interface FilterBarHandle {
   el: HTMLDivElement;
   getFilter(): ConsoleFilter;
-  setMinLevel(rank: number): void;
 }
 
-const LEVEL_LABELS: { level: LogLevel; rank: number }[] = [
-  { level: 'error', rank: 0 },
-  { level: 'warn', rank: 1 },
-  { level: 'log', rank: 2 },
-  { level: 'info', rank: 3 },
-  { level: 'debug', rank: 4 },
-];
+const LEVEL_OPTIONS: Array<'all' | LogLevel> = ['all', 'error', 'warn', 'log', 'info', 'debug'];
 
 export function buildFilterBar(onChange: (f: ConsoleFilter) => void): FilterBarHandle {
   const bar = document.createElement('div');
   bar.className = 'dev-console-filter';
 
+  const state: ConsoleFilter = { search: '', level: 'all', categories: [...ALL_CATEGORIES] };
+
   const input = document.createElement('input');
   input.className = 'dev-console-filter-search';
-  input.placeholder = 'Filter…';
-  input.setAttribute('aria-label', 'Filter console');
-  input.addEventListener('input', () => onChange({ search: input.value.trim(), minLevel: state.minLevel }));
+  input.placeholder = 'Filter log…';
+  input.setAttribute('aria-label', 'Filter dev console');
+  input.addEventListener('input', () => {
+    state.search = input.value.trim();
+    onChange({ ...state });
+  });
 
-  const levelWrap = document.createElement('div');
-  levelWrap.className = 'dev-console-filter-levels';
-
-  const state = { search: '', minLevel: 0 };
-
-  const buttons = new Map<number, HTMLButtonElement>();
-  for (const { level, rank } of LEVEL_LABELS) {
-    const btn = document.createElement('button');
-    btn.className = 'dev-console-filter-level' + (rank === state.minLevel ? ' is-active' : '');
-    btn.textContent = level;
-    btn.addEventListener('click', () => {
-      state.minLevel = state.minLevel === rank ? 0 : rank;
-      for (const [r, b] of buttons) b.classList.toggle('is-active', r === state.minLevel);
-      onChange({ search: state.search, minLevel: state.minLevel });
-    });
-    buttons.set(rank, btn);
-    levelWrap.appendChild(btn);
+  const levelSelect = document.createElement('select');
+  levelSelect.className = 'dev-console-filter-level';
+  levelSelect.setAttribute('aria-label', 'Minimum log level');
+  for (const opt of LEVEL_OPTIONS) {
+    const o = document.createElement('option');
+    o.value = opt;
+    o.textContent = opt === 'all' ? 'All levels' : `${opt}+`;
+    levelSelect.appendChild(o);
   }
+  levelSelect.addEventListener('change', () => {
+    state.level = levelSelect.value as ConsoleFilter['level'];
+    onChange({ ...state });
+  });
+
+  // Category checkbox dropdown
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'dev-console-filter-toggle';
+  toggleBtn.type = 'button';
+
+  const panel = document.createElement('div');
+  panel.className = 'dev-console-filter-panel';
+  panel.style.display = 'none';
+
+  const renderToggleLabel = () => {
+    toggleBtn.textContent = `Filters (${state.categories.length}/${ALL_CATEGORIES.length}) ▾`;
+  };
+  renderToggleLabel();
+
+  const categoryChecks = new Map<UnifiedCategory, HTMLInputElement>();
+  for (const cat of ALL_CATEGORIES) {
+    const label = document.createElement('label');
+    label.className = 'dev-console-filter-option';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.cat = cat;
+    const span = document.createElement('span');
+    span.textContent = CATEGORY_LABELS[cat];
+    label.appendChild(cb);
+    label.appendChild(span);
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        if (!state.categories.includes(cat)) state.categories.push(cat);
+      } else {
+        state.categories = state.categories.filter(c => c !== cat);
+      }
+      renderToggleLabel();
+      onChange({ ...state });
+    });
+    categoryChecks.set(cat, cb);
+    panel.appendChild(label);
+  }
+
+  const closePanel = () => { panel.style.display = 'none'; };
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  });
+  document.addEventListener('click', (e) => {
+    if (!bar.contains(e.target as Node)) closePanel();
+  });
 
   const clearBtn = document.createElement('button');
   clearBtn.className = 'dev-console-filter-clear';
   clearBtn.textContent = 'Clear';
   clearBtn.addEventListener('click', () => {
     input.value = '';
+    levelSelect.value = 'all';
+    for (const cb of categoryChecks.values()) cb.checked = true;
     state.search = '';
-    state.minLevel = 0;
-    for (const [r, b] of buttons) b.classList.toggle('is-active', r === 0);
-    onChange({ search: '', minLevel: 0 });
+    state.level = 'all';
+    state.categories = [...ALL_CATEGORIES];
+    renderToggleLabel();
+    onChange({ ...state });
   });
 
-  bar.appendChild(input);
-  bar.appendChild(levelWrap);
-  bar.appendChild(clearBtn);
+  bar.append(input, levelSelect, toggleBtn, panel, clearBtn);
 
-  const handle: FilterBarHandle = {
+  return {
     el: bar,
-    getFilter: () => ({ search: state.search, minLevel: state.minLevel }),
-    setMinLevel: (rank: number) => {
-      state.minLevel = rank;
-      for (const [r, b] of buttons) b.classList.toggle('is-active', r === rank);
-    },
+    getFilter: () => ({ ...state }),
   };
-  return handle;
 }
 
-/** A helper to filter log entries by the current console filter. */
-export function filterMatches(filter: ConsoleFilter, level: LogLevel, text: string): boolean {
-  if (filter.minLevel > 0 && logLevelRank(level) > filter.minLevel) return false;
-  if (filter.search && !text.toLowerCase().includes(filter.search.toLowerCase())) return false;
+/** Does the current filter keep this unified entry? */
+export function filterMatches(filter: ConsoleFilter, e: UnifiedEntry): boolean {
+  if (!filter.categories.includes(e.category)) return false;
+  if (e.category === 'console' && filter.level !== 'all' && e.level &&
+      logLevelRank(e.level) > logLevelRank(filter.level)) return false;
+  if (filter.search) {
+    const hay = `${e.message} ${e.title} ${e.kind ?? ''}`.toLowerCase();
+    if (!hay.includes(filter.search.toLowerCase())) return false;
+  }
   return true;
 }

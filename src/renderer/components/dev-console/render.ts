@@ -1,8 +1,9 @@
-// DOM rendering helpers for the dev console (refactor.md §C.2).
+// DOM rendering for the unified dev-console stream (refactor.md §C). Every
+// entry renders as one aligned grid row — time · category · kind · title ·
+// meta · message — with category/level/kind color coding; specs reports render
+// as full-width blocks.
 
-import type { LogEntry } from './log-capture';
-import type { FailureSignal } from '../../health/types';
-import type { AgentMessage } from '../../agents/types';
+import type { UnifiedEntry } from './unified-log';
 
 export function formatTime(at: number): string {
   const d = new Date(at);
@@ -18,27 +19,6 @@ export function formatPayload(size: number): string {
   return `${(size / 1024).toFixed(1)} KB`;
 }
 
-export function formatLogArg(arg: unknown): string {
-  if (arg === null) return 'null';
-  if (arg === undefined) return 'undefined';
-  if (typeof arg === 'string') return arg;
-  if (arg instanceof Error) return arg.stack || `${arg.name}: ${arg.message}`;
-  try {
-    const s = JSON.stringify(arg);
-    if (s === undefined) return String(arg);
-    return s;
-  } catch {
-    return String(arg);
-  }
-}
-
-export function row(className: string, ...cells: HTMLElement[]): HTMLDivElement {
-  const el = document.createElement('div');
-  el.className = className;
-  for (const c of cells) el.appendChild(c);
-  return el;
-}
-
 function cell(className: string, text: string): HTMLDivElement {
   const el = document.createElement('div');
   el.className = className;
@@ -47,61 +27,52 @@ function cell(className: string, text: string): HTMLDivElement {
   return el;
 }
 
-export function renderLogLine(entry: LogEntry): HTMLDivElement {
-  const text = entry.args.map(formatLogArg).join(' ');
-  const time = cell('dev-console-cell-time', formatTime(entry.at));
-  const level = cell('dev-console-cell-level ' + entry.level, entry.level);
-  const msg = cell('dev-console-cell-msg', text);
-  return row('dev-console-line log-row level-' + entry.level, time, level, msg);
-}
-
-export function renderTraceRow(entry: IpcTraceEntry): HTMLDivElement {
-  const time = cell('dev-console-cell-time', formatTime(entry.at));
-  const type = cell('dev-console-cell-type', entry.type);
-  const ch = cell('dev-console-cell-chan', entry.channel);
-  const size = cell('dev-console-cell-size', formatPayload(entry.payloadSize));
-  const cells = [time, type, ch, size];
-  if (entry.type !== 'send') {
-    const dur = entry.durationMs === undefined ? '—' : `${entry.durationMs.toFixed(1)}ms`;
-    cells.push(cell('dev-console-cell-dur', dur));
-  }
-  if (entry.type === 'invoke') {
-    cells.push(cell('dev-console-cell-ok ' + (entry.ok ? 'ok' : 'fail'), entry.ok ? 'ok' : 'FAIL'));
-  }
-  return row('dev-console-line trace', ...cells);
-}
-
-export function renderHealthRow(signal: FailureSignal): HTMLDivElement {
-  const time = cell('dev-console-cell-time', formatTime(signal.at));
-  const kind = cell('dev-console-cell-kind ' + kindClass(signal.kind), signal.kind);
-  const src = cell('dev-console-cell-chan', signal.source);
-  const msg = cell('dev-console-cell-msg', signal.message);
-  return row('dev-console-line health-row health-' + kindClass(signal.kind), time, kind, src, msg);
-}
-
-function kindClass(kind: string): string {
+function kindSlug(kind: string): string {
   if (kind.startsWith('llm.')) return 'llm';
   if (kind.startsWith('terminal.')) return 'terminal';
   if (kind.startsWith('ipc.')) return 'ipc';
   if (kind.startsWith('specs.')) return 'specs';
+  if (kind === 'invoke' || kind === 'send' || kind === 'sendSync') return 'ipc';
+  if (kind === 'dispatch' || kind === 'respond' || kind === 'request' ||
+      kind === 'broadcast' || kind === 'status' || kind === 'kill') return 'agent';
   return 'plugin';
 }
 
-export function renderAgentRow(msg: AgentMessage): HTMLDivElement {
-  const time = cell('dev-console-cell-time', formatTime(msg.ts ?? Date.now()));
-  const from = cell('dev-console-cell-chan', String(msg.from ?? ''));
-  const to = cell('dev-console-cell-chan', Array.isArray(msg.to) ? msg.to.join(',') : String(msg.to ?? ''));
-  const kind = cell('dev-console-cell-kind', msg.type);
-  const text = typeof msg.payload === 'string' ? msg.payload : JSON.stringify(msg.payload) || '';
-  const msgCell = cell('dev-console-cell-msg', text);
-  return row('dev-console-line agent', time, from, to, kind, msgCell);
-}
+export function renderUnifiedEntry(e: UnifiedEntry): HTMLElement {
+  if (e.block) {
+    const el = document.createElement('div');
+    el.className = 'dev-console-block u-' + e.category;
+    const head = document.createElement('div');
+    head.className = 'dev-console-block-head';
+    head.textContent = `${formatTime(e.at)} · ${e.title}`;
+    const body = document.createElement('pre');
+    body.className = 'dev-console-block-body';
+    body.textContent = e.message;
+    el.append(head, body);
+    return el;
+  }
 
-/** Renders markdown-ish text as plain preformatted content (specs report). */
-export function renderSpecsReport(text: string): HTMLDivElement {
   const el = document.createElement('div');
-  el.className = 'dev-console-specs-report';
-  el.textContent = text;
+  el.className = 'dev-console-line u-' + e.category +
+    (e.level ? ' level-' + e.level : '') +
+    (e.ok === false ? ' is-fail' : '');
+
+  const time = cell('dev-console-cell-time', formatTime(e.at));
+  const cat = cell('dev-console-cell-cat cat-' + e.category, e.category);
+
+  const kindText = e.kind || e.level || '';
+  const kindClass = e.kind
+    ? 'dev-console-cell-kind k-' + kindSlug(e.kind)
+    : e.level
+      ? 'dev-console-cell-kind level-' + e.level
+      : 'dev-console-cell-kind';
+  const kind = cell(kindClass, kindText);
+
+  const title = cell('dev-console-cell-chan', e.title);
+  const meta = cell('dev-console-cell-meta' + (e.ok === false ? ' is-fail' : ''), e.meta || '');
+  const msg = cell('dev-console-cell-msg', e.message);
+
+  el.append(time, cat, kind, title, meta, msg);
   return el;
 }
 
