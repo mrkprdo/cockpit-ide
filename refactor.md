@@ -1,6 +1,6 @@
 # Refactor Plan — Modularization + Self-Healing + Dev Console
 
-**Status:** 🔧 Phases 0b–7 implemented in working tree, uncommitted, all in one pile (not one-PR-per-phase per §E) — **closer, still not merge-ready, see §G / §G.8 re-audit.** `npm test` now green (61/61 files, 1698/1698 tests) and `npm run loc:check` now passes — both G.1 and G.2 fixed. Still open: 2 real `tsc` errors from the split (G.3), CI/pre-commit guardrails still unwired (G.4), and everything still sitting in one uncommitted diff instead of phased PRs (G.7). See §G.8 for the re-audit delta.
+**Status:** 🔧 Phases 0b–7 implemented and committed (2 commits on `refactor-file-split`: plumbing, then component layer). `npm test` green (61/61 files, 1698/1698), `npm run loc:check` + `console:check` green and wired into CI + the Makefile test target. G.1/G.2 were already fixed; **G.3a, G.3b, G.4 now fixed too** — see §G.9 for the resolution delta. Only pre-existing `tsc` debt remains (G.3 pre-existing list). G.7's uncommitted-pile gap is closed; §E's one-PR-per-phase ideal still not followed (2 commits instead of 7) — acceptable for an already-entangled diff.
 **Owner:** Cockpit Agent + user
 **Relation to existing code:** builds on the existing `src/renderer/components/specsmap/` split (already 2 files extracted from `SpecsMapPlugin.ts`), the SPECGEN specs graph (`SPECGEN.md`, `.spec.md` files under `src/specs/`), and the existing crash-recovery substrate (`src/main/main.ts` `logFatal`/`wireCrashRecovery`, `src/renderer/index.ts` `window.onerror`/`unhandledrejection` → `diagnostics:rendererError`).
 
@@ -388,3 +388,15 @@ Re-ran every check in §G from scratch (`tsc` both configs, `loc:check`, `consol
 | G.7 | One giant uncommitted diff, no phased PRs | **STILL OPEN** | `git status` unchanged in shape — same ~25 modified + ~15 untracked paths, nothing committed yet. |
 
 **Net: 2 of 4 blockers cleared (G.1, G.2). 2 remain (G.3's two `tsc` errors, G.4's missing CI wiring) plus the standing process gap (G.7).** `npm run build` still does not succeed end-to-end because of G.3a. Next fix pass should take G.3a (narrow with a local `const gitState = p.gitState` before the closure, or an `!`-assert now that it's already been null-checked one line up) and G.3b (loosen `ToolRegistry`'s constructor param to accept covariant `ToolDefinition<any>` elements, or have the split's tool files export through a widening helper like the monolith implicitly did) — both are small, contained fixes, not architectural. G.4 is a one-line addition to `.github/workflows/test.yml`'s `make test` step or the `Makefile`'s `test:` target. G.7 is a commit-ordering exercise once G.3/G.4 are clear, not new code.
+
+### G.9 Resolution (2026-08-03)
+
+All three remaining blockers from G.8 are fixed and committed. Verified from scratch after the fixes: `tsc` both configs (renderer down to only the G.3 *pre-existing* list — `SearchOverlay.test.ts`, `TerminalPlugin.ts`, `.click`/`.style` DOM-typing — all present in the tracked baseline), `npm run loc:check` → ok, `npm run console:check` → ok, `npx vitest run` → 61/61 files, 1698/1698 tests, `npm run build` → succeeds.
+
+| # | Finding | Resolution |
+|---|---|---|
+| G.3a | `CanvasArea.ts:495` — `GitState \| undefined` not narrowed through `setTimeout` | **FIXED** — hoisted `const gitState = p.gitState` before the closure (`restorePlugins` Git branch). |
+| G.3b | `tool-executor.test.ts:89,102` — `ToolDefinition<Specific>` not assignable to `ToolDefinition<ZodTypeAny>` | **FIXED** — `ToolRegistry` now holds `ToolDefinition<any>` (constructor/register/get/all), per G.8's variance recommendation; one downstream implicit-`any` in `tool-executor.ts` annotated. |
+| G.4 | §F guardrails not wired to CI/pre-commit | **FIXED** — `npm run loc:check` + `console:check` added to the `Makefile` `test:` target (after `npm test`) and as explicit named steps in `.github/workflows/test.yml`. No `.husky/` pre-commit hook added (not installed in this repo). |
+| G.7 | One giant uncommitted diff | **FIXED** — committed in 2 logical commits on `refactor-file-split`: `c176fd5` (plumbing: guardrails, health core, dev console, preload trace, main/ipc, tool-definitions, G.3b/G.4) and `cfed164` (component layer: phases 3–7 splits, unified markdown tabs, G.3a). §E's 7-PR ideal not followed (diff too entangled to slice into 7 compiling phase commits); the user's unrelated `agents/` WIP was left uncommitted. |
+
