@@ -355,6 +355,7 @@ export class LlmLoop {
                 this.render.messages[placeholderIndex].content = streamedContent.trim()
                   ? `${streamedContent.trim()}\n\n→ **${toolNames}**`
                   : `→ **${toolNames}**`;
+                this.render.messages[placeholderIndex].toolCalls = toolCalls;
                 this.render.renderMessages();
               }
               break;
@@ -414,7 +415,7 @@ export class LlmLoop {
           const stepContent = streamedContent.trim()
             ? `${streamedContent.trim()}\n\n→ **${toolNames}**`
             : `→ **${toolNames}**`;
-          this.render.messages.push({ role: 'thinking', content: stepContent, timestamp: Date.now() });
+          this.render.messages.push({ role: 'thinking', content: stepContent, timestamp: Date.now(), toolCalls });
           this.render.renderMessages();
         }
 
@@ -472,6 +473,7 @@ export class LlmLoop {
           content: this.formatToolChip(toolName, toolArgs),
           timestamp: Date.now(),
           toolName,
+          toolCallId: tc.id,
         });
         this.render.renderMessages();
 

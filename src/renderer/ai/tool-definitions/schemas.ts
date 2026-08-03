@@ -75,6 +75,11 @@ export const SendKeyToTerminalArgs = z.object({
   uuid: z.string().describe('Terminal card uuid from get_canvas_state'),
   key: z.string().describe('Key name, e.g. "Tab", "Escape", "ArrowUp", "Ctrl+c"'),
 });
+export const RunCommandArgs = z.object({
+  uuid: z.string().describe('Terminal card uuid from get_canvas_state'),
+  command: z.string().describe('Command to run (Enter is appended automatically)'),
+  timeout_seconds: z.number().int().min(1).max(60).optional().describe('Max seconds to wait for the output to stabilize (default 15, max 60). Returns partial output on timeout — the command may still be running.'),
+});
 export const InsertTextInEditorArgs = z.object({ text: z.string().describe('Text to insert at the cursor') });
 export const ReadTerminalArgs = UuidArg;
 export const SetEditorContentArgs = z.object({ content: z.string().describe('New full content for the active file') });

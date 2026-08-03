@@ -79,7 +79,7 @@ export const BUILTIN_DEFINITIONS: Record<SkillName, SubAgentDefinition> = {
   ),
   tester: def(
     'tester', 'Tester', '🧪', '#a5d6a7',
-    ['read_file', 'list_directory', 'grep_workspace', 'get_canvas_state', 'write_to_terminal', 'send_key_to_terminal', 'read_terminal', 'kill_terminal', 'git_status', 'git_diff', 'specs_validate', 'agent_dispatch', 'agent_wait', 'agent_status'],
+    ['read_file', 'list_directory', 'grep_workspace', 'get_canvas_state', 'run_command', 'write_to_terminal', 'send_key_to_terminal', 'read_terminal', 'kill_terminal', 'git_status', 'git_diff', 'specs_validate', 'agent_dispatch', 'agent_wait', 'agent_status'],
     ['destructive', 'peer'], 'auto', 4096, 16, 600_000,
     'Verifies a change works: runs the project test suite and targeted checks, reports pass/fail per area.',
   ),
@@ -88,7 +88,7 @@ export const BUILTIN_DEFINITIONS: Record<SkillName, SubAgentDefinition> = {
     [
       'read_file', 'write_file', 'list_directory', 'grep_workspace',
       'get_canvas_state', 'read_editor', 'get_editor_state', 'set_editor_content', 'go_to_line',
-      'write_to_terminal', 'send_key_to_terminal', 'read_terminal', 'kill_terminal',
+      'run_command', 'write_to_terminal', 'send_key_to_terminal', 'read_terminal', 'kill_terminal',
       'git_status', 'git_diff', 'git_log',
       'specs_explore', 'specs_validate',
       'agent_dispatch', 'agent_wait', 'agent_status',

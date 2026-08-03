@@ -2,7 +2,7 @@
 // Types-only: every ai-drawer module imports from here so the module graph
 // stays acyclic (no module imports another that imports it back).
 
-import type { LLMMessage } from '../../ai/types';
+import type { LLMMessage, LLMToolCall } from '../../ai/types';
 
 export type AgentMode = 'auto' | 'plan' | 'step';
 
@@ -12,6 +12,10 @@ export interface ChatMessage {
   timestamp: number;
   toolName?: string;
   toolResult?: string;
+  /** Full tool-call payload on an assistant/thinking turn that issued tool calls. */
+  toolCalls?: LLMToolCall[];
+  /** The tool_call_id of the call whose result this tool message carries. */
+  toolCallId?: string;
   isSteer?: boolean;
 }
 

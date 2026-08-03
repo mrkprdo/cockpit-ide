@@ -1533,6 +1533,64 @@ describe('AiDrawer', () => {
       ]);
     });
 
+    it('buildHistoryForLLM carries tool results and assistant tool_calls across runs', () => {
+      drawer = new AiDrawer();
+      const toolCalls = [
+        { id: 'call_a', type: 'function' as const, function: { name: 'read_file', arguments: '{"path":"/x.ts"}' } },
+        { id: 'call_b', type: 'function' as const, function: { name: 'grep_workspace', arguments: '{"pattern":"foo"}' } },
+      ];
+      drawer['messages'] = [
+        { role: 'user' as const, content: 'read the file', timestamp: 1 },
+        { role: 'thinking' as const, content: '→ **read_file, grep_workspace**', timestamp: 2, toolCalls },
+        { role: 'tool' as const, content: 'read_file=/x.ts', toolName: 'read_file', toolCallId: 'call_a', toolResult: 'export const x = 1;', timestamp: 3 },
+        { role: 'tool' as const, content: 'grep_workspace=foo', toolName: 'grep_workspace', toolCallId: 'call_b', toolResult: '/x.ts:3: foo()', timestamp: 4 },
+        { role: 'assistant' as const, content: 'done', timestamp: 5 },
+      ];
+      const session = {
+        id: 's1',
+        title: '',
+        createdAt: 1,
+        updatedAt: 1,
+        messages: [...drawer['messages']],
+        context: [],
+      };
+      drawer['sessions'] = [session];
+      drawer['currentSessionId'] = 's1';
+
+      const history = drawer['buildHistoryForLLM']();
+      expect(history).toEqual([
+        { role: 'user', content: 'read the file' },
+        { role: 'assistant', content: null, tool_calls: toolCalls },
+        { role: 'tool', tool_call_id: 'call_a', content: 'export const x = 1;' },
+        { role: 'tool', tool_call_id: 'call_b', content: '/x.ts:3: foo()' },
+        { role: 'assistant', content: 'done' },
+      ]);
+    });
+
+    it('buildHistoryForLLM drops a tool-call turn when its results are missing (no broken pairing)', () => {
+      drawer = new AiDrawer();
+      const toolCalls = [
+        { id: 'call_a', type: 'function' as const, function: { name: 'read_file', arguments: '{}' } },
+      ];
+      drawer['messages'] = [
+        { role: 'user' as const, content: 'read', timestamp: 1 },
+        { role: 'thinking' as const, content: '→ **read_file**', timestamp: 2, toolCalls },
+      ];
+      const session = {
+        id: 's1',
+        title: '',
+        createdAt: 1,
+        updatedAt: 1,
+        messages: [...drawer['messages']],
+        context: [],
+      };
+      drawer['sessions'] = [session];
+      drawer['currentSessionId'] = 's1';
+
+      const history = drawer['buildHistoryForLLM']();
+      expect(history).toEqual([{ role: 'user', content: 'read' }]);
+    });
+
     it('auto-compacts when context usage reaches 80%', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue(makeTextResponse('Compacted summary'));
       drawer = await createDrawer();

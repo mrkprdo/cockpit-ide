@@ -3,9 +3,11 @@
 
 import type { ToolDefinition } from '../types';
 import {
-  WriteToTerminalArgs, SendKeyToTerminalArgs, ReadTerminalArgs, KillTerminalArgs,
+  WriteToTerminalArgs, SendKeyToTerminalArgs, ReadTerminalArgs, KillTerminalArgs, RunCommandArgs,
 } from './schemas';
 import { KEY_SEQUENCES } from './schemas';
+
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 export const writeToTerminalTool: ToolDefinition<typeof WriteToTerminalArgs> = {
   name: 'write_to_terminal',
@@ -36,6 +38,54 @@ export const readTerminalTool: ToolDefinition<typeof ReadTerminalArgs> = {
   execute: (args, ctx) => {
     const buf = ctx.cockpit.readTerminal(args.uuid);
     return buf || 'Terminal output is empty';
+  },
+};
+
+export const runCommandTool: ToolDefinition<typeof RunCommandArgs> = {
+  name: 'run_command',
+  description: 'Run a command in a terminal and capture the output it produces. Writes the command, polls until the output stabilizes (or the timeout), and returns the NEW output since the command was written. Unlike write_to_terminal (which returns nothing), this returns command output synchronously — prefer it for anything you need to read. Timeouts return partial output with a notice; the command may still be running. Params: uuid, command, timeout_seconds? (default 15, max 60).',
+  parameters: RunCommandArgs,
+  execute: async (args, ctx) => {
+    const uuid = args.uuid;
+    const timeoutSeconds = args.timeout_seconds ?? 15;
+    const timeoutMs = Math.min(timeoutSeconds, 60) * 1000;
+    const before = ctx.cockpit.readTerminal(uuid) || '';
+    if (before === 'Terminal not found') return `Terminal not found: ${uuid}. Use get_canvas_state to find a valid terminal uuid.`;
+    ctx.cockpit.writeToTerminal(uuid, args.command);
+
+    const deadline = Date.now() + timeoutMs;
+    let last = before;
+    let stableFor = 0;
+    let current = before;
+    while (Date.now() < deadline) {
+      await sleep(300);
+      current = ctx.cockpit.readTerminal(uuid) || '';
+      if (current === last) {
+        stableFor += 300;
+        if (stableFor >= 900) break;
+      } else {
+        stableFor = 0;
+        last = current;
+      }
+    }
+    const timedOut = Date.now() >= deadline;
+
+    let delta = '';
+    if (current.startsWith(before) && current.length > before.length) {
+      delta = current.slice(before.length);
+    } else if (current !== before) {
+      delta = current;
+    }
+    delta = delta.trim();
+    if (!delta) {
+      return timedOut
+        ? `Command sent to ${uuid}; no output captured within ${timeoutSeconds}s (still running or produced none). Poll with read_terminal(${uuid}).`
+        : `Command produced no output.`;
+    }
+    const tailNote = !current.startsWith(before) ? '\n[terminal scrolled — showing the last 200 lines of the buffer]' : '';
+    return timedOut
+      ? `${delta}${tailNote}\n---[run_command timed out after ${timeoutSeconds}s; the command may still be running — poll with read_terminal(${uuid})]---`
+      : `${delta}${tailNote}`;
   },
 };
 

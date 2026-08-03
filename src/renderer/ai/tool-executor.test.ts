@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod/v3';
 import { executeToolCall, type ToolCallResult } from './tool-executor';
 import { ToolRegistry } from './tool-registry';
-import { specsExploreTool } from './tool-definitions';
+import { specsExploreTool, runCommandTool } from './tool-definitions';
 import type { ToolContext, ToolDefinition } from './types';
 
 const greetSchema = z.object({ name: z.string() });
@@ -103,5 +103,53 @@ describe('executeToolCall', () => {
     const result = await executeToolCall(registry, 'specs_explore', '{"query":"theme"}', ctx);
     expect(result.ok).toBe(false);
     expect(result.output).toContain('Spec map unavailable');
+  });
+
+  it('run_command writes the command and returns the new terminal output', async () => {
+    const readTerminal = vi.fn()
+      .mockReturnValueOnce('prompt> ')
+      .mockReturnValue('prompt> \necho hi\nhi\nprompt> ');
+    const writeToTerminal = vi.fn();
+    const ctx: ToolContext = {
+      cockpit: { readTerminal, writeToTerminal } as any,
+      electronAPI: {} as Window['electronAPI'],
+    };
+    const registry = new ToolRegistry([runCommandTool]);
+
+    vi.useFakeTimers();
+    try {
+      const promise = executeToolCall(registry, 'run_command', '{"uuid":"t1","command":"echo hi"}', ctx);
+      await vi.advanceTimersByTimeAsync(4000);
+      const result = await promise;
+      expect(writeToTerminal).toHaveBeenCalledWith('t1', 'echo hi');
+      expect(result.ok).toBe(true);
+      expect(result.output).toContain('hi');
+      expect(result.output).not.toContain('timed out');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('run_command reports a timeout with partial output when output never stabilizes', async () => {
+    const readTerminal = vi.fn()
+      .mockReturnValueOnce('prompt> ')
+      .mockReturnValue('prompt> \nrunning...\n');
+    const ctx: ToolContext = {
+      cockpit: { readTerminal, writeToTerminal: vi.fn() } as any,
+      electronAPI: {} as Window['electronAPI'],
+    };
+    const registry = new ToolRegistry([runCommandTool]);
+
+    vi.useFakeTimers();
+    try {
+      const promise = executeToolCall(registry, 'run_command', '{"uuid":"t1","command":"npm test","timeout_seconds":1}', ctx);
+      await vi.advanceTimersByTimeAsync(2000);
+      const result = await promise;
+      expect(result.ok).toBe(true);
+      expect(result.output).toContain('running...');
+      expect(result.output).toContain('timed out');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

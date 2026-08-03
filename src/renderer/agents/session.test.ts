@@ -120,6 +120,20 @@ describe('SubAgentSession', () => {
     expect(s.summary).toBeTruthy();
   });
 
+  it('rollWindow retains folded tool outputs as real data (no dangling pointer)', async () => {
+    const bus = new AgentBus();
+    const llm = makeLLM(['tool-loop']); // 24 tool rounds → transcript rolls its window
+    const s = makeSession('implementer', brief(), llm, bus);
+    await s.run();
+    const sys = s.transcriptSnapshot.find(m => m.role === 'system' && m.content?.includes('State so far'));
+    expect(sys).toBeTruthy();
+    // The folded tool outputs must survive as actual content, not a "see summary
+    // below" pointer the model can only answer by inventing.
+    expect(sys?.content).toContain('Retained results:');
+    expect(sys?.content).toContain('ToolContext unavailable');
+    expect(s.transcriptSnapshot.some(m => m.content?.includes('see summary below'))).toBe(false);
+  });
+
   it('can be killed mid-run → state killed, throws', async () => {
     const bus = new AgentBus();
     bus.registerMailbox('main');

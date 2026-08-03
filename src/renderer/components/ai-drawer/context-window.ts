@@ -143,11 +143,50 @@ export class ContextWindow {
     if (session?.context && session.context.length > 0) {
       return session.context.map(m => ({ role: m.role, content: m.content || '' }));
     }
-    return this.host.getMessages()
-      .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } =>
-        m.role === 'user' || m.role === 'assistant'
-      )
-      .map(m => ({ role: m.role, content: m.content }));
+    // Rebuild the API message list from the rendered transcript. Tool results
+    // MUST survive between runs — dropping them (as we used to) leaves the model
+    // without the data its earlier calls returned, so it hallucinates contents
+    // or reaches for the terminal (cat/grep) to "re-fetch" it.
+    const messages = this.host.getMessages();
+    const out: LLMMessage[] = [];
+    let i = 0;
+    while (i < messages.length) {
+      const m = messages[i];
+      if (m.role === 'user') {
+        out.push({ role: 'user', content: m.content });
+        i++;
+        continue;
+      }
+      if (m.role === 'assistant') {
+        out.push({ role: 'assistant', content: m.content });
+        i++;
+        continue;
+      }
+      // Assistant turn that issued tool calls (rendered as a thinking chip with
+      // the payload stored on toolCalls). Only emit it when every tool result
+      // that follows is present — the OpenAI API requires a tool message for
+      // each tool_call_id, otherwise it rejects the request.
+      if (m.role === 'thinking' && m.toolCalls && m.toolCalls.length > 0) {
+        const ids = new Set(m.toolCalls.map(tc => tc.id));
+        const results: LLMMessage[] = [];
+        let j = i + 1;
+        while (j < messages.length && messages[j].role === 'tool') {
+          const r = messages[j];
+          if (r.toolCallId && ids.has(r.toolCallId)) {
+            results.push({ role: 'tool', tool_call_id: r.toolCallId, content: r.toolResult ?? r.content });
+          }
+          j++;
+        }
+        if (results.length === ids.size) {
+          out.push({ role: 'assistant', content: null, tool_calls: m.toolCalls });
+          out.push(...results);
+        }
+        i = j;
+        continue;
+      }
+      i++;
+    }
+    return out;
   }
 
   /** Mid-loop folding ceiling — safely above the between-run compaction budget. */

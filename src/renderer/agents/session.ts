@@ -31,6 +31,8 @@ export interface SessionDeps {
 
 /** How many recent tool result turns are kept before older ones are folded. */
 const ROLLING_WINDOW = 10;
+/** Cap for the retained tool-output trace folded across window rolls. */
+const FOLDED_TRACE_CAP = 2400;
 
 /** Tool result string shown when a PreToolUse hook blocks the call. */
 const HOOK_BLOCK_PREFIX = 'HOOK BLOCKED';
@@ -65,6 +67,8 @@ export class SubAgentSession {
   pendingApproval: PendingApproval | null = null;
 
   private transcript: LLMMessage[] = [];
+  /** Retained tool outputs folded out of the rolling window (real data, not a pointer). */
+  private foldedTrace = '';
   private controller = new AbortController();
   private running = false;
   private timeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -421,12 +425,33 @@ export class SubAgentSession {
     const tail = this.transcript.slice(-keepTail);
     const folded = this.transcript.slice(2, this.transcript.length - keepTail);
 
+    // Retain the newest folded tool outputs as real data — the model must not
+    // be told "see summary below" when there is no summary yet, or it will
+    // invent results instead of re-reading.
+    const trace = this.foldTrace(folded);
+    if (trace) {
+      this.foldedTrace = `${this.foldedTrace}${this.foldedTrace ? '\n' : ''}${trace}`.slice(-FOLDED_TRACE_CAP);
+    }
+
     const stateSoFar = this.summary
       ? `${this.summary}\n\n[further transcript folded: ${folded.length} entries]`
-      : `[transcript folded: ${folded.length} earlier entries — see summary below]`;
+      : `[transcript folded: ${folded.length} earlier entries — key results retained below]`;
 
     this.summary = stateSoFar;
-    this.transcript = [...head, { role: 'system', content: `## State so far (compacted)\n${stateSoFar}` }, ...tail];
+    const note = `## State so far (compacted)\n${stateSoFar}${this.foldedTrace ? `\n\nRetained results:\n${this.foldedTrace}` : ''}`;
+    this.transcript = [...head, { role: 'system', content: note }, ...tail];
+  }
+
+  /** Compress the newest folded tool outputs into a short trace (oldest first). */
+  private foldTrace(folded: LLMMessage[]): string {
+    const lines: string[] = [];
+    for (let i = folded.length - 1; i >= 0 && lines.length < 4; i--) {
+      const m = folded[i];
+      if (m.role === 'tool' && m.content) {
+        lines.unshift(`- ${String(m.content).slice(0, 400)}`);
+      }
+    }
+    return lines.join('\n');
   }
 
   private async maybeCompact(): Promise<void> {
@@ -453,6 +478,7 @@ export class SubAgentSession {
     }
 
     this.summary = summary.slice(0, 2000);
+    this.foldedTrace = ''; // the summary above captures state; drop the stale trace
     const head = this.transcript.slice(0, 2);
     this.transcript = [
       ...head,

@@ -18,7 +18,7 @@ import {
   reopenCardTool, resetViewTool, panToCardTool, setViewTool, zoomInTool,
   zoomOutTool, openInMarkdownTool, revealFileInExplorerTool,
 } from './canvas';
-import { writeToTerminalTool, sendKeyToTerminalTool, readTerminalTool, killTerminalTool } from './terminal';
+import { writeToTerminalTool, sendKeyToTerminalTool, readTerminalTool, killTerminalTool, runCommandTool } from './terminal';
 import {
   gitStatusTool, gitDiffTool, gitLogTool, gitStageTool, gitUnstageTool,
   gitCommitTool, gitPushTool, gitBranchesTool, gitCheckoutTool,
@@ -48,6 +48,7 @@ export const DESTRUCTIVE_TOOL_NAMES = new Set<string>([
   'copy_file',
   'create_directory',
   'write_to_terminal',
+  'run_command',
   'specs_reconcile',
   'git_commit',
   'git_push',
@@ -76,6 +77,7 @@ export const ALL_TOOLS: ToolDefinition<any>[] = [
   fitCardToViewportTool,
   writeToTerminalTool,
   sendKeyToTerminalTool,
+  runCommandTool,
   insertTextInEditorTool,
   readTerminalTool,
   readEditorTool,
