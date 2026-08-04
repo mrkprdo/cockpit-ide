@@ -19,7 +19,7 @@ This format works for any project — CLI tool, web app, library, desktop app, m
 | `process` layer | Main/preload process | Entry point daemon | N/A | Server entry / worker |
 | `IPC channel` | Electron IPC / postMessage | N/A | N/A | HTTP endpoint / RPC / message queue |
 | `UI sub-spec` | DOM components | TUI / CLI output | N/A | N/A |
-| `plugin` | Card-contained UI plugin | Subcommand plugin | Extension module | Plugin middleware |
+| `window` | Card-contained UI window | Subcommand window | Extension module | Window middleware |
 | `canvas` model | 2D bounded canvas | N/A | N/A | N/A |
 
 ---
@@ -40,7 +40,7 @@ This format works for any project — CLI tool, web app, library, desktop app, m
 | Pattern | Example | Purpose |
 |---------|---------|---------|
 | `main.spec.md` | Root index only | Project-level manifest |
-| `<feature>.spec.md` | `plugin-card.spec.md` | Feature definition (matches kebab-cased source file stem) |
+| `<feature>.spec.md` | `window-card.spec.md` | Feature definition (matches kebab-cased source file stem) |
 | `<feature>-ui.spec.md` | `welcome-modal-ui.spec.md` | UI interaction spec for a UI-type feature |
 
 ---
@@ -125,7 +125,7 @@ Table columns:
 
 ### Layer order
 
-Layers are ordered: `foundation` → `core` → `widget` → `modal` → `overlay` → `plugin` → `utility`.
+Layers are ordered: `foundation` → `core` → `widget` → `modal` → `overlay` → `window` → `utility`.
 
 ---
 
@@ -155,7 +155,7 @@ One per non-test source file under the project's source directory. Every file is
 | `widget` | Reusable UI or TUI building blocks | Buttons, cards, menus, prompts, panels |
 | `modal` | Overlay dialog (typically Promise-returning) | Confirm dialog, file picker, settings modal |
 | `overlay` | Floating non-modal UI (palette, tutorial, tooltip) | Command palette, tour overlay, dropdown |
-| `plugin` | Plugin/module loaded dynamically into a host | Editor plugins, middleware, CLI subcommands |
+| `window` | Window/module loaded dynamically into a host | Editor windows, middleware, CLI subcommands |
 | `service` | Long-lived service or data layer | Database service, API client, file watcher |
 | `utility` | Pure utility with no project imports | Math helpers, string formatters, validators |
 
@@ -229,7 +229,7 @@ Created for features with `type: "ui"` that have complex DOM structure and inter
 | Creates multiple DOM elements with structured layout | Single wrapper div for third-party embed |
 | Has user interactions (click, drag, hover, keyboard) | Purely delegates to child components |
 | Has distinct visual states (open/closed, active/inactive, etc.) | State is fully described in parent feature spec |
-| Is a modal, overlay, menu, card, or plugin with complex DOM | Is a process handler, utility, or plugin glue |
+| Is a modal, overlay, menu, card, or window with complex DOM | Is a process handler, utility, or window glue |
 
 ### Frontmatter
 
@@ -297,7 +297,7 @@ For each file, determine:
    - `core` — imports only from foundation or same-layer
    - `widget` — imported by core, imports utilities
    - `modal` / `overlay` — creates a fixed-position overlay or modal dialog, often Promise-returning
-   - `plugin` — instantiated dynamically inside a host
+   - `window` — instantiated dynamically inside a host
    - `service` — long-lived service with its own lifecycle
 
 3. **Singleton** — `true` if the class/object is instantiated exactly once or uses a singleton pattern.
@@ -339,7 +339,7 @@ For each `type: "ui"` feature, evaluate UI sub-spec criteria:
 1. Does it create 2+ DOM elements with meaningful structure?
 2. Does it have 2+ distinct user interactions?
 3. Does it have 2+ visual states?
-4. Is it a modal, overlay, menu, card, or plugin with complex DOM?
+4. Is it a modal, overlay, menu, card, or window with complex DOM?
 
 If **3+ criteria are met**, generate a `<feature>-ui.spec.md`. The `ui` column in `main.spec.md`'s Features table should reference this file.
 
@@ -435,7 +435,7 @@ Default for explicit user/agent action: `structural`. Watch-triggered suggestion
 | `edge.unresolved` | error | Dependency path does not resolve to a feature |
 | `edge.asymmetric` | warn | A→B depends but B lacks A in Referenced By |
 | `layer.cycle` | warn | Cycle in depends graph |
-| `layer.inversion` | warn | Lower layer depends on higher layer (foundation → plugin direction) |
+| `layer.inversion` | warn | Lower layer depends on higher layer (foundation → window direction) |
 | `exports.drift` | warn | Source exports not reflected in frontmatter |
 | `description.stub` | info | Description matches bootstrap stub patterns |
 | `ipc.unlisted` | info | Detected channel in source not listed in the spec |

@@ -1,5 +1,5 @@
-import { FileExplorerPlugin } from './FileExplorerPlugin';
-import { MonacoEditorPlugin } from './MonacoEditorPlugin';
+import { FileExplorerWindow } from './FileExplorerWindow';
+import { MonacoEditorWindow } from './MonacoEditorWindow';
 import { CommandPalette } from './CommandPalette';
 import { SearchOverlay } from './SearchOverlay';
 import { createLogger } from '../logging/logger';
@@ -16,9 +16,9 @@ export type ExplorerEditorState = {
   markdownScrollTops?: Record<string, number>;
 };
 
-export class ExplorerPlugin {
+export class ExplorerWindow {
   onStateChange: (() => void) | null = null;
-  editor: MonacoEditorPlugin;
+  editor: MonacoEditorWindow;
   palette: CommandPalette | null = null;
   searchOverlay: SearchOverlay | null = null;
   private splitEl: HTMLDivElement;
@@ -27,7 +27,7 @@ export class ExplorerPlugin {
   private editorArea: HTMLDivElement;
   private editorCol: HTMLDivElement;
   private wsPath: string;
-  private explorer: FileExplorerPlugin;
+  private explorer: FileExplorerWindow;
 
   constructor(container: HTMLElement, wsPath: string) {
     this.wsPath = wsPath;
@@ -84,7 +84,7 @@ export class ExplorerPlugin {
     this.editorArea.style.cssText = 'width:100%;height:100%;';
     this.editorCol.appendChild(this.editorArea);
 
-    this.editor = new MonacoEditorPlugin(this.editorArea);
+    this.editor = new MonacoEditorWindow(this.editorArea);
     this.editor.onStateChange = () => {
       this.syncVisibility();
       this.onStateChange?.();
@@ -93,7 +93,7 @@ export class ExplorerPlugin {
       this.explorer.selectFile(filePath);
     };
 
-    this.explorer = new FileExplorerPlugin(this.explorerCol, wsPath, (filePath) => {
+    this.explorer = new FileExplorerWindow(this.explorerCol, wsPath, (filePath) => {
       this.openFile(filePath);
     });
     this.explorer.onViewMarkdown = (filePath) => this.openInMarkdown(filePath);
@@ -153,7 +153,7 @@ export class ExplorerPlugin {
     this.palette.open();
   }
 
-  openSearch(ensureExplorer: () => Promise<ExplorerPlugin>): void {
+  openSearch(ensureExplorer: () => Promise<ExplorerWindow>): void {
     if (this.isHidden()) return;
     ensureExplorer().then(() => {
       if (!this.searchOverlay) {

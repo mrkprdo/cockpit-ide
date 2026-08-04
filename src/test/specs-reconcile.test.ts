@@ -1,6 +1,6 @@
 // Headless SPECGEN structural reconcile harness (refactor.md §D).
 //
-// Runs the same reconcile engine the SpecsMap plugin / specs_reconcile agent
+// Runs the same reconcile engine the SpecsMap window / specs_reconcile agent
 // tool use, but against the real filesystem via node fs — so the spec corpus
 // can be re-aligned without launching the app.
 //

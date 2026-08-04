@@ -1,4 +1,4 @@
-import type { PluginCard } from '../PluginCard';
+import type { WindowCard } from '../WindowCard';
 import type { StatusBar } from '../canvas-statusbar';
 import { applyViewTransform } from '../canvas-grid';
 import type { CardState } from './types';
@@ -16,7 +16,7 @@ export interface ViewportHost {
   getStatusBar(): StatusBar;
   getCards(): CardState[];
   onRepositionAll(): void;
-  bringToFront(card: PluginCard): void;
+  bringToFront(card: WindowCard): void;
   moveToNonOverlapping(cs: CardState): void;
   positionCard(cs: CardState): void;
   animatePan(targetX: number, targetY: number, duration?: number): void;

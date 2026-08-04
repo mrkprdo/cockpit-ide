@@ -38,16 +38,16 @@ Every test file gets:
 | `ContextMenu.test.ts` | unit | item creation, positioning, separators, disabled items, outside-click close, singleton |
 | `WelcomeModal.test.ts` | unit | open/close, recent workspaces, workspace selection, null close |
 | `AboutModal.test.ts` | unit | open/close, overlay dismiss, design.md link |
-| `PluginCard.test.ts` | unit | card structure, positioning, UUID, close/focus/destroy callbacks, canvas title, setContent |
+| `WindowCard.test.ts` | unit | card structure, positioning, UUID, close/focus/destroy callbacks, canvas title, setContent |
 | `CanvasArea.test.ts` | unit | grid styles, zoom bounds, reset view, save state structure, state change callbacks |
 | `TopBar.test.ts` | unit | menu rendering, all button callbacks, Terminal/Dev/Context item lists, focus vs reopen |
-| `FileExplorerPlugin.test.ts` | unit | tree rendering, .gitkeep filter, directory sort, file click, refresh, error state, wheel stop |
-| `MarkdownPlugin.test.ts` | unit | tab CRUD, duplicate prevention, markdown render, getState/restoreState, file watcher cleanup |
-| `MonacoEditorPlugin.test.ts` | unit | editor structure, initial state, getState/getContent/getCurrentFile (empty), reloadIfOpen, file listener |
-| `DevPlugin.test.ts` | unit | split pane, explorer/editor columns, state delegation, updateTheme, restoreEditorState |
-| `TerminalPlugin.test.ts` | unit | container, UUID, terminal.create with/without cwd, onData/onExit, destroy, exit callback |
+| `FileExplorerWindow.test.ts` | unit | tree rendering, .gitkeep filter, directory sort, file click, refresh, error state, wheel stop |
+| `MarkdownWindow.test.ts` | unit | tab CRUD, duplicate prevention, markdown render, getState/restoreState, file watcher cleanup |
+| `MonacoEditorWindow.test.ts` | unit | editor structure, initial state, getState/getContent/getCurrentFile (empty), reloadIfOpen, file listener |
+| `DevWindow.test.ts` | unit | split pane, explorer/editor columns, state delegation, updateTheme, restoreEditorState |
+| `TerminalWindow.test.ts` | unit | container, UUID, terminal.create with/without cwd, onData/onExit, destroy, exit callback |
 | `App.test.ts` | unit | title, CanvasArea/TopBar creation, window controls, Ctrl+W prevention |
-| `workflows.test.ts` | integration | file CRUD (create/read/delete/copy-paste), editor tab lifecycle, context tab lifecycle, Dev plugin operations, theme persistence, ConfirmModal paths, end-to-end browse→open→render |
+| `workflows.test.ts` | integration | file CRUD (create/read/delete/copy-paste), editor tab lifecycle, context tab lifecycle, Dev window operations, theme persistence, ConfirmModal paths, end-to-end browse→open→render |
 | `edge-cases.test.ts` | edge | null/undefined/empty inputs, bounds (zoom 0.1–5), rapid calls, double-remove/destroy, special chars in filenames, long strings, missing electronAPI, legacy state formats, UUID filtering, idempotency |
 
 ## Test patterns

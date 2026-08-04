@@ -1,32 +1,32 @@
 import type { Viewport } from './viewport';
 import type { CardLifecycle } from './card-lifecycle';
 import type { Notifier } from './notify';
-import { MonacoEditorPlugin } from '../MonacoEditorPlugin';
-import { TerminalPlugin } from '../TerminalPlugin';
-import { ExplorerPlugin } from '../ExplorerPlugin';
-import { GitPlugin } from '../GitPlugin';
-import { SpecsMapPlugin } from '../SpecsMapPlugin';
-import { AgentsPlugin } from '../AgentsPlugin';
-import { DevConsolePlugin } from '../dev-console/DevConsolePlugin';
+import { MonacoEditorWindow } from '../MonacoEditorWindow';
+import { TerminalWindow } from '../TerminalWindow';
+import { ExplorerWindow } from '../ExplorerWindow';
+import { GitWindow } from '../GitWindow';
+import { SpecsMapWindow } from '../SpecsMapWindow';
+import { AgentsWindow } from '../AgentsWindow';
+import { DevConsoleWindow } from '../dev-console/DevConsoleWindow';
 import { createLogger } from '../../logging/logger';
 
 const log = createLogger('canvas');
 
-export interface PluginFactoriesHost {
+export interface WindowFactoriesHost {
   getWsPath(): string;
   setWsPath(v: string): void;
   getOnStateChange(): (() => void) | null;
 }
 
-export class PluginFactories {
-  private activeEditor: MonacoEditorPlugin | null = null;
+export class WindowFactories {
+  private activeEditor: MonacoEditorWindow | null = null;
   private explorerCounter = 0;
 
   constructor(
     private lifecycle: CardLifecycle,
     private viewport: Viewport,
     private notifier: Notifier,
-    private host: PluginFactoriesHost,
+    private host: WindowFactoriesHost,
   ) {}
 
   addEditor(): void {
@@ -35,7 +35,7 @@ export class PluginFactories {
       const body = cs.card.el.querySelector('.card-body');
       if (body) {
         (body as HTMLElement).style.padding = '0';
-        this.activeEditor = new MonacoEditorPlugin(body as HTMLElement);
+        this.activeEditor = new MonacoEditorWindow(body as HTMLElement);
       }
       this.lifecycle.bringToFront(cs.card);
       this.viewport.panToCard(cs);
@@ -56,9 +56,9 @@ export class PluginFactories {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const dev = new ExplorerPlugin(body, wsPath);
+        const dev = new ExplorerWindow(body, wsPath);
         dev.onStateChange = () => this.host.getOnStateChange()?.();
-        existing.explorerPlugin = dev;
+        existing.explorerWindow = dev;
       }
       this.lifecycle.bringToFront(existing.card);
       this.viewport.panToCard(existing);
@@ -68,13 +68,13 @@ export class PluginFactories {
     const cs = this.lifecycle.addCard('Explorer', '', -400, -250, 800, 500);
     requestAnimationFrame(() => {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
-      if (body && !cs.explorerPlugin && !body.hasChildNodes()) {
+      if (body && !cs.explorerWindow && !body.hasChildNodes()) {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const dev = new ExplorerPlugin(body, wsPath);
+        const dev = new ExplorerWindow(body, wsPath);
         dev.onStateChange = () => this.host.getOnStateChange()?.();
-        cs.explorerPlugin = dev;
+        cs.explorerWindow = dev;
         this.notifier.notifyExplorersChanged();
         this.lifecycle.bringToFront(cs.card);
         this.viewport.panToCard(cs);
@@ -83,7 +83,7 @@ export class PluginFactories {
   }
 
   addGit(wsPath: string): void {
-    // Only one Git plugin instance allowed
+    // Only one Git window instance allowed
     const existing = this.lifecycle.getCards().find(c => c.savedTitle === 'Git');
     if (existing) {
       existing.isOpen = true;
@@ -105,10 +105,10 @@ export class PluginFactories {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const git = new GitPlugin(body, wsPath);
+        const git = new GitWindow(body, wsPath);
         git.onStateChange = () => this.host.getOnStateChange()?.();
-        git.onFileOpen = (filePath) => this.lifecycle.getActiveExplorerPlugin()?.openFile(filePath);
-        cs.gitPlugin = git;
+        git.onFileOpen = (filePath) => this.lifecycle.getActiveExplorerWindow()?.openFile(filePath);
+        cs.gitWindow = git;
         cs.card.onDestroy = () => git.destroy();
         this.notifier.notifyGitChanged();
         this.lifecycle.bringToFront(cs.card);
@@ -143,9 +143,9 @@ export class PluginFactories {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const sm = new SpecsMapPlugin(body, wsPath);
-        sm.onFileOpen = (filePath) => this.lifecycle.getActiveExplorerPlugin()?.openFile(filePath);
-        cs.specsmapPlugin = sm;
+        const sm = new SpecsMapWindow(body, wsPath);
+        sm.onFileOpen = (filePath) => this.lifecycle.getActiveExplorerWindow()?.openFile(filePath);
+        cs.specsmapWindow = sm;
         cs.card.onDestroy = () => sm.destroy();
         this.notifier.notifySpecsmapChanged();
         this.lifecycle.bringToFront(cs.card);
@@ -175,8 +175,8 @@ export class PluginFactories {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const ag = new AgentsPlugin(body, wsPath);
-        cs.agentsPlugin = ag;
+        const ag = new AgentsWindow(body, wsPath);
+        cs.agentsWindow = ag;
         cs.card.onDestroy = () => ag.destroy();
         this.notifier.notifyAgentsChanged();
         this.lifecycle.bringToFront(cs.card);
@@ -196,10 +196,10 @@ export class PluginFactories {
           (body as HTMLElement).style.padding = '0';
           (body as HTMLElement).style.alignItems = 'stretch';
           (body as HTMLElement).style.justifyContent = 'stretch';
-          const term = new TerminalPlugin(body as HTMLElement, cs.card.uuid, cwd);
+          const term = new TerminalWindow(body as HTMLElement, cs.card.uuid, cwd);
           term.onExit = () => this.lifecycle.terminateCard(cs);
           cs.card.onDestroy = () => term.destroy();
-          cs.terminalPlugin = term;
+          cs.terminalWindow = term;
           cs.onCardResize = () => { term.setScale(this.viewport.scale); term.fit(); };
           term.setScale(this.viewport.scale);
           term.ready.then(resolve);
@@ -237,8 +237,8 @@ export class PluginFactories {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const dc = new DevConsolePlugin(body, wsPath);
-        cs.devConsolePlugin = dc;
+        const dc = new DevConsoleWindow(body, wsPath);
+        cs.devConsoleWindow = dc;
         cs.card.onDestroy = () => dc.destroy();
         this.lifecycle.bringToFront(cs.card);
         this.viewport.panToCard(cs);

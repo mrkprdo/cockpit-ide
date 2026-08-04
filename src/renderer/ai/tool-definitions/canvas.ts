@@ -3,11 +3,11 @@
 
 import type { ToolDefinition } from '../types';
 import {
-  GetCanvasStateArgs, OpenFileInEditorArgs, AddPluginArgs, TitleArg, MoveCardArgs,
+  GetCanvasStateArgs, OpenFileInEditorArgs, AddWindowArgs, TitleArg, MoveCardArgs,
   ResizeCardArgs, InsertTextInEditorArgs, SetEditorContentArgs, GoToLineArgs,
   SetViewArgs, OpenInMarkdownArgs, RevealFileArgs,
 } from './schemas';
-import { pluginTypeFromTitle } from './helpers';
+import { windowTypeFromTitle } from './helpers';
 
 export const getCanvasStateTool: ToolDefinition<typeof GetCanvasStateArgs> = {
   name: 'get_canvas_state',
@@ -18,10 +18,10 @@ export const getCanvasStateTool: ToolDefinition<typeof GetCanvasStateArgs> = {
     return JSON.stringify({
       workspace: ctx.cockpit.getWorkspacePath(),
       zoom: state.zoom,
-      cards: state.plugins.map(p => ({
+      cards: state.windows.map(p => ({
         uuid: p.uuid,
         title: p.title,
-        type: pluginTypeFromTitle(p.title),
+        type: windowTypeFromTitle(p.title),
         isOpen: p.isOpen,
         x: p.x, y: p.y,
         width: p.width, height: p.height,
@@ -40,13 +40,13 @@ export const openFileInEditorTool: ToolDefinition<typeof OpenFileInEditorArgs> =
   },
 };
 
-export const addPluginTool: ToolDefinition<typeof AddPluginArgs> = {
-  name: 'add_plugin',
-  description: 'Add a plugin card to the canvas.',
-  parameters: AddPluginArgs,
+export const addWindowTool: ToolDefinition<typeof AddWindowArgs> = {
+  name: 'add_window',
+  description: 'Add a window card to the canvas.',
+  parameters: AddWindowArgs,
   execute: (args, ctx) => {
-    ctx.cockpit.addPlugin(args.type);
-    return `Added ${args.type} plugin`;
+    ctx.cockpit.addWindow(args.type);
+    return `Added ${args.type} window`;
   },
 };
 

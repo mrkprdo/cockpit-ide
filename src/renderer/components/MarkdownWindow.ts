@@ -9,7 +9,7 @@ export type MarkdownState = {
   scrollTops: Record<string, number>;
 } | null;
 
-export class MarkdownPlugin {
+export class MarkdownWindow {
   title = '';
   onDestroy: (() => void) | null = null;
   private el: HTMLDivElement;

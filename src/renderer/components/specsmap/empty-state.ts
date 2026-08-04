@@ -1,4 +1,4 @@
-// SpecsMap — empty/entry-point state (refactor.md §A.4): what the plugin
+// SpecsMap — empty/entry-point state (refactor.md §A.4): what the window
 // shows when no *.spec.md collection is found, plus the SPECGEN generation
 // prompt it can write+copy. Stateless — the host passes the DOM refs it needs.
 
@@ -174,7 +174,7 @@ export async function generateAndCopyPrompt(
   const agentsRaw = await window.electronAPI?.fs.readFile(wsRoot + '/Agents.md') ?? null;
 
   const agentsSection = agentsRaw
-    ? `## Step 0 — Update Agents.md\n\nAdd a "Spec System" section:\n- Spec files live in \`src/specs/\`, one per source module\n- \`src/specs/main.spec.md\` is the authoritative index\n- The SpecsMap plugin (Tools → SpecsMap) visualizes the dependency graph\n- When adding or changing source files, update the corresponding spec\n\n`
+    ? `## Step 0 — Update Agents.md\n\nAdd a "Spec System" section:\n- Spec files live in \`src/specs/\`, one per source module\n- \`src/specs/main.spec.md\` is the authoritative index\n- The SpecsMap window (Tools → SpecsMap) visualizes the dependency graph\n- When adding or changing source files, update the corresponding spec\n\n`
     : '';
 
   const isDir = entryPath.endsWith('/');
@@ -182,7 +182,7 @@ export async function generateAndCopyPrompt(
     ? `Walk \`${entryPath}\` recursively. For every source file record:\n` +
       `- Full path from repo root\n` +
       `- Which other \`${entryPath}\` files it imports (runtime imports only, not node_modules)\n` +
-      `- Its architectural layer: foundation / core / widget / modal / overlay / plugins\n\n` +
+      `- Its architectural layer: foundation / core / widget / modal / overlay / windows\n\n` +
       `Print the complete file list before generating any spec. Do not skip files.`
     : `Start from \`${entryPath}\`. Map every service, component, or module it defines or references.\n` +
       `Follow references to Dockerfiles, scripts, config files, and source directories.\n` +
@@ -195,7 +195,7 @@ export async function generateAndCopyPrompt(
       `Write a companion \`[feature-name]-ui.spec.md\` for any component with 3 or more user interactions or complex DOM.\n` +
       `Keep descriptions specific — no generic phrases like "manages state" or "handles events".`
     : `For each service/component/module in the inventory, write \`src/specs/[feature-name].spec.md\` following SPECGEN.md.\n` +
-      `Adapt the layer taxonomy to fit the project type. Use "foundation" for base infrastructure, "core" for primary logic, "plugins" for optional extensions.\n` +
+      `Adapt the layer taxonomy to fit the project type. Use "foundation" for base infrastructure, "core" for primary logic, "windows" for optional extensions.\n` +
       `Keep descriptions specific to what each component actually does.`;
 
   const integrityNote = integrity === 'modified'

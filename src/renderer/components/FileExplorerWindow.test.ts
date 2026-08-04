@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FileExplorerPlugin } from './FileExplorerPlugin';
+import { FileExplorerWindow } from './FileExplorerWindow';
 import { mockElectronAPI } from '../../test/setup';
 
 function makeContainer(): HTMLElement {
@@ -16,7 +16,7 @@ function setupReadDir(files: Record<string, { name: string; isDirectory: boolean
   });
 }
 
-describe('FileExplorerPlugin', () => {
+describe('FileExplorerWindow', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -34,12 +34,12 @@ describe('FileExplorerPlugin', () => {
   });
 
   it('creates the tree element and appends it to container', () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     expect(container.children.length).toBeGreaterThan(0);
   });
 
   it('renders directory and file entries after load', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const text = container.textContent || '';
@@ -48,7 +48,7 @@ describe('FileExplorerPlugin', () => {
   });
 
   it('filters out .gitkeep entries', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const text = container.textContent || '';
@@ -63,7 +63,7 @@ describe('FileExplorerPlugin', () => {
         { name: 'README.md', isDirectory: false },
       ],
     });
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const text = container.textContent || '';
@@ -73,7 +73,7 @@ describe('FileExplorerPlugin', () => {
   });
 
   it('sorts directories before files', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const spans = Array.from(container.querySelectorAll('span'));
@@ -83,7 +83,7 @@ describe('FileExplorerPlugin', () => {
 
   it('clicking a file calls onFileOpen with full path', async () => {
     const onFileOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onFileOpen);
+    new FileExplorerWindow(container, '/test', onFileOpen);
     await new Promise(r => setTimeout(r, 100));
 
     const allDivs = container.querySelectorAll('div');
@@ -99,7 +99,7 @@ describe('FileExplorerPlugin', () => {
 
   it('shows "Unable to read directory" when readDir returns null', async () => {
     setupReadDir({});
-    new FileExplorerPlugin(container, '/invalid', vi.fn());
+    new FileExplorerWindow(container, '/invalid', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const text = container.textContent || '';
@@ -115,7 +115,7 @@ describe('FileExplorerPlugin', () => {
       ],
     });
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Filenames are set via textContent, so HTML is auto-escaped
@@ -129,7 +129,7 @@ describe('FileExplorerPlugin', () => {
   });
 
   it('stops wheel propagation on the tree element', () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     // treeEl is the scrollable div (second child of the outer el)
     const outerEl = container.firstElementChild as HTMLElement;
     const treeEl = outerEl.querySelector('div:last-child') as HTMLElement;
@@ -142,7 +142,7 @@ describe('FileExplorerPlugin', () => {
   });
 });
 
-describe('FileExplorerPlugin directory expand/collapse', () => {
+describe('FileExplorerWindow directory expand/collapse', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -178,7 +178,7 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
   }
 
   it('clicking a collapsed directory expands it and loads children', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const dirRow = findDirRow('src');
@@ -197,7 +197,7 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
   });
 
   it('clicking an expanded directory collapses it and hides children', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const dirRow = findDirRow('src')!;
@@ -218,7 +218,7 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
   });
 
   it('expand-collapse-expand cycle works correctly', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const dirRow = findDirRow('src')!;
@@ -240,7 +240,7 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
   });
 
   it('after reload(), expanded directories stay expanded', async () => {
-    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    const explorer = new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Expand src directory
@@ -261,7 +261,7 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
   });
 
   it('after refresh(), expanding a directory still works (regression: parentEl closure)', async () => {
-    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    const explorer = new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Expand first, then collapse
@@ -286,7 +286,7 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
   });
 
   it('refresh clears all expanded state', async () => {
-    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    const explorer = new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const dirRow = findDirRow('src')!;
@@ -311,7 +311,7 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
       '/test/empty': [],
     });
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const dirRow = findDirRow('empty')!;
@@ -335,7 +335,7 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
       ],
     });
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Expand first level
@@ -352,7 +352,7 @@ describe('FileExplorerPlugin directory expand/collapse', () => {
   });
 });
 
-describe('FileExplorerPlugin inline input positioning', () => {
+describe('FileExplorerWindow inline input positioning', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -374,7 +374,7 @@ describe('FileExplorerPlugin inline input positioning', () => {
   });
 
   it('inserts new folder input row after the directory element, not at tree bottom', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Find src directory
@@ -407,7 +407,7 @@ describe('FileExplorerPlugin inline input positioning', () => {
   });
 
   it('inserts new file input row after the directory element, not at tree bottom', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Find src directory
@@ -440,7 +440,7 @@ describe('FileExplorerPlugin inline input positioning', () => {
   });
 
   it('empty-area context menu includes Paste (disabled when nothing copied)', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on empty area
@@ -455,7 +455,7 @@ describe('FileExplorerPlugin inline input positioning', () => {
   });
 
   it('empty-area context menu Paste is enabled after a file is copied', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Copy a file via its context menu
@@ -488,7 +488,7 @@ describe('FileExplorerPlugin inline input positioning', () => {
       { name: 'src', isDirectory: true },
       { name: 'README.md', isDirectory: false },
     ]);
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on empty area (tree element itself)
@@ -514,7 +514,7 @@ describe('FileExplorerPlugin inline input positioning', () => {
   });
 });
 
-describe('FileExplorerPlugin rename', () => {
+describe('FileExplorerWindow rename', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -551,7 +551,7 @@ describe('FileExplorerPlugin rename', () => {
   }
 
   it('shows rename input on file when Rename is clicked', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const fileRow = await findFileRow('README.md');
@@ -568,7 +568,7 @@ describe('FileExplorerPlugin rename', () => {
   });
 
   it('shows rename input on directory when Rename is clicked', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Find src directory
@@ -589,7 +589,7 @@ describe('FileExplorerPlugin rename', () => {
   });
 
   it('hides the original item while rename input is shown', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const fileRow = await findFileRow('README.md');
@@ -613,7 +613,7 @@ describe('FileExplorerPlugin rename', () => {
   });
 
   it('calls fs:rename on Enter with new name', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const fileRow = await findFileRow('README.md');
@@ -631,7 +631,7 @@ describe('FileExplorerPlugin rename', () => {
   });
 
   it('does not call fs:rename when name is unchanged', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const initialCalls = (mockElectronAPI.fs.rename as any).mock.calls.length;
@@ -655,7 +655,7 @@ describe('FileExplorerPlugin rename', () => {
 
   it('reloads tree after successful rename', async () => {
     (mockElectronAPI.fs.readDir as any).mockClear();
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // readDir was called during construction (initial load)
@@ -679,7 +679,7 @@ describe('FileExplorerPlugin rename', () => {
   });
 
   it('shows Rename in directory context menu', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const divs = container.querySelectorAll('div');
@@ -695,7 +695,7 @@ describe('FileExplorerPlugin rename', () => {
   });
 
   it('shows Rename in file context menu', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const fileRow = await findFileRow('README.md');
@@ -708,7 +708,7 @@ describe('FileExplorerPlugin rename', () => {
   });
 
   it('selectFile highlights a visible file with .is-file-selected class', async () => {
-    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    const explorer = new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     await explorer.selectFile('/test/README.md');
@@ -730,7 +730,7 @@ describe('FileExplorerPlugin rename', () => {
         { name: 'deep-file.ts', isDirectory: false },
       ],
     });
-    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    const explorer = new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     await explorer.selectFile('/test/src/components/deep-file.ts');
@@ -750,7 +750,7 @@ describe('FileExplorerPlugin rename', () => {
   });
 
   it('selectFile preserves highlight after tree reload', async () => {
-    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    const explorer = new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     await explorer.selectFile('/test/README.md');
@@ -764,7 +764,7 @@ describe('FileExplorerPlugin rename', () => {
   });
 
   it('tree click applies .is-file-selected class', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const fileRow = await findFileRow('README.md');

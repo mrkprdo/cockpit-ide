@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ExplorerPlugin } from './ExplorerPlugin';
+import { ExplorerWindow } from './ExplorerWindow';
 import { CommandPalette } from './CommandPalette';
 import { mockElectronAPI } from '../../test/setup';
 
@@ -10,7 +10,7 @@ function makeContainer(): HTMLElement {
   return el;
 }
 
-describe('ExplorerPlugin', () => {
+describe('ExplorerWindow', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -23,7 +23,7 @@ describe('ExplorerPlugin', () => {
   });
 
   it('creates split pane with flex layout', () => {
-    new ExplorerPlugin(container, '/test/ws');
+    new ExplorerWindow(container, '/test/ws');
 
     // Container should have a child with flex direction row
     const children = container.children;
@@ -35,37 +35,37 @@ describe('ExplorerPlugin', () => {
   });
 
   it('has three children: explorer, resize handle, editor', () => {
-    new ExplorerPlugin(container, '/test/ws');
+    new ExplorerWindow(container, '/test/ws');
 
     const splitEl = container.firstElementChild!;
     expect(splitEl.children.length).toBe(3);
   });
 
-  it('has a MonacoEditorPlugin accessible as .editor', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+  it('has a MonacoEditorWindow accessible as .editor', () => {
+    const dev = new ExplorerWindow(container, '/test/ws');
     expect(dev.editor).toBeTruthy();
     expect(dev.editor.tabs).toEqual([]);
   });
 
   it('updateTheme calls editor updateTheme without throwing', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     expect(() => dev.updateTheme()).not.toThrow();
   });
 
   it('getEditorState returns null when no files are open', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     const state = dev.getEditorState();
     expect(state).toBeNull();
   });
 
   it('restoreEditorState handles null state', async () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     await dev.restoreEditorState(null);
     // Should not throw
   });
 
   it('restoreEditorState restores explorer width', async () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     await dev.restoreEditorState({
       openFiles: [],
       activeFile: '',
@@ -78,14 +78,14 @@ describe('ExplorerPlugin', () => {
   });
 
   it('palette is lazily created on first openFileSearch call', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     expect(dev.palette).toBeNull();
     dev.openFileSearch();
     expect(dev.palette).toBeTruthy();
   });
 
   it('openFileSearch opens the palette overlay', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     dev.openFileSearch();
     const ov = document.querySelector('.palette-overlay');
     expect(ov).toBeTruthy();
@@ -93,7 +93,7 @@ describe('ExplorerPlugin', () => {
   });
 
   it('palette is created and opened on openFileSearch', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     expect(dev.palette).toBeNull();
     dev.openFileSearch();
     expect(dev.palette).toBeTruthy();
@@ -102,7 +102,7 @@ describe('ExplorerPlugin', () => {
   });
 
   it('does not open palette when card is minimized (hidden)', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     container.style.display = 'none';
     dev.openFileSearch();
     const ov = document.querySelector('.palette-overlay');
@@ -114,7 +114,7 @@ describe('ExplorerPlugin', () => {
       if (dir === '/test/ws') return [{ name: 'file.ts', isDirectory: false }];
       return [];
     });
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     await new Promise(r => setTimeout(r, 100));
 
     await dev.revealFile('/test/ws/file.ts');
@@ -131,7 +131,7 @@ describe('ExplorerPlugin', () => {
       return [];
     });
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('file content');
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     await new Promise(r => setTimeout(r, 100));
 
     await dev.openFile('/test/ws/file.ts');
@@ -142,12 +142,12 @@ describe('ExplorerPlugin', () => {
   });
 
   it('searchOverlay is null before first openSearch call', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     expect(dev.searchOverlay).toBeNull();
   });
 
   it('openSearch calls ensureExplorer and creates searchOverlay lazily', async () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     const ensureExplorer = vi.fn().mockResolvedValue(dev);
     dev.openSearch(ensureExplorer);
     expect(ensureExplorer).toHaveBeenCalled();
@@ -163,7 +163,7 @@ describe('ExplorerPlugin', () => {
       return [];
     });
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('line one\nline two\nline three');
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     await new Promise(r => setTimeout(r, 100));
 
     const ensureExplorer = vi.fn().mockResolvedValue(dev);

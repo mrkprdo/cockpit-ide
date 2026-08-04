@@ -31,7 +31,7 @@ export const PANEL_W = 320;
 export const GRAPH_MARGIN = 80;
 export const PORT_OFFSET = 28;
 
-const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugin'];
+const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'window'];
 
 export const LAYER_LABELS: Record<string, string> = {
   foundation: 'Foundation',
@@ -39,7 +39,7 @@ export const LAYER_LABELS: Record<string, string> = {
   widget: 'Widget',
   modal: 'Modal',
   overlay: 'Overlay',
-  plugin: 'Plugins',
+  window: 'Windows',
 };
 
 export const LAYER_COLORS_VAR: Record<string, string> = {
@@ -48,7 +48,7 @@ export const LAYER_COLORS_VAR: Record<string, string> = {
   widget: 'var(--accent2)',
   modal: 'var(--amber)',
   overlay: 'var(--red)',
-  plugin: 'var(--secondary)',
+  window: 'var(--secondary)',
 };
 
 export const LAYER_COLORS_HEX: Record<string, string> = {
@@ -57,7 +57,7 @@ export const LAYER_COLORS_HEX: Record<string, string> = {
   widget: '#a78bfa',
   modal: '#fbbf24',
   overlay: '#f87171',
-  plugin: '#94a3b8',
+  window: '#94a3b8',
 };
 
 export function computeLayout(nodes: SpecNode[]): SpecNode[] {

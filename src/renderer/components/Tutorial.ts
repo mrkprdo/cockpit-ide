@@ -13,7 +13,7 @@ let _tutorialOpenedAiDrawer = false;
 const STEPS: TutorialStep[] = [
   {
     title: 'Welcome to Cockpit IDE',
-    description: 'Spatial IDE — float IDE plugins & tools on a wide canvas.\n\nLet us show you around.',
+    description: 'Spatial IDE — float IDE windows & tools on a wide canvas.\n\nLet us show you around.',
   },
   {
     title: 'Wide Canvas',
@@ -23,7 +23,7 @@ const STEPS: TutorialStep[] = [
   },
   {
     title: 'Menu Bar',
-    description: 'File, View, Help — open workspaces, create plugins, toggle grid, zoom, and help. Hover to open.',
+    description: 'File, View, Help — open workspaces, create windows, toggle grid, zoom, and help. Hover to open.',
     target: '.menu-bar',
   },
   {
@@ -81,19 +81,19 @@ const STEPS: TutorialStep[] = [
     target: '#theme-toggle',
   },
   {
-    title: 'Plugin Cards',
+    title: 'Window Cards',
     description: 'Drag header to move. Resize via edge handles. Snaps to 28px grid.',
   },
   {
-    title: 'Plugin List',
-    description: 'See all open plugins. Hover lower-left to open, click to focus.',
+    title: 'Window List',
+    description: 'See all open windows. Hover lower-left to open, click to focus.',
     target: '.pli-zone',
     onEnter: () => {
-      const p = document.querySelector('.plugin-list-panel') as HTMLElement;
+      const p = document.querySelector('.window-list-panel') as HTMLElement;
       if (p) p.style.display = 'block';
     },
     onLeave: () => {
-      const p = document.querySelector('.plugin-list-panel') as HTMLElement;
+      const p = document.querySelector('.window-list-panel') as HTMLElement;
       if (p) p.style.display = '';
     },
   },

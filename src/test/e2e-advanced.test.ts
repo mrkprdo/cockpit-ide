@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CanvasArea } from '../renderer/components/CanvasArea';
-import { ExplorerPlugin } from '../renderer/components/ExplorerPlugin';
-import { MarkdownPlugin } from '../renderer/components/MarkdownPlugin';
-import { PluginCard } from '../renderer/components/PluginCard';
+import { ExplorerWindow } from '../renderer/components/ExplorerWindow';
+import { MarkdownWindow } from '../renderer/components/MarkdownWindow';
+import { WindowCard } from '../renderer/components/WindowCard';
 import { ConfirmModal } from '../renderer/components/ConfirmModal';
-import { FileExplorerPlugin } from '../renderer/components/FileExplorerPlugin';
+import { FileExplorerWindow } from '../renderer/components/FileExplorerWindow';
 import { mockElectronAPI } from './setup';
 
 function makeCanvasEl(): HTMLElement {
@@ -81,7 +81,7 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
     canvas = new CanvasArea(el);
   });
 
-  it('saves and restores multiple mixed plugins with positions and sizes', async () => {
+  it('saves and restores multiple mixed windows with positions and sizes', async () => {
     canvas.addTerminal('/test');
     canvas.addExplorer('/test');
     await flushRaf();
@@ -91,18 +91,18 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
     await flushRaf();
 
     const saved = canvas.getSaveState();
-    expect(saved.plugins.length).toBe(2);
+    expect(saved.windows.length).toBe(2);
     expect(saved.zOrder.length).toBe(2);
     expect(saved.zoom).toBe(1);
 
-    const termEntry = saved.plugins.find(p => p.title === 'Terminal 1')!;
+    const termEntry = saved.windows.find(p => p.title === 'Terminal 1')!;
     expect(termEntry).toBeTruthy();
     expect(termEntry.uuid).toBeTruthy();
     expect(termEntry.width).toBeGreaterThan(0);
     expect(termEntry.height).toBeGreaterThan(0);
     expect(termEntry.isOpen).toBe(true);
 
-    const devEntry = saved.plugins.find(p => p.title === 'Explorer')!;
+    const devEntry = saved.windows.find(p => p.title === 'Explorer')!;
     expect(devEntry).toBeTruthy();
     expect(devEntry.isOpen).toBe(true);
 
@@ -115,16 +115,16 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
     const onChange = vi.fn();
     canvas2.onStateChange = onChange;
 
-    canvas2.restorePlugins(saved, '/test');
+    canvas2.restoreWindows(saved, '/test');
     await flushRaf();
     await flushRaf();
 
     const restored = canvas2.getSaveState();
-    expect(restored.plugins.length).toBe(2);
+    expect(restored.windows.length).toBe(2);
 
     // Verify card types are restored
-    expect(restored.plugins.some(p => p.title === 'Terminal 1')).toBe(true);
-    expect(restored.plugins.some(p => p.title === 'Explorer')).toBe(true);
+    expect(restored.windows.some(p => p.title === 'Terminal 1')).toBe(true);
+    expect(restored.windows.some(p => p.title === 'Explorer')).toBe(true);
   });
 
   it('preserves z-order card count through save/restore cycle', async () => {
@@ -139,7 +139,7 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
     const el2 = makeCanvasEl();
     makeMenuBar();
     const canvas2 = new CanvasArea(el2);
-    canvas2.restorePlugins(saved, '/test');
+    canvas2.restoreWindows(saved, '/test');
     await flushRaf();
 
     const restored = canvas2.getSaveState();
@@ -163,9 +163,9 @@ describe('E2E Advanced: Full Save/Restore Round Trip', () => {
     const el2 = makeCanvasEl();
     makeMenuBar();
     const canvas2 = new CanvasArea(el2);
-    canvas2.restorePlugins(beforeState, '/test');
+    canvas2.restoreWindows(beforeState, '/test');
 
-    // restorePlugins doesn't restore zoom/pan — set them explicitly
+    // restoreWindows doesn't restore zoom/pan — set them explicitly
     canvas2.setView({ zoom: beforeZoom, panX: beforeState.panX, panY: beforeState.panY });
     await flushRaf();
 
@@ -195,7 +195,7 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
     await flushRaf();
 
     const beforeState = canvas.getSaveState();
-    const termBefore = beforeState.plugins.find(p => p.title === 'Terminal 1')!;
+    const termBefore = beforeState.windows.find(p => p.title === 'Terminal 1')!;
     expect(termBefore.isOpen).toBe(true);
     const uuid = termBefore.uuid;
 
@@ -205,7 +205,7 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
     await flushRaf();
 
     const savedMinimized = canvas.getSaveState();
-    const termMin = savedMinimized.plugins.find(p => p.title === 'Terminal 1')!;
+    const termMin = savedMinimized.windows.find(p => p.title === 'Terminal 1')!;
     expect(termMin.isOpen).toBe(false);
 
     // Reopen
@@ -213,14 +213,14 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
     await flushRaf();
 
     const savedAfter = canvas.getSaveState();
-    const termAfter = savedAfter.plugins.find(p => p.title === 'Terminal 1')!;
+    const termAfter = savedAfter.windows.find(p => p.title === 'Terminal 1')!;
     expect(termAfter.isOpen).toBe(true);
     // Position restored
     expect(termAfter.x).toBe(termMin.x);
     expect(termAfter.y).toBe(termMin.y);
   });
 
-  it('minimizes and reopens dev plugin', async () => {
+  it('minimizes and reopens dev window', async () => {
     const onDev = vi.fn();
     canvas.onExplorersChanged = onDev;
 
@@ -239,35 +239,35 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
       expect(closedCall[0].some((i: any) => !i.isOpen)).toBe(true);
     }
 
-    const devUuid = canvas.getSaveState().plugins.find(p => p.title === 'Explorer')!.uuid;
+    const devUuid = canvas.getSaveState().windows.find(p => p.title === 'Explorer')!.uuid;
     canvas.reopenExplorer(devUuid);
     await flushRaf();
 
     const after = canvas.getSaveState();
-    expect(after.plugins.find(p => p.title === 'Explorer')!.isOpen).toBe(true);
+    expect(after.windows.find(p => p.title === 'Explorer')!.isOpen).toBe(true);
   });
 
-  it('minimizes and reopens explorer plugin', async () => {
+  it('minimizes and reopens explorer window', async () => {
     canvas.addExplorer('/test');
     await flushRaf();
 
-    const ctxEntry = canvas.getSaveState().plugins.find(p => p.title === 'Explorer')!;
+    const ctxEntry = canvas.getSaveState().windows.find(p => p.title === 'Explorer')!;
 
     const minBtn = el.querySelector('.card-btn-minimize') as HTMLElement;
     minBtn?.click();
     await flushRaf();
 
-    const minimized = canvas.getSaveState().plugins.find(p => p.title === 'Explorer')!;
+    const minimized = canvas.getSaveState().windows.find(p => p.title === 'Explorer')!;
     expect(minimized.isOpen).toBe(false);
 
     canvas.reopenExplorer(ctxEntry.uuid);
     await flushRaf();
 
-    const reopened = canvas.getSaveState().plugins.find(p => p.title === 'Explorer')!;
+    const reopened = canvas.getSaveState().windows.find(p => p.title === 'Explorer')!;
     expect(reopened.isOpen).toBe(true);
   });
 
-  it('minimizing all cards keeps them in plugins array as closed', async () => {
+  it('minimizing all cards keeps them in windows array as closed', async () => {
     canvas.addTerminal('/test');
     canvas.addExplorer('/test');
     await flushRaf();
@@ -280,8 +280,8 @@ describe('E2E Advanced: Minimize/Reopen Cycles', () => {
     await flushRaf();
 
     const after = canvas.getSaveState();
-    expect(after.plugins.length).toBe(2);
-    expect(after.plugins.filter(p => p.isOpen).length).toBe(0);
+    expect(after.windows.length).toBe(2);
+    expect(after.windows.filter(p => p.isOpen).length).toBe(0);
   });
 });
 
@@ -372,7 +372,7 @@ describe('E2E Advanced: Arrange & Layout Workflows', () => {
     await flushRaf();
 
     const state = canvas.getSaveState();
-    const openCards = state.plugins.filter(p => p.isOpen);
+    const openCards = state.windows.filter(p => p.isOpen);
     expect(openCards.length).toBe(3);
     expect(onChange).toHaveBeenCalled();
 
@@ -396,8 +396,8 @@ describe('E2E Advanced: Arrange & Layout Workflows', () => {
     await flushRaf();
 
     const after = canvas.getSaveState();
-    expect(after.plugins.filter(p => p.isOpen).length).toBe(2);
-    expect(after.plugins.filter(p => !p.isOpen).length).toBe(1);
+    expect(after.windows.filter(p => p.isOpen).length).toBe(2);
+    expect(after.windows.filter(p => !p.isOpen).length).toBe(1);
   });
 
   it('auto arrange with single card does not error', async () => {
@@ -408,7 +408,7 @@ describe('E2E Advanced: Arrange & Layout Workflows', () => {
     await flushRaf();
 
     const state = canvas.getSaveState();
-    expect(state.plugins.length).toBe(1);
+    expect(state.windows.length).toBe(1);
   });
 });
 
@@ -441,8 +441,8 @@ describe('E2E Advanced: Canvas Navigation with Cards', () => {
     await flushRaf();
 
     const after = canvas.getSaveState();
-    const termAfter = after.plugins.find(p => p.title === 'Terminal 1')!;
-    const termBefore = before.plugins.find(p => p.title === 'Terminal 1')!;
+    const termAfter = after.windows.find(p => p.title === 'Terminal 1')!;
+    const termBefore = before.windows.find(p => p.title === 'Terminal 1')!;
     expect(termAfter.x).toBe(termBefore.x);
     expect(termAfter.y).toBe(termBefore.y);
     expect(after.zoom).toBeGreaterThan(before.zoom);
@@ -491,17 +491,17 @@ describe('E2E Advanced: Canvas Navigation with Cards', () => {
 
   it('getSaveState with no cards returns correct structure', () => {
     const state = canvas.getSaveState();
-    expect(state.plugins).toEqual([]);
+    expect(state.windows).toEqual([]);
     expect(state.zOrder).toEqual([]);
     expect(state.zoom).toBe(1);
   });
 });
 
 // ═══════════════════════════════════════════════
-// E2E ADVANCED: PLUGIN LIFECYCLE
+// E2E ADVANCED: WINDOW LIFECYCLE
 // ═══════════════════════════════════════════════
 
-describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
+describe('E2E Advanced: Window Lifecycle Full Cycle', () => {
   let canvas: CanvasArea;
 
   beforeEach(() => {
@@ -519,7 +519,7 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
     canvas.addTerminal('/test');
     await flushRaf();
 
-    expect(canvas.getSaveState().plugins.length).toBe(1);
+    expect(canvas.getSaveState().windows.length).toBe(1);
 
     // Terminate via header context menu
     const cardEl = document.querySelector('.card') as HTMLElement;
@@ -528,7 +528,7 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
     await flushRaf();
 
     expect(mockElectronAPI.terminal.kill).toHaveBeenCalled();
-    expect(canvas.getSaveState().plugins.length).toBe(0);
+    expect(canvas.getSaveState().windows.length).toBe(0);
   });
 
   it('creates terminal, minimizes via close button, reopen restores isOpen', async () => {
@@ -536,8 +536,8 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
     await flushRaf();
 
     const beforeState = canvas.getSaveState();
-    const termUuid = beforeState.plugins.find(p => p.title === 'Terminal 1')!.uuid;
-    expect(beforeState.plugins.find(p => p.title === 'Terminal 1')!.isOpen).toBe(true);
+    const termUuid = beforeState.windows.find(p => p.title === 'Terminal 1')!.uuid;
+    expect(beforeState.windows.find(p => p.title === 'Terminal 1')!.isOpen).toBe(true);
 
     // Minimize via minimize button (this removes from DOM but keeps in state)
     const minBtn = document.querySelector('.card-btn-minimize') as HTMLElement;
@@ -545,21 +545,21 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
     await flushRaf();
 
     const minimized = canvas.getSaveState();
-    expect(minimized.plugins.find(p => p.title === 'Terminal 1')!.isOpen).toBe(false);
+    expect(minimized.windows.find(p => p.title === 'Terminal 1')!.isOpen).toBe(false);
 
     // Reopen
     canvas.reopenTerminal(termUuid);
     await flushRaf();
 
     const reopened = canvas.getSaveState();
-    expect(reopened.plugins.find(p => p.title === 'Terminal 1')!.isOpen).toBe(true);
+    expect(reopened.windows.find(p => p.title === 'Terminal 1')!.isOpen).toBe(true);
 
     // Terminate after reopen — but card may not be in DOM after close/reopen cycle
-    // So verify via state: card still exists in plugins
-    expect(reopened.plugins.length).toBeGreaterThanOrEqual(1);
+    // So verify via state: card still exists in windows
+    expect(reopened.windows.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('terminates dev plugin and removes from state', async () => {
+  it('terminates dev window and removes from state', async () => {
     const onDev = vi.fn();
     canvas.onExplorersChanged = onDev;
 
@@ -571,29 +571,29 @@ describe('E2E Advanced: Plugin Lifecycle Full Cycle', () => {
     await flushRaf();
 
     const state = canvas.getSaveState();
-    expect(state.plugins.filter(p => p.title.startsWith('Explorer')).length).toBe(0);
+    expect(state.windows.filter(p => p.title.startsWith('Explorer')).length).toBe(0);
   });
 
-  it('terminates explorer plugin and removes from state', async () => {
+  it('terminates explorer window and removes from state', async () => {
     const onDev = vi.fn();
     canvas.onExplorersChanged = onDev;
 
     canvas.addExplorer('/test');
     await flushRaf();
-    expect(canvas.getSaveState().plugins.length).toBe(1);
+    expect(canvas.getSaveState().windows.length).toBe(1);
 
     clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Close');
     await flushRaf();
 
-    expect(canvas.getSaveState().plugins.length).toBe(0);
+    expect(canvas.getSaveState().windows.length).toBe(0);
   });
 });
 
 // ═══════════════════════════════════════════════
-// E2E ADVANCED: MARKDOWN PLUGIN MULTI-TAB
+// E2E ADVANCED: MARKDOWN WINDOW MULTI-TAB
 // ═══════════════════════════════════════════════
 
-describe('E2E Advanced: MarkdownPlugin Multi-Tab', () => {
+describe('E2E Advanced: MarkdownWindow Multi-Tab', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -605,7 +605,7 @@ describe('E2E Advanced: MarkdownPlugin Multi-Tab', () => {
   });
 
   it('loads multiple .md files as separate tabs', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     ctx.title = 'Markdown T1';
 
     (mockElectronAPI.fs.readFile as any)
@@ -625,7 +625,7 @@ describe('E2E Advanced: MarkdownPlugin Multi-Tab', () => {
   });
 
   it('does not duplicate when loading same file twice', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     ctx.title = 'Markdown T2';
 
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Dup');
@@ -637,7 +637,7 @@ describe('E2E Advanced: MarkdownPlugin Multi-Tab', () => {
   });
 
   it('serializes and restores multi-tab state', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     ctx.title = 'Markdown T3';
 
     (mockElectronAPI.fs.readFile as any)
@@ -656,7 +656,7 @@ describe('E2E Advanced: MarkdownPlugin Multi-Tab', () => {
     container2.style.cssText = 'width:700px;height:500px';
     document.body.appendChild(container2);
 
-    const ctx2 = new MarkdownPlugin(container2);
+    const ctx2 = new MarkdownWindow(container2);
     ctx2.title = 'Markdown T3';
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Restored');
 
@@ -669,7 +669,7 @@ describe('E2E Advanced: MarkdownPlugin Multi-Tab', () => {
   });
 
   it('handles legacy single-file state format', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     ctx.title = 'Markdown Legacy';
 
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Legacy');
@@ -683,13 +683,13 @@ describe('E2E Advanced: MarkdownPlugin Multi-Tab', () => {
   });
 
   it('getState returns null when no files loaded', () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     ctx.title = 'Empty Markdown';
     expect(ctx.getState()).toBeNull();
   });
 
   it('double destroy does not throw', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     ctx.title = 'Destroyable';
     ctx.destroy();
     expect(() => ctx.destroy()).not.toThrow();
@@ -719,7 +719,7 @@ describe('E2E Advanced: FileExplorer Nested Operations', () => {
     ]);
 
     const onFileOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onFileOpen);
+    new FileExplorerWindow(container, '/test', onFileOpen);
     await flushRaf();
 
     const tree = container.querySelector('div > div');
@@ -732,7 +732,7 @@ describe('E2E Advanced: FileExplorer Nested Operations', () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([]);
 
     const onFileOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onFileOpen);
+    new FileExplorerWindow(container, '/test', onFileOpen);
     await flushRaf();
 
     const tree = container.querySelector('div > div');
@@ -748,7 +748,7 @@ describe('E2E Advanced: FileExplorer Nested Operations', () => {
     ]);
 
     const onFileOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onFileOpen);
+    new FileExplorerWindow(container, '/test', onFileOpen);
     await flushRaf();
 
     const tree = container.querySelector('div > div') as HTMLElement;
@@ -900,7 +900,7 @@ describe('E2E Advanced: Notification Chain Integrity', () => {
 // E2E ADVANCED: COUNTER CONTINUITY
 // ═══════════════════════════════════════════════
 
-describe('E2E Advanced: Plugin Counter Continuity', () => {
+describe('E2E Advanced: Window Counter Continuity', () => {
   let canvas: CanvasArea;
 
   beforeEach(() => {
@@ -925,7 +925,7 @@ describe('E2E Advanced: Plugin Counter Continuity', () => {
     canvas.addTerminal('/test');
     await flushRaf();
 
-    const titles = canvas.getSaveState().plugins
+    const titles = canvas.getSaveState().windows
       .filter(p => p.title.startsWith('Terminal'))
       .map(p => p.title);
 
@@ -935,9 +935,9 @@ describe('E2E Advanced: Plugin Counter Continuity', () => {
     expect(titles.filter(t => t === 'Terminal 1').length).toBe(0);
   });
 
-  it('restorePlugins sets counter from persisted highest terminal number', async () => {
+  it('restoreWindows sets counter from persisted highest terminal number', async () => {
     const state = {
-      plugins: [
+      windows: [
         { uuid: 't5', title: 'Terminal 5', x: 0, y: 0, width: 560, height: 420, isOpen: false },
         { uuid: 'd3', title: 'Explorer 3', x: 100, y: 100, width: 800, height: 500, isOpen: false },
       ],
@@ -945,7 +945,7 @@ describe('E2E Advanced: Plugin Counter Continuity', () => {
       zoom: 1, panX: 0, panY: 0,
     };
 
-    canvas.restorePlugins(state, '/test');
+    canvas.restoreWindows(state, '/test');
     await flushRaf();
 
     canvas.addTerminal('/test');
@@ -953,15 +953,15 @@ describe('E2E Advanced: Plugin Counter Continuity', () => {
 
     const saved = canvas.getSaveState();
     // Should have Terminal 6 (5 + 1)
-    expect(saved.plugins.some(p => p.title === 'Terminal 6')).toBe(true);
+    expect(saved.windows.some(p => p.title === 'Terminal 6')).toBe(true);
   });
 });
 
 // ═══════════════════════════════════════════════
-// E2E ADVANCED: DEVPLUGIN STATE DELEGATION
+// E2E ADVANCED: DEV WINDOW STATE DELEGATION
 // ═══════════════════════════════════════════════
 
-describe('E2E Advanced: ExplorerPlugin State Delegation', () => {
+describe('E2E Advanced: ExplorerWindow State Delegation', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -972,8 +972,8 @@ describe('E2E Advanced: ExplorerPlugin State Delegation', () => {
     document.body.appendChild(container);
   });
 
-  it('ExplorerPlugin initializes split layout with explorer + handle + editor', () => {
-    const dev = new ExplorerPlugin(container, '/test');
+  it('ExplorerWindow initializes split layout with explorer + handle + editor', () => {
+    const dev = new ExplorerWindow(container, '/test');
     const splitEl = container.children[0] as HTMLElement;
 
     expect(splitEl).toBeTruthy();
@@ -982,26 +982,26 @@ describe('E2E Advanced: ExplorerPlugin State Delegation', () => {
     expect(splitEl.children.length).toBe(3);
   });
 
-  it('ExplorerPlugin returns null editor state when no files open', () => {
-    const dev = new ExplorerPlugin(container, '/test');
+  it('ExplorerWindow returns null editor state when no files open', () => {
+    const dev = new ExplorerWindow(container, '/test');
     expect(dev.getEditorState()).toBeNull();
   });
 
-  it('ExplorerPlugin.restoreEditorState with null exits early', async () => {
-    const dev = new ExplorerPlugin(container, '/test');
+  it('ExplorerWindow.restoreEditorState with null exits early', async () => {
+    const dev = new ExplorerWindow(container, '/test');
     await dev.restoreEditorState(null as any);
     expect(dev.getEditorState()).toBeNull();
   });
 
-  it('ExplorerPlugin.restoreEditorState with empty openFiles exits early', async () => {
-    const dev = new ExplorerPlugin(container, '/test');
+  it('ExplorerWindow.restoreEditorState with empty openFiles exits early', async () => {
+    const dev = new ExplorerWindow(container, '/test');
     await dev.restoreEditorState({ openFiles: [], activeFile: '', explorerWidth: 260, cursors: {} } as any);
     expect(dev.getEditorState()).toBeNull();
   });
 
-  it('ExplorerPlugin.updateTheme does not throw when editor not loaded', async () => {
+  it('ExplorerWindow.updateTheme does not throw when editor not loaded', async () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([]);
-    const dev = new ExplorerPlugin(container, '/test');
+    const dev = new ExplorerWindow(container, '/test');
     await flushRaf();
     expect(() => dev.updateTheme()).not.toThrow();
   });
@@ -1035,13 +1035,13 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
     await flushRaf();
 
     const state = canvas.getSaveState();
-    expect(state.plugins.length).toBe(2);
-    expect(state.plugins.every(p => p.isOpen === false)).toBe(true);
+    expect(state.windows.length).toBe(2);
+    expect(state.windows.every(p => p.isOpen === false)).toBe(true);
   });
 
-  it('restorePlugins normalizes legacy "Dev" title to "Explorer"', async () => {
-    canvas.restorePlugins({
-      plugins: [
+  it('restoreWindows normalizes legacy "Dev" title to "Explorer"', async () => {
+    canvas.restoreWindows({
+      windows: [
         { uuid: 'u1', title: 'Dev', x: 0, y: 0, width: 800, height: 500, isOpen: false },
       ],
       zOrder: ['u1'],
@@ -1050,19 +1050,19 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
     await flushRaf();
 
     const saved = canvas.getSaveState();
-    expect(saved.plugins.some(p => p.title === 'Explorer')).toBe(true);
+    expect(saved.windows.some(p => p.title === 'Explorer')).toBe(true);
   });
 
-  it('restorePlugins handles empty plugins array', async () => {
-    canvas.restorePlugins({ plugins: [], zOrder: [], zoom: 1, panX: 0, panY: 0 }, '/test');
+  it('restoreWindows handles empty windows array', async () => {
+    canvas.restoreWindows({ windows: [], zOrder: [], zoom: 1, panX: 0, panY: 0 }, '/test');
     await flushRaf();
 
-    expect(canvas.getSaveState().plugins).toEqual([]);
+    expect(canvas.getSaveState().windows).toEqual([]);
   });
 
-  it('restorePlugins handles zOrder with unknown UUIDs gracefully', async () => {
-    canvas.restorePlugins({
-      plugins: [
+  it('restoreWindows handles zOrder with unknown UUIDs gracefully', async () => {
+    canvas.restoreWindows({
+      windows: [
         { uuid: 'real-uuid', title: 'Terminal 1', x: 0, y: 0, width: 560, height: 420, isOpen: false },
       ],
       zOrder: ['real-uuid', 'ghost-uuid'],
@@ -1070,12 +1070,12 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
     }, '/test');
     await flushRaf();
 
-    expect(canvas.getSaveState().plugins.length).toBe(1);
+    expect(canvas.getSaveState().windows.length).toBe(1);
   });
 
-  it('restorePlugins handles empty zOrder array', async () => {
-    canvas.restorePlugins({
-      plugins: [
+  it('restoreWindows handles empty zOrder array', async () => {
+    canvas.restoreWindows({
+      windows: [
         { uuid: 'u1', title: 'Terminal 1', x: 0, y: 0, width: 560, height: 420, isOpen: false },
       ],
       zOrder: [],
@@ -1083,7 +1083,7 @@ describe('E2E Advanced: Save State Edge Scenarios', () => {
     }, '/test');
     await flushRaf();
 
-    expect(canvas.getSaveState().plugins.length).toBe(1);
+    expect(canvas.getSaveState().windows.length).toBe(1);
   });
 });
 
@@ -1106,20 +1106,20 @@ describe('E2E Advanced: Terminal Exit Flow', () => {
     canvas.addTerminal('/test');
     await flushRaf();
 
-    expect(canvas.getSaveState().plugins.length).toBe(1);
+    expect(canvas.getSaveState().windows.length).toBe(1);
 
     clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Terminate');
     await flushRaf();
 
     expect(mockElectronAPI.terminal.kill).toHaveBeenCalled();
-    expect(canvas.getSaveState().plugins.length).toBe(0);
+    expect(canvas.getSaveState().windows.length).toBe(0);
   });
 
   it('terminate non-terminal card does not call terminal.kill', async () => {
     canvas.addExplorer('/test');
     await flushRaf();
 
-    expect(canvas.getSaveState().plugins.length).toBe(1);
+    expect(canvas.getSaveState().windows.length).toBe(1);
 
     clickHeaderContextItem(document.querySelector('.card') as HTMLElement, 'Close');
     await flushRaf();
@@ -1128,12 +1128,12 @@ describe('E2E Advanced: Terminal Exit Flow', () => {
     const termKillCalls = (mockElectronAPI.terminal.kill as any).mock.calls
       .filter((c: any[]) => c.length > 0);
     // Only verify card removed (kill may or may not be called based on implementation)
-    expect(canvas.getSaveState().plugins.length).toBe(0);
+    expect(canvas.getSaveState().windows.length).toBe(0);
   });
 });
 
 // ═══════════════════════════════════════════════
-// E2E ADVANCED: TOPBAR PLUGIN ITEM POPULATION
+// E2E ADVANCED: TOPBAR WINDOW ITEM POPULATION
 // ═══════════════════════════════════════════════
 
 describe('E2E Advanced: Callback Data Shape Integrity', () => {
@@ -1182,15 +1182,15 @@ describe('E2E Advanced: Callback Data Shape Integrity', () => {
 });
 
 // ═══════════════════════════════════════════════
-// E2E ADVANCED: PLUGIN CARD STRUCTURE
+// E2E ADVANCED: WINDOW CARD STRUCTURE
 // ═══════════════════════════════════════════════
 
-describe('E2E Advanced: PluginCard Drag & Resize', () => {
+describe('E2E Advanced: WindowCard Drag & Resize', () => {
   it('creates a card with correct DOM structure', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Test Card',
       x: 100, y: 200, width: 400, height: 300,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
@@ -1214,7 +1214,7 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     document.body.appendChild(parent);
 
     const onTerminate = vi.fn();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Terminable', x: 0, y: 0, width: 200, height: 100, onTerminate,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
@@ -1228,7 +1228,7 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     document.body.appendChild(parent);
 
     const onDestroy = vi.fn();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Removable', x: 0, y: 0, width: 200, height: 100,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
@@ -1243,7 +1243,7 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Double', x: 0, y: 0, width: 200, height: 100,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
@@ -1256,7 +1256,7 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     document.body.appendChild(parent);
 
     const onFocus = vi.fn();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Focusable', x: 0, y: 0, width: 200, height: 100, onFocus,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
@@ -1268,7 +1268,7 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'DOM Title', x: 0, y: 0, width: 200, height: 100,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
@@ -1281,7 +1281,7 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Content Card', x: 0, y: 0, width: 200, height: 100,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 
@@ -1295,7 +1295,7 @@ describe('E2E Advanced: PluginCard Drag & Resize', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Resizable', x: 0, y: 0, width: 200, height: 100,
     }, () => ({ scale: 1, panX: 0, panY: 0 }));
 

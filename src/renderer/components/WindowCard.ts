@@ -20,7 +20,7 @@ export interface CardOptions {
 
 const SNAP = 28;
 
-export class PluginCard {
+export class WindowCard {
   readonly el: HTMLDivElement;
   readonly opts: CardOptions;
   readonly uuid: string;

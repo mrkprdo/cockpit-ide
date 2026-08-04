@@ -1,5 +1,5 @@
 // SpecsMap public API — the agent + UI-facing methods, extracted from the
-// facade so SpecsMapPlugin.ts stays under the 700 LOC cap (refactor.md
+// facade so SpecsMapWindow.ts stays under the 700 LOC cap (refactor.md
 // §A.2/§A.3.8). Pure delegation over the SpecsData controller + GraphRenderer;
 // DOM side effects (refresh, validation badge, refresh button) go through the
 // narrow SpecsApiHost.

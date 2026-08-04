@@ -42,7 +42,7 @@ export function reportFailure(signal: Omit<FailureSignal, 'at'>): void {
 
 /**
  * Wrap a top-level DOM binding so a throwing listener is caught, attributed to
- * a source module, and reported as a plugin.crash — instead of surfacing as an
+ * a source module, and reported as a window.crash — instead of surfacing as an
  * uncaught exception invisible to any try/catch. Returns an unbind function;
  * facades collect these in an unbinders[] array and run them all in destroy()
  * (otherwise wrapping every binding would be a straight listener leak).
@@ -62,10 +62,10 @@ export function bindGuarded<E extends Event>(
     try {
       const r = handler(e as E);
       if (r instanceof Promise) {
-        r.catch((err: unknown) => reportFailure({ kind: 'plugin.crash', source, message: String(err) }));
+        r.catch((err: unknown) => reportFailure({ kind: 'window.crash', source, message: String(err) }));
       }
     } catch (err) {
-      reportFailure({ kind: 'plugin.crash', source, message: String(err) });
+      reportFailure({ kind: 'window.crash', source, message: String(err) });
     }
   };
   el.addEventListener(event, wrapped, options);
@@ -76,12 +76,12 @@ function installWindowHooks(): void {
   window.addEventListener('error', (e) => {
     const err = e.error as unknown;
     const message = err instanceof Error ? (err.stack || err.message) : (e.message || 'window error');
-    reportFailure({ kind: 'plugin.crash', source: 'window', message, stack: e.error?.stack });
+    reportFailure({ kind: 'window.crash', source: 'window', message, stack: e.error?.stack });
   });
   window.addEventListener('unhandledrejection', (e) => {
     const reason = e.reason as unknown;
     const message = reason instanceof Error ? (reason.stack || reason.message) : String(reason);
-    reportFailure({ kind: 'plugin.crash', source: 'window', message, stack: reason instanceof Error ? reason.stack : undefined });
+    reportFailure({ kind: 'window.crash', source: 'window', message, stack: reason instanceof Error ? reason.stack : undefined });
   });
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { MonacoEditorPlugin } from './MonacoEditorPlugin';
+import { MonacoEditorWindow } from './MonacoEditorWindow';
 import { mockElectronAPI } from '../../test/setup';
 
 function makeContainer(): HTMLElement {
@@ -9,7 +9,7 @@ function makeContainer(): HTMLElement {
   return el;
 }
 
-describe('MonacoEditorPlugin', () => {
+describe('MonacoEditorWindow', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -21,50 +21,50 @@ describe('MonacoEditorPlugin', () => {
   });
 
   it('creates editor structure with tab bar and editor area', () => {
-    new MonacoEditorPlugin(container);
+    new MonacoEditorWindow(container);
     expect(container.querySelector('#tab-container')).toBeTruthy();
     expect(container.querySelector('[id^="monaco-"]')).toBeTruthy();
   });
 
   it('shows "No file selected" when no tabs are open', () => {
-    new MonacoEditorPlugin(container);
+    new MonacoEditorWindow(container);
     expect(container.textContent).toContain('No file selected');
   });
 
   it('tabs array is empty initially', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect(editor.tabs).toEqual([]);
     expect(editor.activeTab).toBeNull();
   });
 
   it('getState returns null when no tabs', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect(editor.getState()).toBeNull();
   });
 
   it('getCurrentFile returns empty string initially', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect(editor.getCurrentFile()).toBe('');
   });
 
   it('getContent returns empty string initially', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect(editor.getContent()).toBe('');
   });
 
   it('reloadIfOpen does nothing when no tabs are open', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     await editor.reloadIfOpen('/test/file.ts');
     expect(editor.tabs).toEqual([]);
   });
 
   it('sets up file change listener on construction', () => {
-    new MonacoEditorPlugin(container);
+    new MonacoEditorWindow(container);
     expect(mockElectronAPI.fs.onChanged).toHaveBeenCalled();
   });
 });
 
-describe('MonacoEditorPlugin — language detection', () => {
+describe('MonacoEditorWindow — language detection', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -74,7 +74,7 @@ describe('MonacoEditorPlugin — language detection', () => {
   });
 
   function getLanguage(ext: string): string {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     return (editor as any).getLanguage(ext);
   }
 
@@ -170,7 +170,7 @@ describe('MonacoEditorPlugin — language detection', () => {
   });
 });
 
-describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
+describe('MonacoEditorWindow — reloadIfOpen behavior', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -182,7 +182,7 @@ describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
   });
 
   it('does nothing when no matching tab is open', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
 
     // Manually add a tab bypassing Monaco loading
     editor.tabs.push({ filePath: '/test/other.ts', name: 'other.ts', originalPath: '/test/other.ts' });
@@ -194,7 +194,7 @@ describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
   });
 
   it('closes tab when file is deleted (readFile returns null)', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/test/deleted.ts', name: 'deleted.ts', originalPath: '/test/deleted.ts' });
     editor.activeTab = '/test/deleted.ts';
     (mockElectronAPI.fs.readFile as any).mockResolvedValue(null);
@@ -204,7 +204,7 @@ describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
   });
 
   it('updates fileContents cache on successful reload', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/test/file.ts', name: 'file.ts', originalPath: '/test/file.ts' });
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('updated content');
 
@@ -214,21 +214,21 @@ describe('MonacoEditorPlugin — reloadIfOpen behavior', () => {
 
   it('unsubscribes from file watcher on second construction', () => {
     // First editor sets up listener
-    new MonacoEditorPlugin(container);
+    new MonacoEditorWindow(container);
     const calls = (mockElectronAPI.fs.onChanged as any).mock.calls.length;
 
     // Second editor also sets up listener
-    new MonacoEditorPlugin(container);
+    new MonacoEditorWindow(container);
     expect((mockElectronAPI.fs.onChanged as any).mock.calls.length).toBe(calls + 1);
   });
 
   it('file change listener is registered via electronAPI.fs.onChanged', () => {
-    new MonacoEditorPlugin(container);
+    new MonacoEditorWindow(container);
     expect(mockElectronAPI.fs.onChanged).toHaveBeenCalledWith(expect.any(Function));
   });
 });
 
-describe('MonacoEditorPlugin — updateTheme', () => {
+describe('MonacoEditorWindow — updateTheme', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -243,19 +243,19 @@ describe('MonacoEditorPlugin — updateTheme', () => {
   });
 
   it('does nothing when monaco is not loaded', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect(() => editor.updateTheme()).not.toThrow();
   });
 
   it('does nothing when editor instance is null even if monaco exists', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     (window as any).monaco = { editor: { setTheme: vi.fn() } };
     expect(() => editor.updateTheme()).not.toThrow();
   });
 
   it('calls monaco.editor.setTheme with cockpit-dark when theme is dark', () => {
     const setTheme = vi.fn();
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     (window as any).monaco = { editor: { setTheme } };
     (editor as any).editor = {};
     editor.updateTheme();
@@ -263,7 +263,7 @@ describe('MonacoEditorPlugin — updateTheme', () => {
   });
 });
 
-describe('MonacoEditorPlugin — tab improvements', () => {
+describe('MonacoEditorWindow — tab improvements', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -276,7 +276,7 @@ describe('MonacoEditorPlugin — tab improvements', () => {
   });
 
   it('closeOtherTabs keeps only the specified tab', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push(
       { filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' },
       { filePath: '/test/b.ts', name: 'b.ts', originalPath: '/test/b.ts' },
@@ -290,7 +290,7 @@ describe('MonacoEditorPlugin — tab improvements', () => {
   });
 
   it('closeAllTabs clears all tabs and shows empty state', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push(
       { filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' },
       { filePath: '/test/b.ts', name: 'b.ts', originalPath: '/test/b.ts' },
@@ -303,7 +303,7 @@ describe('MonacoEditorPlugin — tab improvements', () => {
   });
 
   it('renders tabs with draggable attribute', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
     editor.activeTab = '/test/a.ts';
     (editor as any).renderTabs();
@@ -313,7 +313,7 @@ describe('MonacoEditorPlugin — tab improvements', () => {
   });
 
   it('tracks dirty state on content change', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
     editor.activeTab = '/test/a.ts';
     (editor as any).dirtyFiles.add('/test/a.ts');
@@ -323,7 +323,7 @@ describe('MonacoEditorPlugin — tab improvements', () => {
   });
 
   it('clears dirty state on closeAllTabs', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
     editor.activeTab = '/test/a.ts';
     (editor as any).dirtyFiles.add('/test/a.ts');
@@ -332,7 +332,7 @@ describe('MonacoEditorPlugin — tab improvements', () => {
   });
 
   it('copy file path action calls clipboard writeText', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
     editor.activeTab = '/test/a.ts';
     (editor as any).renderTabs();
@@ -344,7 +344,7 @@ describe('MonacoEditorPlugin — tab improvements', () => {
   });
 });
 
-describe('MonacoEditorPlugin — saveCurrentFile', () => {
+describe('MonacoEditorWindow — saveCurrentFile', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -355,7 +355,7 @@ describe('MonacoEditorPlugin — saveCurrentFile', () => {
   });
 
   it('does nothing when no activeTab', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     (editor as any).editor = { getValue: vi.fn().mockReturnValue('content') };
     editor.activeTab = null;
     editor.saveCurrentFile();
@@ -363,7 +363,7 @@ describe('MonacoEditorPlugin — saveCurrentFile', () => {
   });
 
   it('does nothing when editor is null', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/a.ts', name: 'a.ts', originalPath: '/a.ts' });
     editor.activeTab = '/a.ts';
     (editor as any).editor = null;
@@ -372,7 +372,7 @@ describe('MonacoEditorPlugin — saveCurrentFile', () => {
   });
 
   it('writes file content and clears dirty flag', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/a.ts', name: 'a.ts', originalPath: '/a.ts' });
     editor.activeTab = '/a.ts';
     (editor as any).dirtyFiles.add('/a.ts');
@@ -383,7 +383,7 @@ describe('MonacoEditorPlugin — saveCurrentFile', () => {
   });
 });
 
-describe('MonacoEditorPlugin — getState with editor', () => {
+describe('MonacoEditorWindow — getState with editor', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -393,12 +393,12 @@ describe('MonacoEditorPlugin — getState with editor', () => {
   });
 
   it('returns null when no tabs open', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect(editor.getState()).toBeNull();
   });
 
   it('returns state with open files and active file', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push(
       { filePath: '/a.ts', name: 'a.ts', originalPath: '/a.ts' },
       { filePath: '/b.ts', name: 'b.ts', originalPath: '/b.ts' },
@@ -411,7 +411,7 @@ describe('MonacoEditorPlugin — getState with editor', () => {
   });
 
   it('captures cursor position from editor when active', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/a.ts', name: 'a.ts', originalPath: '/a.ts' });
     editor.activeTab = '/a.ts';
     (editor as any).editor = {
@@ -426,7 +426,7 @@ describe('MonacoEditorPlugin — getState with editor', () => {
   });
 
   it('skips cursor capture when editor returns null position', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/a.ts', name: 'a.ts', originalPath: '/a.ts' });
     editor.activeTab = '/a.ts';
     (editor as any).editor = {
@@ -439,7 +439,7 @@ describe('MonacoEditorPlugin — getState with editor', () => {
   });
 });
 
-describe('MonacoEditorPlugin — getActiveOriginalPath', () => {
+describe('MonacoEditorWindow — getActiveOriginalPath', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -449,25 +449,25 @@ describe('MonacoEditorPlugin — getActiveOriginalPath', () => {
   });
 
   it('returns null when no activeTab', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect((editor as any).getActiveOriginalPath()).toBeNull();
   });
 
   it('returns originalPath for active tab', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/norm.ts', name: 'norm.ts', originalPath: '/orig/norm.ts' });
     editor.activeTab = '/norm.ts';
     expect((editor as any).getActiveOriginalPath()).toBe('/orig/norm.ts');
   });
 
   it('returns null when activeTab has no matching tab entry', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     editor.activeTab = '/ghost.ts';
     expect((editor as any).getActiveOriginalPath()).toBeNull();
   });
 });
 
-describe('MonacoEditorPlugin — markdown preview tabs', () => {
+describe('MonacoEditorWindow — markdown preview tabs', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -507,7 +507,7 @@ describe('MonacoEditorPlugin — markdown preview tabs', () => {
   });
 
   it('openMarkdown adds a markdown-kind tab to the same tab bar', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     await editor.openMarkdown('/test/readme.md');
     expect(editor.tabs).toHaveLength(1);
     expect(editor.tabs[0].kind).toBe('markdown');
@@ -516,7 +516,7 @@ describe('MonacoEditorPlugin — markdown preview tabs', () => {
   });
 
   it('switching to a markdown tab hides the Monaco editor and shows the preview', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     await editor.openFile('/test/a.ts');
     await editor.openMarkdown('/test/readme.md');
 
@@ -533,7 +533,7 @@ describe('MonacoEditorPlugin — markdown preview tabs', () => {
   });
 
   it('reopening a markdown tab via openFile flips it back to code mode', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     await editor.openMarkdown('/test/readme.md');
     await editor.openFile('/test/readme.md');
     expect(editor.tabs[0].kind).toBeUndefined();
@@ -541,7 +541,7 @@ describe('MonacoEditorPlugin — markdown preview tabs', () => {
   });
 
   it('getState reports markdown files separately and round-trips through restoreState', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     await editor.openFile('/test/a.ts');
     await editor.openMarkdown('/test/readme.md');
 
@@ -550,7 +550,7 @@ describe('MonacoEditorPlugin — markdown preview tabs', () => {
     expect(state!.markdownFiles).toEqual(['/test/readme.md']);
     expect(state!.activeFile).toBe('/test/readme.md');
 
-    const editor2 = new MonacoEditorPlugin(makeContainer());
+    const editor2 = new MonacoEditorWindow(makeContainer());
     await editor2.restoreState(state!);
     expect(editor2.tabs.find(t => t.originalPath === '/test/readme.md')?.kind).toBe('markdown');
     expect((editor2 as any).activeTab).toBe('/test/readme.md');

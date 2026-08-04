@@ -20,7 +20,7 @@ All under `src/renderer/agents/`:
 | `executor.ts` | `AgentExecutor` singleton (spawn/kill/status/dispatch/wait), respond cache | **extended** |
 | `agent-tools.ts` | `agent_spawn/dispatch/wait/status/kill` tool defs | **extended** |
 
-Fleet is wired into the main session (`AiDrawer` → `ORCHESTRATION_SECTION`, `setConfigProvider`), the UI card (`AgentsPlugin`), and persistence (`App.ts` → `.cockpit/agents/{bus.jsonl,roster.json}`).
+Fleet is wired into the main session (`AiDrawer` → `ORCHESTRATION_SECTION`, `setConfigProvider`), the UI card (`AgentsWindow`), and persistence (`App.ts` → `.cockpit/agents/{bus.jsonl,roster.json}`).
 
 **Gaps vs. the Claude Code architecture (this overhaul):**
 
@@ -84,7 +84,7 @@ Changed files:
 | `src/preload/preload.ts` + `src/global.d.ts` | Add `shell.exec` |
 | `src/main/main.ts` | Import + register `shell.ts` handler |
 | `src/renderer/components/AiDrawer.ts` | Load definitions on workspace open; list custom agents in `ORCHESTRATION_SECTION` |
-| `src/renderer/components/AgentsPlugin.ts` | Spawn form supports definitions; show permission mode/hooks in inspector |
+| `src/renderer/components/AgentsWindow.ts` | Spawn form supports definitions; show permission mode/hooks in inspector |
 
 ---
 
@@ -324,7 +324,7 @@ Map the doc's `user`/`project`/`local` onto the existing memory system without b
 
 ### Specs to update (structural via reconcile + prose by hand)
 - `agents-types.spec.md` — add new type exports
-- `agents-plugin.spec.md` — spawn form + inspector changes
+- `agents-window.spec.md` — spawn form + inspector changes
 - `agent-tools.spec.md` — new `agent`/`model`/`permission_mode`/`max_turns` params + `agent_approve`
 - `ai-types.spec.md` — `ToolContext` extensions
 - `main-process.spec.md` — `shell:exec` IPC channel (both ends)
@@ -363,7 +363,7 @@ Existing 1430-test suite must stay green (2 known pre-existing failures in `main
 4. `hooks.ts` + tests
 5. `session.ts` integration (permission gate → hooks → model resolution)
 6. `executor.ts` + `agent-tools.ts` (spawn by agent, overrides, `agent_approve`)
-7. `definition-file.ts` + `memory-scopes.ts` + `AiDrawer`/`AgentsPlugin` UI
+7. `definition-file.ts` + `memory-scopes.ts` + `AiDrawer`/`AgentsWindow` UI
 8. Specs (new + structural reconcile) + `specgen-hash.ts` regen
 9. Full test + build + typecheck pass
 

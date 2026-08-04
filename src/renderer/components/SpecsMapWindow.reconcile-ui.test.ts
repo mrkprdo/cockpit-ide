@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SpecsMapPlugin } from './SpecsMapPlugin';
+import { SpecsMapWindow } from './SpecsMapWindow';
 import { mockElectronAPI } from '../../test/setup';
 
 const MAIN = [
@@ -46,7 +46,7 @@ describe('reconcile buttons end-to-end', () => {
   });
 
   it('Report button shows a changelog in the panel', async () => {
-    new SpecsMapPlugin(container, '/ws');
+    new SpecsMapWindow(container, '/ws');
     await flush();
     (container.querySelector('button[title="Settings"]') as HTMLButtonElement).click();
     const btn = container.querySelector('#sm-reconcile-report-btn') as HTMLButtonElement;
@@ -59,7 +59,7 @@ describe('reconcile buttons end-to-end', () => {
   });
 
   it('Apply button writes updated spec and shows changelog', async () => {
-    new SpecsMapPlugin(container, '/ws');
+    new SpecsMapWindow(container, '/ws');
     await flush();
     (container.querySelector('button[title="Settings"]') as HTMLButtonElement).click();
     (container.querySelector('#sm-reconcile-apply-btn') as HTMLButtonElement).click();

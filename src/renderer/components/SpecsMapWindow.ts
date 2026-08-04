@@ -15,7 +15,7 @@ import { createLogger } from '../logging/logger';
 
 const log = createLogger('specsmap');
 
-export class SpecsMapPlugin {
+export class SpecsMapWindow {
   private el: HTMLDivElement;
   private viewport: HTMLDivElement;
   private svg: SVGSVGElement;
@@ -128,25 +128,25 @@ export class SpecsMapPlugin {
     this.validationBadge.style.cssText =
       'display:none;font-size:9px;font-weight:700;letter-spacing:0.3px;padding:1px 6px;' +
       'border-radius:4px;border:1px solid;line-height:1.6;white-space:nowrap';
-    this.unbinders.push(bindGuarded(this.validationBadge, 'click', () => this.panelCtrl.openSettingsPanel(), 'specsmap/SpecsMapPlugin.ts'));
+    this.unbinders.push(bindGuarded(this.validationBadge, 'click', () => this.panelCtrl.openSettingsPanel(), 'specsmap/SpecsMapWindow.ts'));
 
     this.cycleBtn = document.createElement('button');
     this.cycleBtn.className = 'sm-header-btn';
     this.cycleBtn.innerHTML = SVG_GEAR;
     this.cycleBtn.title = 'Settings';
-    this.unbinders.push(bindGuarded(this.cycleBtn, 'click', () => this.panelCtrl.openSettingsPanel(), 'specsmap/SpecsMapPlugin.ts'));
+    this.unbinders.push(bindGuarded(this.cycleBtn, 'click', () => this.panelCtrl.openSettingsPanel(), 'specsmap/SpecsMapWindow.ts'));
 
     this.fitBtn = document.createElement('button');
     this.fitBtn.className = 'sm-header-btn';
     this.fitBtn.innerHTML = SVG_EYE;
     this.fitBtn.title = 'Reset view';
-    this.unbinders.push(bindGuarded(this.fitBtn, 'click', () => this.renderer.fitGraph(), 'specsmap/SpecsMapPlugin.ts'));
+    this.unbinders.push(bindGuarded(this.fitBtn, 'click', () => this.renderer.fitGraph(), 'specsmap/SpecsMapWindow.ts'));
 
     this.refreshBtn = document.createElement('button');
     this.refreshBtn.className = 'sm-header-btn';
     this.refreshBtn.innerHTML = SVG_REFRESH;
     this.refreshBtn.title = 'Rebuild spec graph from src/specs/';
-    this.unbinders.push(bindGuarded(this.refreshBtn, 'click', () => this.refresh(), 'specsmap/SpecsMapPlugin.ts'));
+    this.unbinders.push(bindGuarded(this.refreshBtn, 'click', () => this.refresh(), 'specsmap/SpecsMapWindow.ts'));
 
     header.appendChild(headerSub);
     header.appendChild(headerPath);
@@ -156,7 +156,7 @@ export class SpecsMapPlugin {
     this.searchBtn.className = 'sm-header-btn';
     this.searchBtn.innerHTML = SVG_SEARCH;
     this.searchBtn.title = 'Search nodes (Ctrl+F)';
-    this.unbinders.push(bindGuarded(this.searchBtn, 'click', () => this.search.toggle(), 'specsmap/SpecsMapPlugin.ts'));
+    this.unbinders.push(bindGuarded(this.searchBtn, 'click', () => this.search.toggle(), 'specsmap/SpecsMapWindow.ts'));
     header.appendChild(this.searchBtn);
 
     header.appendChild(this.cycleBtn);
@@ -339,7 +339,7 @@ export class SpecsMapPlugin {
   }
 
   private initInteractions(): void {
-    const src = 'specsmap/SpecsMapPlugin.ts';
+    const src = 'specsmap/SpecsMapWindow.ts';
     this.unbinders.push(bindGuarded(this.viewport, 'wheel', (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();

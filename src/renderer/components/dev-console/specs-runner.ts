@@ -1,6 +1,6 @@
 // On-demand specs validation for the dev console's Specs tab (refactor.md §C.1).
 // Self-contained runner over the specs graph engine — mirrors the collection
-// discovery SpecsMapPlugin does (refactor.md §A.4 pulls that into specsmap/data.ts).
+// discovery SpecsMapWindow does (refactor.md §A.4 pulls that into specsmap/data.ts).
 
 import { parseSpecDoc, fmGet } from '../../specs/format';
 import { buildMainIndex, buildGraph } from '../../specs/graph';

@@ -1,7 +1,7 @@
 import { ContextMenu } from './ContextMenu';
 import { ConfirmModal } from './ConfirmModal';
 
-export class FileExplorerPlugin {
+export class FileExplorerWindow {
   private el: HTMLDivElement;
   private treeEl: HTMLDivElement;
   private expanded = new Set<string>();

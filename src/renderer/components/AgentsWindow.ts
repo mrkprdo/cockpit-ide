@@ -37,7 +37,7 @@ interface LiveRoundtableSession {
  *   plan registry) and spawned experts for renders automatically as a quorum
  *   tracker — chips per expert, a progress bar toward quorum, kill-panel only.
  */
-export class AgentsPlugin {
+export class AgentsWindow {
   private root: HTMLDivElement;
   private statuses: AgentStatus[] = [];
   private connections: Connection[] = [];

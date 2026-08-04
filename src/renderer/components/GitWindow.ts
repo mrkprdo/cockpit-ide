@@ -1,16 +1,16 @@
-import type { DiffViewMode, GitApi, GitFileChange, GitState } from './git-plugin/types';
-import { buildUi } from './git-plugin/ui-build';
-import { HistoryPanel } from './git-plugin/history';
-import { ChangesPanel } from './git-plugin/changes';
-import { DiffView } from './git-plugin/diff-view';
+import type { DiffViewMode, GitApi, GitFileChange, GitState } from './git-window/types';
+import { buildUi } from './git-window/ui-build';
+import { HistoryPanel } from './git-window/history';
+import { ChangesPanel } from './git-window/changes';
+import { DiffView } from './git-window/diff-view';
 import { bindGuarded } from '../health/monitor';
 import { createLogger } from '../logging/logger';
 
 const log = createLogger('git');
 
-export type { GitState } from './git-plugin/types';
+export type { GitState } from './git-window/types';
 
-export class GitPlugin {
+export class GitWindow {
   onStateChange: (() => void) | null = null;
   onFileOpen: ((filePath: string) => void) | null = null;
 
@@ -99,7 +99,7 @@ export class GitPlugin {
 
     container.appendChild(this.splitEl);
 
-    this.unbinders.push(bindGuarded(this.splitEl, 'wheel', (e) => e.stopPropagation(), 'git-plugin/GitPlugin.ts', { passive: true }));
+    this.unbinders.push(bindGuarded(this.splitEl, 'wheel', (e) => e.stopPropagation(), 'git-window/GitWindow.ts', { passive: true }));
 
     Promise.resolve().then(() => this.refresh());
 

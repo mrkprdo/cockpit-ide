@@ -68,9 +68,9 @@ describe('classify: layer', () => {
     expect(facts('src/renderer/components/CommandPalette.ts', content).suggestedLayer).toBe('overlay');
   });
 
-  it('classifies plugin-path files as plugin', () => {
-    const content = "import { Base } from './base';\nexport class GitPlugin extends Base {}";
-    expect(facts('src/renderer/components/GitPlugin.ts', content).suggestedLayer).toBe('plugin');
+  it('classifies window-path files as window', () => {
+    const content = "import { Base } from './base';\nexport class GitWindow extends Base {}";
+    expect(facts('src/renderer/components/GitWindow.ts', content).suggestedLayer).toBe('window');
   });
 
   it('classifies utility-typed files outside special paths as utility layer', () => {

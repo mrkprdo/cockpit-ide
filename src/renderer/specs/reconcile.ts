@@ -173,7 +173,7 @@ export async function reconcile(opts: ReconcileOptions): Promise<ReconcileResult
       if (fmGet(doc, 'parent') || [...rowById.values()].some(x => x.row.ui === specFile)) continue; // ui sub-specs live in the ui column
       const existing = rowById.get(id);
       const srcRel = fmGet(doc, 'file') ?? existing?.row.file ?? '';
-      const layer = existing?.layer ?? fmGet(doc, 'layer') ?? 'plugin';
+      const layer = existing?.layer ?? fmGet(doc, 'layer') ?? 'window';
       push(layer, {
         id,
         name: fmGet(doc, 'name') ?? existing?.row.name ?? id,

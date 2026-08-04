@@ -4,14 +4,14 @@ import { ConfirmModal } from '../renderer/components/ConfirmModal';
 import { ContextMenu } from '../renderer/components/ContextMenu';
 import { WelcomeModal } from '../renderer/components/WelcomeModal';
 import { AboutModal } from '../renderer/components/AboutModal';
-import { PluginCard } from '../renderer/components/PluginCard';
+import { WindowCard } from '../renderer/components/WindowCard';
 import { CanvasArea } from '../renderer/components/CanvasArea';
 import { TopBar } from '../renderer/components/TopBar';
-import { FileExplorerPlugin } from '../renderer/components/FileExplorerPlugin';
-import { MarkdownPlugin } from '../renderer/components/MarkdownPlugin';
-import { MonacoEditorPlugin } from '../renderer/components/MonacoEditorPlugin';
-import { ExplorerPlugin } from '../renderer/components/ExplorerPlugin';
-import { TerminalPlugin } from '../renderer/components/TerminalPlugin';
+import { FileExplorerWindow } from '../renderer/components/FileExplorerWindow';
+import { MarkdownWindow } from '../renderer/components/MarkdownWindow';
+import { MonacoEditorWindow } from '../renderer/components/MonacoEditorWindow';
+import { ExplorerWindow } from '../renderer/components/ExplorerWindow';
+import { TerminalWindow } from '../renderer/components/TerminalWindow';
 import { mockElectronAPI } from './setup';
 
 function makeContainer(w = 800, h = 500): HTMLElement {
@@ -251,10 +251,10 @@ describe('AboutModal edge cases', () => {
 });
 
 // ─────────────────────────────────────────────
-// PLUGIN CARD EDGE CASES
+// WINDOW CARD EDGE CASES
 // ─────────────────────────────────────────────
 
-describe('PluginCard edge cases', () => {
+describe('WindowCard edge cases', () => {
   function makeParent(): HTMLElement {
     const el = document.createElement('div');
     el.id = 'canvas';
@@ -268,7 +268,7 @@ describe('PluginCard edge cases', () => {
 
   it('handles zero width/height gracefully', () => {
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Zero Card',
       x: 0, y: 0, width: 0, height: 0,
     }, getTransform);
@@ -279,7 +279,7 @@ describe('PluginCard edge cases', () => {
   it('handles very long title text', () => {
     const parent = makeParent();
     const longTitle = 'A'.repeat(500);
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: longTitle,
       x: 0, y: 0, width: 400, height: 300,
     }, getTransform);
@@ -289,7 +289,7 @@ describe('PluginCard edge cases', () => {
 
   it('setContent with empty string renders DOM text container', () => {
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Empty Content',
       x: 0, y: 0, width: 400, height: 300,
     }, getTransform);
@@ -301,7 +301,7 @@ describe('PluginCard edge cases', () => {
 
   it('double-remove does not throw', () => {
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Double Remove',
       x: 0, y: 0, width: 200, height: 200,
     }, getTransform);
@@ -312,7 +312,7 @@ describe('PluginCard edge cases', () => {
   it('terminate button fires onTerminate at least once per click', () => {
     const onTerminate = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Term Twice',
       x: 0, y: 0, width: 200, height: 200,
       onTerminate,
@@ -374,10 +374,10 @@ describe('CanvasArea edge cases', () => {
     }).not.toThrow();
   });
 
-  it('save state with no cards returns empty plugins and zOrder', () => {
+  it('save state with no cards returns empty windows and zOrder', () => {
     const canvas = new CanvasArea(makeCanvas());
     const state = canvas.getSaveState();
-    expect(state.plugins).toEqual([]);
+    expect(state.windows).toEqual([]);
     expect(state.zOrder).toEqual([]);
     expect(state.zoom).toBe(1);
   });
@@ -566,7 +566,7 @@ describe('TopBar edge cases', () => {
 // FILE EXPLORER EDGE CASES
 // ─────────────────────────────────────────────
 
-describe('FileExplorerPlugin edge cases', () => {
+describe('FileExplorerWindow edge cases', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -581,7 +581,7 @@ describe('FileExplorerPlugin edge cases', () => {
 
   it('handles empty directory', async () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([]);
-    new FileExplorerPlugin(container, '/empty', vi.fn());
+    new FileExplorerWindow(container, '/empty', vi.fn());
     await new Promise(r => setTimeout(r, 50));
 
     // Tree should be empty (no file entries)
@@ -596,7 +596,7 @@ describe('FileExplorerPlugin edge cases', () => {
       { name: 'file_with_underscores.css', isDirectory: false },
       { name: '日本語ファイル.md', isDirectory: false },
     ]);
-    new FileExplorerPlugin(container, '/special', vi.fn());
+    new FileExplorerWindow(container, '/special', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const text = container.textContent || '';
@@ -610,7 +610,7 @@ describe('FileExplorerPlugin edge cases', () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([
       { name: 'src', isDirectory: true },
     ]);
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on directory — paste should be disabled
@@ -632,7 +632,7 @@ describe('FileExplorerPlugin edge cases', () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([
       { name: 'test.ts', isDirectory: false },
     ]);
-    new FileExplorerPlugin(container, '/test', onFileOpen);
+    new FileExplorerWindow(container, '/test', onFileOpen);
     await new Promise(r => setTimeout(r, 100));
 
     const allDivs = Array.from(container.querySelectorAll('div'));
@@ -656,7 +656,7 @@ describe('FileExplorerPlugin edge cases', () => {
       { name: 'file.ts', isDirectory: false },
     ]);
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on file
@@ -697,7 +697,7 @@ describe('FileExplorerPlugin edge cases', () => {
       { name: 'file.ts', isDirectory: false },
     ]);
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on file
@@ -731,10 +731,10 @@ describe('FileExplorerPlugin edge cases', () => {
 });
 
 // ─────────────────────────────────────────────
-// MARKDOWN PLUGIN EDGE CASES
+// MARKDOWN WINDOW EDGE CASES
 // ─────────────────────────────────────────────
 
-describe('MarkdownPlugin edge cases', () => {
+describe('MarkdownWindow edge cases', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -746,13 +746,13 @@ describe('MarkdownPlugin edge cases', () => {
 
   it('handles file with no content gracefully', async () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue(null);
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/empty.md');
     expect(container.textContent).toContain('No file loaded');
   });
 
   it('handles legacy single-file state format', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     const legacyState: any = {
       loadedFile: '/test/old.md',
       scrollTop: 150,
@@ -765,13 +765,13 @@ describe('MarkdownPlugin edge cases', () => {
   });
 
   it('destroy called twice does not throw', () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     ctx.destroy();
     expect(() => ctx.destroy()).not.toThrow();
   });
 
   it('restoreState with file paths using backslashes normalizes them', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.restoreState({
       openFiles: ['C:\\Users\\test\\file.md'],
       activeFile: 'C:\\Users\\test\\file.md',
@@ -783,7 +783,7 @@ describe('MarkdownPlugin edge cases', () => {
   });
 
   it('switch tab preserves scroll positions', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/a.md');
     await ctx.loadFile('/test/b.md');
 
@@ -795,7 +795,7 @@ describe('MarkdownPlugin edge cases', () => {
   });
 
   it('three tabs then close middle tab shifts active correctly', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/1.md');
     await ctx.loadFile('/test/2.md');
     await ctx.loadFile('/test/3.md');
@@ -817,7 +817,7 @@ describe('MarkdownPlugin edge cases', () => {
 // MONACO EDITOR EDGE CASES
 // ─────────────────────────────────────────────
 
-describe('MonacoEditorPlugin edge cases', () => {
+describe('MonacoEditorWindow edge cases', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -829,7 +829,7 @@ describe('MonacoEditorPlugin edge cases', () => {
   });
 
   it('language detection: known extensions map correctly', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     // getLanguage is private; test indirectly via tab name
     // We can verify tab structure works for various extensions
     expect(editor.tabs).toEqual([]);
@@ -837,7 +837,7 @@ describe('MonacoEditorPlugin edge cases', () => {
   });
 
   it('reloadIfOpen with null content closes the tab', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     // reloadIfOpen checks for null content but with no tabs, it's a no-op
     (mockElectronAPI.fs.readFile as any).mockResolvedValue(null);
     await editor.reloadIfOpen('/test/missing.ts');
@@ -845,14 +845,14 @@ describe('MonacoEditorPlugin edge cases', () => {
   });
 
   it('getState with empty tabs returns null', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect(editor.getState()).toBeNull();
     // Call again to ensure idempotency
     expect(editor.getState()).toBeNull();
   });
 
   it('multiple reloadIfOpen calls for same file do not crash', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     await editor.reloadIfOpen('/test/file.ts');
     await editor.reloadIfOpen('/test/file.ts');
     await editor.reloadIfOpen('/test/file.ts');
@@ -861,10 +861,10 @@ describe('MonacoEditorPlugin edge cases', () => {
 });
 
 // ─────────────────────────────────────────────
-// DEV PLUGIN EDGE CASES
+// DEV WINDOW EDGE CASES
 // ─────────────────────────────────────────────
 
-describe('ExplorerPlugin edge cases', () => {
+describe('ExplorerWindow edge cases', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -877,7 +877,7 @@ describe('ExplorerPlugin edge cases', () => {
   });
 
   it('resize handle mousedown event stops propagation', () => {
-    new ExplorerPlugin(container, '/test/ws');
+    new ExplorerWindow(container, '/test/ws');
     const splitEl = container.firstElementChild!;
     const handle = splitEl.children[1] as HTMLElement;
 
@@ -889,7 +889,7 @@ describe('ExplorerPlugin edge cases', () => {
   });
 
   it('restoreEditorState with no openFiles returns early', async () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     await dev.restoreEditorState({
       openFiles: [],
       activeFile: '',
@@ -903,12 +903,12 @@ describe('ExplorerPlugin edge cases', () => {
   });
 
   it('getEditorState returns null with no files', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     expect(dev.getEditorState()).toBeNull();
   });
 
   it('onStateChange propagates from editor', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     const onChange = vi.fn();
     dev.onStateChange = onChange;
     // Trigger via editor's onStateChange
@@ -918,10 +918,10 @@ describe('ExplorerPlugin edge cases', () => {
 });
 
 // ─────────────────────────────────────────────
-// TERMINAL PLUGIN EDGE CASES
+// TERMINAL WINDOW EDGE CASES
 // ─────────────────────────────────────────────
 
-describe('TerminalPlugin edge cases', () => {
+describe('TerminalWindow edge cases', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -931,7 +931,7 @@ describe('TerminalPlugin edge cases', () => {
   });
 
   it('destroy called twice does not throw', () => {
-    const term = new TerminalPlugin(container, 'test-uuid');
+    const term = new TerminalWindow(container, 'test-uuid');
     term.destroy();
     expect(() => term.destroy()).not.toThrow();
   });
@@ -939,13 +939,13 @@ describe('TerminalPlugin edge cases', () => {
   it('exits gracefully with missing electronAPI', () => {
     const saved = (window as any).electronAPI;
     (window as any).electronAPI = undefined;
-    expect(() => new TerminalPlugin(container, 'test-uuid')).not.toThrow();
+    expect(() => new TerminalWindow(container, 'test-uuid')).not.toThrow();
     (window as any).electronAPI = saved;
   });
 
   it('onExit property works as a simple callback', () => {
     const fn = vi.fn();
-    const term = new TerminalPlugin(container, 'test-uuid');
+    const term = new TerminalWindow(container, 'test-uuid');
     term.onExit = fn;
     term.onExit?.();
     expect(fn).toHaveBeenCalledOnce();
@@ -968,9 +968,9 @@ describe('Cross-component edge cases', () => {
     (mockElectronAPI.terminal.create as any).mockResolvedValue(true);
   });
 
-  it('ExplorerPlugin opens .md files in the editor; openInMarkdown routes to a markdown preview tab', () => {
+  it('ExplorerWindow opens .md files in the editor; openInMarkdown routes to a markdown preview tab', () => {
     const devContainer = makeContainer(800, 500);
-    const dev = new ExplorerPlugin(devContainer, '/test/ws');
+    const dev = new ExplorerWindow(devContainer, '/test/ws');
 
     const openMarkdownSpy = vi.spyOn(dev.editor, 'openMarkdown');
 
@@ -981,9 +981,9 @@ describe('Cross-component edge cases', () => {
     expect(openMarkdownSpy).toHaveBeenCalledWith('/test/readme.md');
   });
 
-  it('theme toggle propagates through ExplorerPlugin.editor chain', () => {
+  it('theme toggle propagates through ExplorerWindow.editor chain', () => {
     const container = makeContainer(800, 500);
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
 
     theme.toggle();
     dev.updateTheme();
@@ -1006,7 +1006,7 @@ describe('Cross-component edge cases', () => {
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([
       { name: 'file.ts', isDirectory: false },
     ]);
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Simulate external change — should trigger refresh timer
@@ -1016,14 +1016,14 @@ describe('Cross-component edge cases', () => {
     expect(changeCallback).toBeTruthy();
   });
 
-  it('Markdown plugin destroy cleans up file watcher before second instance', () => {
+  it('Markdown window destroy cleans up file watcher before second instance', () => {
     const container1 = makeContainer(600, 400);
-    const ctx1 = new MarkdownPlugin(container1);
+    const ctx1 = new MarkdownWindow(container1);
     ctx1.destroy();
 
     // Second instance should work fine
     const container2 = makeContainer(600, 400);
-    const ctx2 = new MarkdownPlugin(container2);
+    const ctx2 = new MarkdownWindow(container2);
     expect(container2.textContent).toContain('No file loaded');
   });
 });

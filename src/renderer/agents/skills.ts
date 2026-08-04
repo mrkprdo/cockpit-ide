@@ -8,7 +8,7 @@ import { TOOL_FAMILIES } from './permissions';
  *
  * The ten skills are declared once as `SubAgentDefinition` data (in
  * definitions.ts); `SKILLS` below maps them back into the legacy `Skill` shape
- * so existing consumers (`guardToolCall`, the Agents plugin, session) keep
+ * so existing consumers (`guardToolCall`, the Agents window, session) keep
  * working unchanged. Guardrails are enforced in code (`permissions.ts` +
  * `guardToolCall`), never only in the prompt.
  */

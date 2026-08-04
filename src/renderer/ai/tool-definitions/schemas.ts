@@ -45,8 +45,8 @@ export const ListDirectoryArgs = PathArg;
 export const CreateDirectoryArgs = PathArg;
 export const GetCanvasStateArgs = z.object({});
 export const OpenFileInEditorArgs = PathArg;
-export const AddPluginArgs = z.object({
-  type: z.enum(['terminal', 'explorer', 'git', 'markdown', 'specsmap', 'agents']).describe('Plugin type to add'),
+export const AddWindowArgs = z.object({
+  type: z.enum(['terminal', 'explorer', 'git', 'markdown', 'specsmap', 'agents']).describe('Window type to add'),
 });
 export const DeleteFileArgs = PathArg;
 export const RenameFileArgs = z.object({

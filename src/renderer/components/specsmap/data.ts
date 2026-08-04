@@ -255,7 +255,7 @@ export class SpecsData {
     const rawNodes: SpecNode[] = [];
     for (const [filename, data] of this.specRawMap) {
       const isUI = uiToParent.has(filename);
-      const layer = specLayerMap.get(filename) ?? data.layer ?? 'plugin';
+      const layer = specLayerMap.get(filename) ?? data.layer ?? 'window';
       const hasEntry = !!data.entry;
       const entryPath = data.entry ?? '';
       const deps: string[] = [];

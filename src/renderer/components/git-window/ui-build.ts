@@ -68,7 +68,7 @@ export function focusable(el: HTMLElement): void {
 }
 
 /**
- * Builds the entire GitPlugin DOM: split panes, drag/resize handles, navigation
+ * Builds the entire GitWindow DOM: split panes, drag/resize handles, navigation
  * selects, changes lists, commit bar, commits list, diff header/dropdown and
  * empty-diff placeholder. All interactive events call back into the facade via
  * `callbacks`.

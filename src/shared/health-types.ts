@@ -7,7 +7,7 @@
 
 export type FailureSignalKind =
   | 'terminal.pty-exit'
-  | 'plugin.crash'
+  | 'window.crash'
   | 'llm.stream-error'
   | 'ipc.handler-error'
   | 'specs.corrupt-cache';

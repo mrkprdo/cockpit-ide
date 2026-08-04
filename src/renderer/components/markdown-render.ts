@@ -1,5 +1,5 @@
-// Markdown → HTML rendering for the MonacoEditorPlugin markdown-preview tabs
-// (and, historically, the standalone MarkdownPlugin). Escapes raw HTML and
+// Markdown → HTML rendering for the MonacoEditorWindow markdown-preview tabs
+// (and, historically, the standalone MarkdownWindow). Escapes raw HTML and
 // blocks javascript: links.
 
 import { marked, Renderer } from 'marked';

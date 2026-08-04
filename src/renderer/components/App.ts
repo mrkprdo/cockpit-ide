@@ -44,7 +44,7 @@ export class App {
       // Ctrl+W / Cmd+W — close active editor tab
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
-        this.canvas.getActiveExplorerPlugin()?.closeActiveTab();
+        this.canvas.getActiveExplorerWindow()?.closeActiveTab();
       }
       if (e.ctrlKey && e.key === 'Tab') {
         e.preventDefault();
@@ -53,7 +53,7 @@ export class App {
       // Ctrl+P / Cmd+P — open file search palette
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
-        this.canvas.getActiveExplorerPlugin()?.openFileSearch();
+        this.canvas.getActiveExplorerWindow()?.openFileSearch();
       }
       // Ctrl+Shift+F / Cmd+Shift+F — search across files
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
@@ -267,7 +267,7 @@ export class App {
       // When "keep view still on tool calls" is on, tools that open/reveal
       // files or specs still do their work but never drag the camera.
       openFile: async (p: string) => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); e.openFile(p); },
-      addPlugin: (type: string) => {
+      addWindow: (type: string) => {
         switch (type) {
           case 'terminal': this.canvas.addTerminal(this.wsPath); break;
           case 'explorer': this.canvas.addExplorer(this.wsPath); break;
@@ -295,7 +295,7 @@ export class App {
       },
       insertInEditor: async (text: string) => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); e.insertText(text); },
       readTerminal: (uuid: string) => {
-        return this.canvas.getTerminalPlugin(uuid)?.getScreenBuffer() ?? 'Terminal not found';
+        return this.canvas.getTerminalWindow(uuid)?.getScreenBuffer() ?? 'Terminal not found';
       },
       readEditor: async () => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); return e.editor.getContent() ?? ''; },
       getEditorState: async () => { const e = await this.canvas.ensureExplorer({ pan: !viewPrefs.suppressViewMove }); return e.getAgentEditorState() ?? null; },
@@ -384,11 +384,11 @@ export class App {
 
     const state = await ws.load(path);
 
-    if (state && state.plugins && state.plugins.length > 0) {
-      // Restore saved plugins with positions
-      this.canvas.restorePlugins(state, path);
+    if (state && state.windows && state.windows.length > 0) {
+      // Restore saved windows with positions
+      this.canvas.restoreWindows(state, path);
     } else {
-      // First time — create default plugins and auto arrange
+      // First time — create default windows and auto arrange
       this.canvas.addExplorer(path);
       this.canvas.addTerminal(path);
       this.canvas.autoArrange();

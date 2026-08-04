@@ -105,7 +105,7 @@ export function validate(graph: SpecGraph, opts: ValidateOptions = {}): Validati
   }
 
   // layer.inversion — violations of the layer *definitions*, not of ordering.
-  // An orchestrator (core) importing widgets/modals/plugins is normal; the
+  // An orchestrator (core) importing widgets/modals/windows is normal; the
   // real inversions are: foundation with any internal dependency (foundation
   // is defined as importing nothing internal) and utility depending on
   // stateful/UI layers.

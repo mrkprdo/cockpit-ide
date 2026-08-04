@@ -30,7 +30,7 @@ The tool should feel like a well-calibrated instrument — capable, quiet, and p
 2. **State over decoration.** Accent color communicates selection, active state, and focus — never decorative fill. Semantic colors (green/amber/red) mean something specific.
 3. **Precision without austerity.** The dashed borders and Space Mono typeface add character. These are intentional, not default. Don't smooth them away.
 4. **Spatial over sequential.** Layout is information. A card's position on the canvas is meaningful. Avoid flows that force the user back into sequential tabs or modal-heavy sequences.
-5. **Consistent vocabulary.** Same button shapes, same interaction patterns across every plugin. A developer switching between the editor card and the git card should never pause to re-learn the chrome.
+5. **Consistent vocabulary.** Same button shapes, same interaction patterns across every window. A developer switching between the editor card and the git card should never pause to re-learn the chrome.
 
 ## Accessibility & Inclusion
 

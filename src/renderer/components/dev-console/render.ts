@@ -35,7 +35,7 @@ function kindSlug(kind: string): string {
   if (kind === 'invoke' || kind === 'send' || kind === 'sendSync') return 'ipc';
   if (kind === 'dispatch' || kind === 'respond' || kind === 'request' ||
       kind === 'broadcast' || kind === 'status' || kind === 'kill') return 'agent';
-  return 'plugin';
+  return 'window';
 }
 
 export function renderUnifiedEntry(e: UnifiedEntry): HTMLElement {

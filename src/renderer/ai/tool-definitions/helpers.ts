@@ -13,7 +13,7 @@ export function readFileResult(content: string, offset = 0, limit = READABLE_LEN
   return sliced + `\n---[truncated: showed chars ${offset}–${end} of ${total}. Use offset=${end}&limit=${limit} to continue]---`;
 }
 
-export function pluginTypeFromTitle(title: string): string {
+export function windowTypeFromTitle(title: string): string {
   if (title.startsWith('Terminal')) return 'terminal';
   if (title === 'Explorer') return 'explorer';
   if (title === 'Git') return 'git';

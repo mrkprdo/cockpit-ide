@@ -46,7 +46,7 @@ function countLines(file) {
 const CONSOLE_SCOPE = [
   'src/renderer/health',
   'src/renderer/components/dev-console',
-  'src/renderer/components/git-plugin',
+  'src/renderer/components/git-window',
   'src/renderer/components/canvas-area',
   'src/renderer/components/ai-drawer',
   'src/renderer/components/specsmap',

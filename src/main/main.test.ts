@@ -302,13 +302,13 @@ describe('main.ts IPC handlers', () => {
       main._testTrustPath('/custom/workspace');
       const fs = await import('fs');
       vi.mocked(fs.readFileSync).mockClear();
-      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ plugins: [], zOrder: [], zoom: 1, panX: 0, panY: 0 }));
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ windows: [], zOrder: [], zoom: 1, panX: 0, panY: 0 }));
 
       const handler = handleMap.get('workspace:load')!;
       const result = await handler({}, '/custom/workspace');
       expect(result).not.toBeNull();
       if (result) {
-        expect(result.plugins).toEqual([]);
+        expect(result.windows).toEqual([]);
       }
       expect(fs.readFileSync).toHaveBeenCalledTimes(1);
       expect(fs.readFileSync).toHaveBeenCalledWith(
@@ -330,7 +330,7 @@ describe('main.ts IPC handlers', () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const handler = handleMap.get('workspace:save')!;
 
-      const result = await handler({}, { plugins: [] });
+      const result = await handler({}, { windows: [] });
       expect(result).toBe(false);
       spy.mockRestore();
     });
@@ -573,7 +573,7 @@ describe('main.ts IPC handlers', () => {
     it('workspace:save rejects explicit wsPath outside workspace', async () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const handler = handleMap.get('workspace:save')!;
-      const result = await handler({}, { plugins: [] }, '/etc');
+      const result = await handler({}, { windows: [] }, '/etc');
       expect(result).toBe(false);
       spy.mockRestore();
     });

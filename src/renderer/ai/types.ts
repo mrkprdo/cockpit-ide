@@ -8,7 +8,7 @@ export interface CockpitGlobal {
   getCanvasState: () => WorkspaceStateLike;
   getWorkspacePath: () => string | null | undefined;
   openFile: (path: string) => Promise<void> | void;
-  addPlugin: (type: string) => void;
+  addWindow: (type: string) => void;
   addTerminal: () => Promise<string>;
   focusCard: (title: string) => void;
   closeCard: (title: string) => boolean;
@@ -46,10 +46,10 @@ export interface WorkspaceStateLike {
   zoom: number;
   panX: number;
   panY: number;
-  plugins: PluginStateLike[];
+  windows: WindowStateLike[];
 }
 
-export interface PluginStateLike {
+export interface WindowStateLike {
   uuid: string;
   title: string;
   x: number;

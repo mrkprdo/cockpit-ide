@@ -1,4 +1,4 @@
-// SpecsMap — static visual assets: the plugin's injected <style> text and the
+// SpecsMap — static visual assets: the window's injected <style> text and the
 // header SVG icon markup. Kept out of the facade so the facade stays under the
 // LOC ceiling; these are pure string constants with no behavior.
 

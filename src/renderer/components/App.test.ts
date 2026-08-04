@@ -149,7 +149,7 @@ describe('App', () => {
     });
     document.dispatchEvent(event);
 
-    // addTerminal -> TerminalPlugin -> terminal.create
+    // addTerminal -> TerminalWindow -> terminal.create
     await vi.waitFor(() => {
       expect(mockElectronAPI.terminal.create).toHaveBeenCalled();
     });
@@ -195,13 +195,13 @@ describe('App', () => {
     expect(mockElectronAPI.workspace.load).toHaveBeenCalledWith('/cli/path');
   });
 
-  it('Ctrl+P does not throw even with no active explorer plugin', () => {
+  it('Ctrl+P does not throw even with no active explorer window', () => {
     new App();
     const event = new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true });
     expect(() => document.dispatchEvent(event)).not.toThrow();
   });
 
-  it('Cmd+P does not throw even with no active explorer plugin', () => {
+  it('Cmd+P does not throw even with no active explorer window', () => {
     new App();
     const event = new KeyboardEvent('keydown', { key: 'p', metaKey: true, bubbles: true });
     expect(() => document.dispatchEvent(event)).not.toThrow();

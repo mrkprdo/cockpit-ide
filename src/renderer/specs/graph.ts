@@ -7,7 +7,7 @@ import {
 } from './format';
 import type { FeatureNode, MainIndex, SpecEdge, SpecGraph } from './types';
 
-export const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'plugin', 'service', 'utility'];
+export const LAYER_ORDER = ['foundation', 'core', 'widget', 'modal', 'overlay', 'window', 'service', 'utility'];
 
 export function specIdFromFilename(specFile: string): string {
   return specFile.replace(/\.spec\.md$/, '');
@@ -25,7 +25,7 @@ export function buildMainIndex(mainDoc: SpecDoc): MainIndex {
 /**
  * Build the graph from parsed docs. `specs` maps spec filename → doc
  * (main.spec.md excluded). Layer resolution: main index row wins, then the
- * spec's own frontmatter, then 'plugin'.
+ * spec's own frontmatter, then 'window'.
  */
 export function buildGraph(main: MainIndex | null, specs: Map<string, SpecDoc>): SpecGraph {
   const nodes = new Map<string, FeatureNode>();
@@ -58,7 +58,7 @@ export function buildGraph(main: MainIndex | null, specs: Map<string, SpecDoc>):
     const node: FeatureNode = {
       id,
       name: fmGet(doc, 'name') ?? id,
-      layer: rowLayer.get(specFile) ?? fmGet(doc, 'layer') ?? 'plugin',
+      layer: rowLayer.get(specFile) ?? fmGet(doc, 'layer') ?? 'window',
       type: fmGet(doc, 'type') ?? '',
       singleton: fmGetParsed(doc, 'singleton') === true,
       specFile,

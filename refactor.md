@@ -1,8 +1,8 @@
 # Refactor Plan — Modularization + Self-Healing + Dev Console
 
-**Status:** ✅ **Complete.** Phases 0b–7 plus the post-plan additions (unified dev-console log stream, structured app-wide logging with main→renderer `log:push`, keep-view-still-on-tool-calls toggle, SpecsMapPlugin facade API extraction) are all implemented and committed on `refactor-file-split` (9 commits). Full audit (2026-08-03, §G.10): `npm test` 62/62 files / 1711/1711 green, `loc:check` + `console:check` green and wired into CI + the Makefile test target, `tsc` main clean and renderer down to only the pre-existing baseline debt (SearchOverlay.test, TerminalPlugin `.ready`, `.click`/`.style` DOM-typing), reconcile gate green (only the two pre-existing stale `flock` specs). §E's one-PR-per-phase ideal wasn't followed (entangled diff → a few logical commits), recorded in §G.7/G.9.
+**Status:** ✅ **Complete.** Phases 0b–7 plus the post-plan additions (unified dev-console log stream, structured app-wide logging with main→renderer `log:push`, keep-view-still-on-tool-calls toggle, SpecsMapWindow facade API extraction) are all implemented and committed on `refactor-file-split` (9 commits). Full audit (2026-08-03, §G.10): `npm test` 62/62 files / 1711/1711 green, `loc:check` + `console:check` green and wired into CI + the Makefile test target, `tsc` main clean and renderer down to only the pre-existing baseline debt (SearchOverlay.test, TerminalWindow `.ready`, `.click`/`.style` DOM-typing), reconcile gate green (only the two pre-existing stale `flock` specs). §E's one-PR-per-phase ideal wasn't followed (entangled diff → a few logical commits), recorded in §G.7/G.9.
 **Owner:** Cockpit Agent + user
-**Relation to existing code:** builds on the existing `src/renderer/components/specsmap/` split (already 2 files extracted from `SpecsMapPlugin.ts`), the SPECGEN specs graph (`SPECGEN.md`, `.spec.md` files under `src/specs/`), and the existing crash-recovery substrate (`src/main/main.ts` `logFatal`/`wireCrashRecovery`, `src/renderer/index.ts` `window.onerror`/`unhandledrejection` → `diagnostics:rendererError`).
+**Relation to existing code:** builds on the existing `src/renderer/components/specsmap/` split (already 2 files extracted from `SpecsMapWindow.ts`), the SPECGEN specs graph (`SPECGEN.md`, `.spec.md` files under `src/specs/`), and the existing crash-recovery substrate (`src/main/main.ts` `logFatal`/`wireCrashRecovery`, `src/renderer/index.ts` `window.onerror`/`unhandledrejection` → `diagnostics:rendererError`).
 
 **Primary goal is A — housekeeping the codebase into bite-size files.** B and C are not new-feature workstreams; they exist only to give visibility *while* A happens, built first (see §E for exact phase numbering — this doc states phase numbers in §E only, nowhere else, to stop the numbering drifting out of sync across sections on edits) so a logging/observability pattern emerges organically from actually writing the split-up modules, rather than being over-designed upfront. B is log-only for now — no auto-remediation.
 
@@ -16,13 +16,13 @@ Three workstreams, one plan, landing together file-by-file: **(A)** split monoli
 
 | File | LOC | Over cap by |
 |---|---|---|
-| `src/renderer/components/SpecsMapPlugin.ts` | 2326 | 1626 |
+| `src/renderer/components/SpecsMapWindow.ts` | 2326 | 1626 |
 | `src/renderer/components/AiDrawer.ts` | 2140 | 1440 |
 | `src/renderer/components/CanvasArea.ts` | 1908 | 1208 |
-| `src/renderer/components/GitPlugin.ts` | 1163 | 463 |
+| `src/renderer/components/GitWindow.ts` | 1163 | 463 |
 | `src/main/main.ts` | 1015 | 315 |
 | `src/renderer/ai/tool-definitions.ts` | 921 | 221 |
-| `src/renderer/components/MonacoEditorPlugin.ts` | 636 | 0 (watch) |
+| `src/renderer/components/MonacoEditorWindow.ts` | 636 | 0 (watch) |
 
 Monolithic files mix unrelated concerns (parsing, I/O, rendering, event handling, sub-panel UI, public API) in one file. Costs: hard to review/hold in context, and it defeats SPECGEN's 1-spec-per-file granularity — a 2300-line file forces one spec to describe six unrelated responsibilities.
 
@@ -43,19 +43,19 @@ Monolithic files mix unrelated concerns (parsing, I/O, rendering, event handling
    - **Stateful sub-controller** — needs private state (`viewport.ts`, `sessions.ts`, `card-lifecycle.ts`, etc.). The state **moves with the logic** into a small class instantiated once in the facade's constructor; the facade holds it as `private viewport: Viewport` and delegates. Fields do **not** stay on the facade and get reached into from outside — TS `private` blocks that anyway. This is the only pattern used when a group touches state the facade used to own privately.
 4. **Extracted modules depend inward only** — sub-controllers/utilities never import the facade back, no cycles. A sub-controller may take a narrow constructor-injected reference to another sub-controller it genuinely needs (e.g. `card-lifecycle` needs `viewport`'s transform), never the whole facade.
 5. **One concern per file, verb-noun name** (`render-graph.ts`, not `helpers.ts`).
-6. **Subfolder = kebab-case of the original file stem** — matches the existing `specsmap/` precedent: `AiDrawer.ts` → `ai-drawer/`, `CanvasArea.ts` → `canvas-area/`, `GitPlugin.ts` → `git-plugin/`.
+6. **Subfolder = kebab-case of the original file stem** — matches the existing `specsmap/` precedent: `AiDrawer.ts` → `ai-drawer/`, `CanvasArea.ts` → `canvas-area/`, `GitWindow.ts` → `git-window/`.
 7. **Tests split 1:1 with the new structure** — `ai-drawer/sessions.ts` gets `ai-drawer/sessions.test.ts`, etc. A thin `<Facade>.test.ts` remains at the original path, narrowed to wiring/public-API/integration coverage only, not re-testing what moved. Test files stay exempt from the LOC cap (§A.2), but splitting them isn't optional — a giant untouched test file defeats half the reason to split the source.
-8. **Facade delegator budget, no second API surface.** Every externally-called method gets a one-line forwarder on the facade, full stop — sub-controllers stay `private`, never exposed via a public getter (that would just recreate the encapsulation break rule 3 exists to prevent). Forwarders are cheap (1-2 LOC each), so this isn't the LOC risk it first looks like. If a facade still exceeds 700 after adding every forwarder it genuinely needs, the fix is splitting the facade itself into two files **inside the same kebab-case subfolder** rule 6 already established — e.g. `git-plugin/core.ts` + `git-plugin/commands.ts` — not flat siblings at the original path (`GitPlugin.core.ts` would sit next to `GitPlugin.ts` using a different naming scheme than everything else pulled out of it). `GitPlugin.ts` itself stays a pure re-export barrel at the original path either way, so external import paths still don't change.
+8. **Facade delegator budget, no second API surface.** Every externally-called method gets a one-line forwarder on the facade, full stop — sub-controllers stay `private`, never exposed via a public getter (that would just recreate the encapsulation break rule 3 exists to prevent). Forwarders are cheap (1-2 LOC each), so this isn't the LOC risk it first looks like. If a facade still exceeds 700 after adding every forwarder it genuinely needs, the fix is splitting the facade itself into two files **inside the same kebab-case subfolder** rule 6 already established — e.g. `git-window/core.ts` + `git-window/commands.ts` — not flat siblings at the original path (`GitWindow.core.ts` would sit next to `GitWindow.ts` using a different naming scheme than everything else pulled out of it). `GitWindow.ts` itself stays a pure re-export barrel at the original path either way, so external import paths still don't change.
 9. **No file plan-estimated >500 LOC without justification.** The buffer zone (500, 700] exists for groups that genuinely can't cut smaller along a real seam, not as a default landing zone. At most 2 files per monolith split may land there; a third means re-draw the group boundaries. Checked against every table in §A.4 (only files strictly over 500 count, per §A.2):
-   - SpecsMapPlugin: `render-graph.ts` ~550 → 1 file in buffer. OK.
+   - SpecsMapWindow: `render-graph.ts` ~550 → 1 file in buffer. OK.
    - AiDrawer: `llm-loop.ts` ~550 → 1 file in buffer. OK.
-   - CanvasArea: `viewport.ts` and `plugin-factories.ts` both land exactly at 500 → 0 files in buffer (at target, not over). OK.
-   - GitPlugin, `main/ipc/*`: nothing over 400. OK.
+   - CanvasArea: `viewport.ts` and `window-factories.ts` both land exactly at 500 → 0 files in buffer (at target, not over). OK.
+   - GitWindow, `main/ipc/*`: nothing over 400. OK.
 10. **Estimates are provisional** — each table in §A.4 was built from method-name grouping, not measured line spans. Before opening a phase's PR, re-run the line-range check (`grep -n` on method signatures, sum actual spans) against that file specifically and adjust boundaries if a group is materially bigger than estimated.
 
 ### A.4 Per-file breakdown
 
-**`SpecsMapPlugin.ts` (2326 → `components/specsmap/`)** — already has `cycles.ts`, `search.ts`. Add:
+**`SpecsMapWindow.ts` (2326 → `components/specsmap/`)** — already has `cycles.ts`, `search.ts`. Add:
 
 | New file | Pulls in | Est. LOC |
 |---|---|---|
@@ -64,7 +64,7 @@ Monolithic files mix unrelated concerns (parsing, I/O, rendering, event handling
 | `specsmap/render-graph.ts` | `renderGraph`, `renderSVGDefs`, `renderLayerHeaders`, `curvePoints`, `renderEdges`, `hoverNode`, `selectNode`, `zoomToNode`, `animateTo`, `fitGraph`, `getFitTarget` | ~550 |
 | `specsmap/panel.ts` | `openPanel`, `openSettingsPanel`, `renderSettingsContent`, `validationSectionHtml`, `runReconcileFromPanel`, `closePanel`, `renderPanelContent` | ~450 |
 | `specsmap/empty-state.ts` | `detectEntrycandidates`, `showEmptyState`, `generateAndCopyPrompt` | ~250 |
-| `SpecsMapPlugin.ts` (facade) | constructor, `injectStyles`, `initInteractions`, `applyTransform`, tab bar, `refresh`, `updateHeaderCounts`, `showValidation`, public API | ~500 |
+| `SpecsMapWindow.ts` (facade) | constructor, `injectStyles`, `initInteractions`, `applyTransform`, tab bar, `refresh`, `updateHeaderCounts`, `showValidation`, public API | ~500 |
 
 **`AiDrawer.ts` (2140 → `components/ai-drawer/`)**
 
@@ -85,21 +85,21 @@ Monolithic files mix unrelated concerns (parsing, I/O, rendering, event handling
 |---|---|---|
 | `canvas-area/viewport.ts` | clamp/transform math, zoom/pan, fit, animate | ~500 |
 | `canvas-area/card-lifecycle.ts` | add/close/minimize/resize/terminate, z-order | ~400 |
-| `canvas-area/plugin-factories.ts` | `addEditor/Explorer/Git/Markdown/Specsmap/Agents/Terminal`, `restorePlugins`, `getSaveState` | ~500 |
-| `canvas-area/plugin-focus.ts` | `focus*`, `cycleCard`, `reopen*`, `getActive*Plugin` | ~450 |
+| `canvas-area/window-factories.ts` | `addEditor/Explorer/Git/Markdown/Specsmap/Agents/Terminal`, `restoreWindows`, `getSaveState` | ~500 |
+| `canvas-area/window-focus.ts` | `focus*`, `cycleCard`, `reopen*`, `getActive*Window` | ~450 |
 | `canvas-area/layout-overlays.ts` | arrange/tile, drag-drop-zone overlays | ~400 |
 | `canvas-area/notify.ts` | `notify*Changed`, `updateAllThemes` | ~80 |
 | `CanvasArea.ts` (facade) | constructor, `setDrawerOffset`, `killAllTerminals`, `destroy` | ~300 |
 
-**`GitPlugin.ts` (1163 → `components/git-plugin/`)**
+**`GitWindow.ts` (1163 → `components/git-window/`)**
 
 | New file | Pulls in | Est. LOC |
 |---|---|---|
-| `git-plugin/ui-build.ts` | `buildUI`, dropdown/diff-mode chrome | ~350 |
-| `git-plugin/changes.ts` | stage/unstage, changes list | ~400 |
-| `git-plugin/history.ts` | branches/remotes/commits | ~300 |
-| `git-plugin/diff-view.ts` | file tree + diff rendering | ~250 |
-| `GitPlugin.ts` (facade) | constructor/`destroy`, state, commit/push, `refresh` | ~250 |
+| `git-window/ui-build.ts` | `buildUI`, dropdown/diff-mode chrome | ~350 |
+| `git-window/changes.ts` | stage/unstage, changes list | ~400 |
+| `git-window/history.ts` | branches/remotes/commits | ~300 |
+| `git-window/diff-view.ts` | file tree + diff rendering | ~250 |
+| `GitWindow.ts` (facade) | constructor/`destroy`, state, commit/push, `refresh` | ~250 |
 
 **`main.ts` (1015 → `src/main/ipc/`)** — 13 IPC namespaces (`app`, `clipboard`, `diagnostics`, `file`, `fs`, `git`, `ide`, `memory`, `prefs`, `shell`, `terminal`, `window`, `workspace`), 57 handlers total. One file per namespace exporting `register<Namespace>Handlers(ipcMain, ctx)`. Two more files hold what no single namespace owns:
 
@@ -112,7 +112,7 @@ Dependency direction: `security.ts` imports `state.ts`, not the other way round 
 
 **`tool-definitions.ts` (921 → `src/renderer/ai/tool-definitions/`)** — split by tool domain (file, terminal, git, specs — `agent-tools.ts` already separate). `index.ts` concatenates into the existing export.
 
-**`MonacoEditorPlugin.ts` (636 LOC)** — under the hard ceiling, no action now. Watch item: re-check LOC before the next non-trivial change.
+**`MonacoEditorWindow.ts` (636 LOC)** — under the hard ceiling, no action now. Watch item: re-check LOC before the next non-trivial change.
 
 ---
 
@@ -137,8 +137,8 @@ Every failure site (per split module, per §B.3) logs through the same typed cal
 
 ```ts
 interface FailureSignal {
-  kind: FailureSignalKind;   // e.g. 'terminal.pty-exit' | 'plugin.crash' | 'llm.stream-error' | 'ipc.handler-error' | 'specs.corrupt-cache'
-  source: string;            // originating module, e.g. 'git-plugin/changes.ts'
+  kind: FailureSignalKind;   // e.g. 'terminal.pty-exit' | 'window.crash' | 'llm.stream-error' | 'ipc.handler-error' | 'specs.corrupt-cache'
+  source: string;            // originating module, e.g. 'git-window/changes.ts'
   message: string;
   stack?: string;
   context?: Record<string, unknown>;
@@ -209,7 +209,7 @@ Not a separate phase — a checklist item attached to each split in §A.4. Each 
   }
   ```
   Every namespace file registers through whichever of these three matches its original `ipcMain.handle`/`ipcMain.on` call — never raw `ipcMain.*` directly. `formatError(err)` is the main-process-internal helper both `logFatal` and `pushMainFailure` use for stringification (named distinctly from `src/shared/health-types.ts` above — one is cross-process types, the other is a same-process string helper, different scopes, not to be confused). This also fixes a scoping mismatch in an earlier draft of this guard: most existing handlers (e.g. `fs:readDir`) already `catch { return null }` internally rather than throwing — a wrapper that only reacts to thrown errors would catch almost nothing, since the real gap is *silent* swallowing. Handlers being migrated into `main/ipc/*` drop their internal catch-and-swallow for genuinely unexpected errors (permission errors, unexpected exceptions) and let them propagate to the wrapper's catch — but **not** for expected control flow (e.g. `ENOENT` on a directory that legitimately doesn't exist yet, which `fs:readDir` returning `null` for is correct behavior, not a failure). That judgment call — and picking each handler's `fallback` value to match its current behavior exactly — is made per handler during the actual split, not blanket-applied.
-- **`git-plugin/*`, `canvas-area/*`, `ai-drawer/*`** — `plugin.crash` logging needs an actual catch point, not just intent: a listener body that throws fires as an uncaught exception on `window`, invisible to any try/catch placed around the constructor. Concrete mechanism — `health/monitor.ts` exports:
+- **`git-window/*`, `canvas-area/*`, `ai-drawer/*`** — `window.crash` logging needs an actual catch point, not just intent: a listener body that throws fires as an uncaught exception on `window`, invisible to any try/catch placed around the constructor. Concrete mechanism — `health/monitor.ts` exports:
   ```ts
   function bindGuarded(
     el: EventTarget, event: string, handler: (e: Event) => unknown, source: string,
@@ -217,9 +217,9 @@ Not a separate phase — a checklist item attached to each split in §A.4. Each 
     const wrapped = (e: Event) => {
       try {
         const r = handler(e);
-        if (r instanceof Promise) r.catch(err => reportFailure({ kind: 'plugin.crash', source, message: String(err) }));
+        if (r instanceof Promise) r.catch(err => reportFailure({ kind: 'window.crash', source, message: String(err) }));
       } catch (err) {
-        reportFailure({ kind: 'plugin.crash', source, message: String(err) });
+        reportFailure({ kind: 'window.crash', source, message: String(err) });
       }
     };
     el.addEventListener(event, wrapped);
@@ -229,7 +229,7 @@ Not a separate phase — a checklist item attached to each split in §A.4. Each 
   Sync throws go through the `try/catch`; async rejections go through the explicit `.catch` on the returned promise — a bare `try/catch` around an `async` call does **not** catch a rejection from a fire-and-forget call, so this has to be `r.catch(...)`, not just wrapped in `try`. `bindGuarded` **returns an unbind function**; each facade collects these in a `private unbinders: (() => void)[] = []` array during `bindEvents`/`initInteractions` and runs them all in `destroy()` — without this, wrapping every top-level binding in `bindGuarded` would be a straight listener leak on card teardown, worse than the raw `addEventListener` calls it replaces. Used for top-level bindings only (not every internal helper) — one call-site swap per binding (no auto-remove/respawn yet — just visibility with a known source).
 - **`ai-drawer/llm-loop.ts`** — logs `llm.stream-error` on a failed stream/call.
 - **`specsmap/data.ts`** — logs `specs.corrupt-cache` on snapshot parse/hash failure.
-- **terminal IPC + `TerminalPlugin`** — logs `terminal.pty-exit` on unexpected PTY death.
+- **terminal IPC + `TerminalWindow`** — logs `terminal.pty-exit` on unexpected PTY death.
 
 ### B.5 Future work (not this pass)
 
@@ -243,7 +243,7 @@ Built before A's first split lands (§E has the exact phase number) so it's avai
 
 ### C.1 Purpose
 
-One pane, one card (same pattern as `TerminalPlugin`/`GitPlugin` in `CanvasArea`'s card system), showing:
+One pane, one card (same pattern as `TerminalWindow`/`GitWindow` in `CanvasArea`'s card system), showing:
 
 - Intercepted `console.log/warn/error` (ring buffer, level filter).
 - IPC trace — channel, payload size, plus duration/success where the call is request-response (see correction below; not every `electronAPI` call has those).
@@ -255,7 +255,7 @@ One pane, one card (same pattern as `TerminalPlugin`/`GitPlugin` in `CanvasArea`
 
 | File | Responsibility | Est. LOC |
 |---|---|---|
-| `dev-console/DevConsolePlugin.ts` | Facade — card lifecycle, tabs (Logs / IPC / Health / Agents / Specs) | ~300 |
+| `dev-console/DevConsoleWindow.ts` | Facade — card lifecycle, tabs (Logs / IPC / Health / Agents / Specs) | ~300 |
 | `dev-console/log-capture.ts` | `console.*` interception into a ring buffer | ~120 |
 | `dev-console/ipc-trace.ts` | Subscribes to trace events forwarded from `preload.ts` (see note below) — channel/duration/payload/success | ~100 |
 | `dev-console/health-feed.ts` | Subscribes to `health/monitor.ts` `FailureSignal`s | ~80 |
@@ -280,11 +280,11 @@ Toggle via `CommandPalette` entry and a backtick (`` ` ``) shortcut, consistent 
 SPECGEN is 1 feature spec per source file. Splitting N monoliths into M files means M specs replace 1 — and the new `health/*` and `dev-console/*` files need specs from scratch (they're brand-new source, not splits). Per-file sequence:
 
 1. Split/add the code.
-2. Run structural reconcile (`SpecsMapPlugin.reconcileSpecs('structural')` — dogfooding the tool this codebase ships) to auto-create skeleton specs: correct `file`/`type`/`layer`/`exports`, computed `## Dependencies`/`## Referenced By`, stub description flagged by `description.stub`.
+2. Run structural reconcile (`SpecsMapWindow.reconcileSpecs('structural')` — dogfooding the tool this codebase ships) to auto-create skeleton specs: correct `file`/`type`/`layer`/`exports`, computed `## Dependencies`/`## Referenced By`, stub description flagged by `description.stub`.
 3. Fill in contract prose: description, `## Interface`, `## State`, `## Lifecycle`.
-4. Generate `-ui.spec.md` sub-specs for UI-heavy files meeting the 3+ criteria in `SPECGEN.md` (`render-graph.ts`, `panel.ts`, `ai-drawer/render.ts`, `git-plugin/ui-build.ts`, `dev-console/render.ts`).
+4. Generate `-ui.spec.md` sub-specs for UI-heavy files meeting the 3+ criteria in `SPECGEN.md` (`render-graph.ts`, `panel.ts`, `ai-drawer/render.ts`, `git-window/ui-build.ts`, `dev-console/render.ts`).
 5. Update the facade's existing spec — description → "thin orchestrator delegating to `<subfolder>/*`"; `## Interface` prunes to what the facade still exports directly; `## Dependencies` gains edges to every new sibling module.
-6. Update `main.spec.md`'s Features table — new rows per split/new file; `layer` inherited from the parent except pure-function extractions (`layer: utility`). `health/*` and `dev-console/*` are brand-new, not splits, so their `type`/`layer` pair is classified independently per SPECGEN's two separate taxonomies, not lumped together: `health/monitor.ts` is `type: logic`, `layer: service` (singleton, no DOM). `dev-console/*` is `type: ui`, `layer: plugin` (a card, same taxonomy slot as `GitPlugin`/`TerminalPlugin`).
+6. Update `main.spec.md`'s Features table — new rows per split/new file; `layer` inherited from the parent except pure-function extractions (`layer: utility`). `health/*` and `dev-console/*` are brand-new, not splits, so their `type`/`layer` pair is classified independently per SPECGEN's two separate taxonomies, not lumped together: `health/monitor.ts` is `type: logic`, `layer: service` (singleton, no DOM). `dev-console/*` is `type: ui`, `layer: window` (a card, same taxonomy slot as `GitWindow`/`TerminalWindow`).
 7. Run `validateSpecs()` — zero `main.missing-feature`/`edge.unresolved` errors — before starting the next file.
 
 ---
@@ -297,10 +297,10 @@ One PR per phase. Each phase: split/build → fix imports → wire `reportFailur
 0b. **Infrastructure.** `loc:check` + console-usage guardrails (§F), dev console scaffold (§C in full), health log core (§B.3 `types.ts`/`monitor.ts`, including `bindGuarded`). Lands before any monolith is split, so the cap, the logging convention, and the observability tooling are all live from the first real split onward instead of retrofitted.
 1. **`main.ts` → `main/ipc/*`** + `ipc.handler-error` logging — pure IPC registration, easiest to verify, unblocks reasoning about the main process.
 2. **`tool-definitions.ts` → `tool-definitions/*`** — data-only, no logging hook needed.
-3. **`GitPlugin.ts` → `git-plugin/*`** + `plugin.crash` logging — first dry run of the facade + sub-controller pattern on a stateful DOM plugin.
-4. **`CanvasArea.ts` → `canvas-area/*`** — central orchestrator, do after the pattern is proven on GitPlugin.
+3. **`GitWindow.ts` → `git-window/*`** + `window.crash` logging — first dry run of the facade + sub-controller pattern on a stateful DOM window.
+4. **`CanvasArea.ts` → `canvas-area/*`** — central orchestrator, do after the pattern is proven on GitWindow.
 5. **`AiDrawer.ts` → `ai-drawer/*`** + `llm.stream-error` logging — largest and most stateful, do after 3 prior phases de-risk the pattern.
-6. **`SpecsMapPlugin.ts` → `specsmap/*`** + `specs.corrupt-cache` logging — finishes the split already begun (`cycles.ts`, `search.ts` exist); sequenced last since this file *is* the specs tooling used to validate every other phase.
+6. **`SpecsMapWindow.ts` → `specsmap/*`** + `specs.corrupt-cache` logging — finishes the split already begun (`cycles.ts`, `search.ts` exist); sequenced last since this file *is* the specs tooling used to validate every other phase.
 7. **Terminal PTY logging** (`terminal.pty-exit`) — can land any time after **0b** specifically (needs `reportFailure`/`logFatal` wiring to exist first — 0a alone doesn't provide that), independent of the other splits; grouped last only because it touches both main and renderer.
 
 ---
@@ -308,7 +308,7 @@ One PR per phase. Each phase: split/build → fix imports → wire `reportFailur
 ## F. Guardrails Going Forward
 
 - **`npm run loc:check`** (CI + pre-commit) — fails on any file in scope per §A.2 over 700 lines.
-- **Console-usage check**, same script or a sibling one — fails on new `console.error`/`console.warn` calls added under the specific folders this refactor creates (`src/renderer/health/**`, `src/renderer/components/dev-console/**`, and each monolith's new subfolder once its phase lands — e.g. `git-plugin/**` after the GitPlugin split). Scoped to those paths only, not repo-wide (existing `console.*` usage elsewhere is out of scope for this refactor). Its include-list grows by one entry per phase — that's a checklist item on every phase in §E, not a one-time setup. Without this check, §B's "log through `reportFailure`, not `console.error`" convention has no enforcement and erodes the same way ungoverned `console.error` calls already have — same failure mode §A.3.7 calls out for test-file splitting, applied to logging discipline instead.
+- **Console-usage check**, same script or a sibling one — fails on new `console.error`/`console.warn` calls added under the specific folders this refactor creates (`src/renderer/health/**`, `src/renderer/components/dev-console/**`, and each monolith's new subfolder once its phase lands — e.g. `git-window/**` after the GitWindow split). Scoped to those paths only, not repo-wide (existing `console.*` usage elsewhere is out of scope for this refactor). Its include-list grows by one entry per phase — that's a checklist item on every phase in §E, not a one-time setup. Without this check, §B's "log through `reportFailure`, not `console.error`" convention has no enforcement and erodes the same way ungoverned `console.error` calls already have — same failure mode §A.3.7 calls out for test-file splitting, applied to logging discipline instead.
 
 Both checks are built in the infra phase — see §E for the number — so the cap and the logging convention are enforced from the first real split onward, not audited after the fact.
 
@@ -328,21 +328,21 @@ Both checks are built in the infra phase — see §E for the number — so the c
 Ran the real checks (`tsc --noEmit` on both tsconfigs, `npm run loc:check`, `npm run console:check`, `npx vitest run`, diffed against a stash of the tracked baseline, grepped CI/Makefile) instead of trusting the plan doc. Findings, worst first.
 
 ### G.1 Blocker — full test suite fails, isolated files pass
-`npx vitest run`: **7 test files fail, 115 tests fail, 74 uncaught-exception errors.** Every failure is the same crash: `TypeError: this.initEditor is not a function` inside `MonacoEditorPlugin`'s constructor, reached via `new ExplorerPlugin(...)` from the `requestAnimationFrame`-deferred callback in `canvas-area/plugin-factories.ts:66-79` (`addExplorer`). `src/test/setup.ts` stubs `requestAnimationFrame` as a real `setTimeout(..., 0)`, so the callback fires *after* the scheduling test has already returned, and lands on whatever test happens to be running next (hence it's blamed on unrelated tests — `e2e-advanced.test.ts`, `CanvasArea.test.ts`, `App.test.ts`).
-- Confirmed isolated: `vitest run src/renderer/components/CanvasArea.test.ts` alone → 128/128 pass. `MonacoEditorPlugin.test.ts` alone → 57/57 pass. Only the full-suite run cascades.
+`npx vitest run`: **7 test files fail, 115 tests fail, 74 uncaught-exception errors.** Every failure is the same crash: `TypeError: this.initEditor is not a function` inside `MonacoEditorWindow`'s constructor, reached via `new ExplorerWindow(...)` from the `requestAnimationFrame`-deferred callback in `canvas-area/window-factories.ts:66-79` (`addExplorer`). `src/test/setup.ts` stubs `requestAnimationFrame` as a real `setTimeout(..., 0)`, so the callback fires *after* the scheduling test has already returned, and lands on whatever test happens to be running next (hence it's blamed on unrelated tests — `e2e-advanced.test.ts`, `CanvasArea.test.ts`, `App.test.ts`).
+- Confirmed isolated: `vitest run src/renderer/components/CanvasArea.test.ts` alone → 128/128 pass. `MonacoEditorWindow.test.ts` alone → 57/57 pass. Only the full-suite run cascades.
 - Confirmed new: stashing tracked changes (untracked new files stay in place) drops this to 3 pre-existing failures, not 115. This regression was introduced by this refactor's tracked-file changes, not inherited.
 - This is exactly the "full test suite green" gate §E requires before any phase is done. Currently failing — **no phase in §E can be honestly marked complete yet**, regardless of how much code exists.
-- Not root-caused to the byte here — needs a real fix session (likely: `addExplorer` needs to await/flush the RAF in tests, or `MonacoEditorPlugin` construction needs to not depend on timing that a stubbed RAF changes across file boundaries).
+- Not root-caused to the byte here — needs a real fix session (likely: `addExplorer` needs to await/flush the RAF in tests, or `MonacoEditorWindow` construction needs to not depend on timing that a stubbed RAF changes across file boundaries).
 
 ### G.2 Blocker — `loc:check` fails, the one file the plan explicitly flagged
-`npm run loc:check` → **FAIL: `src/renderer/components/MonacoEditorPlugin.ts` at 734 lines**, over the 700 hard ceiling. §A.4 named this file by number (636 LOC) as a "watch item — no action now, re-check LOC before the next non-trivial change." It received a non-trivial change (Monaco/markdown extraction partially happened — `monaco-bootstrap.ts`, `markdown-render.ts` exist as new siblings) and grew past the ceiling instead of being watched. Needs its own split (facade + `monaco-bootstrap.ts`/`markdown-render.ts` already partially extracted — finish it) before this can land.
+`npm run loc:check` → **FAIL: `src/renderer/components/MonacoEditorWindow.ts` at 734 lines**, over the 700 hard ceiling. §A.4 named this file by number (636 LOC) as a "watch item — no action now, re-check LOC before the next non-trivial change." It received a non-trivial change (Monaco/markdown extraction partially happened — `monaco-bootstrap.ts`, `markdown-render.ts` exist as new siblings) and grew past the ceiling instead of being watched. Needs its own split (facade + `monaco-bootstrap.ts`/`markdown-render.ts` already partially extracted — finish it) before this can land.
 
 ### G.3 Blocker — `tsc -p tsconfig.renderer.json --noEmit` has 3 new errors
 Diffed against tracked baseline (stash) to separate pre-existing debt from new breakage:
 - **New, real:** `CanvasArea.ts:495` — `git.restoreState(p.gitState)` inside a `setTimeout` closure; TS can't narrow `GitState | undefined` → `GitState` through the closure even though the enclosing `if (git && p.gitState)` checked it. `npm run build` fails on this today.
 - **New, real:** `tool-executor.test.ts:89` and `:102` — `new ToolRegistry([specsExploreTool])` fails: `ToolDefinition<typeof ExploreSpecsMapArgs>` not assignable to `ToolDefinition<ZodTypeAny>`. The split gave each tool a narrower, more specific type than the old monolith did; `ToolRegistry`'s constructor signature (or the individual tool exports) needs a variance fix — not investigated further here, flagged for the fix pass.
-- **Pre-existing, not this refactor's fault:** `SearchOverlay.test.ts` (mock typing), `TerminalPlugin.ts:11` (`ready` field), `tool-executor.test.ts` zod version mismatch elsewhere — confirmed present in the stashed baseline too. Don't waste a fix cycle chasing these under this plan.
-- Note: `SpecsMapPlugin.ts`'s two baseline errors (`onSearchKeydown` read-only/uninitialized) are **fixed** by the split. Net progress, not just regression.
+- **Pre-existing, not this refactor's fault:** `SearchOverlay.test.ts` (mock typing), `TerminalWindow.ts:11` (`ready` field), `tool-executor.test.ts` zod version mismatch elsewhere — confirmed present in the stashed baseline too. Don't waste a fix cycle chasing these under this plan.
+- Note: `SpecsMapWindow.ts`'s two baseline errors (`onSearchKeydown` read-only/uninitialized) are **fixed** by the split. Net progress, not just regression.
 - `tsc -p tsconfig.main.json --noEmit` is clean — main-process split (phase 1) has no type errors.
 
 ### G.4 Gap — §F guardrails aren't wired to anything
@@ -351,9 +351,9 @@ Diffed against tracked baseline (stash) to separate pre-existing debt from new b
 ### G.5 Facades landed well over their own estimates — watch, not yet a rule violation
 Per §A.3.9 (max 2 files per monolith in the (500,700] buffer zone):
 - `CanvasArea.ts` facade: estimated ~300 LOC, actual **624** — over double. Combined with `card-lifecycle.ts` (592), that's already 2 files in canvas-area's buffer zone — at the rule's limit. Any further CanvasArea feature work needs a facade split, not just a sub-controller split.
-- `SpecsMapPlugin.ts` facade: estimated ~500, actual **696** — 4 LOC from the hard ceiling. One file in specsmap's buffer zone; still within the rule, but there's no room left before the next change trips loc:check on this file too (once G.2's check is actually enforced per G.4).
+- `SpecsMapWindow.ts` facade: estimated ~500, actual **696** — 4 LOC from the hard ceiling. One file in specsmap's buffer zone; still within the rule, but there's no room left before the next change trips loc:check on this file too (once G.2's check is actually enforced per G.4).
 - `AiDrawer.ts` facade: estimated ~450, actual 506 — marginal, fine.
-- `GitPlugin.ts` facade: estimated ~250, actual 339 — fine, under buffer threshold.
+- `GitWindow.ts` facade: estimated ~250, actual 339 — fine, under buffer threshold.
 - Not a blocker, but the estimates in §A.4 were optimistic enough on the two biggest files that re-running the promised §A.3.10 "re-run the line-range check before opening a phase's PR" step would have caught G.2/this section before merge, not after.
 
 ### G.6 What's actually solid — don't re-litigate these
@@ -361,13 +361,13 @@ Per §A.3.9 (max 2 files per monolith in the (500,700] buffer zone):
 - `main/ipc/*` implements the exact 3-way wrapper split (`withHandlerLogging`/`withListenerLogging`/`withSyncListenerLogging`) and `security.ts`/`state.ts` dependency direction described in §A.4 and §B.4 — matches the plan's code sample near-verbatim.
 - `console:check` passes clean — no `console.error`/`console.warn` under any monitored folder. B/C's logging discipline is actually being followed, not just documented.
 - Main→renderer failure path is wired: `health:mainFailure` pushed from `main/ipc/logging.ts`'s `pushMainFailure`, received via `preload.ts`'s `electronAPI.health.onMainFailure`, consumed in `src/renderer/health/monitor.ts`. `__trace` (§C.2's `wrapTraced`) is also present in `preload.ts`.
-- `DevConsolePlugin` is fully wired into the card system (`canvas-area/plugin-factories.ts`, `card-lifecycle.ts`) and into `TopBar.ts`'s menu with the backtick shortcut, per §C.3.
+- `DevConsoleWindow` is fully wired into the card system (`canvas-area/window-factories.ts`, `card-lifecycle.ts`) and into `TopBar.ts`'s menu with the backtick shortcut, per §C.3.
 - Phase 7 (`terminal.pty-exit`) is done — `main/ipc/terminal.ts` logs via `logFatal` and pushes `health:mainFailure` on unexpected PTY exit, explicitly comment-tagged `refactor.md §B.4`.
-- Specs exist for the new files (`health-failure-kinds.spec.md`, `health-failure-types.spec.md`, `health-feed.spec.md`, `dev-console-plugin.spec.md` found under `src/specs/`) — §D is being followed during the split, not deferred.
+- Specs exist for the new files (`health-failure-kinds.spec.md`, `health-failure-types.spec.md`, `health-feed.spec.md`, `dev-console-window.spec.md` found under `src/specs/`) — §D is being followed during the split, not deferred.
 - `tsc -p tsconfig.main.json` clean; `main.ts` itself shrank to 250 LOC, well under cap.
 
 ### G.7 Process gap — §E's one-PR-per-phase didn't happen
-Every phase from 0b through 7 is sitting in the same uncommitted working tree simultaneously, including phase 0a's own gate ("commit or stash WIP before phase 1 touches main.ts") — that gate was never satisfied; `main.ts` was touched anyway, alongside everything else, in one undifferentiated diff. This makes G.1–G.3 harder to attribute to a specific phase and impossible to bisect. Before continuing: commit what's here in the phase order §E lays out (or as close to it as the current diff allows), fixing G.1/G.2/G.3 as part of whichever phase actually owns each broken file (G.1/G.2 → phase 6/MonacoEditorPlugin's own future split; G.3's `CanvasArea.ts:495` → phase 4; G.3's `tool-executor.test.ts` → phase 2), not as one giant final commit.
+Every phase from 0b through 7 is sitting in the same uncommitted working tree simultaneously, including phase 0a's own gate ("commit or stash WIP before phase 1 touches main.ts") — that gate was never satisfied; `main.ts` was touched anyway, alongside everything else, in one undifferentiated diff. This makes G.1–G.3 harder to attribute to a specific phase and impossible to bisect. Before continuing: commit what's here in the phase order §E lays out (or as close to it as the current diff allows), fixing G.1/G.2/G.3 as part of whichever phase actually owns each broken file (G.1/G.2 → phase 6/MonacoEditorWindow's own future split; G.3's `CanvasArea.ts:495` → phase 4; G.3's `tool-executor.test.ts` → phase 2), not as one giant final commit.
 
 ---
 
@@ -377,13 +377,13 @@ Re-ran every check in §G from scratch (`tsc` both configs, `loc:check`, `consol
 
 | # | Finding | Status | Evidence |
 |---|---|---|---|
-| G.1 | Full suite cascades to 115 failed tests | **FIXED** | `npx vitest run` → 61/61 files, 1698/1698 tests, clean. RAF/`MonacoEditorPlugin` init race is gone. |
-| G.2 | `MonacoEditorPlugin.ts` over 700-line hard ceiling | **FIXED** | File split: `monaco-bootstrap.ts` and `markdown-render.ts` extracted as new siblings (both untracked, not yet committed). Facade now 585 LOC. `npm run loc:check` → `ok — no in-scope file exceeds 700 lines`. |
+| G.1 | Full suite cascades to 115 failed tests | **FIXED** | `npx vitest run` → 61/61 files, 1698/1698 tests, clean. RAF/`MonacoEditorWindow` init race is gone. |
+| G.2 | `MonacoEditorWindow.ts` over 700-line hard ceiling | **FIXED** | File split: `monaco-bootstrap.ts` and `markdown-render.ts` extracted as new siblings (both untracked, not yet committed). Facade now 585 LOC. `npm run loc:check` → `ok — no in-scope file exceeds 700 lines`. |
 | G.3a | `CanvasArea.ts:495` — `GitState \| undefined` not narrowed through `setTimeout` closure | **STILL OPEN** | Same error, same line, unchanged. `tsc -p tsconfig.renderer.json --noEmit` still reports it. `npm run build` still fails on this. |
 | G.3b | `tool-executor.test.ts:89,102` — `ToolDefinition<Specific>` not assignable to `ToolDefinition<ZodTypeAny>` | **STILL OPEN** | Same two errors, unchanged. |
-| G.3 (pre-existing) | `SearchOverlay.test.ts`, `TerminalPlugin.ts:11`, `CanvasArea.test.ts` `.click`/`GitPlugin.test.ts` `.style` DOM-typing errors | unchanged, still not this refactor's problem (present in baseline) | not re-verified against stash this pass — no tracked-file churn since first audit suggests baseline classification still holds |
+| G.3 (pre-existing) | `SearchOverlay.test.ts`, `TerminalWindow.ts:11`, `CanvasArea.test.ts` `.click`/`GitWindow.test.ts` `.style` DOM-typing errors | unchanged, still not this refactor's problem (present in baseline) | not re-verified against stash this pass — no tracked-file churn since first audit suggests baseline classification still holds |
 | G.4 | §F guardrails not wired to CI/pre-commit | **STILL OPEN** | No `.husky/` dir. `.github/workflows/*.yml` and `Makefile` still have zero references to `loc:check`/`console:check` — grepped both, no hits. |
-| G.5 | Facades over estimate (CanvasArea 624, SpecsMapPlugin 696) | **unchanged, still just a watch item** | Same LOC as first audit — no regression, no fix attempted, correctly out of scope for a "fix some issues" pass. |
+| G.5 | Facades over estimate (CanvasArea 624, SpecsMapWindow 696) | **unchanged, still just a watch item** | Same LOC as first audit — no regression, no fix attempted, correctly out of scope for a "fix some issues" pass. |
 | G.6 | Wiring/discipline (main/ipc pattern, health push path, dev-console, specs) | **still solid** | `console:check` still clean; `tsc -p tsconfig.main.json` still clean. |
 | G.7 | One giant uncommitted diff, no phased PRs | **STILL OPEN** | `git status` unchanged in shape — same ~25 modified + ~15 untracked paths, nothing committed yet. |
 
@@ -391,11 +391,11 @@ Re-ran every check in §G from scratch (`tsc` both configs, `loc:check`, `consol
 
 ### G.9 Resolution (2026-08-03)
 
-All three remaining blockers from G.8 are fixed and committed. Verified from scratch after the fixes: `tsc` both configs (renderer down to only the G.3 *pre-existing* list — `SearchOverlay.test.ts`, `TerminalPlugin.ts`, `.click`/`.style` DOM-typing — all present in the tracked baseline), `npm run loc:check` → ok, `npm run console:check` → ok, `npx vitest run` → 61/61 files, 1698/1698 tests, `npm run build` → succeeds.
+All three remaining blockers from G.8 are fixed and committed. Verified from scratch after the fixes: `tsc` both configs (renderer down to only the G.3 *pre-existing* list — `SearchOverlay.test.ts`, `TerminalWindow.ts`, `.click`/`.style` DOM-typing — all present in the tracked baseline), `npm run loc:check` → ok, `npm run console:check` → ok, `npx vitest run` → 61/61 files, 1698/1698 tests, `npm run build` → succeeds.
 
 | # | Finding | Resolution |
 |---|---|---|
-| G.3a | `CanvasArea.ts:495` — `GitState \| undefined` not narrowed through `setTimeout` | **FIXED** — hoisted `const gitState = p.gitState` before the closure (`restorePlugins` Git branch). |
+| G.3a | `CanvasArea.ts:495` — `GitState \| undefined` not narrowed through `setTimeout` | **FIXED** — hoisted `const gitState = p.gitState` before the closure (`restoreWindows` Git branch). |
 | G.3b | `tool-executor.test.ts:89,102` — `ToolDefinition<Specific>` not assignable to `ToolDefinition<ZodTypeAny>` | **FIXED** — `ToolRegistry` now holds `ToolDefinition<any>` (constructor/register/get/all), per G.8's variance recommendation; one downstream implicit-`any` in `tool-executor.ts` annotated. |
 | G.4 | §F guardrails not wired to CI/pre-commit | **FIXED** — `npm run loc:check` + `console:check` added to the `Makefile` `test:` target (after `npm test`) and as explicit named steps in `.github/workflows/test.yml`. No `.husky/` pre-commit hook added (not installed in this repo). |
 | G.7 | One giant uncommitted diff | **FIXED** — committed in 2 logical commits on `refactor-file-split`: `c176fd5` (plumbing: guardrails, health core, dev console, preload trace, main/ipc, tool-definitions, G.3b/G.4) and `cfed164` (component layer: phases 3–7 splits, unified markdown tabs, G.3a). §E's 7-PR ideal not followed (diff too entangled to slice into 7 compiling phase commits); the user's unrelated `agents/` WIP was left uncommitted. |
@@ -407,15 +407,15 @@ Full pass over the completed tree after the post-G.9 feature work. All checks re
 | Area | Check | Result |
 |---|---|---|
 | Tests | `npx vitest run` | 62/62 files, **1711/1711** pass |
-| File cap | `npm run loc:check` | ok — no in-scope file >700 (facades: GitPlugin 346, CanvasArea 625, AiDrawer 513, SpecsMapPlugin 584, main 254) |
+| File cap | `npm run loc:check` | ok — no in-scope file >700 (facades: GitWindow 346, CanvasArea 625, AiDrawer 513, SpecsMapWindow 584, main 254) |
 | Logging discipline | `npm run console:check` | ok — no `console.error/warn` under monitored folders |
-| Types | `tsc` main / renderer | main clean; renderer only the pre-existing baseline debt (SearchOverlay.test, TerminalPlugin `.ready`, `.click`/`.style` DOM-typing) — one new implicit-`any` from this pass's logging edit (`TerminalPlugin` `.then((ok))`) found and fixed |
+| Types | `tsc` main / renderer | main clean; renderer only the pre-existing baseline debt (SearchOverlay.test, TerminalWindow `.ready`, `.click`/`.style` DOM-typing) — one new implicit-`any` from this pass's logging edit (`TerminalWindow` `.then((ok))`) found and fixed |
 | Guardrails | Makefile `test:` + `.github/workflows/test.yml` | both wired (`loc:check`, `console:check`) |
 | Specs | reconcile gate | green — only the two pre-existing stale `flock` specs; 160 specs in `src/specs/` (gitignored, not committed) |
 | Build | `npm run build` | succeeds |
 
-Post-G.9 additions, all committed: **unified dev-console log stream** (no tabs, checkbox filter — `f2b068b`), **structured app-wide logging** with `logMain` → `log:push` main→renderer (`48ea37e` + `463bf13`), **keep-view-still-on-tool-calls** toggle (`a5ea392`), **SpecsMapPlugin facade API extraction** to `specsmap/api.ts` (kept the facade under 700 when logging pushed it to 703), **agents permissions** WIP (`bf31719`).
+Post-G.9 additions, all committed: **unified dev-console log stream** (no tabs, checkbox filter — `f2b068b`), **structured app-wide logging** with `logMain` → `log:push` main→renderer (`48ea37e` + `463bf13`), **keep-view-still-on-tool-calls** toggle (`a5ea392`), **SpecsMapWindow facade API extraction** to `specsmap/api.ts` (kept the facade under 700 when logging pushed it to 703), **agents permissions** WIP (`bf31719`).
 
-Known non-blocking debt (pre-existing, not this refactor): the two stale `flock.spec.md`/`specs-flock.spec.md` specs, the `SearchOverlay.test.ts`/`CanvasArea.test.ts`/`GitPlugin.test.ts`/`TerminalPlugin.ts` tsc errors, and §E's phased-PR ideal (records §G.7/G.9).
+Known non-blocking debt (pre-existing, not this refactor): the two stale `flock.spec.md`/`specs-flock.spec.md` specs, the `SearchOverlay.test.ts`/`CanvasArea.test.ts`/`GitWindow.test.ts`/`TerminalWindow.ts` tsc errors, and §E's phased-PR ideal (records §G.7/G.9).
 
 

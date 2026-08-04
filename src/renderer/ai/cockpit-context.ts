@@ -4,7 +4,7 @@ const REQUIRED_COCKPIT_KEYS: (keyof CockpitGlobal)[] = [
   'getCanvasState',
   'getWorkspacePath',
   'openFile',
-  'addPlugin',
+  'addWindow',
   'addTerminal',
   'focusCard',
   'closeCard',

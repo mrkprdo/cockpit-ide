@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CanvasArea } from './CanvasArea';
-import { TerminalPlugin } from './TerminalPlugin';
-import { ExplorerPlugin } from './ExplorerPlugin';
+import { TerminalWindow } from './TerminalWindow';
+import { ExplorerWindow } from './ExplorerWindow';
 import { mockElectronAPI } from '../../test/setup';
 
 function makeCanvasEl(): HTMLElement {
@@ -33,7 +33,7 @@ describe('CanvasArea', () => {
   it('starts with dots grid style', () => {
     const state = canvas.getSaveState();
     expect(state.zoom).toBe(1);
-    expect(state.plugins).toEqual([]);
+    expect(state.windows).toEqual([]);
   });
 
   it('setGridStyle changes grid style without errors', () => {
@@ -64,12 +64,12 @@ describe('CanvasArea', () => {
 
   it('getSaveState returns correct structure', () => {
     const state = canvas.getSaveState();
-    expect(state).toHaveProperty('plugins');
+    expect(state).toHaveProperty('windows');
     expect(state).toHaveProperty('zOrder');
     expect(state).toHaveProperty('zoom');
     expect(state).toHaveProperty('panX');
     expect(state).toHaveProperty('panY');
-    expect(Array.isArray(state.plugins)).toBe(true);
+    expect(Array.isArray(state.windows)).toBe(true);
   });
 
   it('notifies state change callbacks after transform', async () => {
@@ -149,13 +149,13 @@ describe('CanvasArea', () => {
       expect(getPanel().style.display).toBe('none');
     });
 
-    it('panel contains Auto Arrange, Tile Plugins, and Snap Origin items', () => {
+    it('panel contains Auto Arrange, Tile Windows, and Snap Origin items', () => {
       const zone = getZone();
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       const items = queryArrItems();
       expect(items.length).toBe(3);
       expect(items[0].textContent).toBe('Auto Arrange');
-      expect(items[1].textContent).toBe('Tile Plugins');
+      expect(items[1].textContent).toBe('Tile Windows');
       expect(items[2].textContent).toBe('Snap Origin');
     });
 
@@ -332,7 +332,7 @@ describe('CanvasArea', () => {
         expect(w.value).toBe('10');
       });
 
-      it('stores validated value used by tilePlugins layout', async () => {
+      it('stores validated value used by tileWindows layout', async () => {
         canvas.addTerminal();
         canvas.addTerminal();
         await new Promise(r => setTimeout(r, 50));
@@ -348,8 +348,8 @@ describe('CanvasArea', () => {
         (items[1] as HTMLElement).click();
 
         const state = canvas.getSaveState();
-        expect(state.plugins.length).toBe(2);
-        for (const p of state.plugins) {
+        expect(state.windows.length).toBe(2);
+        for (const p of state.windows) {
           expect(p.width).toBe(280);
           expect(p.height).toBe(280);
         }
@@ -700,7 +700,7 @@ describe('restore path callbacks', () => {
   function makeMinimalState(title: string, opts?: Partial<{ width: number; height: number; x: number; y: number; isOpen: boolean }>): any {
     return {
       zoom: 1, panX: 0, panY: 0, zOrder: [],
-      plugins: [{
+      windows: [{
         title,
         x: opts?.x ?? 0,
         y: opts?.y ?? 0,
@@ -714,7 +714,7 @@ describe('restore path callbacks', () => {
   it('restored terminal card has working onFitViewport callback', async () => {
     const fitSpy = vi.fn();
     (canvas as any).fitViewport = fitSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Terminal 1'), '/test');
+    (canvas as any).restoreWindows(makeMinimalState('Terminal 1'), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 
@@ -728,7 +728,7 @@ describe('restore path callbacks', () => {
   it('restored terminal card has working onTerminate callback', async () => {
     const termSpy = vi.fn();
     (canvas as any).terminateCard = termSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Terminal 1'), '/test');
+    (canvas as any).restoreWindows(makeMinimalState('Terminal 1'), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 
@@ -744,7 +744,7 @@ describe('restore path callbacks', () => {
     const termSpy = vi.fn();
     (canvas as any).fitViewport = fitSpy;
     (canvas as any).terminateCard = termSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Explorer'), '/test');
+    (canvas as any).restoreWindows(makeMinimalState('Explorer'), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 
@@ -762,7 +762,7 @@ describe('restore path callbacks', () => {
     const termSpy = vi.fn();
     (canvas as any).fitViewport = fitSpy;
     (canvas as any).terminateCard = termSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Git'), '/test');
+    (canvas as any).restoreWindows(makeMinimalState('Git'), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 
@@ -778,7 +778,7 @@ describe('restore path callbacks', () => {
     const termSpy = vi.fn();
     (canvas as any).fitViewport = fitSpy;
     (canvas as any).terminateCard = termSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Terminal 1'), '/test');
+    (canvas as any).restoreWindows(makeMinimalState('Terminal 1'), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 
@@ -794,7 +794,7 @@ describe('restore path callbacks', () => {
     const termSpy = vi.fn();
     (canvas as any).fitViewport = fitSpy;
     (canvas as any).terminateCard = termSpy;
-    (canvas as any).restorePlugins(makeMinimalState('Terminal 1', { isOpen: false }), '/test');
+    (canvas as any).restoreWindows(makeMinimalState('Terminal 1', { isOpen: false }), '/test');
     await new Promise(r => setTimeout(r, 50));
     const cs = (canvas as any).cards[0];
 
@@ -815,7 +815,7 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 50));
 
       const before = canvas.getSaveState();
-      expect(before.plugins.length).toBe(3);
+      expect(before.windows.length).toBe(3);
 
       const zone = document.querySelector('.prr-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
@@ -824,11 +824,11 @@ describe('auto arrange', () => {
 
       const after = canvas.getSaveState();
       // Cards are centered on origin (not at 0,0)
-      expect(after.plugins[0].x).toBeLessThan(0);
-      expect(after.plugins[0].y).toBeLessThan(0);
+      expect(after.windows[0].x).toBeLessThan(0);
+      expect(after.windows[0].y).toBeLessThan(0);
       // Cards are placed left-to-right with 28 gap
-      expect(after.plugins[1].x - after.plugins[0].x).toBe(after.plugins[0].width + 28);
-      expect(after.plugins[2].x - after.plugins[1].x).toBe(after.plugins[1].width + 28);
+      expect(after.windows[1].x - after.windows[0].x).toBe(after.windows[0].width + 28);
+      expect(after.windows[2].x - after.windows[1].x).toBe(after.windows[1].width + 28);
     });
 
     it('calls onStateChange after arranging', async () => {
@@ -847,7 +847,7 @@ describe('auto arrange', () => {
     });
   });
 
-  describe('tile plugins', () => {
+  describe('tile windows', () => {
     it('arranges cards in a grid layout with unique positions', async () => {
       canvas.addTerminal();
       canvas.addTerminal();
@@ -861,8 +861,8 @@ describe('auto arrange', () => {
       (items[1] as HTMLElement).click();
 
       const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(4);
-      const positions = state.plugins.map((p: any) => `${p.x},${p.y}`);
+      expect(state.windows.length).toBe(4);
+      const positions = state.windows.map((p: any) => `${p.x},${p.y}`);
       expect(new Set(positions).size).toBe(4);
     });
 
@@ -882,8 +882,8 @@ describe('auto arrange', () => {
       (items[1] as HTMLElement).click();
 
       const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(2);
-      for (const p of state.plugins) {
+      expect(state.windows.length).toBe(2);
+      for (const p of state.windows) {
         expect(p.width).toBe(280);
         expect(p.height).toBe(280);
       }
@@ -911,9 +911,9 @@ describe('auto arrange', () => {
       (items[1] as HTMLElement).click();
 
       const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(4);
-      const cellH = state.plugins[0].height;
-      expect(state.plugins[2].y - state.plugins[0].y).toBe(cellH + 28);
+      expect(state.windows.length).toBe(4);
+      const cellH = state.windows[0].height;
+      expect(state.windows[2].y - state.windows[0].y).toBe(cellH + 28);
     });
 
   });
@@ -923,8 +923,8 @@ describe('auto arrange', () => {
       canvas.addTerminal();
       await new Promise(r => setTimeout(r, 50));
       const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(1);
-      expect(state.plugins[0].title).toMatch(/^Terminal \d+$/);
+      expect(state.windows.length).toBe(1);
+      expect(state.windows[0].title).toMatch(/^Terminal \d+$/);
     });
 
     it('addTerminal() fires onTerminalsChanged', async () => {
@@ -939,8 +939,8 @@ describe('auto arrange', () => {
       canvas.addExplorer('/test');
       await new Promise(r => setTimeout(r, 50));
       const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(1);
-      expect(state.plugins[0].title).toBe('Explorer');
+      expect(state.windows.length).toBe(1);
+      expect(state.windows[0].title).toBe('Explorer');
     });
 
     it('addExplorer() fires onExplorersChanged', async () => {
@@ -955,8 +955,8 @@ describe('auto arrange', () => {
       canvas.addGit('/test');
       await new Promise(r => setTimeout(r, 50));
       const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(1);
-      expect(state.plugins[0].title).toBe('Git');
+      expect(state.windows.length).toBe(1);
+      expect(state.windows[0].title).toBe('Git');
     });
 
     it('addGit() single-instance: second call reopens existing card', async () => {
@@ -965,23 +965,23 @@ describe('auto arrange', () => {
       canvas.addGit('/test');
       await new Promise(r => setTimeout(r, 50));
       const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(1);
+      expect(state.windows.length).toBe(1);
     });
 
     it('addMarkdown() calls ensureExplorer and creates an explorer card', async () => {
       canvas.addMarkdown();
       await new Promise(r => setTimeout(r, 50));
       const state = canvas.getSaveState();
-      expect(state.plugins.length).toBe(1);
-      expect(state.plugins[0].title).toBe('Explorer');
+      expect(state.windows.length).toBe(1);
+      expect(state.windows[0].title).toBe('Explorer');
     });
 
   });
 
   describe('ensureExplorer race vs addExplorer rAF', () => {
-    it('addExplorer followed immediately by ensureExplorer does not duplicate the plugin', async () => {
+    it('addExplorer followed immediately by ensureExplorer does not duplicate the window', async () => {
       canvas.addExplorer('/test');
-      // rAF scheduled but not yet fired — the card is in this.cards with explorerPlugin: null.
+      // rAF scheduled but not yet fired — the card is in this.cards with explorerWindow: null.
       // The agent's read_file/write_file tools (and any other caller) hit ensureExplorer
       // here, before the rAF populates the body.
       await (canvas as any).ensureExplorer();
@@ -989,12 +989,12 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 50));
       const cs = (canvas as any).cards[0];
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
-      // Exactly one splitEl from the one ExplorerPlugin.
+      // Exactly one splitEl from the one ExplorerWindow.
       expect(body.children.length).toBe(1);
       expect((canvas as any).cards.length).toBe(1);
     });
 
-    it('back-to-back ensureExplorer calls do not duplicate the plugin', async () => {
+    it('back-to-back ensureExplorer calls do not duplicate the window', async () => {
       const p1 = (canvas as any).ensureExplorer();
       const p2 = (canvas as any).ensureExplorer();
       await Promise.all([p1, p2]);
@@ -1019,13 +1019,13 @@ describe('auto arrange', () => {
   });
 
   describe('terminateCard / reopen / focus', () => {
-    it('terminateCard() removes card from getSaveState().plugins', async () => {
+    it('terminateCard() removes card from getSaveState().windows', async () => {
       canvas.addTerminal();
       await new Promise(r => setTimeout(r, 50));
       const cs = (canvas as any).cards[0];
       (canvas as any).terminateCard(cs);
       await new Promise(r => setTimeout(r, 50));
-      expect(canvas.getSaveState().plugins.length).toBe(0);
+      expect(canvas.getSaveState().windows.length).toBe(0);
     });
 
     it('terminateCard() fires onStateChange', async () => {
@@ -1061,8 +1061,8 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 50));
       (mockElectronAPI.terminal.kill as any).mockClear();
       canvas.killAllTerminals();
-      const plugins = canvas.getSaveState().plugins;
-      expect(plugins.map((p: any) => p.title)).toContain('Explorer');
+      const windows = canvas.getSaveState().windows;
+      expect(windows.map((p: any) => p.title)).toContain('Explorer');
     });
 
     it('reopenTerminal() makes minimized terminal visible again', async () => {
@@ -1135,31 +1135,31 @@ describe('auto arrange', () => {
     });
   });
 
-  describe('getActiveExplorerPlugin', () => {
-    it('getActiveExplorerPlugin() returns null when no explorers exist', () => {
-      expect((canvas as any).getActiveExplorerPlugin()).toBeNull();
+  describe('getActiveExplorerWindow', () => {
+    it('getActiveExplorerWindow() returns null when no explorers exist', () => {
+      expect((canvas as any).getActiveExplorerWindow()).toBeNull();
     });
 
-    it('getActiveExplorerPlugin() returns non-null after addExplorer()', async () => {
+    it('getActiveExplorerWindow() returns non-null after addExplorer()', async () => {
       canvas.addExplorer('/test');
       await new Promise(r => setTimeout(r, 50));
-      expect((canvas as any).getActiveExplorerPlugin()).not.toBeNull();
+      expect((canvas as any).getActiveExplorerWindow()).not.toBeNull();
     });
 
-    it('updateAllThemes calls updateTheme on terminal plugins', async () => {
+    it('updateAllThemes calls updateTheme on terminal windows', async () => {
       canvas.addTerminal();
       canvas.addTerminal();
       await new Promise(r => setTimeout(r, 50));
-      const termSpy = vi.spyOn(TerminalPlugin.prototype, 'updateTheme');
+      const termSpy = vi.spyOn(TerminalWindow.prototype, 'updateTheme');
       (canvas as any).updateAllThemes();
       expect(termSpy).toHaveBeenCalledTimes(2);
       termSpy.mockRestore();
     });
 
-    it('updateAllThemes calls updateTheme on explorer plugins', async () => {
+    it('updateAllThemes calls updateTheme on explorer windows', async () => {
       canvas.addExplorer('/test');
       await new Promise(r => setTimeout(r, 50));
-      const explorerSpy = vi.spyOn(ExplorerPlugin.prototype, 'updateTheme');
+      const explorerSpy = vi.spyOn(ExplorerWindow.prototype, 'updateTheme');
       (canvas as any).updateAllThemes();
       expect(explorerSpy).toHaveBeenCalledTimes(1);
       explorerSpy.mockRestore();
@@ -1170,8 +1170,8 @@ describe('auto arrange', () => {
       canvas.addExplorer('/test');
       canvas.addTerminal();
       await new Promise(r => setTimeout(r, 50));
-      const termSpy = vi.spyOn(TerminalPlugin.prototype, 'updateTheme');
-      const explorerSpy = vi.spyOn(ExplorerPlugin.prototype, 'updateTheme');
+      const termSpy = vi.spyOn(TerminalWindow.prototype, 'updateTheme');
+      const explorerSpy = vi.spyOn(ExplorerWindow.prototype, 'updateTheme');
       (canvas as any).updateAllThemes();
       expect(termSpy).toHaveBeenCalledTimes(2);
       expect(explorerSpy).toHaveBeenCalledTimes(1);
@@ -1215,8 +1215,8 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 50));
       (canvas as any).offsetCard('Terminal 1', 100, 200);
       const state = canvas.getSaveState();
-      expect(state.plugins[0].x).toBe(100);
-      expect(state.plugins[0].y).toBe(200);
+      expect(state.windows[0].x).toBe(100);
+      expect(state.windows[0].y).toBe(200);
     });
   });
 
@@ -1285,8 +1285,8 @@ describe('auto arrange', () => {
       await new Promise(r => setTimeout(r, 50));
       (canvas as any).offsetCard('Terminal 1', 99999, -99999);
       const state = canvas.getSaveState();
-      expect(state.plugins[0].x).toBe(4000);
-      expect(state.plugins[0].y).toBe(-2250);
+      expect(state.windows[0].x).toBe(4000);
+      expect(state.windows[0].y).toBe(-2250);
     });
 
     it('pan clamps to keep viewport inside the 8000x4500 canvas', async () => {
@@ -1314,36 +1314,36 @@ describe('auto arrange', () => {
     });
   });
 
-  describe('plugin list panel', () => {
-    it('plugin list zone exists with icon', () => {
+  describe('window list panel', () => {
+    it('window list zone exists with icon', () => {
       const zone = document.querySelector('.pli-zone') as HTMLElement;
       expect(zone).toBeTruthy();
     });
 
-    it('plugin list shows on mouseenter zone', () => {
+    it('window list shows on mouseenter zone', () => {
       const zone = document.querySelector('.pli-zone') as HTMLElement;
-      const panel = document.querySelector('.plugin-list-panel') as HTMLElement;
+      const panel = document.querySelector('.window-list-panel') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
       expect(panel.style.display).toBe('block');
     });
 
-    it('plugin list shows "(No plugins)" message when no cards exist', () => {
+    it('window list shows "(No windows)" message when no cards exist', () => {
       const zone = document.querySelector('.pli-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-      const panel = document.querySelector('.plugin-list-panel') as HTMLElement;
-      expect(panel.textContent).toContain('No plugins');
+      const panel = document.querySelector('.window-list-panel') as HTMLElement;
+      expect(panel.textContent).toContain('No windows');
     });
 
-    it('plugin list shows card titles after adding cards', async () => {
+    it('window list shows card titles after adding cards', async () => {
       canvas.addTerminal();
       await new Promise(r => setTimeout(r, 50));
       const zone = document.querySelector('.pli-zone') as HTMLElement;
       zone.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-      const panel = document.querySelector('.plugin-list-panel') as HTMLElement;
+      const panel = document.querySelector('.window-list-panel') as HTMLElement;
       expect(panel.textContent).toContain('Terminal 1');
     });
 
-    it('right-click on plugin list item opens context menu with Show and Terminate', async () => {
+    it('right-click on window list item opens context menu with Show and Terminate', async () => {
       canvas.addTerminal();
       await new Promise(r => setTimeout(r, 50));
       const zone = document.querySelector('.pli-zone') as HTMLElement;
@@ -1388,7 +1388,7 @@ describe('auto arrange', () => {
       const ctxItems = document.querySelectorAll('.ctx-item');
       (ctxItems[1] as HTMLElement).click();
       await new Promise(r => setTimeout(r, 50));
-      expect(canvas.getSaveState().plugins.length).toBe(0);
+      expect(canvas.getSaveState().windows.length).toBe(0);
     });
 
     it('right-click context menu removes DOM after action', async () => {
@@ -1423,7 +1423,7 @@ describe('auto arrange', () => {
     it('corner zone is a button element with tabIndex and aria-label', () => {
       const pliZone = document.querySelector('.pli-zone') as HTMLElement;
       expect(pliZone.tagName).toBe('BUTTON');
-      expect(pliZone.getAttribute('aria-label')).toBe('Plugin list');
+      expect(pliZone.getAttribute('aria-label')).toBe('Window list');
       expect(pliZone.tabIndex).toBe(0);
 
       const prrZone = document.querySelector('.prr-zone') as HTMLElement;
@@ -1442,7 +1442,7 @@ describe('auto arrange', () => {
     it('pli-zone opens on Space keydown', () => {
       const pliZone = document.querySelector('.pli-zone') as HTMLElement;
       pliZone.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
-      const panel = document.querySelector('.plugin-list-panel') as HTMLElement;
+      const panel = document.querySelector('.window-list-panel') as HTMLElement;
       expect(panel.style.display).toBe('block');
     });
 
@@ -1606,16 +1606,16 @@ describe('auto arrange', () => {
     });
   });
 
-  describe('restorePlugins edge cases', () => {
-    it('restorePlugins() migrates "Dev" title to "Explorer"', async () => {
+  describe('restoreWindows edge cases', () => {
+    it('restoreWindows() migrates "Dev" title to "Explorer"', async () => {
       const state = {
-        plugins: [{ title: 'Dev', x: 0, y: 0, width: 560, height: 420, isOpen: true }],
+        windows: [{ title: 'Dev', x: 0, y: 0, width: 560, height: 420, isOpen: true }],
         zOrder: [],
         zoom: 1, panX: 0, panY: 0,
       };
-      (canvas as any).restorePlugins(state, '/test');
+      (canvas as any).restoreWindows(state, '/test');
       await new Promise(r => setTimeout(r, 50));
-      expect(canvas.getSaveState().plugins[0].title).toBe('Explorer');
+      expect(canvas.getSaveState().windows[0].title).toBe('Explorer');
     });
   });
 });

@@ -5,7 +5,7 @@ import type { FailureSignalKind } from '../../shared/health-types';
 
 export interface FailureSignal {
   kind: FailureSignalKind;
-  /** Originating module, e.g. 'git-plugin/changes.ts'. */
+  /** Originating module, e.g. 'git-window/changes.ts'. */
   source: string;
   message: string;
   stack?: string;

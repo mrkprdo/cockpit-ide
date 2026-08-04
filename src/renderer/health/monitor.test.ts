@@ -28,7 +28,7 @@ describe('health/monitor', () => {
 
     it('does not call console.error (re-entrancy guard)', () => {
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      reportFailure({ kind: 'plugin.crash', source: 'x', message: 'y' });
+      reportFailure({ kind: 'window.crash', source: 'x', message: 'y' });
       expect(errSpy).not.toHaveBeenCalled();
       errSpy.mockRestore();
     });
@@ -43,15 +43,15 @@ describe('health/monitor', () => {
   });
 
   describe('bindGuarded', () => {
-    it('reports sync throws from a listener as plugin.crash', () => {
+    it('reports sync throws from a listener as window.crash', () => {
       const reported: FailureSignal[] = [];
       const unsub = onFailure((s) => reported.push(s));
       const el = document.createElement('div');
-      const unbind = bindGuarded(el, 'click', () => { throw new Error('listener boom'); }, 'git-plugin/changes.ts');
+      const unbind = bindGuarded(el, 'click', () => { throw new Error('listener boom'); }, 'git-window/changes.ts');
       el.dispatchEvent(new Event('click'));
       expect(reported).toHaveLength(1);
-      expect(reported[0].kind).toBe('plugin.crash');
-      expect(reported[0].source).toBe('git-plugin/changes.ts');
+      expect(reported[0].kind).toBe('window.crash');
+      expect(reported[0].source).toBe('git-window/changes.ts');
       expect(reported[0].message).toContain('listener boom');
       unbind();
     });

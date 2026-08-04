@@ -5,7 +5,7 @@ import { createLogger } from '../logging/logger';
 const BASE_FONT_SIZE = 13;
 const log = createLogger('terminal');
 
-export class TerminalPlugin {
+export class TerminalWindow {
   readonly uuid: string;
   readonly element: HTMLDivElement;
 
@@ -31,7 +31,7 @@ export class TerminalPlugin {
       return;
     }
 
-    const termTheme = TerminalPlugin.readTheme();
+    const termTheme = TerminalWindow.readTheme();
     const term = new Terminal({
       fontSize: BASE_FONT_SIZE,
       fontFamily: '"Cascadia Code", "Fira Code", monospace',
@@ -90,7 +90,7 @@ export class TerminalPlugin {
     }) ?? null;
 
     // Adapt cols/rows only when physical container dimensions change (card resize).
-    // Canvas zoom is handled by CSS transform on PluginCard — no PTY resize needed.
+    // Canvas zoom is handled by CSS transform on WindowCard — no PTY resize needed.
     const ro = new ResizeObserver(() => {
       if (!this.destroyed) fitAddon.fit();
     });
@@ -119,7 +119,7 @@ export class TerminalPlugin {
 
   updateTheme(): void {
     if (!this.xterm) return;
-    this.xterm.options.theme = TerminalPlugin.readTheme();
+    this.xterm.options.theme = TerminalWindow.readTheme();
   }
 
   getScreenBuffer(maxLines = 200): string {
@@ -139,7 +139,7 @@ export class TerminalPlugin {
   }
 
   setScale(_scale: number): void {
-    // PluginCard applies transform: scale() for canvas zoom — no fontSize change needed here.
+    // WindowCard applies transform: scale() for canvas zoom — no fontSize change needed here.
   }
 
   destroy(): void {

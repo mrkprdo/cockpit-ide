@@ -23,7 +23,7 @@ Cockpit IDE (`0.0.20260731`) — spatial/floating-panel IDE built in Electron. M
 | Run built app | `npm start` / `npm run prod` (stamps version, builds, launches via `scripts/launch.js`) |
 | Dev mode | `npm run dev` (launch.js `--dev`) or `npm run dev:watch` (concurrently: tsc --watch + esbuild --watch) |
 | Tests | `npm test` (`vitest run`), `npm run test:watch`, `npm run test:coverage` |
-| Single test file | `npx vitest run src/renderer/components/TerminalPlugin.test.ts` |
+| Single test file | `npx vitest run src/renderer/components/TerminalWindow.test.ts` |
 | Single test | `npx vitest run src/main/main.test.ts -t "workspace:getRecent"` |
 | Coverage | `vitest` enforces thresholds: statements 70 / branches 60 / functions 65 / lines 70 — a passing test run can still fail on coverage |
 | File-size guardrail | `npm run loc:check` — fails on any in-scope `.ts` file over 700 lines |
@@ -38,14 +38,14 @@ Cockpit IDE (`0.0.20260731`) — spatial/floating-panel IDE built in Electron. M
   - Target ≤500 LOC per file; buffer zone (500, 700] is tolerated but not a default landing zone; **hard ceiling 700 LOC** — a file over it must be split before further changes merge.
   - Applies to working source only: `src/main/**/*.ts` and `src/renderer/**/*.ts`. Exempt: `*.test.ts`, `src/test/**`, `scripts/**`, `*.config.ts`.
   - Split pattern: the original file stays as a thin facade (constructor + wiring + delegation + one-line forwarders for every externally-called method); groups move into a kebab-case subfolder (`AiDrawer.ts` → `ai-drawer/`). Extracted sub-controllers/utilities depend inward only — never import the facade back. Tests split 1:1 alongside (a thin `<Facade>.test.ts` stays for wiring/public-API coverage).
-- **Console-usage guardrail** (`npm run console:check`): no `console.error`/`console.warn` under monitored folders — `src/renderer/health`, `src/renderer/components/dev-console`, `git-plugin`, `canvas-area`, `ai-drawer`, `specsmap`. Scope grows by one entry per refactor phase (§E in `refactor.md`).
+- **Console-usage guardrail** (`npm run console:check`): no `console.error`/`console.warn` under monitored folders — `src/renderer/health`, `src/renderer/components/dev-console`, `git-window`, `canvas-area`, `ai-drawer`, `specsmap`. Scope grows by one entry per refactor phase (§E in `refactor.md`).
 - **Failure logging convention**: log via `reportFailure({ kind, source, message })` and `bindGuarded(el, event, handler, source)` from `src/renderer/health/monitor.ts` — never ad-hoc `console.error`. Signals land in the dev-console Health tab and main-process `diagnostics:rendererError`/`health:mainFailure`.
 
 ## Spec System
 
 - Spec corpus lives in `src/specs/` (68 `.spec.md` files + `*-ui.spec.md` sub-specs); `src/specs/main.spec.md` is the authoritative index. Engine that parses/graphs/reconciles them lives in `src/renderer/specs/` (`graph.ts`, `format.ts`, `reconcile.ts`, `validate.ts`, `snapshot.ts`, `extract-ts.ts`, `layout.ts`).
 - **Field ownership** (`SPECGEN.md`): **structural** fields (exports, Dependencies, Referenced By, IPC lists, Features rows) are machine-maintained by reconcile; **contract** prose (description, Interface, State, Lifecycle, UI specs) is written only by humans/agents.
-- Never hand-edit structural fields — run a structural reconcile instead (SpecsMap plugin: Tools → SpecsMap → Apply structural; or the agent tool `specs_reconcile` in `src/renderer/ai/tool-definitions.ts`).
+- Never hand-edit structural fields — run a structural reconcile instead (SpecsMap window: Tools → SpecsMap → Apply structural; or the agent tool `specs_reconcile` in `src/renderer/ai/tool-definitions.ts`).
 - The agent toolset (`src/renderer/ai/`) includes `specs_explore`, `specs_validate`, `specs_reconcile`, `specs_reload` — they are real and wired into the AI drawer's tool registry, not just documentation.
 - `src/renderer/specgen-hash.ts` is **generated** by `scripts/gen-specgen-hash.js` on every build (`npm run build` and `npm run dev:watch`). It IS committed; regenerate + commit alongside spec/version changes.
 
@@ -77,14 +77,14 @@ src/
 │   ├── specs/            # spec graph engine: graph, format, reconcile, validate,
 │   │                     # snapshot, extract-ts, layout, types
 │   └── components/
-│       ├── App.ts        # root orchestrator; registers plugins + cards
-│       ├── CanvasArea.ts # infinite canvas (zoom/pan/layout) + PluginCard + canvas-grid
-│       ├── TerminalPlugin.ts, MonacoEditorPlugin.ts (multi-tab), FileExplorerPlugin.ts,
-│       ├── ExplorerPlugin.ts (split FileExplorer+Monaco), MarkdownPlugin.ts,
-│       ├── GitPlugin.ts, SearchOverlay.ts (Ctrl+P), AiDrawer.ts,
+│       ├── App.ts        # root orchestrator; registers windows + cards
+│       ├── CanvasArea.ts # infinite canvas (zoom/pan/layout) + WindowCard + canvas-grid
+│       ├── TerminalWindow.ts, MonacoEditorWindow.ts (multi-tab), FileExplorerWindow.ts,
+│       ├── ExplorerWindow.ts (split FileExplorer+Monaco), MarkdownWindow.ts,
+│       ├── GitWindow.ts, SearchOverlay.ts (Ctrl+P), AiDrawer.ts,
 │       ├── CommandPalette.ts, TopBar.ts, ThemeModal.ts, Tutorial.ts,
 │       ├── modals: WelcomeModal / AboutModal / ConfirmModal / ContextMenu
-│       └── specsmap/     # SpecsMap plugin helpers (cycles.ts, search.ts)
+│       └── specsmap/     # SpecsMap window helpers (cycles.ts, search.ts)
 └── test/                 # cross-component suites (edge-cases, workflows, e2e-advanced)
 ```
 
@@ -92,7 +92,7 @@ Main-process APIs cross to the renderer exclusively via `window.electronAPI` (pr
 
 ## Testing conventions
 
-- 63 test files, 1757 tests. Global mocks in `src/test/setup.ts` (IPC, Canvas, xterm, DOM, ResizeObserver) — most tests need no extra mocking. `.md` files are imported as text via the `md-text` vitest plugin.
+- 63 test files, 1757 tests. Global mocks in `src/test/setup.ts` (IPC, Canvas, xterm, DOM, ResizeObserver) — most tests need no extra mocking. `.md` files are imported as text via the `md-text` vitest window.
 - Unit tests live next to each source file; `src/test/` holds cross-cutting suites: `edge-cases.test.ts`, `workflows.test.ts`, `e2e-advanced.test.ts`.
 - Integration tests that touch the main process use `main._testTrustPath(...)` (test-only export) to bypass the workspace-path trust gate.
 - Full suite is green (as of 2026-08-03): 1757/1757 pass with no known pre-existing failures.

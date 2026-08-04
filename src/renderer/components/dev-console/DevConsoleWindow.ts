@@ -1,4 +1,4 @@
-// DevConsolePlugin — in-app dev console card (refactor.md §C). A single unified,
+// DevConsoleWindow — in-app dev console card (refactor.md §C). A single unified,
 // timestamped stream of console.* capture, IPC traces, health failure signals,
 // agent bus messages, and on-demand specs reports — no tab views. Filtering is
 // search + minimum log level + a category checkbox dropdown. A thin facade:
@@ -57,7 +57,7 @@ const STYLES = `
 .dev-console-cell-kind.level-debug { color:var(--tertiary,#8A97A8); }
 .dev-console-cell-kind.k-llm { color:#C792EA; } .dev-console-cell-kind.k-terminal { color:#FFAA3C; }
 .dev-console-cell-kind.k-ipc { color:#FF5555; } .dev-console-cell-kind.k-specs { color:#FF9E64; }
-.dev-console-cell-kind.k-agent { color:#50FA7B; } .dev-console-cell-kind.k-plugin { color:#FF5555; }
+.dev-console-cell-kind.k-agent { color:#50FA7B; } .dev-console-cell-kind.k-window { color:#FF5555; }
 .dev-console-cell-chan { white-space:nowrap; color:var(--secondary,#B0C4DE); overflow:hidden; text-overflow:ellipsis; }
 .dev-console-cell-meta { white-space:nowrap; color:var(--tertiary,#8A97A8); overflow:hidden; text-overflow:ellipsis; }
 .dev-console-cell-meta.is-fail { color:#FF5555; font-weight:700; }
@@ -70,7 +70,7 @@ const STYLES = `
 .dev-console-empty { padding:12px; text-align:center; color:var(--tertiary,#8A97A8); }
 `;
 
-export class DevConsolePlugin {
+export class DevConsoleWindow {
   readonly element: HTMLDivElement;
 
   private contentEl!: HTMLDivElement;
@@ -94,7 +94,7 @@ export class DevConsolePlugin {
     this.unbinders.push(installUnifiedLog());
     this.unbinders.push(subscribeUnified(() => this.render()));
 
-    this.unbinders.push(bindGuarded(this.element, 'click', (e) => this.onClick(e), 'dev-console/DevConsolePlugin.ts'));
+    this.unbinders.push(bindGuarded(this.element, 'click', (e) => this.onClick(e), 'dev-console/DevConsoleWindow.ts'));
     this.render();
   }
 

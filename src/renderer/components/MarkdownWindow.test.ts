@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MarkdownPlugin, MarkdownState } from './MarkdownPlugin';
+import { MarkdownWindow, MarkdownState } from './MarkdownWindow';
 import { mockElectronAPI } from '../../test/setup';
 
 function makeContainer(): HTMLElement {
@@ -9,7 +9,7 @@ function makeContainer(): HTMLElement {
   return el;
 }
 
-describe('MarkdownPlugin', () => {
+describe('MarkdownWindow', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -20,18 +20,18 @@ describe('MarkdownPlugin', () => {
   });
 
   it('creates the preview pane with "No file loaded"', () => {
-    new MarkdownPlugin(container);
+    new MarkdownWindow(container);
     expect(container.textContent).toContain('No file loaded');
   });
 
   it('sets the title property', () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     ctx.title = 'Markdown 1';
     expect(ctx.title).toBe('Markdown 1');
   });
 
   it('loadFile adds a tab and renders markdown content', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/readme.md');
 
     const text = container.textContent || '';
@@ -40,11 +40,11 @@ describe('MarkdownPlugin', () => {
   });
 
   it('loadFile does not add duplicate tabs', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/readme.md');
     await ctx.loadFile('/test/readme.md');
 
-    // The plugin tracks tabs internally; verify there's only one
+    // The window tracks tabs internally; verify there's only one
     // We can verify via getState that only one file is open
     const state = ctx.getState();
     expect(state).not.toBeNull();
@@ -53,20 +53,20 @@ describe('MarkdownPlugin', () => {
 
   it('shows "Empty file" for empty content', async () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('   ');
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/empty.md');
 
     expect(container.textContent).toContain('Empty file');
   });
 
   it('getState returns null when no tabs are open', () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     const state = ctx.getState();
     expect(state).toBeNull();
   });
 
   it('getState returns open files and active file', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/a.md');
     await ctx.loadFile('/test/b.md');
 
@@ -81,7 +81,7 @@ describe('MarkdownPlugin', () => {
     const unsub = vi.fn();
     (mockElectronAPI.fs.onChanged as any).mockReturnValue(unsub);
 
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     ctx.destroy();
 
     expect(unsub).toHaveBeenCalled();
@@ -94,7 +94,7 @@ describe('MarkdownPlugin', () => {
       scrollTops: { '/test/x.md': 100, '/test/y.md': 50 },
     };
 
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.restoreState(state);
 
     const text = container.textContent || '';
@@ -103,7 +103,7 @@ describe('MarkdownPlugin', () => {
   });
 
   it('restoreState handles null state gracefully', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.restoreState(null);
     expect(container.textContent).toContain('No file loaded');
   });
@@ -112,7 +112,7 @@ describe('MarkdownPlugin', () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue(
       '# XSS\n\n<script>alert(\'xss\')</script>\n\nNormal text'
     );
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/xss.md');
 
     const html = container.innerHTML || '';
@@ -127,7 +127,7 @@ describe('MarkdownPlugin', () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue(
       '<img src=x onerror=alert(1)>'
     );
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/xss2.md');
 
     const html = container.innerHTML || '';
@@ -141,7 +141,7 @@ describe('MarkdownPlugin', () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue(
       '[click](javascript:alert(1))'
     );
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/xss3.md');
 
     const html = container.innerHTML || '';
@@ -152,7 +152,7 @@ describe('MarkdownPlugin', () => {
 
   describe('multi-tab', () => {
     it('loadFile for different path adds second tab', async () => {
-      const ctx = new MarkdownPlugin(container);
+      const ctx = new MarkdownWindow(container);
       await ctx.loadFile('/test/a.md');
       await ctx.loadFile('/test/b.md');
 
@@ -168,7 +168,7 @@ describe('MarkdownPlugin', () => {
       (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
       (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Hello World\n\nThis is a test.');
 
-      const ctx = new MarkdownPlugin(container);
+      const ctx = new MarkdownWindow(container);
       await ctx.loadFile('/test/readme.md');
 
       (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Updated Content\n\nChanged externally.');
@@ -184,7 +184,7 @@ describe('MarkdownPlugin', () => {
   describe('external link', () => {
   it('external link renders correctly', async () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('[link](https://example.com)');
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/link.md');
 
     const html = container.innerHTML || '';
@@ -195,12 +195,12 @@ describe('MarkdownPlugin', () => {
 
   describe('round-trip', () => {
     it('getState() / restoreState() round-trip preserves files', async () => {
-      const ctx = new MarkdownPlugin(container);
+      const ctx = new MarkdownWindow(container);
       await ctx.loadFile('/test/a.md');
       await ctx.loadFile('/test/b.md');
 
       const state = ctx.getState();
-      const ctx2 = new MarkdownPlugin(makeContainer());
+      const ctx2 = new MarkdownWindow(makeContainer());
       await ctx2.restoreState(state);
 
       const state2 = ctx2.getState();
@@ -210,7 +210,7 @@ describe('MarkdownPlugin', () => {
   });
 });
 
-describe('MarkdownPlugin — tab improvements', () => {
+describe('MarkdownWindow — tab improvements', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -222,7 +222,7 @@ describe('MarkdownPlugin — tab improvements', () => {
   });
 
   it('closeOtherTabs keeps only the specified tab', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/a.md');
     await ctx.loadFile('/test/b.md');
     await ctx.loadFile('/test/c.md');
@@ -234,7 +234,7 @@ describe('MarkdownPlugin — tab improvements', () => {
   });
 
   it('closeAllTabs clears all tabs and shows empty state', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/a.md');
     await ctx.loadFile('/test/b.md');
 
@@ -245,7 +245,7 @@ describe('MarkdownPlugin — tab improvements', () => {
   });
 
   it('renders tabs with draggable attribute', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/a.md');
 
     const tabEl = container.querySelector('.editor-tab') as HTMLElement;
@@ -254,7 +254,7 @@ describe('MarkdownPlugin — tab improvements', () => {
   });
 
   it('context menu on tab creates context menu overlay', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/a.md');
 
     const tabEl = container.querySelector('.editor-tab') as HTMLElement;

@@ -11,7 +11,7 @@ import {
   deleteFileTool, renameFileTool, copyFileTool, grepWorkspaceTool,
 } from './file';
 import {
-  getCanvasStateTool, openFileInEditorTool, addPluginTool, focusCardTool,
+  getCanvasStateTool, openFileInEditorTool, addWindowTool, focusCardTool,
   closeCardTool, minimizeCardTool, moveCardTool, resizeCardTool, autoArrangeTool,
   fitCardToViewportTool, insertTextInEditorTool, readEditorTool,
   getEditorStateTool, getSelectedTextTool, setEditorContentTool, goToLineTool,
@@ -64,7 +64,7 @@ export const ALL_TOOLS: ToolDefinition<any>[] = [
   createDirectoryTool,
   getCanvasStateTool,
   openFileInEditorTool,
-  addPluginTool,
+  addWindowTool,
   focusCardTool,
   deleteFileTool,
   renameFileTool,

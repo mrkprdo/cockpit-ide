@@ -117,12 +117,12 @@ function classify(relPath: string, content: string): { type: string; layer: stri
     else if (funcLines.length > meaningful.length * 0.4) type = 'utility';
   }
 
-  let layer = 'plugin';
+  let layer = 'window';
   const importsProjectCode = /(?:import|export)\s+[\w*{}\s,$]+\s+from\s+['"]\./.test(content);
   if (!importsProjectCode) layer = 'foundation';                    // SPECGEN: foundation = no internal imports
   else if (path.includes('modal')) layer = 'modal';
   else if (/overlay|palette|tutorial|drawer/.test(path)) layer = 'overlay';
-  else if (path.includes('plugin')) layer = 'plugin';
+  else if (path.includes('window')) layer = 'window';
   else if (type === 'utility') layer = 'utility';
   else if (type === 'ui') layer = 'widget';
   else layer = 'core';

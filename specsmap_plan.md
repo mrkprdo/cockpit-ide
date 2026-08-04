@@ -2,7 +2,7 @@
 
 **Status:** Implemented (P0–P7 landed 2026-07-28; runtime in `src/renderer/specs/`, tools `specs_*`)  
 **Scope:** Design and phased roadmap for a robust SpecsMap  
-**Related:** `SPECGEN.md`, `src/specs/specsmap-plugin.spec.md`, `src/renderer/components/SpecsMapPlugin.ts`  
+**Related:** `SPECGEN.md`, `src/specs/specsmap-window.spec.md`, `src/renderer/components/SpecsMapWindow.ts`  
 **Date:** 2026-07-28  
 
 ---
@@ -11,7 +11,7 @@
 
 SpecsMap is Cockpit IDE’s **architecture system**: a SPECGEN-native feature graph that humans explore as a spatial map and agents query as structured context.
 
-This plan defines how to evolve SpecsMap from a monolithic visual plugin with fragile regenerate into a **clean-room, combined derivative**:
+This plan defines how to evolve SpecsMap from a monolithic visual window with fragile regenerate into a **clean-room, combined derivative**:
 
 | Keep (SpecsMap DNA) | Add (problem-space outcomes) |
 |---------------------|------------------------------|
@@ -43,7 +43,7 @@ This plan defines how to evolve SpecsMap from a monolithic visual plugin with fr
 | Prose loss on regen | High risk (full rewrite) | Impossible in structural mode |
 | Stale graph after spec edit | Until manual refresh | Auto reload ≤ ~1s |
 | Validation signal | Spec-count badge | Actionable multi-rule report |
-| Plugin responsibility | Parse + graph + UI + regen | UI shell + wiring only |
+| Window responsibility | Parse + graph + UI + regen | UI shell + wiring only |
 
 ### 2.3 Non-goals (explicit)
 
@@ -86,7 +86,7 @@ If both codebases were grepped side by side, reviewers should see **different ar
 
 ### 4.1 What works
 
-- Layered interactive graph (foundation → plugin), pan/zoom, search, cycles, isolate  
+- Layered interactive graph (foundation → window), pan/zoom, search, cycles, isolate  
 - SPECGEN markdown corpus with real hand-authored contracts in Cockpit  
 - Detail panel, multi-collection tabs, SPECGEN integrity hash on bootstrap  
 - Agent hooks: `explore_specs_map`, `refresh_specsmap`, `regenerate_specsmap`  
@@ -96,7 +96,7 @@ If both codebases were grepped side by side, reviewers should see **different ar
 
 | Issue | Why it hurts |
 |-------|----------------|
-| ~3k-line monolith (`SpecsMapPlugin`) | UI, parse, layout, regen, and agent API entangled |
+| ~3k-line monolith (`SpecsMapWindow`) | UI, parse, layout, regen, and agent API entangled |
 | Full-file regenerate | Overwrites prose with stub descriptions; empty `referenced_by` |
 | Regex-only structural extract | Incomplete edges; Cockpit-hardcoded `classifyFile` paths |
 | Snapshot as silent authority | Cache can diverge; weak invalidation |
@@ -184,7 +184,7 @@ src/renderer/specs/          # pure logic preferred here; heavy IO may move to m
   snapshot.ts                # corpus hash, load/save cache
 
 src/renderer/components/
-  SpecsMapPlugin.ts          # DOM, pan/zoom, panel, toolbar, wire-up only
+  SpecsMapWindow.ts          # DOM, pan/zoom, panel, toolbar, wire-up only
 ```
 
 **Rule:** no DOM in L2. L2 is unit-testable without jsdom where possible.
@@ -615,8 +615,8 @@ Record resolutions in this doc’s §18 changelog when decided.
 **Exit:** build/search/neighbors/impact/cycles tested without UI.
 
 - `graph.ts` + `types.ts`  
-- Port layout/cycle logic out of plugin as pure functions  
-- Plugin can still own DOM temporarily  
+- Port layout/cycle logic out of window as pure functions  
+- Window can still own DOM temporarily  
 
 ### Phase 3 — Validation
 
@@ -677,11 +677,11 @@ P0 ──► P1 ──► P2 ──► P3 ──► P4 ──► P5
 | graph | Synthetic graphs: search, depth-2 impact, SCC cycles, ui-of edges |
 | validate | One fixture corpus per rule id |
 | reconcile | Merge preserves Interface; fills referenced_by; dry-run vs apply |
-| plugin | Smoke: load, select, badge, reconcile button wiring |
+| window | Smoke: load, select, badge, reconcile button wiring |
 | agent | Tool registry shapes; explore returns sections; no mandatory delay |
 | workflows | Edit source import → reconcile → validate clean asymmetry |
 
-Do not delete existing SpecsMapPlugin tests until behavior is ported; migrate assertions to pure modules where possible.
+Do not delete existing SpecsMapWindow tests until behavior is ported; migrate assertions to pure modules where possible.
 
 ---
 
@@ -691,8 +691,8 @@ Do not delete existing SpecsMapPlugin tests until behavior is ported; migrate as
 |-----|--------|
 | `SPECGEN.md` | Field ownership, reconcile, validation |
 | `AGENTS.md` | Specs-first protocol → engine tools |
-| `src/specs/specsmap-plugin.spec.md` | Public API, tools, non-goals |
-| `src/specs/specsmap-plugin-ui.spec.md` | Drawer, drift, reconcile controls |
+| `src/specs/specsmap-window.spec.md` | Public API, tools, non-goals |
+| `src/specs/specsmap-window-ui.spec.md` | Drawer, drift, reconcile controls |
 | `src/specs/main.spec.md` | New modules under Features if split |
 | Agent `prompts.ts` | Tool list + protocol |
 | `README.md` | SpecsMap description (living graph) |
@@ -724,7 +724,7 @@ Update specs **with** code per project change protocol — not after as an after
 - `SPECGEN.md` — format, taxonomy, generation methodology  
 - `DESIGN.md` — visual system for UI work  
 - `AGENTS.md` — change protocol and project map  
-- `src/renderer/components/SpecsMapPlugin.ts` — current implementation  
+- `src/renderer/components/SpecsMapWindow.ts` — current implementation  
 - `src/renderer/ai/tool-definitions.ts` — current agent tools  
 - `src/renderer/ai/prompts.ts` — specs-first agent instructions  
 

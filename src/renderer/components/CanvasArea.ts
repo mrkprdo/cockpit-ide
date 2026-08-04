@@ -1,19 +1,19 @@
-export type { EditorState, PluginEntry, SaveState } from './canvas-area/types';
+export type { EditorState, WindowEntry, SaveState } from './canvas-area/types';
 
 import { GridStyle, generateGridPattern, applyGridPattern } from './canvas-grid';
 import { StatusBar } from './canvas-statusbar';
 import { ContextMenu } from './ContextMenu';
-import { ExplorerPlugin } from './ExplorerPlugin';
-import { TerminalPlugin } from './TerminalPlugin';
-import { SpecsMapPlugin } from './SpecsMapPlugin';
-import { AgentsPlugin } from './AgentsPlugin';
-import type { SaveState, CardState, PluginEntry } from './canvas-area/types';
+import { ExplorerWindow } from './ExplorerWindow';
+import { TerminalWindow } from './TerminalWindow';
+import { SpecsMapWindow } from './SpecsMapWindow';
+import { AgentsWindow } from './AgentsWindow';
+import type { SaveState, CardState, WindowEntry } from './canvas-area/types';
 import { Viewport, WORLD_BOUNDS_X, WORLD_BOUNDS_Y } from './canvas-area/viewport';
 import { Notifier } from './canvas-area/notify';
 import { LayoutOverlays } from './canvas-area/layout-overlays';
 import { CardLifecycle } from './canvas-area/card-lifecycle';
-import { PluginFocus } from './canvas-area/plugin-focus';
-import { PluginFactories } from './canvas-area/plugin-factories';
+import { WindowFocus } from './canvas-area/window-focus';
+import { WindowFactories } from './canvas-area/window-factories';
 import { Panels } from './canvas-area/panels';
 import { bindGuarded } from '../health/monitor';
 
@@ -49,8 +49,8 @@ export class CanvasArea {
   private layouts: LayoutOverlays;
   private lifecycle: CardLifecycle;
   private notifier: Notifier;
-  private focus: PluginFocus;
-  private factories: PluginFactories;
+  private focus: WindowFocus;
+  private factories: WindowFactories;
   private panels: Panels;
 
   // Grid / world DOM
@@ -96,7 +96,7 @@ export class CanvasArea {
   private set lastDragY(v: number) { this.layouts.lastDragY = v; }
 
   constructor(private el: HTMLElement) {
-    // Plugin list panel (lower-left) + arrange panel (lower-right) hover zones
+    // Window list panel (lower-left) + arrange panel (lower-right) hover zones
     this.panels = new Panels(this.el, {
       getCards: () => this.cards,
       getContextMenuOpen: () => this.contextMenuOpen,
@@ -110,7 +110,7 @@ export class CanvasArea {
       reopenCard: (cs) => this.reopenCard(cs),
       terminateCard: (cs) => this.terminateCard(cs),
       autoArrange: () => this.autoArrange(),
-      tilePlugins: () => this.tilePlugins(),
+      tileWindows: () => this.tileWindows(),
       snapOrigin: () => this.snapOrigin(),
     });
 
@@ -185,8 +185,8 @@ export class CanvasArea {
       snapToCorner: (cs) => this.snapToCorner(cs),
       terminateCard: (cs) => this.terminateCard(cs),
     });
-    this.focus = new PluginFocus(this.lifecycle, this.notifier, this.viewport);
-    this.factories = new PluginFactories(this.lifecycle, this.viewport, this.notifier, {
+    this.focus = new WindowFocus(this.lifecycle, this.notifier, this.viewport);
+    this.factories = new WindowFactories(this.lifecycle, this.viewport, this.notifier, {
       getWsPath: () => this.wsPath,
       setWsPath: (v) => { this.wsPath = v; },
       getOnStateChange: () => this.onStateChange,
@@ -266,8 +266,8 @@ export class CanvasArea {
     this.layouts.applyDropZone(zone, cs);
   }
 
-  private tilePlugins(): void {
-    this.layouts.tilePlugins();
+  private tileWindows(): void {
+    this.layouts.tileWindows();
   }
 
   // ── card lifecycle delegation ───────────────────────────────────
@@ -366,24 +366,24 @@ export class CanvasArea {
 
   panToActiveExplorer(): void { this.lifecycle.panToActiveExplorer(); }
 
-  ensureExplorer(opts?: { pan?: boolean }): Promise<ExplorerPlugin> { return this.lifecycle.ensureExplorer(opts); }
+  ensureExplorer(opts?: { pan?: boolean }): Promise<ExplorerWindow> { return this.lifecycle.ensureExplorer(opts); }
 
-  ensureSpecsmap(opts?: { pan?: boolean }): Promise<SpecsMapPlugin | null> { return this.lifecycle.ensureSpecsmap(opts); }
+  ensureSpecsmap(opts?: { pan?: boolean }): Promise<SpecsMapWindow | null> { return this.lifecycle.ensureSpecsmap(opts); }
 
   openFileAndReveal(filePath: string): void { this.focus.openFileAndReveal(filePath); }
 
   async openInMarkdown(filePath: string, _label?: string, pan = true): Promise<void> {
-    const explorer = this.getActiveExplorerPlugin() || await this.ensureExplorer({ pan });
+    const explorer = this.getActiveExplorerWindow() || await this.ensureExplorer({ pan });
     explorer.openInMarkdown(filePath);
   }
 
-  getActiveExplorerPlugin(): ExplorerPlugin | null { return this.lifecycle.getActiveExplorerPlugin(); }
+  getActiveExplorerWindow(): ExplorerWindow | null { return this.lifecycle.getActiveExplorerWindow(); }
 
-  getTerminalPlugin(uuid: string): TerminalPlugin | null { return this.lifecycle.getTerminalPlugin(uuid); }
+  getTerminalWindow(uuid: string): TerminalWindow | null { return this.lifecycle.getTerminalWindow(uuid); }
 
-  getActiveSpecsMapPlugin(): SpecsMapPlugin | null { return this.lifecycle.getActiveSpecsMapPlugin(); }
+  getActiveSpecsMapWindow(): SpecsMapWindow | null { return this.lifecycle.getActiveSpecsMapWindow(); }
 
-  getActiveAgentsPlugin(): AgentsPlugin | null { return this.lifecycle.getActiveAgentsPlugin(); }
+  getActiveAgentsWindow(): AgentsWindow | null { return this.lifecycle.getActiveAgentsWindow(); }
 
   killAllTerminals(): void { this.lifecycle.killAllTerminals(); }
 
@@ -391,11 +391,11 @@ export class CanvasArea {
 
   updateAllThemes(): void {
     for (const cs of this.cards) {
-      if (cs.terminalPlugin) {
-        cs.terminalPlugin.updateTheme();
+      if (cs.terminalWindow) {
+        cs.terminalWindow.updateTheme();
       }
-      if (cs.explorerPlugin) {
-        cs.explorerPlugin.updateTheme();
+      if (cs.explorerWindow) {
+        cs.explorerWindow.updateTheme();
       }
     }
   }
@@ -403,14 +403,14 @@ export class CanvasArea {
   getSaveState(): SaveState {
     const byZ = [...this.cards].sort((a, b) => parseInt(a.card.el.style.zIndex || '1') - parseInt(b.card.el.style.zIndex || '1'));
     return {
-      plugins: this.cards.filter(c => c.savedTitle !== 'DevConsole').map(c => {
+      windows: this.cards.filter(c => c.savedTitle !== 'DevConsole').map(c => {
         const w = c.savedWidth;
         const h = c.savedHeight;
-        const base: PluginEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: w, height: h, isOpen: c.isOpen };
-        const editorState = c.explorerPlugin ? c.explorerPlugin.getEditorState() : null;
+        const base: WindowEntry = { uuid: c.card.uuid, title: c.savedTitle, x: c.worldX, y: c.worldY, width: w, height: h, isOpen: c.isOpen };
+        const editorState = c.explorerWindow ? c.explorerWindow.getEditorState() : null;
         if (c.savedTitle === 'Explorer' && editorState) base.editorState = editorState;
-        if (c.savedTitle === 'Git' && c.gitPlugin) {
-          base.gitState = c.gitPlugin.getState();
+        if (c.savedTitle === 'Git' && c.gitWindow) {
+          base.gitState = c.gitWindow.getState();
         }
         return base;
       }),
@@ -420,13 +420,13 @@ export class CanvasArea {
     };
   }
 
-  restorePlugins(state: SaveState, wsPath: string): void {
+  restoreWindows(state: SaveState, wsPath: string): void {
     this.wsPath = wsPath;
     this.lifecycle.clearCards();
 
     // Find highest numbers for counters
     let highestTerm = 0;
-    for (const p of state.plugins) {
+    for (const p of state.windows) {
       const tm = p.title.match(/^Terminal (\d+)$/);
       if (tm) highestTerm = Math.max(highestTerm, parseInt(tm[1]));
     }
@@ -434,13 +434,13 @@ export class CanvasArea {
 
     // Normalize old "Dev" / "Explorer N" titles to "Explorer"
     let seenExplorer = false;
-    for (const p of state.plugins) {
+    for (const p of state.windows) {
       if (p.title === 'Dev' || /^Explorer \d+$/.test(p.title)) {
         p.title = 'Explorer';
       }
     }
     // Deduplicate Explorer (keep only first entry)
-    state.plugins = state.plugins.filter(p => {
+    state.windows = state.windows.filter(p => {
       if (p.title === 'Explorer') {
         if (seenExplorer) return false;
         seenExplorer = true;
@@ -448,11 +448,11 @@ export class CanvasArea {
       return true;
     });
     // Remove any legacy "Markdown" cards
-    state.plugins = state.plugins.filter(p => p.title !== 'Markdown');
+    state.windows = state.windows.filter(p => p.title !== 'Markdown');
     // Dev console is ephemeral — always opened fresh, never restored.
-    state.plugins = state.plugins.filter(p => p.title !== 'DevConsole');
+    state.windows = state.windows.filter(p => p.title !== 'DevConsole');
 
-    for (const p of state.plugins) {
+    for (const p of state.windows) {
       if (p.title.startsWith('Terminal')) {
         const cs = this.lifecycle.createCardFromDef(p, {
           onMinimize: () => {
@@ -475,7 +475,7 @@ export class CanvasArea {
         if (p.isOpen) {
           const dev = this.lifecycle.mountExplorer(cs, wsPath);
           // markdown integrated into explorer — setMarkdownOpeners removed
-          // Restore editor state from plugin entry
+          // Restore editor state from window entry
           if (p.editorState) {
             const es = p.editorState;
             setTimeout(() => dev?.restoreEditorState(es), 500);

@@ -14,7 +14,7 @@ interface EditorState {
 }
 
 interface WorkspaceState {
-  plugins: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; gitState?: any }[];
+  windows: { uuid: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean; editorState?: EditorState; gitState?: any }[];
   zOrder: string[];
   zoom: number;
   panX: number;

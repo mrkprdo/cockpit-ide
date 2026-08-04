@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SpecsMapPlugin } from './SpecsMapPlugin';
+import { SpecsMapWindow } from './SpecsMapWindow';
 import { mockElectronAPI } from '../../test/setup';
 
 // ── MD spec helpers ──────────────────────────────────────────────────────────
@@ -71,10 +71,10 @@ const MAIN_SPEC = makeMainMd({
     { id: 'canvas-engine', name: 'Canvas Engine', file: 'CanvasArea.ts', spec: 'canvas-engine.spec.md', ui: 'canvas-engine-ui.spec.md' },
   ],
   widget: [
-    { id: 'plugin-card', name: 'Plugin Card', file: 'PluginCard.ts', spec: 'plugin-card.spec.md' },
+    { id: 'window-card', name: 'Window Card', file: 'WindowCard.ts', spec: 'window-card.spec.md' },
   ],
-  plugins: [
-    { id: 'terminal-plugin', name: 'Terminal Plugin', file: 'TerminalPlugin.ts', spec: 'terminal-plugin.spec.md' },
+  windows: [
+    { id: 'terminal-window', name: 'Terminal Window', file: 'TerminalWindow.ts', spec: 'terminal-window.spec.md' },
   ],
 });
 
@@ -87,18 +87,18 @@ const SPEC_FILES: Record<string, string> = {
   'canvas-engine.spec.md': makeSpecMd({
     name: 'Canvas Engine', file: 'src/renderer/components/CanvasArea.ts', type: 'ui', layer: 'core',
     dependencies: [{ feature: 'Theme', file: 'theme.ts', usage: 'Uses theme singleton' }],
-    referenced_by: [{ feature: 'Plugin Card', file: 'PluginCard.ts' }],
+    referenced_by: [{ feature: 'Window Card', file: 'WindowCard.ts' }],
   }),
   'canvas-engine-ui.spec.md': makeSpecMd({
     name: 'Canvas Engine UI', parent: 'canvas-engine',
   }),
-  'plugin-card.spec.md': makeSpecMd({
-    name: 'Plugin Card', file: 'src/renderer/components/PluginCard.ts', type: 'ui', layer: 'widget',
+  'window-card.spec.md': makeSpecMd({
+    name: 'Window Card', file: 'src/renderer/components/WindowCard.ts', type: 'ui', layer: 'widget',
     dependencies: [{ feature: 'Canvas Engine', file: 'CanvasArea.ts' }],
     referenced_by: [],
   }),
-  'terminal-plugin.spec.md': makeSpecMd({
-    name: 'Terminal Plugin', file: 'src/renderer/components/TerminalPlugin.ts', type: 'ui', layer: 'plugin',
+  'terminal-window.spec.md': makeSpecMd({
+    name: 'Terminal Window', file: 'src/renderer/components/TerminalWindow.ts', type: 'ui', layer: 'window',
     dependencies: [],
     referenced_by: [{ feature: 'Canvas Engine', file: 'CanvasArea.ts' }],
   }),
@@ -119,7 +119,7 @@ async function flushSpecs(): Promise<void> {
   }
 }
 
-describe('SpecsMapPlugin', () => {
+describe('SpecsMapWindow', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -148,25 +148,25 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('appends a div to the container', () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     expect(container.children.length).toBe(1);
     expect(container.children[0]).toBeInstanceOf(HTMLDivElement);
   });
 
   it('creates the header with subtitle', () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     expect(container.textContent).toContain('hover to trace');
   });
 
   it('calls fs.readDir and fs.readFile for specs', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     expect(mockElectronAPI.fs.readDir).toHaveBeenCalled();
     expect(mockElectronAPI.fs.readFile).toHaveBeenCalled();
   });
 
   it('reads main.spec.md via fs.readFile', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const calls = (mockElectronAPI.fs.readFile as any).mock.calls as string[][];
     const mainCall = calls.find((c: string[]) => c[0].includes('main.spec.md'));
@@ -174,28 +174,28 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('renders a node element for each spec file', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const nodes = container.querySelectorAll('.sm-node');
     expect(nodes.length).toBe(Object.keys(SPEC_FILES).length);
   });
 
   it('renders UI sub-nodes with .sm-node-ui class', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const uiNodes = container.querySelectorAll('.sm-node-ui');
     expect(uiNodes.length).toBe(1);
   });
 
   it('renders layer headers', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const headers = container.querySelectorAll('.sm-layer-header');
     expect(headers.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders SVG defs with markers', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const svg = container.querySelector('svg.sm-graph');
     expect(svg).toBeTruthy();
@@ -207,13 +207,13 @@ describe('SpecsMapPlugin', () => {
 
   it('shows error state when readFile fails', async () => {
     (mockElectronAPI.fs.readFile as any).mockRejectedValue(new Error('denied'));
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     expect(container.textContent).toContain('Error loading specs');
   });
 
   it('clicking a node opens the detail panel', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const node = container.querySelector('.sm-node') as HTMLElement;
     expect(node).toBeTruthy();
@@ -224,7 +224,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('clicking the selected node again hides the panel (translateX)', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const node = container.querySelector('.sm-node') as HTMLElement;
     node.click();
@@ -238,7 +238,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('sets .sm-selected class on clicked node', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const node = container.querySelector('.sm-node') as HTMLElement;
     node.click();
@@ -246,7 +246,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('hover adds border highlight to connected nodes', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const themeNode = container.querySelector('.sm-node') as HTMLElement;
     expect(themeNode).toBeTruthy();
@@ -256,18 +256,18 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('destroy clears internal maps and does not throw', () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     expect(() => sm.destroy()).not.toThrow();
   });
 
   it('destroy called twice does not throw', () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     sm.destroy();
     expect(() => sm.destroy()).not.toThrow();
   });
 
   it('mouseenter on node dims non-connected nodes', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const nodes = container.querySelectorAll('.sm-node');
     expect(nodes.length).toBeGreaterThanOrEqual(2);
@@ -280,7 +280,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('renders dep count and ref count in each main node', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const mainNodes = container.querySelectorAll('.sm-node:not(.sm-node-ui)');
     expect(mainNodes.length).toBeGreaterThan(0);
@@ -291,7 +291,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('panel close button slides panel out', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const node = container.querySelector('.sm-node') as HTMLElement;
     node.click();
@@ -322,7 +322,7 @@ describe('SpecsMapPlugin', () => {
       return baseReadFile(path);
     });
 
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
 
     // v1 snapshot rejected — nodes come from the real corpus, not the stale cache
@@ -346,14 +346,14 @@ describe('SpecsMapPlugin', () => {
     });
     (mockElectronAPI.fs.readFile as any).mockResolvedValue(null);
 
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
 
     expect(container.textContent).toContain('NO SPEC FILES');
   });
 
   it('destroy removes document event listeners', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
 
     const removeSpy = vi.spyOn(document, 'removeEventListener');
@@ -365,7 +365,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('renders SVG with dep edge paths', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const paths = container.querySelectorAll('svg.sm-graph path');
     expect(paths.length).toBeGreaterThan(0);
@@ -373,21 +373,21 @@ describe('SpecsMapPlugin', () => {
 
   it('injects sm-styles only once across instances', () => {
     const c2 = makeContainer();
-    new SpecsMapPlugin(container, '/test/ws');
-    new SpecsMapPlugin(c2, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
+    new SpecsMapWindow(c2, '/test/ws');
     const styles = document.querySelectorAll('#sm-styles');
     expect(styles.length).toBe(1);
   });
 
   it('renders a gear cycle-detection button in the header', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btn = container.querySelector('.sm-header-btn') as HTMLElement;
     expect(btn).toBeTruthy();
   });
 
   it('gear click opens settings panel with toggle', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const gearBtns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     gearBtns[1].click();
@@ -396,7 +396,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('gear click again closes settings panel', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const gearBtns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     const gearBtn = gearBtns[1];
@@ -436,7 +436,7 @@ describe('SpecsMapPlugin', () => {
     });
 
     const c = makeContainer();
-    new SpecsMapPlugin(c, '/test/ws');
+    new SpecsMapWindow(c, '/test/ws');
     await flushSpecs();
 
     // Open settings panel
@@ -480,7 +480,7 @@ describe('SpecsMapPlugin', () => {
     });
 
     const c = makeContainer();
-    new SpecsMapPlugin(c, '/test/ws');
+    new SpecsMapWindow(c, '/test/ws');
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
@@ -525,7 +525,7 @@ describe('SpecsMapPlugin', () => {
     });
 
     const c = makeContainer();
-    new SpecsMapPlugin(c, '/test/ws');
+    new SpecsMapWindow(c, '/test/ws');
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
@@ -568,7 +568,7 @@ describe('SpecsMapPlugin', () => {
     });
 
     const c = makeContainer();
-    new SpecsMapPlugin(c, '/test/ws');
+    new SpecsMapWindow(c, '/test/ws');
     await flushSpecs();
 
     // Open settings and toggle cycle detection
@@ -628,7 +628,7 @@ describe('SpecsMapPlugin', () => {
     });
 
     const c = makeContainer();
-    new SpecsMapPlugin(c, '/test/ws');
+    new SpecsMapWindow(c, '/test/ws');
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
@@ -645,7 +645,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('settings panel has isolated nodes toggle', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const gearBtns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     gearBtns[1].click();
@@ -687,7 +687,7 @@ describe('SpecsMapPlugin', () => {
     });
 
     const c = makeContainer();
-    new SpecsMapPlugin(c, '/test/ws');
+    new SpecsMapWindow(c, '/test/ws');
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
@@ -707,7 +707,7 @@ describe('SpecsMapPlugin', () => {
 
   it('toggling isolated mode off restores default view', async () => {
     const c = makeContainer();
-    new SpecsMapPlugin(c, '/test/ws');
+    new SpecsMapWindow(c, '/test/ws');
     await flushSpecs();
 
     const gearBtns = c.querySelectorAll<HTMLElement>('.sm-header-btn');
@@ -729,7 +729,7 @@ describe('SpecsMapPlugin', () => {
   // ── Search tests ──
 
   it('renders a search button in the header', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     const searchBtn = btns[0];
@@ -738,7 +738,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('clicking search button opens search bar', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     btns[0].click();
@@ -749,7 +749,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('typing in search dims non-matching nodes', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     // Open search
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
@@ -766,15 +766,15 @@ describe('SpecsMapPlugin', () => {
     expect(nodes.length).toBeGreaterThan(0);
     // Theme node should be full opacity, others dimmed
     const themeEl = Array.from(nodes).find(n => n.textContent?.includes('Theme')) as HTMLElement;
-    const pluginEl = Array.from(nodes).find(n => n.textContent?.includes('Terminal')) as HTMLElement;
+    const windowEl = Array.from(nodes).find(n => n.textContent?.includes('Terminal')) as HTMLElement;
     expect(themeEl).toBeTruthy();
-    expect(pluginEl).toBeTruthy();
+    expect(windowEl).toBeTruthy();
     expect(themeEl.style.opacity).toBe('1');
-    expect(pluginEl.style.opacity).toBe('0.14');
+    expect(windowEl.style.opacity).toBe('0.14');
   });
 
   it('search count shows correct number of matches', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     btns[0].click();
@@ -784,12 +784,12 @@ describe('SpecsMapPlugin', () => {
     input.value = 'canvas';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await new Promise(r => setTimeout(r, 10));
-    // Matches: Canvas Engine node, Canvas Engine UI node, Plugin Card (dep feature), Theme (ref feature), Terminal Plugin (ref feature)
+    // Matches: Canvas Engine node, Canvas Engine UI node, Window Card (dep feature), Theme (ref feature), Terminal Window (ref feature)
     expect(countEl.textContent).toBe('5');
   });
 
   it('Enter navigates to next search result', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     btns[0].click();
@@ -799,7 +799,7 @@ describe('SpecsMapPlugin', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await new Promise(r => setTimeout(r, 10));
 
-    // Should have selected first match (Terminal Plugin)
+    // Should have selected first match (Terminal Window)
     let selected = container.querySelector('.sm-node.sm-selected');
     expect(selected).toBeTruthy();
     expect(selected!.textContent).toContain('Terminal');
@@ -812,7 +812,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('Shift+Enter navigates to previous search result', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     btns[0].click();
@@ -830,7 +830,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('keyword is highlighted in selected node .sm-name', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     btns[0].click();
@@ -849,7 +849,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('blur closes search and restores all node opacities', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     btns[0].click();
@@ -876,7 +876,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('Escape closes search', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     btns[0].click();
@@ -890,7 +890,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('Ctrl+F toggles search from document', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     // Open via Ctrl+F
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true }));
@@ -904,7 +904,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('Ctrl+Shift+F does not trigger SpecsMap search toggle', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const searchBar = container.querySelector('.sm-search-bar') as HTMLElement;
     expect(searchBar.style.opacity).toBe('0');
@@ -923,7 +923,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('hover does nothing while search is open', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     btns[0].click();
@@ -936,7 +936,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('search with no matches shows 0 count', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const btns = container.querySelectorAll<HTMLElement>('.sm-header-btn');
     btns[0].click();
@@ -952,7 +952,7 @@ describe('SpecsMapPlugin', () => {
   // ── Agent traversal API ──
 
   it('getNodes returns a copy of parsed nodes', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const nodes = sm.getNodes();
     expect(nodes.length).toBe(Object.keys(SPEC_FILES).length);
@@ -964,7 +964,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('getNodeContext returns markdown context for a node', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const node = sm.getNodes().find(n => n.id === 'theme.spec.md');
     expect(node).toBeTruthy();
@@ -975,13 +975,13 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('getNodeContext returns empty string for unknown node', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     expect(sm.getNodeContext('missing.spec.md')).toBe('');
   });
 
   it('explore returns dense aggregated context for matching nodes', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const result = await sm.explore('theme');
     expect(result).toContain('Matches');
@@ -990,21 +990,21 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('explore returns message when no nodes match', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const result = await sm.explore('nonexistentxyz');
     expect(result).toContain('No specs matched');
   });
 
   it('explore does not steal the camera by default (agent path)', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     await sm.explore('canvas');
     expect(container.querySelector('.sm-node.sm-selected')).toBeNull();
   });
 
   it('explore with animate selects the first match (human path)', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     await sm.explore('canvas', { animate: true });
     const selected = container.querySelector('.sm-node.sm-selected');
@@ -1012,7 +1012,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('shows a report-driven validation badge', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const badge = container.querySelector('.sm-validation-badge') as HTMLElement | null;
     expect(badge).toBeTruthy();
@@ -1021,7 +1021,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('settings panel has VALIDATION and RECONCILE sections', async () => {
-    new SpecsMapPlugin(container, '/test/ws');
+    new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const gear = container.querySelector('button[title="Settings"]') as HTMLButtonElement;
     gear.click();
@@ -1033,7 +1033,7 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('reconcileSpecs report mode writes no spec files and returns a changelog', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     (mockElectronAPI.fs.writeFile as any).mockClear();
     const out = await sm.reconcileSpecs('report');
@@ -1044,20 +1044,20 @@ describe('SpecsMapPlugin', () => {
   });
 
   it('validateSpecs returns a markdown report', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const out = await sm.validateSpecs();
     expect(out).toContain('# Validation');
   });
 
   it('reloadSpecs rereads the corpus and reports node count', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const out = await sm.reloadSpecs();
     expect(out).toContain('SpecsMap reloaded');
   });
   it('left-drag pans the canvas', async () => {
-    const sm = new SpecsMapPlugin(container, '/test/ws');
+    const sm = new SpecsMapWindow(container, '/test/ws');
     await flushSpecs();
     const panBefore = (sm as any).panX;
     const panBeforeY = (sm as any).panY;

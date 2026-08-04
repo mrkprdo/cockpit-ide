@@ -1,5 +1,5 @@
 // Monaco bootstrap — the shared loader + editor-instance creation for
-// MonacoEditorPlugin (refactor.md §A.2: keeps the plugin file under the 700
+// MonacoEditorWindow (refactor.md §A.2: keeps the window file under the 700
 // LOC cap). Bootstraps Monaco globals (CSS, loader.js, themes) exactly once.
 
 import { theme } from '../theme';

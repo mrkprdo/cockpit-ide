@@ -9,7 +9,7 @@
 > Implementation note: the design below was fully delivered. Key landing points:
 >
 > - **`src/renderer/agents/`** — types.ts (envelope/brief/status contracts), bus.ts (pub/sub + mailboxes + MessageCollector + delivery log), skills.ts (10 SDLC skills + code-enforced guardrails), prompts.ts (skill templates + compaction + orchestration section), session.ts (headless loop, rolling window, LLM compaction, abort), executor.ts (spawn/kill/status/dispatch/wait, caps, lazy singleton), agent-tools.ts (the five `agent_*` tools).
-> - **UI** — `src/renderer/components/AgentsPlugin.ts` (bubble graph, animated/stale SVG edges, inspector, spawn/kill/purge controls) + CSS + CanvasArea/App/TopBar integration + persistence to `.cockpit/agents/` (bus.jsonl + roster.json).
+> - **UI** — `src/renderer/components/AgentsWindow.ts` (bubble graph, animated/stale SVG edges, inspector, spawn/kill/purge controls) + CSS + CanvasArea/App/TopBar integration + persistence to `.cockpit/agents/` (bus.jsonl + roster.json).
 > - **Tests** — bus/skills/session/executor unit+integration suites (32 tests) plus zero regressions across the existing 1459.
 > - **Specs** — new/updated .spec.md files; `specs_validate` clean except the pre-existing `ai-index` stale row (src/renderer/ai/index.ts never existed).
 
@@ -137,7 +137,7 @@ Cooperative scheduling, global caps (default 5, settable), per-agent timeout, Ab
 - **P2 — Headless Session** ✅ (`session.ts` + tests)
 - **P3 — Executor** ✅ (`executor.ts` + `agent_*` tools + tests)
 - **P4 — SDLC skill prompts** ✅ (`prompts.ts`; orchestration section wired into AiDrawer)
-- **P5 — UI card v1** ✅ (`AgentsPlugin.ts`, CanvasArea/App/TopBar integration, styles)
+- **P5 — UI card v1** ✅ (`AgentsWindow.ts`, CanvasArea/App/TopBar integration, styles)
 - **P6 — Edges & animation** ✅ (SVG edges, firing/idle/stale, wake-up styling)
 - **P7 — Peer messaging polish** ✅ (mailbox badge, inspector, kill controls, TTL)
 - **P8 — Persistence & hardening** ✅ (`.cockpit/agents/`, spec sync + validation)

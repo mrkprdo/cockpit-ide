@@ -46,7 +46,7 @@ const MAIN = [
   '| id | name | file | spec | ui |', '|----|------|------|------|----|',
   '| app | App | src/App.ts | app.spec.md | app-ui.spec.md |',
   '',
-  '### plugin', '',
+  '### window', '',
   '| id | name | file | spec | ui |', '|----|------|------|------|----|',
   '| widget | Widget | src/Widget.ts | widget.spec.md | |',
   '',

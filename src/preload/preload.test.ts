@@ -271,8 +271,8 @@ describe('preload.ts — IPC wiring (invoke-based)', () => {
 
   it('workspace.save invokes workspace:save with state', () => {
     invokeCalls.length = 0;
-    api.workspace.save({ plugins: [] });
-    expect(invokeCalls.some(c => c[0] === 'workspace:save' && c[1].plugins)).toBe(true);
+    api.workspace.save({ windows: [] });
+    expect(invokeCalls.some(c => c[0] === 'workspace:save' && c[1].windows)).toBe(true);
   });
 
   it('workspace.load passes path argument to workspace:load', () => {

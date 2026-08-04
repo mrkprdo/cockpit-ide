@@ -2,7 +2,7 @@ import type { CardLifecycle } from './card-lifecycle';
 import type { Notifier } from './notify';
 import type { Viewport } from './viewport';
 
-export class PluginFocus {
+export class WindowFocus {
   constructor(
     private lifecycle: CardLifecycle,
     private notifier: Notifier,

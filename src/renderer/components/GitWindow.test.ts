@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GitPlugin } from './GitPlugin';
+import { GitWindow } from './GitWindow';
 import { mockElectronAPI } from '../../test/setup';
 
 function makeContainer(): HTMLElement {
@@ -13,7 +13,7 @@ async function flush(): Promise<void> {
   await new Promise(r => setTimeout(r, 0));
 }
 
-describe('GitPlugin', () => {
+describe('GitWindow', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -74,7 +74,7 @@ describe('GitPlugin', () => {
   });
 
   it('creates split pane with flex layout', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
 
     const children = container.children;
@@ -86,7 +86,7 @@ describe('GitPlugin', () => {
   });
 
   it('has three children: left, resize, right', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
 
     const splitEl = container.firstElementChild!;
@@ -94,25 +94,25 @@ describe('GitPlugin', () => {
   });
 
   it('loads remotes on construction', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
     expect(mockElectronAPI.git.remotes).toHaveBeenCalledWith('/test/repo');
   });
 
   it('loads branches on construction', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
     expect(mockElectronAPI.git.branches).toHaveBeenCalledWith('/test/repo');
   });
 
   it('loads commits on construction', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
     expect(mockElectronAPI.git.log).toHaveBeenCalledWith('/test/repo', 50);
   });
 
   it('renders commit items in the left panel', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
 
     const commitsEl = container.querySelector('.git-commits');
@@ -125,7 +125,7 @@ describe('GitPlugin', () => {
   });
 
   it('renders remote and branch selects', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
 
     const selects = container.querySelectorAll('.git-select');
@@ -133,7 +133,7 @@ describe('GitPlugin', () => {
   });
 
   it('selecting a commit loads file tree', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
 
     const commitItems = container.querySelectorAll('.git-commit-item');
@@ -151,7 +151,7 @@ describe('GitPlugin', () => {
   });
 
   it('selecting a file loads diff', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
 
     const commitItems = container.querySelectorAll('.git-commit-item');
@@ -171,7 +171,7 @@ describe('GitPlugin', () => {
   it('shows empty state when no commits', async () => {
     (mockElectronAPI.git.log as any).mockResolvedValue([]);
 
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
 
     const empty = container.querySelector('.git-empty');
@@ -180,7 +180,7 @@ describe('GitPlugin', () => {
   });
 
   it('onStateChange is callable', () => {
-    const git = new GitPlugin(container, '/test/repo');
+    const git = new GitWindow(container, '/test/repo');
     const cb = vi.fn();
     git.onStateChange = cb;
     git.onStateChange?.();
@@ -188,7 +188,7 @@ describe('GitPlugin', () => {
   });
 
   it('refresh reloads remotes, branches, commits, and changes', async () => {
-    const git = new GitPlugin(container, '/test/repo');
+    const git = new GitWindow(container, '/test/repo');
     await flush();
     vi.clearAllMocks();
 
@@ -201,7 +201,7 @@ describe('GitPlugin', () => {
   });
 
   it('refresh clears commit selection before re-rendering', async () => {
-    const git = new GitPlugin(container, '/test/repo');
+    const git = new GitWindow(container, '/test/repo');
     await flush();
 
     // Select a commit
@@ -216,7 +216,7 @@ describe('GitPlugin', () => {
   });
 
   it('renders diff content with color classes', async () => {
-    new GitPlugin(container, '/test/repo');
+    new GitWindow(container, '/test/repo');
     await flush();
 
     const commitItems = container.querySelectorAll('.git-commit-item');
@@ -237,7 +237,7 @@ describe('GitPlugin', () => {
 
   describe('changes section', () => {
     it('renders Changes label and staged/unstaged items with arrows', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const labels = container.querySelectorAll('.git-label');
@@ -251,7 +251,7 @@ describe('GitPlugin', () => {
     });
 
     it('auto-expands sections with files on load', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const files = container.querySelectorAll('.git-changes-files');
@@ -265,7 +265,7 @@ describe('GitPlugin', () => {
     it('starts with empty sections when no files', async () => {
       (mockElectronAPI.git.stagedFiles as any).mockResolvedValue([]);
       (mockElectronAPI.git.unstagedFiles as any).mockResolvedValue([]);
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const files = container.querySelectorAll('.git-changes-files');
@@ -274,7 +274,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking staged header toggles file list visibility', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const stagedHeader = container.querySelectorAll('.git-changes-item')[0] as HTMLElement;
@@ -301,7 +301,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking unstaged header toggles file list visibility', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const unstagedHeader = container.querySelectorAll('.git-changes-item')[1] as HTMLElement;
@@ -321,7 +321,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking header toggles arrow direction', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const stagedHeader = container.querySelectorAll('.git-changes-item')[0] as HTMLElement;
@@ -346,14 +346,14 @@ describe('GitPlugin', () => {
     });
 
     it('loads staged and unstaged files on construction', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
       expect(mockElectronAPI.git.stagedFiles).toHaveBeenCalledWith('/test/repo');
       expect(mockElectronAPI.git.unstagedFiles).toHaveBeenCalledWith('/test/repo');
     });
 
     it('shows file count badges', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const counts = container.querySelectorAll('.git-changes-count');
@@ -364,7 +364,7 @@ describe('GitPlugin', () => {
 
     it('shows "No staged files" inside expanded staged with zero files', async () => {
       (mockElectronAPI.git.stagedFiles as any).mockResolvedValue([]);
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const stagedHeader = container.querySelectorAll('.git-changes-item')[0] as HTMLElement;
@@ -378,7 +378,7 @@ describe('GitPlugin', () => {
 
     it('shows "No changes" inside expanded unstaged with zero files', async () => {
       (mockElectronAPI.git.unstagedFiles as any).mockResolvedValue([]);
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const unstagedHeader = container.querySelectorAll('.git-changes-item')[1] as HTMLElement;
@@ -391,7 +391,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking a staged file loads staged diff', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const stagedFile = container.querySelector('.git-changes-file') as HTMLElement;
@@ -404,7 +404,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking an unstaged file loads unstaged diff', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const unstagedFile = container.querySelectorAll('.git-changes-file')[1] as HTMLElement;
@@ -417,7 +417,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking an untracked file loads unstaged diff', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const untrackedFile = container.querySelectorAll('.git-changes-file')[2] as HTMLElement;
@@ -430,7 +430,7 @@ describe('GitPlugin', () => {
     });
 
     it('shows U status for untracked files', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const unstagedFiles = container.querySelectorAll('.git-changes-file');
@@ -440,7 +440,7 @@ describe('GitPlugin', () => {
     });
 
     it('sets dataset.path on git-changes-file elements for selection tracking', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const stagedFile = container.querySelector('.git-changes-file') as HTMLElement;
@@ -452,7 +452,7 @@ describe('GitPlugin', () => {
     });
 
     it('selecting a file from staged shows diff in right panel', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const stagedFile = container.querySelector('.git-changes-file') as HTMLElement;
@@ -464,7 +464,7 @@ describe('GitPlugin', () => {
     });
 
     it('selecting a commit after changes file shows commit info', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const stagedFile = container.querySelector('.git-changes-file') as HTMLElement;
@@ -482,7 +482,7 @@ describe('GitPlugin', () => {
 
   describe('diff view mode dropdown', () => {
     it('has a single dropdown button with SVG icon', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const btn = container.querySelector('.git-diff-btn');
@@ -491,7 +491,7 @@ describe('GitPlugin', () => {
     });
 
     it('starts in unified mode (unified item active)', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const items = container.querySelectorAll('.git-diff-dropdown-item');
@@ -503,7 +503,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking button opens dropdown', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const btn = container.querySelector('.git-diff-btn') as HTMLElement;
@@ -517,7 +517,7 @@ describe('GitPlugin', () => {
     });
 
     it('dropdown items are keyboard-focusable and activatable via Enter', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const items = container.querySelectorAll<HTMLElement>('.git-diff-dropdown-item');
@@ -533,7 +533,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking "View side by side" switches mode and closes dropdown', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const btn = container.querySelector('.git-diff-btn') as HTMLElement;
@@ -552,7 +552,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking "View side by side" after loading a file renders side-by-side rows', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const commitItems = container.querySelectorAll('.git-commit-item');
@@ -576,7 +576,7 @@ describe('GitPlugin', () => {
     });
 
     it('side-by-side renders add/remove/replace rows with correct classes', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const commitItems = container.querySelectorAll('.git-commit-item');
@@ -602,7 +602,7 @@ describe('GitPlugin', () => {
     });
 
     it('clicking "View unified" after side by side switches back', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const btn = container.querySelector('.git-diff-btn') as HTMLElement;
@@ -622,7 +622,7 @@ describe('GitPlugin', () => {
     });
 
     it('toggling mode re-renders unified diff lines after side-by-side', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const commitItems = container.querySelectorAll('.git-commit-item');
@@ -656,7 +656,7 @@ describe('GitPlugin', () => {
 
   describe('commit/push', () => {
     it('renders commit bar with input, commit button, and push button', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const input = container.querySelector('.git-commit-input') as HTMLInputElement;
@@ -670,7 +670,7 @@ describe('GitPlugin', () => {
     });
 
     it('disables commit button when input is empty', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const commitBtn = container.querySelector('.git-commit-btn') as HTMLButtonElement;
@@ -678,7 +678,7 @@ describe('GitPlugin', () => {
     });
 
     it('enables commit button when input has text and staged files exist', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const input = container.querySelector('.git-commit-input') as HTMLInputElement;
@@ -691,7 +691,7 @@ describe('GitPlugin', () => {
     });
 
     it('calls git:commit on commit button click', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const input = container.querySelector('.git-commit-input') as HTMLInputElement;
@@ -707,7 +707,7 @@ describe('GitPlugin', () => {
     });
 
     it('clears input after successful commit and calls refresh', async () => {
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
       vi.clearAllMocks();
 
@@ -724,7 +724,7 @@ describe('GitPlugin', () => {
     });
 
     it('removes staged file rows immediately after successful commit', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const stagedSection = container.querySelectorAll('.git-changes-files')[0];
@@ -746,7 +746,7 @@ describe('GitPlugin', () => {
 
     it('calls git:push on push button click', async () => {
       (mockElectronAPI.git.checkAhead as any).mockResolvedValue(true);
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
       vi.clearAllMocks();
 
@@ -758,7 +758,7 @@ describe('GitPlugin', () => {
     });
 
     it('commits via Enter key in input', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
       vi.clearAllMocks();
 
@@ -774,7 +774,7 @@ describe('GitPlugin', () => {
 
     it('push button starts disabled when no unpushed commits', async () => {
       (mockElectronAPI.git.checkAhead as any).mockResolvedValue(false);
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const pushBtn = container.querySelector('.git-push-btn') as HTMLButtonElement;
@@ -783,7 +783,7 @@ describe('GitPlugin', () => {
 
     it('push button enabled when unpushed commits exist', async () => {
       (mockElectronAPI.git.checkAhead as any).mockResolvedValue(true);
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const pushBtn = container.querySelector('.git-push-btn') as HTMLButtonElement;
@@ -791,7 +791,7 @@ describe('GitPlugin', () => {
     });
 
     it('calls checkAhead during refresh', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       expect(mockElectronAPI.git.checkAhead).toHaveBeenCalledWith('/test/repo');
@@ -799,7 +799,7 @@ describe('GitPlugin', () => {
 
     it('push button disabled after successful push', async () => {
       (mockElectronAPI.git.checkAhead as any).mockResolvedValue(true);
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const pushBtn = container.querySelector('.git-push-btn') as HTMLButtonElement;
@@ -815,7 +815,7 @@ describe('GitPlugin', () => {
 
   describe('checkout', () => {
     it('clicking a branch calls git:checkout', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const branchSelect = container.querySelectorAll('.git-select')[0] as HTMLSelectElement;
@@ -831,7 +831,7 @@ describe('GitPlugin', () => {
 
   describe('getState', () => {
     it('getState() returns null when nothing selected', async () => {
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
 
       const state = (git as any).getState();
@@ -839,7 +839,7 @@ describe('GitPlugin', () => {
     });
 
     it('getState() returns object with selectedHash and splitter sizes', async () => {
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
 
       const commitItems = container.querySelectorAll('.git-commit-item');
@@ -854,7 +854,7 @@ describe('GitPlugin', () => {
     });
 
     it('getState() includes changesExpanded with staged/unstaged booleans', async () => {
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
 
       const stateWithSelection = (git as any).getState();
@@ -881,7 +881,7 @@ describe('GitPlugin', () => {
 
   describe('restoreState', () => {
     it('restoreState() does not throw', async () => {
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
 
       expect(() => {
@@ -894,7 +894,7 @@ describe('GitPlugin', () => {
     });
 
     it('restoreState restores splitter sizes', async () => {
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
 
       await (git as any).restoreState({
@@ -912,7 +912,7 @@ describe('GitPlugin', () => {
 
   describe('refreshChanges', () => {
     it('refreshChanges reloads staged and unstaged files', async () => {
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
       vi.clearAllMocks();
 
@@ -922,7 +922,7 @@ describe('GitPlugin', () => {
     });
 
     it('refreshChanges preserves collapsed state of sections', async () => {
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
 
       const files = container.querySelectorAll('.git-changes-files');
@@ -940,7 +940,7 @@ describe('GitPlugin', () => {
 
     it('refreshChanges enables commit button when staged files and message exist', async () => {
       (mockElectronAPI.git.stagedFiles as any).mockResolvedValue([]);
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
       vi.clearAllMocks();
 
@@ -959,7 +959,7 @@ describe('GitPlugin', () => {
     it('destroy() unsubscribes file watcher', async () => {
       const unsub = vi.fn();
       (mockElectronAPI.fs.onChanged as any).mockReturnValue(unsub);
-      const git = new GitPlugin(container, '/test/repo');
+      const git = new GitWindow(container, '/test/repo');
       await flush();
       git.destroy();
       expect(unsub).toHaveBeenCalled();
@@ -968,7 +968,7 @@ describe('GitPlugin', () => {
 
   describe('auto-refresh', () => {
     it('file change event triggers refresh (log called post-construction)', async () => {
-      new GitPlugin(container, '/test/repo');
+      new GitWindow(container, '/test/repo');
       await flush();
 
       const callCount = (mockElectronAPI.git.log as any).mock.calls.length;

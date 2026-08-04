@@ -1,15 +1,15 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { AgentsPlugin } from './AgentsPlugin';
+import { AgentsWindow } from './AgentsWindow';
 import { getAgentExecutor } from '../agents/executor';
 import { roundtableComposeTool, agentSpawnTool } from '../agents/agent-tools';
 
 /**
  * End-to-end smoke coverage for the "no manual setup" goal: the real
- * AgentsPlugin against a real DOM, driven only through the same tool-call
+ * AgentsWindow against a real DOM, driven only through the same tool-call
  * path the LLM uses (roundtable_compose + agent_spawn) — no manual
  * spawn/compose form exists to drive instead.
  */
-describe('AgentsPlugin smoke', () => {
+describe('AgentsWindow smoke', () => {
   afterEach(() => {
     getAgentExecutor().purgeAll();
   });
@@ -17,7 +17,7 @@ describe('AgentsPlugin smoke', () => {
   it('renders live-telemetry shell with no manual spawn/compose forms', () => {
     const body = document.createElement('div');
     document.body.appendChild(body);
-    const plugin = new AgentsPlugin(body, '/ws');
+    const window = new AgentsWindow(body, '/ws');
 
     // No manual controls anywhere.
     expect(body.querySelector('.agents-spawn')).toBeNull();
@@ -39,13 +39,13 @@ describe('AgentsPlugin smoke', () => {
     // No live roundtable session yet → hidden.
     expect((body.querySelector('.agents-rt') as HTMLElement).hidden).toBe(true);
 
-    plugin.destroy();
+    window.destroy();
   });
 
   it('shows a live quorum tracker for an LLM-driven roundtable_compose + agent_spawn, no manual composer involved', async () => {
     const body = document.createElement('div');
     document.body.appendChild(body);
-    const plugin = new AgentsPlugin(body, '/ws');
+    const window = new AgentsWindow(body, '/ws');
 
     // Exactly what the LLM does per ROUNDTABLE_SECTION: compose, then spawn
     // each expert tagged with roundtable_session_id — no UI form touched.
@@ -61,8 +61,8 @@ describe('AgentsPlugin smoke', () => {
       } as never, {} as never);
     }
 
-    (plugin as any).refreshStatuses();
-    (plugin as any).renderRoundtable();
+    (window as any).refreshStatuses();
+    (window as any).renderRoundtable();
 
     const rtEl = body.querySelector('.agents-rt') as HTMLElement;
     expect(rtEl.hidden).toBe(false);
@@ -72,6 +72,6 @@ describe('AgentsPlugin smoke', () => {
     expect(body.querySelector('.agents-rt-compose-btn')).toBeNull();
     expect(body.querySelector('.agents-rt-issue')).toBeNull();
 
-    plugin.destroy();
+    window.destroy();
   });
 });

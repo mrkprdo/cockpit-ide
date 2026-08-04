@@ -5,7 +5,7 @@ import { renderMarkdownToHtml } from './markdown-render';
 
 interface Tab { filePath: string; name: string; originalPath: string; kind?: 'markdown'; }
 
-export class MonacoEditorPlugin {
+export class MonacoEditorWindow {
   onStateChange: (() => void) | null = null;
   onFileActivated: ((filePath: string) => void) | null = null;
 

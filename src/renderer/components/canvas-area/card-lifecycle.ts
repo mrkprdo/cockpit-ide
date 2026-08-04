@@ -1,17 +1,17 @@
 import type { Viewport } from './viewport';
 import type { LayoutOverlays } from './layout-overlays';
 import type { Notifier } from './notify';
-import { PluginCard } from '../PluginCard';
+import { WindowCard } from '../WindowCard';
 import { ContextMenu } from '../ContextMenu';
-import { TerminalPlugin } from '../TerminalPlugin';
-import { ExplorerPlugin } from '../ExplorerPlugin';
-import { GitPlugin } from '../GitPlugin';
-import { SpecsMapPlugin } from '../SpecsMapPlugin';
-import { AgentsPlugin } from '../AgentsPlugin';
-import { DevConsolePlugin } from '../dev-console/DevConsolePlugin';
+import { TerminalWindow } from '../TerminalWindow';
+import { ExplorerWindow } from '../ExplorerWindow';
+import { GitWindow } from '../GitWindow';
+import { SpecsMapWindow } from '../SpecsMapWindow';
+import { AgentsWindow } from '../AgentsWindow';
+import { DevConsoleWindow } from '../dev-console/DevConsoleWindow';
 import type { CardState } from './types';
 
-export interface PluginHost {
+export interface WindowHost {
   getOnStateChange(): (() => void) | null;
   setContextMenuOpen(v: boolean): void;
   getWsPath(): string;
@@ -33,7 +33,7 @@ export class CardLifecycle {
     private layouts: LayoutOverlays,
     private notifier: Notifier,
     private worldEl: HTMLDivElement,
-    private host: PluginHost,
+    private host: WindowHost,
   ) {}
 
   getCards(): CardState[] { return this.cards; }
@@ -63,7 +63,7 @@ export class CardLifecycle {
     cs.card.el.style.left = `${cs.worldX}px`;
     cs.card.el.style.top = `${cs.worldY}px`;
     cs.card.el.style.transform = '';
-    cs.terminalPlugin?.setScale(this.viewport.scale);
+    cs.terminalWindow?.setScale(this.viewport.scale);
   }
 
   repositionAll(): void {
@@ -76,7 +76,7 @@ export class CardLifecycle {
     const sw = this.viewport.snapSize(w);
     const sh = this.viewport.snapSize(h);
     let cs: CardState;
-    const card = new PluginCard(this.worldEl, {
+    const card = new WindowCard(this.worldEl, {
       title, subtitle, x: 0, y: 0, width: sw, height: sh,
       onMinimize: () => {
         cs.isOpen = false;
@@ -126,7 +126,7 @@ export class CardLifecycle {
         menu.onClose = () => { this.host.setContextMenuOpen(false); };
       },
     }, () => ({ scale: this.viewport.scale, panX: this.viewport.panX, panY: this.viewport.panY }));
-    cs = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null, agentsPlugin: null, devConsolePlugin: null };
+    cs = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalWindow: null, explorerWindow: null, gitWindow: null, specsmapWindow: null, agentsWindow: null, devConsoleWindow: null };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -134,7 +134,7 @@ export class CardLifecycle {
 
   createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onMinimize?: () => void; onFitViewport?: () => void; onTerminate?: () => void }): CardState {
     let cs: CardState;
-    const card = new PluginCard(this.worldEl, {
+    const card = new WindowCard(this.worldEl, {
       title: p.title, subtitle: '', x: 0, y: 0, width: p.width, height: p.height,
       onMinimize: callbacks.onMinimize,
       onFitViewport: callbacks.onFitViewport,
@@ -182,14 +182,14 @@ export class CardLifecycle {
 
     const cx = this.viewport.clampWorld(p.x, 'x');
     const cy = this.viewport.clampWorld(p.y, 'y');
-    cs = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalPlugin: null, explorerPlugin: null, gitPlugin: null, specsmapPlugin: null, agentsPlugin: null, devConsolePlugin: null };
+    cs = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalWindow: null, explorerWindow: null, gitWindow: null, specsmapWindow: null, agentsWindow: null, devConsoleWindow: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
     return cs;
   }
 
-  bringToFront(card: PluginCard): void {
+  bringToFront(card: WindowCard): void {
     if (this.nextZ >= 9998) this.rebalanceZ();
     this.nextZ++;
     card.el.style.zIndex = String(this.nextZ);
@@ -212,23 +212,23 @@ export class CardLifecycle {
     }
   }
 
-  getTerminalPlugin(uuid: string): TerminalPlugin | null {
-    return this.cards.find(c => c.card.uuid === uuid)?.terminalPlugin ?? null;
+  getTerminalWindow(uuid: string): TerminalWindow | null {
+    return this.cards.find(c => c.card.uuid === uuid)?.terminalWindow ?? null;
   }
 
-  getActiveExplorerPlugin(): ExplorerPlugin | null {
+  getActiveExplorerWindow(): ExplorerWindow | null {
     for (const cs of this.cards) {
-      if (cs.explorerPlugin && cs.isOpen) return cs.explorerPlugin;
+      if (cs.explorerWindow && cs.isOpen) return cs.explorerWindow;
     }
     return null;
   }
 
-  getActiveSpecsMapPlugin(): SpecsMapPlugin | null {
-    return this.cards.find(c => c.specsmapPlugin && c.isOpen)?.specsmapPlugin ?? null;
+  getActiveSpecsMapWindow(): SpecsMapWindow | null {
+    return this.cards.find(c => c.specsmapWindow && c.isOpen)?.specsmapWindow ?? null;
   }
 
-  getActiveAgentsPlugin(): AgentsPlugin | null {
-    return this.cards.find(c => c.agentsPlugin && c.isOpen)?.agentsPlugin ?? null;
+  getActiveAgentsWindow(): AgentsWindow | null {
+    return this.cards.find(c => c.agentsWindow && c.isOpen)?.agentsWindow ?? null;
   }
 
   focusCard(title: string): void {
@@ -269,7 +269,7 @@ export class CardLifecycle {
   }
 
   panToActiveExplorer(): void {
-    const cs = this.cards.find(c => c.explorerPlugin && c.isOpen);
+    const cs = this.cards.find(c => c.explorerWindow && c.isOpen);
     if (cs) { this.focusCard(cs.card.opts.title); this.viewport.panToCard(cs); }
   }
 
@@ -287,10 +287,10 @@ export class CardLifecycle {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const term = new TerminalPlugin(body, cs.card.uuid, wsPath);
+        const term = new TerminalWindow(body, cs.card.uuid, wsPath);
         term.onExit = () => this.host.terminateCard(cs);
         cs.card.onDestroy = () => term.destroy();
-        cs.terminalPlugin = term;
+        cs.terminalWindow = term;
         cs.onCardResize = () => { term.setScale(this.viewport.scale); term.fit(); };
         term.setScale(this.viewport.scale);
       }
@@ -298,28 +298,28 @@ export class CardLifecycle {
     });
   }
 
-  mountExplorer(cs: CardState, wsPath: string): ExplorerPlugin | null {
+  mountExplorer(cs: CardState, wsPath: string): ExplorerWindow | null {
     const body = cs.card.el.querySelector('.card-body') as HTMLElement;
     if (!body) return null;
     body.style.padding = '0';
     body.style.alignItems = 'stretch';
     body.style.justifyContent = 'stretch';
-    const dev = new ExplorerPlugin(body, wsPath);
+    const dev = new ExplorerWindow(body, wsPath);
     dev.onStateChange = () => this.host.getOnStateChange()?.();
-    cs.explorerPlugin = dev;
+    cs.explorerWindow = dev;
     return dev;
   }
 
-  mountGit(cs: CardState, wsPath: string): GitPlugin | null {
+  mountGit(cs: CardState, wsPath: string): GitWindow | null {
     const body = cs.card.el.querySelector('.card-body') as HTMLElement;
     if (!body) return null;
     body.style.padding = '0';
     body.style.alignItems = 'stretch';
     body.style.justifyContent = 'stretch';
-    const git = new GitPlugin(body, wsPath);
+    const git = new GitWindow(body, wsPath);
     git.onStateChange = () => this.host.getOnStateChange()?.();
-    git.onFileOpen = (filePath) => this.getActiveExplorerPlugin()?.openFile(filePath);
-    cs.gitPlugin = git;
+    git.onFileOpen = (filePath) => this.getActiveExplorerWindow()?.openFile(filePath);
+    cs.gitWindow = git;
     cs.card.onDestroy = () => git.destroy();
     return git;
   }
@@ -330,9 +330,9 @@ export class CardLifecycle {
     body.style.padding = '0';
     body.style.alignItems = 'stretch';
     body.style.justifyContent = 'stretch';
-    const sm = new SpecsMapPlugin(body, wsPath);
-    sm.onFileOpen = (filePath) => this.getActiveExplorerPlugin()?.openFile(filePath);
-    cs.specsmapPlugin = sm;
+    const sm = new SpecsMapWindow(body, wsPath);
+    sm.onFileOpen = (filePath) => this.getActiveExplorerWindow()?.openFile(filePath);
+    cs.specsmapWindow = sm;
     cs.card.onDestroy = () => sm.destroy();
   }
 
@@ -342,8 +342,8 @@ export class CardLifecycle {
     body.style.padding = '0';
     body.style.alignItems = 'stretch';
     body.style.justifyContent = 'stretch';
-    const ag = new AgentsPlugin(body, wsPath);
-    cs.agentsPlugin = ag;
+    const ag = new AgentsWindow(body, wsPath);
+    cs.agentsWindow = ag;
     cs.card.onDestroy = () => ag.destroy();
   }
 
@@ -362,9 +362,9 @@ export class CardLifecycle {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const dev = new ExplorerPlugin(body, this.host.getWsPath());
+        const dev = new ExplorerWindow(body, this.host.getWsPath());
         dev.onStateChange = () => this.host.getOnStateChange()?.();
-        cs.explorerPlugin = dev;
+        cs.explorerWindow = dev;
       }
       cs.isOpen = true;
       cs.card.el.style.display = '';
@@ -379,10 +379,10 @@ export class CardLifecycle {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const git = new GitPlugin(body, this.host.getWsPath());
+        const git = new GitWindow(body, this.host.getWsPath());
         git.onStateChange = () => this.host.getOnStateChange()?.();
-        git.onFileOpen = (filePath) => this.getActiveExplorerPlugin()?.openFile(filePath);
-        cs.gitPlugin = git;
+        git.onFileOpen = (filePath) => this.getActiveExplorerWindow()?.openFile(filePath);
+        cs.gitWindow = git;
         cs.card.onDestroy = () => git.destroy();
       }
       cs.isOpen = true;
@@ -398,9 +398,9 @@ export class CardLifecycle {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const sm = new SpecsMapPlugin(body, this.host.getWsPath());
-        sm.onFileOpen = (filePath) => this.getActiveExplorerPlugin()?.openFile(filePath);
-        cs.specsmapPlugin = sm;
+        const sm = new SpecsMapWindow(body, this.host.getWsPath());
+        sm.onFileOpen = (filePath) => this.getActiveExplorerWindow()?.openFile(filePath);
+        cs.specsmapWindow = sm;
         cs.card.onDestroy = () => sm.destroy();
       }
       cs.isOpen = true;
@@ -416,8 +416,8 @@ export class CardLifecycle {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const ag = new AgentsPlugin(body, this.host.getWsPath());
-        cs.agentsPlugin = ag;
+        const ag = new AgentsWindow(body, this.host.getWsPath());
+        cs.agentsWindow = ag;
         cs.card.onDestroy = () => ag.destroy();
       }
       cs.isOpen = true;
@@ -433,8 +433,8 @@ export class CardLifecycle {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const dc = new DevConsolePlugin(body, this.host.getWsPath());
-        cs.devConsolePlugin = dc;
+        const dc = new DevConsoleWindow(body, this.host.getWsPath());
+        cs.devConsoleWindow = dc;
         cs.card.onDestroy = () => dc.destroy();
       }
       cs.isOpen = true;
@@ -495,7 +495,7 @@ export class CardLifecycle {
 
   killAllTerminals(): void {
     for (const cs of this.cards) {
-      if (cs.savedTitle.startsWith('Terminal')) cs.terminalPlugin?.destroy();
+      if (cs.savedTitle.startsWith('Terminal')) cs.terminalWindow?.destroy();
     }
   }
 
@@ -510,7 +510,7 @@ export class CardLifecycle {
     this.host.getOnStateChange()?.();
   }
 
-  ensureExplorer(opts?: { pan?: boolean }): Promise<ExplorerPlugin> {
+  ensureExplorer(opts?: { pan?: boolean }): Promise<ExplorerWindow> {
     const pan = opts?.pan !== false;
     const existing = this.cards.find(c => c.savedTitle === 'Explorer');
     if (existing) {
@@ -524,41 +524,41 @@ export class CardLifecycle {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const dev = new ExplorerPlugin(body, this.host.getWsPath());
+        const dev = new ExplorerWindow(body, this.host.getWsPath());
         dev.onStateChange = () => this.host.getOnStateChange()?.();
-        existing.explorerPlugin = dev;
+        existing.explorerWindow = dev;
       }
       this.bringToFront(existing.card);
       if (pan) this.viewport.panToCard(existing);
       this.notifier.notifyExplorersChanged();
-      return Promise.resolve(existing.explorerPlugin!);
+      return Promise.resolve(existing.explorerWindow!);
     }
-    return new Promise<ExplorerPlugin>(resolve => {
+    return new Promise<ExplorerWindow>(resolve => {
       const cs = this.addCard('Explorer', '', -400, -250, 800, 500);
       requestAnimationFrame(() => {
         const body = cs.card.el.querySelector('.card-body') as HTMLElement;
-        if (body && !cs.explorerPlugin && !body.hasChildNodes()) {
+        if (body && !cs.explorerWindow && !body.hasChildNodes()) {
           body.style.padding = '0';
           body.style.alignItems = 'stretch';
           body.style.justifyContent = 'stretch';
-          const dev = new ExplorerPlugin(body, this.host.getWsPath());
+          const dev = new ExplorerWindow(body, this.host.getWsPath());
           dev.onStateChange = () => this.host.getOnStateChange()?.();
-          cs.explorerPlugin = dev;
+          cs.explorerWindow = dev;
           this.notifier.notifyExplorersChanged();
           this.bringToFront(cs.card);
           if (pan) this.viewport.panToCard(cs);
           resolve(dev);
-        } else if (cs.explorerPlugin) {
-          resolve(cs.explorerPlugin);
+        } else if (cs.explorerWindow) {
+          resolve(cs.explorerWindow);
         }
       });
     });
   }
 
-  ensureSpecsmap(opts?: { pan?: boolean }): Promise<SpecsMapPlugin | null> {
+  ensureSpecsmap(opts?: { pan?: boolean }): Promise<SpecsMapWindow | null> {
     const pan = opts?.pan !== false;
     const existing = this.cards.find(c => c.savedTitle === 'SpecsMap');
-    if (existing && existing.specsmapPlugin) {
+    if (existing && existing.specsmapWindow) {
       existing.isOpen = true;
       existing.card.el.style.display = '';
       existing.worldX = existing.savedWX;
@@ -567,9 +567,9 @@ export class CardLifecycle {
       this.bringToFront(existing.card);
       if (pan) this.viewport.panToCard(existing);
       this.notifier.notifySpecsmapChanged();
-      return Promise.resolve(existing.specsmapPlugin);
+      return Promise.resolve(existing.specsmapWindow);
     }
-    return new Promise<SpecsMapPlugin | null>(resolve => {
+    return new Promise<SpecsMapWindow | null>(resolve => {
       const cs = this.addCard('SpecsMap', '', -400, -250, 800, 500);
       requestAnimationFrame(() => {
         const body = cs.card.el.querySelector('.card-body') as HTMLElement;
@@ -580,9 +580,9 @@ export class CardLifecycle {
         body.style.padding = '0';
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
-        const sm = new SpecsMapPlugin(body, this.host.getWsPath());
-        sm.onFileOpen = (filePath) => this.getActiveExplorerPlugin()?.openFile(filePath);
-        cs.specsmapPlugin = sm;
+        const sm = new SpecsMapWindow(body, this.host.getWsPath());
+        sm.onFileOpen = (filePath) => this.getActiveExplorerWindow()?.openFile(filePath);
+        cs.specsmapWindow = sm;
         cs.card.onDestroy = () => sm.destroy();
         this.notifier.notifySpecsmapChanged();
         this.bringToFront(cs.card);

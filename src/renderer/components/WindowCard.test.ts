@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PluginCard } from './PluginCard';
+import { WindowCard } from './WindowCard';
 
 function makeParent(): HTMLElement {
   const el = document.createElement('div');
@@ -13,14 +13,14 @@ function getTransform() {
   return { scale: 1, panX: 960, panY: 540 };
 }
 
-describe('PluginCard', () => {
+describe('WindowCard', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
   });
 
   it('creates a card element with the correct structure', () => {
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Test Card',
       x: 0,
       y: 0,
@@ -43,7 +43,7 @@ describe('PluginCard', () => {
 
   it('sets initial position and size from options', () => {
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Pos Test',
       x: 100,
       y: 200,
@@ -59,8 +59,8 @@ describe('PluginCard', () => {
 
   it('generates a unique UUID', () => {
     const parent = makeParent();
-    const card1 = new PluginCard(parent, { title: 'A', x: 0, y: 0, width: 200, height: 200 }, getTransform);
-    const card2 = new PluginCard(parent, { title: 'B', x: 0, y: 0, width: 200, height: 200 }, getTransform);
+    const card1 = new WindowCard(parent, { title: 'A', x: 0, y: 0, width: 200, height: 200 }, getTransform);
+    const card2 = new WindowCard(parent, { title: 'B', x: 0, y: 0, width: 200, height: 200 }, getTransform);
 
     expect(card1.uuid).toBeTruthy();
     expect(card2.uuid).toBeTruthy();
@@ -71,7 +71,7 @@ describe('PluginCard', () => {
   it('calls onMinimize when minimize button is clicked', () => {
     const onMinimize = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Min Test',
       x: 0, y: 0, width: 200, height: 200,
       onMinimize,
@@ -85,7 +85,7 @@ describe('PluginCard', () => {
   it('calls onFitViewport when fit viewport button is clicked', () => {
     const onFitViewport = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Fit Test',
       x: 0, y: 0, width: 200, height: 200,
       onFitViewport,
@@ -99,7 +99,7 @@ describe('PluginCard', () => {
   it('calls onTerminate when terminate button is clicked', () => {
     const onTerminate = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Term Test',
       x: 0, y: 0, width: 200, height: 200,
       onTerminate,
@@ -113,7 +113,7 @@ describe('PluginCard', () => {
   it('calls onFocus when card is clicked', () => {
     const onFocus = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Focus Test',
       x: 0, y: 0, width: 200, height: 200,
       onFocus,
@@ -126,7 +126,7 @@ describe('PluginCard', () => {
   it('remove() calls onDestroy and removes element from DOM', () => {
     const onDestroy = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Remove Test',
       x: 0, y: 0, width: 200, height: 200,
     }, getTransform);
@@ -142,7 +142,7 @@ describe('PluginCard', () => {
 
   it('renders a DOM title element with the title text', () => {
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'DOM Title',
       x: 0, y: 0, width: 400, height: 300,
     }, getTransform);
@@ -154,7 +154,7 @@ describe('PluginCard', () => {
 
   it('stores width/height from constructor opts', () => {
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Snap Test',
       x: 50,
       y: 50,
@@ -168,7 +168,7 @@ describe('PluginCard', () => {
 
   it('supports setContent with HTML (renders DOM text)', () => {
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Content Test',
       x: 0, y: 0, width: 400, height: 300,
     }, getTransform);
@@ -183,7 +183,7 @@ describe('PluginCard', () => {
   it('double-click on header fires onFitViewport', () => {
     const onFitViewport = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'DblClick Test',
       x: 0, y: 0, width: 200, height: 200,
       onFitViewport,
@@ -198,7 +198,7 @@ describe('PluginCard', () => {
     const onFitViewport = vi.fn();
     const onMinimize = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Btn DblClick',
       x: 0, y: 0, width: 200, height: 200,
       onFitViewport,
@@ -216,7 +216,7 @@ describe('PluginCard', () => {
   it('calls onHeaderContextMenu on right-click of header', () => {
     const onHeaderContextMenu = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'CtxMenu Test',
       x: 0, y: 0, width: 200, height: 200,
       onHeaderContextMenu,
@@ -231,7 +231,7 @@ describe('PluginCard', () => {
   });
 });
 
-describe('PluginCard — drag interaction', () => {
+describe('WindowCard — drag interaction', () => {
   function makeParent(): HTMLElement {
     const el = document.createElement('div');
     el.id = 'canvas';
@@ -248,8 +248,8 @@ describe('PluginCard — drag interaction', () => {
     document.body.innerHTML = '';
   });
 
-  function createCard(opts = {}): PluginCard {
-    return new PluginCard(makeParent(), {
+  function createCard(opts = {}): WindowCard {
+    return new WindowCard(makeParent(), {
       title: 'Drag Test',
       x: 100,
       y: 200,
@@ -312,7 +312,7 @@ describe('PluginCard — drag interaction', () => {
     const onFitViewport = vi.fn();
     const onTerminate = vi.fn();
     const parent = makeParent();
-    const card = new PluginCard(parent, {
+    const card = new WindowCard(parent, {
       title: 'Isolation',
       x: 0, y: 0, width: 200, height: 200,
       onMinimize,
@@ -391,7 +391,7 @@ describe('PluginCard — drag interaction', () => {
   });
 });
 
-describe('PluginCard — resize interaction', () => {
+describe('WindowCard — resize interaction', () => {
   function makeParent(): HTMLElement {
     const el = document.createElement('div');
     el.id = 'canvas';
@@ -409,7 +409,7 @@ describe('PluginCard — resize interaction', () => {
   });
 
   it('e edge mousedown + mousemove resizes width', () => {
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Resize Test',
       x: 100, y: 100, width: 400, height: 300,
     }, getTransform);
@@ -424,7 +424,7 @@ describe('PluginCard — resize interaction', () => {
   });
 
   it('resize mousemove updates width', () => {
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Resize Test',
       x: 100, y: 100, width: 400, height: 300,
     }, getTransform);
@@ -439,7 +439,7 @@ describe('PluginCard — resize interaction', () => {
   });
 
   it('resize respects minimum SNAP size', () => {
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Resize Test',
       x: 100, y: 100, width: 400, height: 300,
     }, getTransform);
@@ -455,7 +455,7 @@ describe('PluginCard — resize interaction', () => {
 
   it('resize mouseup calls onResizeEnd', () => {
     const onResizeEnd = vi.fn();
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Resize Test',
       x: 100, y: 100, width: 400, height: 300,
       onResizeEnd,
@@ -470,7 +470,7 @@ describe('PluginCard — resize interaction', () => {
   });
 
   it('sets aria-label on card header with card title', () => {
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Aria Test', x: 0, y: 0, width: 200, height: 200,
     }, getTransform);
     const header = card.el.querySelector('.card-header')!;
@@ -478,7 +478,7 @@ describe('PluginCard — resize interaction', () => {
   });
 
   it('terminate button has title "Close"', () => {
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Btn Test', x: 0, y: 0, width: 200, height: 200,
     }, getTransform);
     const btn = card.el.querySelector('.card-btn-terminate') as HTMLElement;
@@ -486,7 +486,7 @@ describe('PluginCard — resize interaction', () => {
   });
 
   it('remove() detaches drag document listeners', () => {
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Cleanup', x: 0, y: 0, width: 200, height: 200,
     }, getTransform);
     const removeSpy = vi.spyOn(document, 'removeEventListener');
@@ -497,7 +497,7 @@ describe('PluginCard — resize interaction', () => {
   });
 
   it('remove() detaches resize document listeners', () => {
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Cleanup2', x: 0, y: 0, width: 200, height: 200,
     }, getTransform);
     const removeSpy = vi.spyOn(document, 'removeEventListener');
@@ -508,7 +508,7 @@ describe('PluginCard — resize interaction', () => {
   });
 
   it('resize shows tooltip on mousedown and updates on mousemove', () => {
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Tooltip Test',
       x: 100, y: 100, width: 400, height: 300,
     }, getTransform);
@@ -529,7 +529,7 @@ describe('PluginCard — resize interaction', () => {
   });
 
   it('resize tooltip is removed on mouseup', () => {
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Tooltip Remove',
       x: 100, y: 100, width: 400, height: 300,
     }, getTransform);
@@ -544,7 +544,7 @@ describe('PluginCard — resize interaction', () => {
 
   it('calls onDestroy before removing element', () => {
     const onDestroy = vi.fn();
-    const card = new PluginCard(makeParent(), {
+    const card = new WindowCard(makeParent(), {
       title: 'Destroy', x: 0, y: 0, width: 200, height: 200,
     }, getTransform);
     card.onDestroy = onDestroy;

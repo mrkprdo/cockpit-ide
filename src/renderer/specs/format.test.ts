@@ -149,7 +149,7 @@ describe('main.spec.md features tables', () => {
     expect(Object.keys(features)).toContain('foundation');
     const allRows = Object.values(features).flat();
     expect(allRows.length).toBeGreaterThan(10);
-    const specsmap = allRows.find(r => r.file === 'src/renderer/components/SpecsMapPlugin.ts');
+    const specsmap = allRows.find(r => r.file === 'src/renderer/components/SpecsMapWindow.ts');
     expect(specsmap).toBeTruthy();
     expect(specsmap!.spec).toMatch(/\.spec\.md$/);
   });

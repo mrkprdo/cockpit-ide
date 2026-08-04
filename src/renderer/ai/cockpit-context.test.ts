@@ -7,7 +7,7 @@ function makeMockCockpit(overrides: Partial<CockpitGlobal> = {}): CockpitGlobal 
     getCanvasState: vi.fn(),
     getWorkspacePath: vi.fn(),
     openFile: vi.fn(),
-    addPlugin: vi.fn(),
+    addWindow: vi.fn(),
     addTerminal: vi.fn(),
     focusCard: vi.fn(),
     closeCard: vi.fn(),

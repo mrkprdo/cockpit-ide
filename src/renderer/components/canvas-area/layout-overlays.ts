@@ -69,7 +69,7 @@ export class LayoutOverlays {
     this.host.fitAll();
   }
 
-  tilePlugins(): void {
+  tileWindows(): void {
     const open = this.host.getCards().filter(c => c.isOpen);
     if (open.length === 0) return;
 
@@ -116,7 +116,7 @@ export class LayoutOverlays {
           cs.card.opts.width = sw;
           cs.card.opts.height = sh;
           this.host.positionCard(cs);
-          cs.terminalPlugin?.fit();
+          cs.terminalWindow?.fit();
           idx++;
         }
       }

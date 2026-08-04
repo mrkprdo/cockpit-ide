@@ -87,20 +87,20 @@ describe('validate rules', () => {
     expect(ids(validate(g))).toContain('layer.cycle');
   });
 
-  it('layer.inversion (warn) when foundation depends on plugin', () => {
+  it('layer.inversion (warn) when foundation depends on window', () => {
     const g = graphFrom({
       'a.spec.md': spec('A', 'src/a.ts', { layer: 'foundation', deps: [['P', 'src/p.ts']] }),
-      'p.spec.md': spec('P', 'src/p.ts', { layer: 'plugin', refs: [['A', 'src/a.ts']] }),
+      'p.spec.md': spec('P', 'src/p.ts', { layer: 'window', refs: [['A', 'src/a.ts']] }),
     }, false);
     expect(ids(validate(g))).toContain('layer.inversion');
   });
 
   it('no inversion for downward, utility, or orchestrator edges', () => {
     const g = graphFrom({
-      'p.spec.md': spec('P', 'src/p.ts', { layer: 'plugin', deps: [['A', 'src/a.ts'], ['U', 'src/u.ts']] }),
+      'p.spec.md': spec('P', 'src/p.ts', { layer: 'window', deps: [['A', 'src/a.ts'], ['U', 'src/u.ts']] }),
       'a.spec.md': spec('A', 'src/a.ts', { layer: 'foundation', refs: [['P', 'src/p.ts']] }),
       'u.spec.md': spec('U', 'src/u.ts', { layer: 'utility', refs: [['P', 'src/p.ts']] }),
-      // orchestrator wiring widgets/modals/plugins is normal architecture
+      // orchestrator wiring widgets/modals/windows is normal architecture
       'c.spec.md': spec('C', 'src/c.ts', { layer: 'core', deps: [['W', 'src/w.ts'], ['P', 'src/p.ts']] }),
       'w.spec.md': spec('W', 'src/w.ts', { layer: 'widget', refs: [['C', 'src/c.ts']] }),
     }, false);

@@ -14,40 +14,40 @@ export interface PanelsHost {
   reopenCard(cs: CardState): void;
   terminateCard(cs: CardState): void;
   autoArrange(): void;
-  tilePlugins(): void;
+  tileWindows(): void;
   snapOrigin(): void;
 }
 
 export class Panels {
-  private pluginListZone: HTMLButtonElement;
-  private pluginListPanel: HTMLDivElement;
+  private windowListZone: HTMLButtonElement;
+  private windowListPanel: HTMLDivElement;
   private arrPanel: HTMLDivElement;
 
   constructor(private el: HTMLElement, private host: PanelsHost) {
-    // Plugin list panel (lower-left hover zone) — keyboard accessible
+    // Window list panel (lower-left hover zone) — keyboard accessible
     const zone = document.createElement('button');
     zone.className = 'pli-zone';
-    zone.setAttribute('aria-label', 'Plugin list');
+    zone.setAttribute('aria-label', 'Window list');
     zone.tabIndex = 0;
-    this.pluginListZone = zone;
+    this.windowListZone = zone;
     const icon = document.createElement('span');
     icon.className = 'pli-icon';
     icon.textContent = '◣';
     icon.setAttribute('aria-hidden', 'true');
     zone.appendChild(icon);
 
-    this.pluginListPanel = document.createElement('div');
-    this.pluginListPanel.className = 'plugin-list-panel';
-    this.pluginListPanel.style.display = 'none';
+    this.windowListPanel = document.createElement('div');
+    this.windowListPanel.className = 'window-list-panel';
+    this.windowListPanel.style.display = 'none';
 
-    zone.appendChild(this.pluginListPanel);
+    zone.appendChild(this.windowListPanel);
     this.el.appendChild(zone);
 
-    const showPL = () => { if (!this.pluginListPanel.style.display || this.pluginListPanel.style.display === 'none') this.showPluginList(); };
+    const showPL = () => { if (!this.windowListPanel.style.display || this.windowListPanel.style.display === 'none') this.showWindowList(); };
     const hidePL = () => {
       setTimeout(() => {
-        if (!this.host.getContextMenuOpen() && !zone.matches(':hover') && !this.pluginListPanel.matches(':hover') && document.activeElement !== zone) {
-          this.pluginListPanel.style.display = 'none';
+        if (!this.host.getContextMenuOpen() && !zone.matches(':hover') && !this.windowListPanel.matches(':hover') && document.activeElement !== zone) {
+          this.windowListPanel.style.display = 'none';
         }
       }, 200);
     };
@@ -59,17 +59,17 @@ export class Panels {
     zone.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        if (this.pluginListPanel.style.display !== 'none') {
-          this.pluginListPanel.style.display = 'none';
+        if (this.windowListPanel.style.display !== 'none') {
+          this.windowListPanel.style.display = 'none';
         } else {
           showPL();
         }
       }
     });
-    this.pluginListPanel.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
-    this.pluginListPanel.addEventListener('mouseenter', () => { this.pluginListPanel.style.display = 'block'; });
-    this.pluginListPanel.addEventListener('mouseleave', () => {
-      if (!this.host.getContextMenuOpen() && !zone.matches(':hover') && document.activeElement !== zone) this.pluginListPanel.style.display = 'none';
+    this.windowListPanel.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+    this.windowListPanel.addEventListener('mouseenter', () => { this.windowListPanel.style.display = 'block'; });
+    this.windowListPanel.addEventListener('mouseleave', () => {
+      if (!this.host.getContextMenuOpen() && !zone.matches(':hover') && document.activeElement !== zone) this.windowListPanel.style.display = 'none';
     });
 
     // Arrange panel (lower-right hover zone) — keyboard accessible
@@ -121,15 +121,15 @@ export class Panels {
   }
 
   setDrawerOffset(left: number): void {
-    if (!this.pluginListZone) return;
-    this.pluginListZone.style.left = `${left + 4}px`;
+    if (!this.windowListZone) return;
+    this.windowListZone.style.left = `${left + 4}px`;
   }
 
-  showPluginList(): void {
-    const panel = this.pluginListPanel;
+  showWindowList(): void {
+    const panel = this.windowListPanel;
     panel.innerHTML = '';
     if (this.host.getCards().length === 0) {
-      panel.innerHTML = '<div class="pli-empty">No plugins</div>';
+      panel.innerHTML = '<div class="pli-empty">No windows</div>';
     } else {
       const sorted = [...this.host.getCards()].sort((a, b) => a.savedTitle.localeCompare(b.savedTitle));
       for (const cs of sorted) {
@@ -169,7 +169,7 @@ export class Panels {
 
     const items: { label: string; action: () => void }[] = [
       { label: 'Auto Arrange', action: () => this.host.autoArrange() },
-      { label: 'Tile Plugins', action: () => this.host.tilePlugins() },
+      { label: 'Tile Windows', action: () => this.host.tileWindows() },
       { label: 'Snap Origin', action: () => this.host.snapOrigin() },
     ];
 

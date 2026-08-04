@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FileExplorerPlugin } from '../renderer/components/FileExplorerPlugin';
-import { MarkdownPlugin } from '../renderer/components/MarkdownPlugin';
-import { MonacoEditorPlugin } from '../renderer/components/MonacoEditorPlugin';
-import { ExplorerPlugin } from '../renderer/components/ExplorerPlugin';
+import { FileExplorerWindow } from '../renderer/components/FileExplorerWindow';
+import { MarkdownWindow } from '../renderer/components/MarkdownWindow';
+import { MonacoEditorWindow } from '../renderer/components/MonacoEditorWindow';
+import { ExplorerWindow } from '../renderer/components/ExplorerWindow';
 import { ConfirmModal } from '../renderer/components/ConfirmModal';
 import { theme, defaultDarkTheme, defaultLightTheme, monokaiDarkTheme, monokaiLightTheme } from '../renderer/theme';
 import { mockElectronAPI } from './setup';
@@ -37,7 +37,7 @@ describe('File CRUD workflows', () => {
 
   it('CREATE: inline input commits new file via writeFile', async () => {
     const onOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onOpen);
+    new FileExplorerWindow(container, '/test', onOpen);
     await new Promise(r => setTimeout(r, 50));
 
     // Trigger "New File" on root via context menu — creates inline input
@@ -73,7 +73,7 @@ describe('File CRUD workflows', () => {
   });
 
   it('CREATE: inline input for new folder calls mkdir', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on 'src' directory to get folder context menu
@@ -105,7 +105,7 @@ describe('File CRUD workflows', () => {
   });
 
   it('CREATE: Escape key cancels inline input without writing', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 50));
 
     const treeEl = container.querySelector('div > div') as HTMLElement;
@@ -132,7 +132,7 @@ describe('File CRUD workflows', () => {
 
   it('READ: clicking a file opens it and calls onFileOpen callback', async () => {
     const onFileOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onFileOpen);
+    new FileExplorerWindow(container, '/test', onFileOpen);
     await new Promise(r => setTimeout(r, 100));
 
     // Find README.md element
@@ -147,7 +147,7 @@ describe('File CRUD workflows', () => {
   });
 
   it('DELETE: confirm modal appears and delete is called on confirm', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on a file entry
@@ -184,7 +184,7 @@ describe('File CRUD workflows', () => {
   });
 
   it('COPY + PASTE: file copy creates numbered duplicate', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Step 1: Right-click README.md and copy
@@ -241,7 +241,7 @@ describe('Editor Tab CRUD workflows', () => {
   });
 
   it('CREATE: openFile adds a tab and sets activeTab', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
 
     // openFile awaits ready promise which tries to load Monaco
     // In test, ready never resolves (no Monaco loader). We test tab management directly.
@@ -251,23 +251,23 @@ describe('Editor Tab CRUD workflows', () => {
   });
 
   it('READ: getState returns null when no tabs, file paths when open', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect(editor.getState()).toBeNull();
   });
 
   it('CLOSE: reloadIfOpen does nothing for untracked files', async () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     await editor.reloadIfOpen('/nonexistent/file.ts');
     expect(editor.tabs).toEqual([]);
   });
 
   it('external file change listener is registered on construction', () => {
-    new MonacoEditorPlugin(container);
+    new MonacoEditorWindow(container);
     expect(mockElectronAPI.fs.onChanged).toHaveBeenCalled();
   });
 
   it('getCurrentFile and getContent return empty state initially', () => {
-    const editor = new MonacoEditorPlugin(container);
+    const editor = new MonacoEditorWindow(container);
     expect(editor.getCurrentFile()).toBe('');
     expect(editor.getContent()).toBe('');
   });
@@ -288,7 +288,7 @@ describe('Markdown Tab CRUD workflows', () => {
   });
 
   it('CREATE: loadFile opens a tab and renders markdown', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/doc.md');
 
     expect(container.textContent).toContain('doc.md');
@@ -297,7 +297,7 @@ describe('Markdown Tab CRUD workflows', () => {
   });
 
   it('READ: same file loaded twice does not duplicate tab', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/doc.md');
     await ctx.loadFile('/test/doc.md');
 
@@ -313,7 +313,7 @@ describe('Markdown Tab CRUD workflows', () => {
       return vi.fn();
     });
 
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/doc.md');
 
     // Verify initial content
@@ -331,7 +331,7 @@ describe('Markdown Tab CRUD workflows', () => {
   });
 
   it('DELETE: closing the last tab shows "No file loaded"', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/doc.md');
 
     expect(container.textContent).toContain('doc.md');
@@ -348,7 +348,7 @@ describe('Markdown Tab CRUD workflows', () => {
   });
 
   it('SERIALIZE: getState preserves tab order and active file', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/a.md');
     await ctx.loadFile('/test/b.md');
 
@@ -360,7 +360,7 @@ describe('Markdown Tab CRUD workflows', () => {
   });
 
   it('RESTORE: restoreState recreates tabs from serialized state', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.restoreState({
       openFiles: ['/test/x.md', '/test/y.md'],
       activeFile: '/test/x.md',
@@ -373,7 +373,7 @@ describe('Markdown Tab CRUD workflows', () => {
 
   it('SHOW EMPTY: empty file content displays "Empty file"', async () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('   ');
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
     await ctx.loadFile('/test/empty.md');
 
     expect(container.textContent).toContain('Empty file');
@@ -381,10 +381,10 @@ describe('Markdown Tab CRUD workflows', () => {
 });
 
 // ─────────────────────────────────────────────
-// DEV PLUGIN (EXPLORER + EDITOR) WORKFLOWS
+// DEV WINDOW (EXPLORER + EDITOR) WORKFLOWS
 // ─────────────────────────────────────────────
 
-describe('Explorer Plugin workflows', () => {
+describe('Explorer Window workflows', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -399,8 +399,8 @@ describe('Explorer Plugin workflows', () => {
     (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
   });
 
-  it('init: ExplorerPlugin creates split layout with explorer and editor', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+  it('init: ExplorerWindow creates split layout with explorer and editor', () => {
+    const dev = new ExplorerWindow(container, '/test/ws');
 
     // Split pane: 3 children (explorer, resize handle, editor)
     const splitEl = container.firstElementChild!;
@@ -412,20 +412,20 @@ describe('Explorer Plugin workflows', () => {
   });
 
   it('state: getEditorState returns explorer width in state', async () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
 
     // No tabs open -> null
     expect(dev.getEditorState()).toBeNull();
   });
 
   it('theme: updateTheme propagates to editor', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     dev.updateTheme();
     // Should not throw
   });
 
   it('restore: restoreEditorState sets explorer column width', async () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
 
     // restoreEditorState applies explorerWidth before the openFiles check
     // Use empty openFiles to avoid editor restoreState hang (needs Monaco)
@@ -442,7 +442,7 @@ describe('Explorer Plugin workflows', () => {
   });
 
   it('resize: explorer column has resize handle between columns', () => {
-    const dev = new ExplorerPlugin(container, '/test/ws');
+    const dev = new ExplorerWindow(container, '/test/ws');
     const splitEl = container.firstElementChild!;
 
     // Middle child is the resize handle
@@ -612,7 +612,7 @@ describe('End-to-end: File → Editor → Markdown', () => {
   it('browse files → open .md in markdown → verify markdown render', async () => {
     // Set up file explorer
     const onFileOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onFileOpen);
+    new FileExplorerWindow(container, '/test', onFileOpen);
     await new Promise(r => setTimeout(r, 100));
 
     // File tree should show entries
@@ -623,7 +623,7 @@ describe('End-to-end: File → Editor → Markdown', () => {
   });
 
   it('browse files → right-click .md → standard file context menu', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on README.md
@@ -647,8 +647,8 @@ describe('End-to-end: File → Editor → Markdown', () => {
     expect(menuText).toContain('Delete');
   });
 
-  it('MarkdownPlugin: full CRUD cycle — load, verify state, close tab reduces count', async () => {
-    const ctx = new MarkdownPlugin(container);
+  it('MarkdownWindow: full CRUD cycle — load, verify state, close tab reduces count', async () => {
+    const ctx = new MarkdownWindow(container);
 
     // CREATE: load three files
     await ctx.loadFile('/test/a.md');
@@ -682,7 +682,7 @@ describe('End-to-end: File → Editor → Markdown', () => {
       { name: 'beta.ts', isDirectory: false },
     ]);
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const text = container.textContent || '';
@@ -766,7 +766,7 @@ describe('FileExplorer — nested operations', () => {
       ],
     });
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Level 1: expand src
@@ -801,7 +801,7 @@ describe('FileExplorer — nested operations', () => {
       '/test/src/deep': [{ name: 'file.ts', isDirectory: false }],
     });
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Expand both levels
@@ -836,7 +836,7 @@ describe('FileExplorer — nested operations', () => {
       '/test': [{ name: 'src', isDirectory: true }],
     });
 
-    const explorer = new FileExplorerPlugin(container, '/test', vi.fn());
+    const explorer = new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Create new folder via context menu on root tree
@@ -868,7 +868,7 @@ describe('FileExplorer — nested operations', () => {
       ],
     });
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on directory
@@ -905,7 +905,7 @@ describe('FileExplorer — nested operations', () => {
       ],
     });
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on src directory (nothing copied yet)
@@ -937,7 +937,7 @@ describe('FileExplorer — error recovery', () => {
     // Initial load fails
     (mockElectronAPI.fs.readDir as any).mockResolvedValue(null);
 
-    const explorer = new FileExplorerPlugin(container, '/invalid', vi.fn());
+    const explorer = new FileExplorerWindow(container, '/invalid', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     expect(container.textContent).toContain('Unable to read directory');
@@ -964,7 +964,7 @@ describe('FileExplorer — error recovery', () => {
       return null;
     });
 
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     const dirRow = Array.from(container.querySelectorAll('div'))
@@ -985,7 +985,7 @@ describe('FileExplorer — error recovery', () => {
 // MARKDOWN — MULTI-TAB NAVIGATION
 // ─────────────────────────────────────────────
 
-describe('MarkdownPlugin — multi-tab navigation', () => {
+describe('MarkdownWindow — multi-tab navigation', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -1002,7 +1002,7 @@ describe('MarkdownPlugin — multi-tab navigation', () => {
   });
 
   it('switch between tabs shows correct content', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
 
     await ctx.loadFile('/test/a.md');
     expect(container.textContent).toContain('File A');
@@ -1022,7 +1022,7 @@ describe('MarkdownPlugin — multi-tab navigation', () => {
   });
 
   it('close middle tab shifts active correctly', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
 
     await ctx.loadFile('/test/a.md');
     await ctx.loadFile('/test/b.md');
@@ -1056,7 +1056,7 @@ describe('MarkdownPlugin — multi-tab navigation', () => {
   });
 
   it('close all tabs returns to "No file loaded"', async () => {
-    const ctx = new MarkdownPlugin(container);
+    const ctx = new MarkdownWindow(container);
 
     await ctx.loadFile('/test/one.md');
 
@@ -1098,7 +1098,7 @@ describe('Cross-component — file open flows', () => {
 
   it('FileExplorer click on .md triggers onFileOpen callback', async () => {
     const onFileOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onFileOpen);
+    new FileExplorerWindow(container, '/test', onFileOpen);
     await new Promise(r => setTimeout(r, 100));
 
     // Find and click README.md
@@ -1114,7 +1114,7 @@ describe('Cross-component — file open flows', () => {
   });
 
   it('right-click on .md shows standard file context menu', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on README.md
@@ -1138,7 +1138,7 @@ describe('Cross-component — file open flows', () => {
 
   it('clicking .md in explorer calls onFileOpen callback', async () => {
     const onFileOpen = vi.fn();
-    new FileExplorerPlugin(container, '/test', onFileOpen);
+    new FileExplorerWindow(container, '/test', onFileOpen);
     await new Promise(r => setTimeout(r, 100));
 
     // Click on README.md
@@ -1154,7 +1154,7 @@ describe('Cross-component — file open flows', () => {
   });
 
   it('non-.md files do not show Markdown menu options', async () => {
-    new FileExplorerPlugin(container, '/test', vi.fn());
+    new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
 
     // Right-click on main.ts (not .md)
