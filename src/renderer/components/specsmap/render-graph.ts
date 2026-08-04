@@ -93,7 +93,7 @@ export class GraphRenderer {
         const isolatedHtml = !depCount && !refCount
           ? `<span style="color:var(--secondary);opacity:0.5">no links</span>` : '';
         const entryBadge = node.isEntry
-          ? `<span style="font-size:11px;line-height:1;opacity:0.5;flex-shrink:0" title="Entry file: ${esc(node.entryPath)}">⚙</span>`
+          ? `<span style="font-size:var(--text-xs);line-height:1;opacity:0.5;flex-shrink:0" title="Entry file: ${esc(node.entryPath)}">⚙</span>`
           : '';
         const sourceLabel = node.isEntry ? node.entryPath : node.specFile;
 

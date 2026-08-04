@@ -1,0 +1,116 @@
+/* ===== AI open chip (closed only — header × closes when open) ===== */
+.ai-drawer-notch {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: var(--icon-md);
+  min-height: 64px;
+  padding: 12px 0;
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  box-shadow: rgba(0,0,0,0.18) 0 2px 8px;
+  cursor: pointer;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.72;
+  transition:
+    opacity 140ms ease,
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 160ms ease,
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ai-drawer-notch:hover,
+.ai-drawer-notch:focus-visible {
+  opacity: 1;
+  background: color-mix(in srgb, var(--panel) 98%, transparent);
+  border-color: var(--tertiary);
+  box-shadow: rgba(0,0,0,0.28) 0 4px 14px;
+  outline: none;
+}
+.ai-drawer-notch:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+/* Open: collapse control lives in the header — hide the edge chip */
+.ai-drawer-notch.is-open {
+  opacity: 0 !important;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(-6px);
+  box-shadow: none;
+}
+/* Loading pulse only while the panel is closed (drawer shell handles open state) */
+.ai-drawer-notch.is-loading:not(.is-open) {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+.ai-drawer-notch.is-loading:not(.is-open) .ai-drawer-notch-label {
+  color: var(--accent);
+  animation: ai-notch-loading 1.6s ease-in-out infinite;
+}
+@keyframes ai-notch-loading {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.ai-drawer-notch-label {
+  font-family: var(--font);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--secondary);
+  line-height: 1.1;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  user-select: none;
+  transition: color 120ms ease;
+}
+.ai-drawer-notch:hover .ai-drawer-notch-label,
+.ai-drawer-notch:focus-visible .ai-drawer-notch-label {
+  color: var(--primary);
+}
+
+/* Running agent: accent the docked glass shell border */
+.ai-drawer.is-loading {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-drawer,
+  .ai-drawer-content,
+  .ai-drawer-notch,
+  .ai-drawer-notch-label,
+  .ai-drawer-close-btn,
+  .ai-drawer-settings,
+  .ai-sessions-panel,
+  .ai-settings-content,
+  .ai-drawer-settings-btn,
+  .ai-sessions-btn,
+  .ai-step-controls,
+  .ai-queue-bar,
+  .ai-step-continue-btn,
+  .ai-step-stop-btn,
+  .ai-chat-abort-btn,
+  .ai-chat-send-btn,
+  .ai-chat-steer-btn,
+  .ai-chat-copy-btn,
+  .ai-tool-chip { transition: none; }
+  .ai-chat-loading-dot { animation: none; }
+  .ai-drawer-title::before { animation: none; }
+  .ai-drawer-notch.is-loading .ai-drawer-notch-label { animation: none; }
+  .ai-chat-msg.is-new { animation: none; }
+  .ai-step-controls.is-visible,
+  .ai-queue-bar.is-visible { animation: none; }
+  .ai-chat-empty-logo,
+  .ai-logo-c { animation: none; }
+  .ai-tool-details[open] .ai-tool-result,
+  .ai-thinking-details[open] .ai-thinking-body { animation: none; }
+}
+

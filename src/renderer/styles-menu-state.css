@@ -1,0 +1,21 @@
+/* ===== Menu State Classes ===== */
+.menu-spacer { flex: 1; }
+.tb-btn--wide { width: 36px; font-size: var(--text-base); }
+.status-spacer { flex: 1; }
+
+.menu-dropdown-item.is-disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+.menu-dropdown-item.is-closed {
+  opacity: 0.45;
+}
+.menu-shortcut {
+  margin-left: auto;
+  padding-left: 16px;
+  color: var(--tertiary);
+  font-size: var(--text-2xs);
+  opacity: 0.7;
+}
+

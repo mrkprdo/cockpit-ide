@@ -1,0 +1,35 @@
+/* ===== Status Bar ===== */
+#statusbar {
+  height: var(--icon-md);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-family: var(--font);
+  color: var(--tertiary);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+.status-item { display: flex; align-items: center; gap: 4px; white-space:nowrap; }
+.status-item svg { width: var(--icon-sm); height: var(--icon-sm); }
+.status-locked { color: var(--red); }
+.status-sep { width: 1px; height: 16px; background: var(--border); flex-shrink:0; }
+.status-btn {
+  display: flex;
+  align-items: center;
+  padding: 1px 6px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.1s;
+  font-size: var(--text-xs);
+  font-family: var(--font);
+  color: var(--tertiary);
+  border: 1px solid var(--border);
+  background: transparent;
+}
+.status-btn:hover { background: var(--panel); color: var(--primary); }
+

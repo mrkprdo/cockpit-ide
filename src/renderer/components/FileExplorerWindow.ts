@@ -14,17 +14,17 @@ export class FileExplorerWindow {
 
   constructor(container: HTMLElement, private rootPath: string, private onFileOpen: (path: string) => void) {
     this.el = document.createElement('div');
-    this.el.style.cssText = 'width:100%;height:100%;overflow:hidden;display:flex;flex-direction:column;background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:12px';
+    this.el.style.cssText = 'width:100%;height:100%;overflow:hidden;display:flex;flex-direction:column;background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:var(--text-sm)';
 
     const header = document.createElement('div');
     const rootName = rootPath.split(/[\\/]/).filter(Boolean).pop() ?? 'WORKSPACE';
-    header.style.cssText = 'padding:5px 12px 4px;font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--accent);flex-shrink:0;border-bottom:1px solid var(--border);user-select:none';
+    header.style.cssText = 'padding:5px 12px 4px;font-size:var(--text-2xs);font-weight:700;letter-spacing:1.5px;color:var(--accent);flex-shrink:0;border-bottom:1px solid var(--border);user-select:none';
     header.textContent = rootName.toUpperCase();
     this.el.appendChild(header);
 
     this.treeEl = document.createElement('div');
     this.treeEl.style.cssText = 'flex:1;overflow:auto';
-    this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Loading...</div>';
+    this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:var(--text-xs)">Loading...</div>';
     this.el.appendChild(this.treeEl);
     container.appendChild(this.el);
 
@@ -95,7 +95,7 @@ export class FileExplorerWindow {
   }
 
   async refresh(): Promise<void> {
-    this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Loading...</div>';
+    this.treeEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:var(--text-xs)">Loading...</div>';
     this.expanded.clear();
     const temp = document.createElement('div');
     await this.loadDir(this.rootPath, temp, 0);
@@ -120,13 +120,13 @@ export class FileExplorerWindow {
     row.style.paddingLeft = '12px';
 
     const input = document.createElement('input');
-    input.style.cssText = 'flex:1;border:1px solid var(--border);outline:none;background:var(--panel);font-size:12px;font-family:"Space Mono","Courier New",monospace;color:var(--primary);padding:1px 4px;border-radius:3px';
+    input.style.cssText = 'flex:1;border:1px solid var(--border);outline:none;background:var(--panel);font-size:var(--text-sm);font-family:"Space Mono","Courier New",monospace;color:var(--primary);padding:1px 4px;border-radius:3px';
     input.placeholder = isFolder ? 'folder name' : 'file name';
     input.autofocus = true;
 
     const icon = document.createElement('span');
     icon.textContent = isFolder ? '▸' : ' ';
-    icon.style.cssText = 'color:var(--tertiary);width:12px;flex-shrink:0';
+    icon.style.cssText = 'color:var(--tertiary);width:var(--icon-sm);flex-shrink:0';
 
     row.appendChild(icon);
     row.appendChild(input);
@@ -199,7 +199,7 @@ export class FileExplorerWindow {
     const input = document.createElement('input');
     input.value = originalName;
     input.style.cssText =
-      'flex:1;border:1px solid var(--border);outline:none;background:var(--panel);font-size:12px;font-family:"Space Mono","Courier New",monospace;color:var(--primary);padding:1px 4px;border-radius:3px';
+      'flex:1;border:1px solid var(--border);outline:none;background:var(--panel);font-size:var(--text-sm);font-family:"Space Mono","Courier New",monospace;color:var(--primary);padding:1px 4px;border-radius:3px';
     input.autofocus = true;
 
     row.appendChild(input);
@@ -263,12 +263,12 @@ export class FileExplorerWindow {
     dirPath = this.normalize(dirPath);
     if (depth === 0) parentEl.innerHTML = '';
     if (depth === 0 && !dirPath) {
-      parentEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">No workspace</div>';
+      parentEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:var(--text-xs)">No workspace</div>';
       return;
     }
     const entries = await window.electronAPI?.fs.readDir(dirPath);
     if (!entries) {
-      if (depth === 0) parentEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:11px">Unable to read directory</div>';
+      if (depth === 0) parentEl.innerHTML = '<div style="padding:8px;color:var(--tertiary);font-size:var(--text-xs)">Unable to read directory</div>';
       return;
     }
     entries.sort((a, b) => {
@@ -287,7 +287,7 @@ export class FileExplorerWindow {
       item.dataset.path = fullPath;
       const isExpanded = this.expanded.has(fullPath);
       const iconSpan = document.createElement('span');
-      iconSpan.style.cssText = 'width:12px;flex-shrink:0';
+      iconSpan.style.cssText = 'width:var(--icon-sm);flex-shrink:0';
       const nameSpan = document.createElement('span');
       nameSpan.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;display:block';
       nameSpan.textContent = entry.name;

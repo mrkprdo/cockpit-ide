@@ -106,27 +106,27 @@ export class SpecsMapWindow {
     this.el = document.createElement('div');
     this.el.style.cssText =
       'width:100%;height:100%;display:flex;flex-direction:column;' +
-      'background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:14px;position:relative;overflow:hidden';
+      'background:transparent;font-family:"Space Mono","Courier New",monospace;font-size:var(--text-base);position:relative;overflow:hidden';
 
     const header = document.createElement('div');
     header.style.cssText =
-      'padding:3px 10px 3px 12px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--accent);' +
+      'padding:3px 10px 3px 12px;font-size:var(--text-xs);font-weight:700;letter-spacing:1.5px;color:var(--accent);' +
       'flex-shrink:0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:10px;z-index:10;position:relative';
 
     const headerSub = document.createElement('span');
     headerSub.className = 'sm-header-sub';
-    headerSub.style.cssText = 'font-size:10px;color:var(--tertiary);font-weight:400;letter-spacing:0.3px;text-transform:none;flex-shrink:0';
+    headerSub.style.cssText = 'font-size:var(--text-xs);color:var(--tertiary);font-weight:400;letter-spacing:0.3px;text-transform:none;flex-shrink:0';
     headerSub.textContent = 'hover to trace · click for detail';
 
     const headerPath = document.createElement('span');
-    headerPath.style.cssText = 'font-size:9px;color:var(--tertiary);opacity:0.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
+    headerPath.style.cssText = 'font-size:var(--text-2xs);color:var(--tertiary);opacity:0.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
     headerPath.textContent = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '') + '/src/specs/';
     this.specDirLabel = headerPath;
 
     this.validationBadge = document.createElement('span');
     this.validationBadge.className = 'sm-validation-badge';
     this.validationBadge.style.cssText =
-      'display:none;font-size:9px;font-weight:700;letter-spacing:0.3px;padding:1px 6px;' +
+      'display:none;font-size:var(--text-2xs);font-weight:700;letter-spacing:0.3px;padding:1px 6px;' +
       'border-radius:4px;border:1px solid;line-height:1.6;white-space:nowrap';
     this.unbinders.push(bindGuarded(this.validationBadge, 'click', () => this.panelCtrl.openSettingsPanel(), 'specsmap/SpecsMapWindow.ts'));
 
@@ -390,9 +390,9 @@ export class SpecsMapWindow {
 
   private showLoadError(title: string, message: string): void {
     this.nodeLayer.innerHTML =
-      '<div style="padding:16px;color:var(--red);font-size:14px;line-height:1.5">' +
+      '<div style="padding:16px;color:var(--red);font-size:var(--text-base);line-height:1.5">' +
       '<div style="font-weight:700;margin-bottom:6px">' + title + '</div>' +
-      '<div style="font-size:11px;opacity:0.85;word-break:break-all">' + esc(message) + '</div></div>';
+      '<div style="font-size:var(--text-xs);opacity:0.85;word-break:break-all">' + esc(message) + '</div></div>';
   }
 
   private renderTabBar(): void {
@@ -410,7 +410,7 @@ export class SpecsMapWindow {
         'background:none;border:none;border-bottom:2px solid ' +
         (active ? 'var(--accent)' : 'transparent') + ';' +
         'padding:4px 12px;font-family:"Space Mono","Courier New",monospace;' +
-        'font-size:11px;font-weight:' + (active ? '700' : '400') + ';' +
+        'font-size:var(--text-xs);font-weight:' + (active ? '700' : '400') + ';' +
         'color:' + (active ? 'var(--accent)' : 'var(--tertiary)') + ';' +
         'cursor:pointer;white-space:nowrap;transition:color 0.12s,border-color 0.12s;' +
         'flex-shrink:0';

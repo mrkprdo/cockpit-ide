@@ -61,11 +61,11 @@ export async function showEmptyState(emptyState: HTMLDivElement, wsPath: string)
   icon.textContent = '⬡';
 
   const title = document.createElement('div');
-  title.style.cssText = 'font-size:13px;font-weight:700;letter-spacing:1px;color:var(--primary);margin-bottom:8px';
+  title.style.cssText = 'font-size:var(--text-sm);font-weight:700;letter-spacing:1px;color:var(--primary);margin-bottom:8px';
   title.textContent = 'NO SPEC FILES';
 
   const sub = document.createElement('div');
-  sub.style.cssText = 'font-size:10px;color:var(--tertiary);margin-bottom:18px;line-height:1.6;max-width:340px';
+  sub.style.cssText = 'font-size:var(--text-xs);color:var(--tertiary);margin-bottom:18px;line-height:1.6;max-width:340px';
   sub.textContent = hasSrc
     ? (specgenExists ? 'SPECGEN.md found. Copy the generation prompt and paste it into Claude.' : 'Write SPECGEN.md to this workspace and copy a 3-pass generation prompt.')
     : 'src/ not found. Choose the entry point for spec generation.';
@@ -75,7 +75,7 @@ export async function showEmptyState(emptyState: HTMLDivElement, wsPath: string)
   entrySection.style.cssText = 'width:100%;max-width:320px;margin-bottom:16px;pointer-events:auto';
 
   const entryLabel = document.createElement('div');
-  entryLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.8px;color:var(--tertiary);margin-bottom:8px';
+  entryLabel.style.cssText = 'font-size:var(--text-xs);font-weight:700;letter-spacing:0.8px;color:var(--tertiary);margin-bottom:8px';
   entryLabel.textContent = 'ENTRY POINT — choose or type';
   entrySection.appendChild(entryLabel);
 
@@ -86,8 +86,8 @@ export async function showEmptyState(emptyState: HTMLDivElement, wsPath: string)
     for (const c of candidates) {
       const chip = document.createElement('button');
       chip.style.cssText =
-        'background:none;border:1px solid var(--border);border-radius:5px;' +
-        'padding:3px 10px;font-family:"Space Mono","Courier New",monospace;font-size:10px;' +
+        'background:none;border:1px solid var(--border);border-radius:var(--radius-xs);' +
+        'padding:3px 10px;font-family:"Space Mono","Courier New",monospace;font-size:var(--text-xs);' +
         'color:var(--tertiary);cursor:pointer;transition:border-color 0.12s,color 0.12s';
       chip.textContent = c;
       chip.addEventListener('mouseenter', () => { chip.style.borderColor = 'var(--accent)'; chip.style.color = 'var(--accent)'; });
@@ -106,7 +106,7 @@ export async function showEmptyState(emptyState: HTMLDivElement, wsPath: string)
   entryInput.style.cssText =
     'width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);' +
     'border-radius:6px;padding:6px 12px;font-family:"Space Mono","Courier New",monospace;' +
-    'font-size:11px;color:var(--primary);outline:none;transition:border-color 0.12s;';
+    'font-size:var(--text-xs);color:var(--primary);outline:none;transition:border-color 0.12s;';
   entryInput.addEventListener('focus', () => { entryInput.style.borderColor = 'var(--accent)'; });
   entryInput.addEventListener('blur', () => { entryInput.style.borderColor = ''; });
   entrySection.appendChild(entryInput);
@@ -114,7 +114,7 @@ export async function showEmptyState(emptyState: HTMLDivElement, wsPath: string)
   // Integrity badge
   const integrityBadge = document.createElement('div');
   integrityBadge.style.cssText =
-    'font-size:10px;font-weight:700;letter-spacing:0.3px;margin-bottom:16px;pointer-events:none;' +
+    'font-size:var(--text-xs);font-weight:700;letter-spacing:0.3px;margin-bottom:16px;pointer-events:none;' +
     'display:flex;align-items:center;gap:6px';
   const badgeConfig: Record<SpecgenIntegrity, { icon: string; text: string; color: string }> = {
     verified:  { icon: '✓', text: `SPECGEN.md verified · v${SPECGEN_VERSION}`, color: 'var(--green)' },
@@ -139,7 +139,7 @@ export async function showEmptyState(emptyState: HTMLDivElement, wsPath: string)
 
   // Hint
   const hint = document.createElement('div');
-  hint.style.cssText = 'font-size:10px;color:var(--tertiary);margin-top:12px;opacity:0.7;max-width:340px;line-height:1.5';
+  hint.style.cssText = 'font-size:var(--text-xs);color:var(--tertiary);margin-top:12px;opacity:0.7;max-width:340px;line-height:1.5';
   hint.textContent = agentsExists
     ? 'Agents.md detected — prompt will include update instructions.'
     : 'Paste prompt into Claude or your AI assistant.';

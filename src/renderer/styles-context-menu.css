@@ -1,0 +1,25 @@
+/* ===== Context Menu ===== */
+.ctx-menu {
+  position: fixed;
+  min-width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  z-index: var(--z-context-menu);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.ctx-item {
+  padding: 4px 10px;
+  font-size: var(--text-xs);
+  font-family: var(--font);
+  color: var(--primary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+.ctx-item:hover { background: var(--panel); }
+.ctx-disabled { opacity: 0.35; cursor: default; }
+.ctx-disabled:hover { background: transparent; }
+.ctx-sep { height: 1px; background: var(--border); margin: 4px 8px; }
+

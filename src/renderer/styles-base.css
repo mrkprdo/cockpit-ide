@@ -1,0 +1,144 @@
+/* ===== Design System (Noir × Art Nouveau × Floating) ===== */
+:root {
+  --bg: #161C24;
+  --surface: #1C2538;
+  --panel: #243248;
+  --primary: #C8D6E5;
+  --secondary: #78909C;
+  --tertiary: #7894A3;
+  --border: #2A3A4A;
+  --accent: #4B9EB5;
+  --accent2: #7B6FA0;
+  --green: #4C9A6E;
+  --amber: #C68B00;
+  --red: #D44F4F;
+  --onAccent: oklch(97% 0.006 20);
+  --scrim: rgba(8,14,22,0.72);
+
+  --font: 'Space Mono', 'Courier New', monospace;
+
+  /* === Type Scale (rem; base 16px) === */
+  --text-2xs:  0.5625rem;  /*  9px — eyebrow labels, spec keys   */
+  --text-xs:   0.6875rem;  /* 11px — UI chrome: menus, tabs, status */
+  --text-sm:   0.8125rem;  /* 13px — primary UI text              */
+  --text-base: 0.875rem;   /* 14px — readable body text           */
+  --text-md:   0.9375rem;  /* 15px — compact titles               */
+  --text-lg:   1.0625rem;  /* 17px — step headers / display       */
+  --text-xl:   1.125rem;   /* 18px — large headings (markdown h1) */
+
+  /* === Line Heights === */
+  --lh-tight: 1.2;
+  --lh-ui:    1.45;
+  --lh-read:  1.7;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* === Icon Scale === */
+  --icon-sm: 16px;   /* inline w/ text, status glyphs, tab icons */
+  --icon-md: 20px;   /* toolbar / card buttons, standalone controls */
+
+  --shadow: rgba(0,0,0,0.30) 0 6px 20px, rgba(0,0,0,0.20) 0 3px 10px;
+
+  /* === Border Radius micro-scale === */
+  --radius-2xs: 3px;
+  --radius-xs:  4px;
+  --radius:     var(--radius-sm);   /* default radius alias */
+  --radius-full: 9999px;            /* pill / capsule corners */
+  /* --radius-sm, --radius-md, --radius-lg defined above */
+
+  /* === Line Height loose (between ui and read) === */
+  --lh-loose: 1.6;
+
+  /* === Z-index semantic scale (root stacking context only) === */
+  --z-titlebar:         100;
+  --z-modal:            200;
+  --z-modal-confirm:    300;
+  --z-context-menu:     400;
+  --z-palette:          500;
+  --z-tutorial:         600;
+  --z-tutorial-ring:    610;
+  --z-tutorial-tooltip: 620;
+  --z-dropdown:         1100;
+  --z-dropdown-nested:  1101;
+  --z-corner-zone:      1000;
+  --z-corner-panel:     1001;
+  --z-layout-overlay:   9999;
+  --z-canvas:           1;
+  --z-statusbar-center: 1;
+  --z-ai-drawer:        10;
+  --z-ai-resize:        11;
+  --z-ai-float:         15;
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--font);
+  font-size: 16px;          /* rem anchor */
+  color: var(--primary);
+  line-height: var(--lh-ui);
+  letter-spacing: 0.01em;   /* light-on-dark compensation */
+  font-kerning: normal;
+  user-select: none;        /* prevent Ctrl+A from highlighting app chrome */
+}
+
+/* ===== Global Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tertiary);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Text Selection ===== */
+/* Content areas opt back into selection while the rest of the chrome stays non-selectable. */
+.md-preview,
+.card-content-text,
+.ai-drawer-body,
+.ai-chat-msg-bubble,
+.ai-chat-code,
+.ai-tool-result,
+.ai-thinking-body,
+.git-diff,
+.git-diff-pre,
+.git-sbs-content,
+.git-commit-info-desc,
+.tutorial-step-body,
+.palette-input,
+.monaco-editor,
+.xterm,
+input,
+textarea,
+[contenteditable] {
+  user-select: text;
+}
+

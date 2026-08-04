@@ -1,0 +1,27 @@
+/* ===== Layout Overlays ===== */
+.layout-overlay {
+  position: absolute;
+  z-index: var(--z-layout-overlay);
+  width: 48px;
+  height: 36px;
+  background: color-mix(in oklab, var(--surface) 85%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: crosshair;
+  opacity: 0.7;
+  transition: opacity 0.1s, transform 0.1s;
+  pointer-events: auto;
+}
+.layout-overlay:hover {
+  opacity: 1;
+  transform: scale(1.15);
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--surface) 70%, transparent);
+}
+.layout-overlay svg {
+  display: block;
+}
+

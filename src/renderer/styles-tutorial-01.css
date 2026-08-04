@@ -1,0 +1,108 @@
+/* ===== Tutorial Overlay ===== */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: var(--z-tutorial);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.tutorial-tooltip {
+  position: fixed;
+  max-width: 520px;
+  min-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 28px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  animation: modal-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: var(--z-tutorial-tooltip);
+}
+.tutorial-step-header {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: var(--lh-tight);
+  color: var(--primary);
+  margin-bottom: 14px;
+  font-family: var(--font);
+  text-wrap: balance;
+}
+.tutorial-step-body {
+  font-size: var(--text-base);
+  line-height: var(--lh-read);
+  color: var(--secondary);
+  font-family: var(--font);
+  white-space: pre-line;
+}
+.tutorial-nav {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tutorial-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.tutorial-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.15s;
+}
+.tutorial-dot.active {
+  background: var(--accent);
+  width: var(--icon-md);
+  border-radius: 4px;
+}
+.tutorial-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+.tutorial-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: var(--text-sm);
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  letter-spacing: 0.04em;
+  background: transparent;
+  color: var(--secondary);
+}
+.tutorial-btn:hover {
+  background: var(--panel);
+  color: var(--primary);
+  border-color: var(--secondary);
+}
+.tutorial-btn-next, .tutorial-btn-done {
+  background: var(--accent);
+  color: var(--onAccent);
+  border-color: var(--accent);
+}
+.tutorial-btn-next:hover, .tutorial-btn-done:hover {
+  opacity: 0.85;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--onAccent);
+}
+.tutorial-ring {
+  position: fixed;
+  pointer-events: none;
+  z-index: var(--z-tutorial-ring);
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: 0 0 24px color-mix(in oklab, var(--accent) 40%, transparent), inset 0 0 12px color-mix(in oklab, var(--accent) 15%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-tooltip { animation: none; }
+}
+

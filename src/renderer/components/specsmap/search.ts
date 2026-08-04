@@ -46,8 +46,8 @@ export class SearchController {
     this.input.type = 'text';
     this.input.placeholder = 'Type to search nodes…';
     this.input.style.cssText =
-      'flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:5px;' +
-      'padding:3px 8px;font-family:"Space Mono","Courier New",monospace;font-size:12px;' +
+      'flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-xs);' +
+      'padding:3px 8px;font-family:"Space Mono","Courier New",monospace;font-size:var(--text-sm);' +
       'color:var(--primary);outline:none';
     this.input.setAttribute('autocomplete', 'off');
     this.input.setAttribute('spellcheck', 'false');
@@ -74,14 +74,14 @@ export class SearchController {
     });
 
     this.countEl = document.createElement('span');
-    this.countEl.style.cssText = 'font-size:10px;color:var(--tertiary);flex-shrink:0;min-width:28px;text-align:right';
+    this.countEl.style.cssText = 'font-size:var(--text-xs);color:var(--tertiary);flex-shrink:0;min-width:28px;text-align:right';
     this.countEl.textContent = '0';
     this.el.appendChild(this.countEl);
 
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '×';
     closeBtn.style.cssText =
-      'background:none;border:none;cursor:pointer;color:var(--tertiary);font-size:16px;' +
+      'background:none;border:none;cursor:pointer;color:var(--tertiary);font-size:var(--text-lg);' +
       'line-height:1;padding:0 2px;font-family:inherit;flex-shrink:0';
     closeBtn.setAttribute('aria-label', 'Close search');
     closeBtn.addEventListener('click', () => this.close());

@@ -1,0 +1,105 @@
+/* ===== Command Palette ===== */
+.palette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-palette);
+  background: color-mix(in oklab, var(--scrim) 50%, transparent);
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 80px;
+}
+.palette-overlay.open { display: flex; }
+
+.palette {
+  width: 520px;
+  max-width: 90vw;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+  overflow: hidden;
+  animation: modal-in 0.12s cubic-bezier(0.16,1,0.3,1);
+}
+
+.palette-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: var(--text-sm);
+  font-family: var(--font);
+  background: var(--bg);
+  border: none;
+  outline: none;
+  color: var(--primary);
+  border-bottom: 1px solid var(--border);
+}
+.palette-input::placeholder { color: var(--tertiary); }
+
+.palette-results {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: var(--text-sm);
+  font-family: var(--font);
+  color: var(--primary);
+  overflow: hidden;
+  margin: 0 4px;
+}
+.palette-item:hover { background: var(--panel); }
+.palette-item.is-selected { background: var(--panel); }
+
+.palette-item-name {
+  font-weight: 700;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.palette-item-dir {
+  color: var(--tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  margin-left: auto;
+}
+
+.palette-section-header {
+  padding: 4px 12px 2px;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--tertiary);
+  margin-top: 4px;
+}
+
+.palette-empty {
+  padding: 12px;
+  color: var(--tertiary);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.palette-progress {
+  height: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.palette-progress-bar {
+  height: 100%;
+  width: 30%;
+  background: var(--accent);
+  animation: palette-load 0.8s ease infinite;
+}
+@keyframes palette-load {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+

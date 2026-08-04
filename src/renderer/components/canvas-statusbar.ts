@@ -68,15 +68,15 @@ export class StatusBar {
     this.resetZoomCb = resetZoom ?? null;
     if (this.sbZoom) {
       const icon = locked
-        ? '<svg class="status-locked" width="14" height="14" viewBox="0 0 512 512" style="vertical-align:middle;fill:currentColor;cursor:pointer"><path d="M368 192h-16v-80a96 96 0 10-192 0v80h-16a64.07 64.07 0 00-64 64v176a64.07 64.07 0 0064 64h224a64.07 64.07 0 0064-64V256a64.07 64.07 0 00-64-64zm-48 0H192v-80a64 64 0 11128 0z"/></svg>'
-        : '<svg width="14" height="14" viewBox="0 0 512 512" style="vertical-align:middle;fill:var(--tertiary);cursor:pointer"><path d="M368 192H192v-80a64 64 0 11128 0 16 16 0 0032 0 96 96 0 10-192 0v80h-16a64.07 64.07 0 00-64 64v176a64.07 64.07 0 0064 64h224a64.07 64.07 0 0064-64V256a64.07 64.07 0 00-64-64z"/></svg>';
+        ? '<svg class="status-locked" viewBox="0 0 512 512" style="vertical-align:middle;fill:currentColor;cursor:pointer"><path d="M368 192h-16v-80a96 96 0 10-192 0v80h-16a64.07 64.07 0 00-64 64v176a64.07 64.07 0 0064 64h224a64.07 64.07 0 0064-64V256a64.07 64.07 0 00-64-64zm-48 0H192v-80a64 64 0 11128 0z"/></svg>'
+        : '<svg viewBox="0 0 512 512" style="vertical-align:middle;fill:var(--tertiary);cursor:pointer"><path d="M368 192H192v-80a64 64 0 11128 0 16 16 0 0032 0 96 96 0 10-192 0v80h-16a64.07 64.07 0 00-64 64v176a64.07 64.07 0 0064 64h224a64.07 64.07 0 0064-64V256a64.07 64.07 0 00-64-64z"/></svg>';
       this.sbZoom.innerHTML = `<span style="display:inline-block;min-width:75px">Zoom: ${Math.round(scale * 100)}%</span> ${icon}`;
     }
     if (this.sbRefresh) {
       const showRefresh = !locked && scale !== 1;
       this.sbRefresh.style.visibility = showRefresh ? '' : 'hidden';
       if (showRefresh) {
-        this.sbRefresh.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" style="vertical-align:middle;fill:var(--tertiary);cursor:pointer" title="Reset zoom to 100%"><path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>';
+        this.sbRefresh.innerHTML = '<svg viewBox="0 0 24 24" style="vertical-align:middle;fill:var(--tertiary);cursor:pointer" title="Reset zoom to 100%"><path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>';
         this.sbRefresh.onclick = (e) => {
           e.stopPropagation();
           this.resetZoomCb?.();

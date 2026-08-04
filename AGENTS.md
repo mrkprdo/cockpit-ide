@@ -34,11 +34,12 @@ Cockpit IDE (`0.0.20260731`) — spatial/floating-panel IDE built in Electron. M
 
 ## Code Standards (Guardrails)
 
-- **File-size policy** (`refactor.md` §A.2; enforced by `npm run loc:check`, wired into CI `test.yml` + `make test`):
+- **File-size policy** (enforced by `npm run loc:check`, wired into CI `test.yml` + `make test`):
   - Target ≤500 LOC per file; buffer zone (500, 700] is tolerated but not a default landing zone; **hard ceiling 700 LOC** — a file over it must be split before further changes merge.
+  - **Minor overage remedy:** if a file exceeds the 700-LOC ceiling by only a few lines, prefer trimming/reducing comments (or minor blank-line tightening) to pull it back under the limit rather than introducing a splitting. Splitting is still required for genuine overflow beyond a handful of lines or when the overage reflects real growth in code. Keep substantive logic intact — only comment/whitespace reduction counts, not dropping code to dodge the guardrail.
   - Applies to working source only: `src/main/**/*.ts` and `src/renderer/**/*.ts`. Exempt: `*.test.ts`, `src/test/**`, `scripts/**`, `*.config.ts`.
   - Split pattern: the original file stays as a thin facade (constructor + wiring + delegation + one-line forwarders for every externally-called method); groups move into a kebab-case subfolder (`AiDrawer.ts` → `ai-drawer/`). Extracted sub-controllers/utilities depend inward only — never import the facade back. Tests split 1:1 alongside (a thin `<Facade>.test.ts` stays for wiring/public-API coverage).
-- **Console-usage guardrail** (`npm run console:check`): no `console.error`/`console.warn` under monitored folders — `src/renderer/health`, `src/renderer/components/dev-console`, `git-window`, `canvas-area`, `ai-drawer`, `specsmap`. Scope grows by one entry per refactor phase (§E in `refactor.md`).
+- **Console-usage guardrail** (`npm run console:check`): no `console.error`/`console.warn` under monitored folders — `src/renderer/health`, `src/renderer/components/dev-console`, `git-window`, `canvas-area`, `ai-drawer`, `specsmap`. Scope grows by one entry per refactor phase.
 - **Failure logging convention**: log via `reportFailure({ kind, source, message })` and `bindGuarded(el, event, handler, source)` from `src/renderer/health/monitor.ts` — never ad-hoc `console.error`. Signals land in the dev-console Health tab and main-process `diagnostics:rendererError`/`health:mainFailure`.
 
 ## Spec System
@@ -70,6 +71,7 @@ src/
 ├── renderer/
 │   ├── index.ts          # bootstrap → App
 │   ├── theme.ts          # dark/light CSS custom-property singleton
+│   ├── styles-*.css      # design system, split per component (see below); index.html <link>s all 25 in cascade order
 │   ├── specgen-hash.ts   # GENERATED (do not edit by hand)
 │   ├── ai/               # AI agent: index, llm-client, prompts, memory-store,
 │   │                     # token-counter, tool-definitions, tool-executor,
@@ -102,4 +104,5 @@ Main-process APIs cross to the renderer exclusively via `window.electronAPI` (pr
 
 - **Dangling npm scripts:** `npm run ralph` and `npm run user-stories:verify` reference `scripts/ralph/*.mjs` which does **not exist** — they will fail. Ignore unless you're (re)adding the ralph-loop workflow.
 - Windows-only repo conventions: `copy`/`rm -rf` in npm scripts, `bin/cockpit.bat` launcher, NSIS packaging. Renderer CSS is the design system — new components should use existing CSS custom properties, not hardcoded colors.
+- `renderer/styles.css` was split (2026-08-03) into 25 `styles-*.css` files, one per component (`styles-topbar.css`, `styles-git-window.css`, etc.); oversized/non-contiguous components use `-01`/`-02` suffixes (`styles-ai-drawer-01..04.css`, `styles-tutorial-01/02.css`). Cascade order matters — `index.html` `<link>`s them in the original file's line order. Build's `copy src\renderer\*.css` wildcard picks up new files automatically; adding a new one only needs the `<link>` in `index.html`.
 - `npm run dev` launches the app detached via `Start-Process` (no console attached); logs go to Electron's stdout only if run directly.

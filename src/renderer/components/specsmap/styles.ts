@@ -29,36 +29,36 @@ export const SM_STYLES = `
   .sm-node-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .sm-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .sm-name {
-    font-size: 13px; font-weight: 700; color: var(--primary);
+    font-size: var(--text-sm); font-weight: 700; color: var(--primary);
     line-height: 1.3; flex: 1; min-width: 0;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .sm-layer-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.8px; flex-shrink: 0; color: var(--tertiary); opacity: 0.8; }
-  .sm-file { font-size: 11px; color: var(--tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sm-meta { font-size: 10px; color: var(--secondary); margin-top: auto; display: flex; gap: 6px; }
-  .sm-node-ui .sm-name { font-size: 11px; }
-  .sm-node-ui .sm-file { font-size: 10px; }
+  .sm-layer-badge { font-size: var(--text-2xs); font-weight: 700; letter-spacing: 0.8px; flex-shrink: 0; color: var(--tertiary); opacity: 0.8; }
+  .sm-file { font-size: var(--text-xs); color: var(--tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sm-meta { font-size: var(--text-xs); color: var(--secondary); margin-top: auto; display: flex; gap: 6px; }
+  .sm-node-ui .sm-name { font-size: var(--text-xs); }
+  .sm-node-ui .sm-file { font-size: var(--text-xs); }
   .sm-node-ui .sm-dot { width: 6px; height: 6px; opacity: 0.6; }
   .sm-layer-header {
-    position: absolute; font-size: 13px; font-weight: 700; letter-spacing: 1.5px;
+    position: absolute; font-size: var(--text-sm); font-weight: 700; letter-spacing: 1.5px;
     user-select: none; pointer-events: none; opacity: 0.45;
   }
   .sm-panel-section { padding: 10px 14px; border-bottom: 1px solid var(--border); }
   .sm-panel-label {
-    font-size: 9px; font-weight: 700; letter-spacing: 1px;
+    font-size: var(--text-2xs); font-weight: 700; letter-spacing: 1px;
     color: var(--tertiary); margin-bottom: 8px;
   }
-  .sm-panel-row { font-size: 11px; color: var(--primary); line-height: 1.5; }
-  .sm-panel-mono { font-size: 10px; color: var(--secondary); word-break: break-all; }
+  .sm-panel-row { font-size: var(--text-xs); color: var(--primary); line-height: 1.5; }
+  .sm-panel-mono { font-size: var(--text-xs); color: var(--secondary); word-break: break-all; }
   .sm-dep-item {
     display: flex; gap: 6px; align-items: baseline;
     padding: 4px 0; border-bottom: 1px solid var(--border);
-    font-size: 10px;
+    font-size: var(--text-xs);
   }
   .sm-dep-item:last-child { border-bottom: none; }
   .sm-dep-name { font-weight: 700; color: var(--primary); flex-shrink: 0; }
   .sm-dep-file { color: var(--tertiary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sm-dep-usage { font-size: 9px; color: var(--secondary); line-height: 1.4; margin-top: 1px; }
+  .sm-dep-usage { font-size: var(--text-2xs); color: var(--secondary); line-height: 1.4; margin-top: 1px; }
   @keyframes sm-flow { to { stroke-dashoffset: -20; } }
   .sm-edge-active { animation: sm-flow 0.8s linear infinite; }
   @keyframes sm-flow-fast { 0% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -24; } }
@@ -75,6 +75,14 @@ export const SM_STYLES = `
   .sm-header-btn { border:none; outline:none; background:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:5px 7px; color:var(--tertiary); line-height:0; transition:color 0.15s,background 0.15s; }
   .sm-header-btn:hover { color:var(--accent); background:var(--surface); }
   .sm-header-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .sm-header-btn svg, .sm-search-bar svg { width: var(--icon-sm); height: var(--icon-sm); }
+  .sm-t-2xs { font-size: var(--text-2xs); }
+  .sm-t-xs { font-size: var(--text-xs); }
+  .sm-t-sm { font-size: var(--text-sm); }
+  .sm-t-base { font-size: var(--text-base); }
+  .sm-t-md { font-size: var(--text-md); }
+  .sm-t-lg { font-size: var(--text-lg); }
+  .sm-t-xl { font-size: var(--text-xl); }
   .sm-empty-btn {
     pointer-events: auto;
     background: transparent;
@@ -82,7 +90,7 @@ export const SM_STYLES = `
     border-radius: 8px;
     padding: 10px 24px;
     font-family: "Space Mono", "Courier New", monospace;
-    font-size: 12px;
+    font-size: var(--text-sm);
     font-weight: 700;
     letter-spacing: 0.8px;
     color: var(--primary);
@@ -123,13 +131,13 @@ export const SM_STYLES = `
   .sm-search-mark {
     background: var(--accent);
     color: var(--bg);
-    border-radius: 2px;
+    border-radius: var(--radius-2xs);
     padding: 0 2px;
   }
 `;
 
 const ICON_ATTRS =
-  'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" ' +
+  'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" ' +
   'fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"';
 
 export const SVG_EYE =

@@ -1,0 +1,36 @@
+/* ===== Focus Visibility (WCAG AA) ===== */
+.tb-btn:focus-visible,
+.card-btn:focus-visible,
+.btn-primary:focus-visible,
+.welcome-btn:focus-visible,
+.btn-ghost:focus-visible,
+.welcome-btn-secondary:focus-visible,
+.about-close-btn:focus-visible,
+.tutorial-btn:focus-visible,
+.tutorial-btn-next:focus-visible,
+.tutorial-btn-done:focus-visible,
+.git-commit-btn:focus-visible,
+.git-push-btn:focus-visible,
+.welcome-recent-item-remove:focus-visible,
+.menu-dropdown-item:focus-visible,
+.palette-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.arr-input:focus-visible,
+.git-commit-input:focus-visible,
+.palette-input:focus-visible,
+.git-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+#statusbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-statusbar-center);
+}
+
+
+
