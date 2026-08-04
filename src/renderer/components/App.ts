@@ -184,7 +184,14 @@ export class App {
   private trySave(): void {
     if (!this.wsPath) return;
     if (this.saveTimer) clearTimeout(this.saveTimer);
-    this.saveTimer = window.setTimeout(() => this.saveNow(), 300);
+    // Debounce, then wait for a genuinely idle frame: the full getSaveState()
+    // serialize + IPC + fs write must not land inside the next pan/drag gesture.
+    // ponytail: requestIdleCallback with a timeout ceiling, no custom scheduler.
+    this.saveTimer = window.setTimeout(() => {
+      this.saveTimer = 0;
+      if (window.requestIdleCallback) window.requestIdleCallback(() => void this.saveNow(), { timeout: 2000 });
+      else void this.saveNow();
+    }, 300);
   }
 
   private async saveNow(): Promise<void> {

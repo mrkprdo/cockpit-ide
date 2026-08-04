@@ -28,6 +28,9 @@ typography:
     lineHeight: 1
     letterSpacing: 0.1em
 rounded:
+  2xs: 3px
+  xs: 4px
+  s: 6px
   sm: 8px
   md: calc(8px + 4px)
   lg: calc(8px + 8px)
@@ -83,7 +86,9 @@ Spacing follows an 8px/4px scale: xs (4px), sm (8px), md (16px), lg (24px), xl (
 
 ## Shapes
 
-**Border Radius:** 8px
+**Border Radius:** 8px — full scale: 2xs (3px, chips/badges), xs (4px, inputs &
+small controls), s (6px, popovers/panels/code blocks), sm (8px, default), md
+(12px, cards), lg (16px, modals), full (9999px, pills).
 **Border Style:** dashed border
 
 ## Components

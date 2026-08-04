@@ -72,7 +72,7 @@ export const SM_STYLES = `
     .sm-spinning { animation: none; }
     .sm-panel-el { transition: none; }
   }
-  .sm-header-btn { border:none; outline:none; background:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:5px 7px; color:var(--tertiary); line-height:0; transition:color 0.15s,background 0.15s; }
+  .sm-header-btn { border:none; outline:none; background:none; border-radius:var(--radius-s); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:5px 7px; color:var(--tertiary); line-height:0; transition:color 0.15s,background 0.15s; }
   .sm-header-btn:hover { color:var(--accent); background:var(--surface); }
   .sm-header-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .sm-header-btn svg, .sm-search-bar svg { width: var(--icon-sm); height: var(--icon-sm); }

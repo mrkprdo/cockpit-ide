@@ -140,8 +140,8 @@ export class PanelController {
       `<div class="sm-panel-label">RECONCILE</div>` +
       `<div class="sm-t-xs" style="color:var(--tertiary);margin-bottom:8px;line-height:1.5">Syncs structural fields (exports, dependencies, referenced by, IPC) from source. Prose is never touched. Report writes nothing.</div>` +
       `<div style="display:flex;gap:6px">` +
-      `<button id="sm-reconcile-report-btn" class="sm-reconcile-btn sm-t-xs" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">Report</button>` +
-      `<button id="sm-reconcile-apply-btn" class="sm-reconcile-btn sm-t-xs" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">⚡ Apply structural</button>` +
+      `<button id="sm-reconcile-report-btn" class="sm-reconcile-btn sm-t-xs" style="background:transparent;border:1px solid var(--border);border-radius:var(--radius-s);padding:8px 10px;font-family:inherit;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">Report</button>` +
+      `<button id="sm-reconcile-apply-btn" class="sm-reconcile-btn sm-t-xs" style="background:transparent;border:1px solid var(--border);border-radius:var(--radius-s);padding:8px 10px;font-family:inherit;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">⚡ Apply structural</button>` +
       `</div>` +
       `<div id="sm-reconcile-result" class="sm-t-xs" style="color:var(--tertiary);margin-top:8px;line-height:1.5;white-space:pre-wrap;word-break:break-word"></div>` +
       `</div>`;

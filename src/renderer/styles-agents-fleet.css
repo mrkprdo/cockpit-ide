@@ -67,13 +67,16 @@
 .agents-rt[hidden] { display: none; }
 .agents-rt-sessions { display: flex; flex-direction: column; gap: 8px; }
 .agents-rt-actions { display: flex; gap: 6px; }
-.agents-rt-plan { display: flex; flex-direction: column; gap: 5px; border: 1px dashed #ffd54f55; border-radius: 6px; padding: 6px 8px; }
+.agents-rt-plan { display: flex; flex-direction: column; gap: 5px; border: 1px dashed #ffd54f55; border-radius: var(--radius-s); padding: 6px 8px; }
 .agents-rt-plan-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .agents-rt-plan-id { font-size: var(--text-2xs); color: var(--tertiary, #546e7a); word-break: break-all; }
 .agents-rt-plan-quorum { font-size: var(--text-2xs); color: #ffd54f; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
 .agents-rt-plan-issue { font-size: var(--text-xs); color: var(--primary, #c8d6e5); opacity: .85; max-height: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agents-rt-progress { height: 6px; background: var(--panel, #243248); border-radius: 3px; overflow: hidden; }
-.agents-rt-progress-fill { height: 100%; background: #ffd54f; transition: width 300ms ease-out; }
+/* No width transition: the roundtable list is rebuilt via innerHTML on every
+   update (AgentsWindow.ts:198), so this element is new each render and has no
+   prior width to interpolate from. Animating it needs reconciling render first. */
+.agents-rt-progress-fill { height: 100%; background: #ffd54f; }
 .agents-rt-progress-fill.is-met { background: #66bb6a; }
 .agents-rt-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .agents-rt-chip { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); padding: 2px 7px; border: 1px solid var(--border, #2a3a4a); border-radius: var(--radius-full); background: var(--panel, #243248); color: var(--primary, #c8d6e5); cursor: pointer; font-family: var(--font, monospace); }

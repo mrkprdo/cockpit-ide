@@ -26,11 +26,26 @@ export class LayoutOverlays {
     this.lastDragY = clientY;
   }
 
+  /** FLIP: record where cards were, let `fn` move them (left/top written straight
+   *  away), then offset them back with a transform and release it next frame so
+   *  the browser interpolates transform only — no per-frame relayout.
+   *  The previous version added the class and removed it on the next rAF, which
+   *  cancelled the transition before it ever painted. */
   private animateArrange(cards: CardState[], fn: () => void): void {
-    for (const cs of cards) cs.card.el.classList.add('card-arranging');
+    const before = cards.map(cs => ({ cs, x: cs.worldX, y: cs.worldY }));
     fn();
+    const moved = before.filter(b => b.x !== b.cs.worldX || b.y !== b.cs.worldY);
+    for (const b of moved) {
+      b.cs.card.el.style.transform = `translate3d(${b.x - b.cs.worldX}px, ${b.y - b.cs.worldY}px, 0)`;
+    }
     requestAnimationFrame(() => {
-      for (const cs of cards) cs.card.el.classList.remove('card-arranging');
+      for (const b of moved) {
+        b.cs.card.el.classList.add('card-arranging');
+        b.cs.card.el.style.transform = '';
+      }
+      window.setTimeout(() => {
+        for (const b of moved) b.cs.card.el.classList.remove('card-arranging');
+      }, 260);
     });
   }
 

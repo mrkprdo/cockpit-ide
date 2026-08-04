@@ -105,7 +105,7 @@ export async function showEmptyState(emptyState: HTMLDivElement, wsPath: string)
   entryInput.placeholder = 'e.g. src/ or docker-compose.yml';
   entryInput.style.cssText =
     'width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);' +
-    'border-radius:6px;padding:6px 12px;font-family:"Space Mono","Courier New",monospace;' +
+    'border-radius:var(--radius-s);padding:6px 12px;font-family:"Space Mono","Courier New",monospace;' +
     'font-size:var(--text-xs);color:var(--primary);outline:none;transition:border-color 0.12s;';
   entryInput.addEventListener('focus', () => { entryInput.style.borderColor = 'var(--accent)'; });
   entryInput.addEventListener('blur', () => { entryInput.style.borderColor = ''; });

@@ -408,7 +408,7 @@ describe('WindowCard — resize interaction', () => {
     document.body.innerHTML = '';
   });
 
-  it('e edge mousedown + mousemove resizes width', () => {
+  it('e edge mousedown + mousemove resizes width', async () => {
     const card = new WindowCard(makeParent(), {
       title: 'Resize Test',
       x: 100, y: 100, width: 400, height: 300,
@@ -419,11 +419,13 @@ describe('WindowCard — resize interaction', () => {
 
     // Move 56px right (2 SNAP units) — should increase width
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 556, clientY: 200, bubbles: true }));
+    // Resize is rAF-batched (one layout write per frame), like drag
+    await new Promise((r) => requestAnimationFrame(r));
 
     expect(card.opts.width).toBeGreaterThan(400);
   });
 
-  it('resize mousemove updates width', () => {
+  it('resize mousemove updates width', async () => {
     const card = new WindowCard(makeParent(), {
       title: 'Resize Test',
       x: 100, y: 100, width: 400, height: 300,
@@ -434,11 +436,12 @@ describe('WindowCard — resize interaction', () => {
 
     // Move 56px right (2 SNAP units)
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 556, clientY: 200, bubbles: true }));
+    await new Promise((r) => requestAnimationFrame(r));
 
     expect(card.opts.width).toBeGreaterThan(400);
   });
 
-  it('resize respects minimum SNAP size', () => {
+  it('resize respects minimum SNAP size', async () => {
     const card = new WindowCard(makeParent(), {
       title: 'Resize Test',
       x: 100, y: 100, width: 400, height: 300,
@@ -449,6 +452,7 @@ describe('WindowCard — resize interaction', () => {
 
     // Try to shrink below minimum (28px SNAP)
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 100, clientY: 200, bubbles: true }));
+    await new Promise((r) => requestAnimationFrame(r));
 
     expect(card.opts.width).toBeGreaterThanOrEqual(28);
   });
@@ -507,7 +511,7 @@ describe('WindowCard — resize interaction', () => {
     removeSpy.mockRestore();
   });
 
-  it('resize shows tooltip on mousedown and updates on mousemove', () => {
+  it('resize shows tooltip on mousedown and updates on mousemove', async () => {
     const card = new WindowCard(makeParent(), {
       title: 'Tooltip Test',
       x: 100, y: 100, width: 400, height: 300,
@@ -524,6 +528,7 @@ describe('WindowCard — resize interaction', () => {
     expect(tooltip.style.top).toBe('416px');
 
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 556, clientY: 456, bubbles: true }));
+    await new Promise((r) => requestAnimationFrame(r));
     expect(tooltip.textContent).toMatch(/\d+ × \d+/);
     expect(parseInt(tooltip.textContent!.split(' × ')[0])).toBeGreaterThan(14);
   });

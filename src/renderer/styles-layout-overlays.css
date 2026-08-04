@@ -6,7 +6,7 @@
   height: 36px;
   background: color-mix(in oklab, var(--surface) 85%, transparent);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-s);
   display: none;
   align-items: center;
   justify-content: center;

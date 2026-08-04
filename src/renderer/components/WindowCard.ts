@@ -159,7 +159,9 @@ export class WindowCard {
       const snappedWorldY = Math.round(worldRawY / SNAP) * SNAP;
       this.dragEndWorldX = snappedWorldX;
       this.dragEndWorldY = snappedWorldY;
-      this.el.style.transform = `translate(${snappedWorldX - this.startWorldX}px, ${snappedWorldY - this.startWorldY}px)`;
+      // translate3d, not translate: a static 2D transform is not a guaranteed
+      // compositing trigger in Blink, so the card would repaint per frame.
+      this.el.style.transform = `translate3d(${snappedWorldX - this.startWorldX}px, ${snappedWorldY - this.startWorldY}px, 0)`;
       this.opts.onDragMove?.(e.clientX, e.clientY);
     };
 
@@ -180,6 +182,8 @@ export class WindowCard {
           this.dragRafId = 0;
         }
         this.pendingDragEvent = null;
+        this.el.classList.remove('is-dragging');
+        document.body.classList.remove('canvas-busy');
         this.el.style.transition = '';
         this.el.style.transform = '';
         this.el.style.left = `${this.dragEndWorldX}px`;
@@ -202,6 +206,8 @@ export class WindowCard {
       this.startWorldY = parseFloat(this.el.style.top) || 0;
       this.dragEndWorldX = this.startWorldX;
       this.dragEndWorldY = this.startWorldY;
+      this.el.classList.add('is-dragging');
+      document.body.classList.add('canvas-busy');
       this.el.style.transition = 'none';
       this.opts.onDragStart?.(e.clientX, e.clientY);
     });
@@ -212,6 +218,8 @@ export class WindowCard {
 
   private resizeHandlers: { mousemove: (e: MouseEvent) => void; mouseup: () => void } | null = null;
   private resizeTooltip: HTMLElement | null = null;
+  private resizeRafId = 0;
+  private pendingResizeEvent: MouseEvent | null = null;
 
   private initResize(): void {
     type Dir = 'e' | 's' | 'se';
@@ -241,8 +249,10 @@ export class WindowCard {
       });
     }
 
-    const onMouseMove = (e: MouseEvent) => {
-      if (!resizing) return;
+    // Resize writes width/height (layout, not compositor) — batch to one write per
+    // frame like the drag path, otherwise every mousemove forces a reflow.
+    const applyResize = (e: MouseEvent) => {
+      this.resizeRafId = 0;
       const t = this.getTransform();
       const dw = (e.clientX - startX) / t.scale;
       const dh = (e.clientY - startY) / t.scale;
@@ -261,9 +271,27 @@ export class WindowCard {
       this.updateResizeTooltip(e.clientX, e.clientY, newW, newH);
     };
 
+    const onMouseMove = (e: MouseEvent) => {
+      if (!resizing) return;
+      this.pendingResizeEvent = e;
+      if (this.resizeRafId) return;
+      this.resizeRafId = requestAnimationFrame(() => {
+        if (this.pendingResizeEvent) applyResize(this.pendingResizeEvent);
+      });
+    };
+
     const onMouseUp = () => {
       if (resizing) {
         resizing = false;
+        if (this.resizeRafId) {
+          cancelAnimationFrame(this.resizeRafId);
+          this.resizeRafId = 0;
+        }
+        // Flush the last pending frame so the final size matches the cursor.
+        if (this.pendingResizeEvent) {
+          applyResize(this.pendingResizeEvent);
+          this.pendingResizeEvent = null;
+        }
         this.destroyResizeTooltip();
         this.opts.onResizeEnd?.(this.opts.width, this.opts.height);
       }
@@ -304,6 +332,12 @@ export class WindowCard {
       cancelAnimationFrame(this.dragRafId);
       this.dragRafId = 0;
     }
+    if (this.resizeRafId) {
+      cancelAnimationFrame(this.resizeRafId);
+      this.resizeRafId = 0;
+    }
+    // A card destroyed mid-drag would otherwise leave the flag latched on.
+    if (this.isDragging) document.body.classList.remove('canvas-busy');
     if (this.dragHandlers) {
       document.removeEventListener('mousemove', this.dragHandlers.mousemove);
       document.removeEventListener('mouseup', this.dragHandlers.mouseup);

@@ -73,6 +73,7 @@ export class Viewport {
     if (!this.navigating) {
       this.navigating = true;
       this.worldEl.classList.add('is-navigating');
+      document.body.classList.add('canvas-busy');
     }
     if (this.navIdleTimer) clearTimeout(this.navIdleTimer);
     this.navIdleTimer = window.setTimeout(() => this.endNavigating(), 120);
@@ -91,6 +92,7 @@ export class Viewport {
     }
     this.navigating = false;
     this.worldEl.classList.remove('is-navigating');
+    document.body.classList.remove('canvas-busy');
     this.scheduleTransform(true);
   }
 
@@ -166,6 +168,7 @@ export class Viewport {
   destroy(): void {
     if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = 0; }
     if (this.navIdleTimer) { clearTimeout(this.navIdleTimer); this.navIdleTimer = 0; }
+    if (this.navigating) { this.navigating = false; document.body.classList.remove('canvas-busy'); }
   }
 
   scheduleTransform(flushChrome = false): void {
