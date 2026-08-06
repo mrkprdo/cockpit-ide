@@ -19,7 +19,6 @@ export function windowTypeFromTitle(title: string): string {
   if (title === 'Git') return 'git';
   if (title === 'Markdown') return 'markdown';
   if (title === 'SpecsMap') return 'specsmap';
-  if (title === 'Agents') return 'agents';
   return 'unknown';
 }
 

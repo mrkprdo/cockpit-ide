@@ -1,5 +1,5 @@
 import type { AgentCapability, Skill, SkillName } from './types';
-import { BUILTIN_DEFINITIONS, BUILTIN_NAMES, READ_ONLY_TOOLS } from './definitions';
+import { BUILTIN_DEFINITIONS, BUILTIN_NAMES, READ_ONLY_TOOLS, DEFAULT_AGENT_TIMEOUT_MS, initials } from './definitions';
 import type { SubAgentDefinition } from './types';
 import { TOOL_FAMILIES } from './permissions';
 
@@ -8,7 +8,7 @@ import { TOOL_FAMILIES } from './permissions';
  *
  * The ten skills are declared once as `SubAgentDefinition` data (in
  * definitions.ts); `SKILLS` below maps them back into the legacy `Skill` shape
- * so existing consumers (`guardToolCall`, the Agents window, session) keep
+ * so existing consumers (`guardToolCall`, the AI panel, session) keep
  * working unchanged. Guardrails are enforced in code (`permissions.ts` +
  * `guardToolCall`), never only in the prompt.
  */
@@ -34,14 +34,14 @@ export function definitionToSkill(defn: SubAgentDefinition): Skill {
   return {
     name: defn.name as SkillName,
     label: defn.label ?? defn.name,
-    icon: defn.icon ?? '🤖',
+    icon: defn.icon ?? initials(defn.label ?? defn.name),
     color: defn.color ?? '#78909c',
     promptTemplate: defn.systemPrompt,
     allowedTools: expandToolAllowlist(defn.tools),
     capabilities: defn.capabilities ?? [],
     contextTokens: defn.contextTokens ?? 4096,
     maxSteps: defn.maxTurns ?? 24,
-    timeoutMs: defn.timeoutMs ?? 300_000,
+    timeoutMs: defn.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS,
   };
 }
 

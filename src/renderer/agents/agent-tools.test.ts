@@ -8,12 +8,11 @@ import {
   AgentKillArgs,
   AgentApproveArgs,
   AgentBroadcastArgs,
-  RoundtableComposeArgs,
   agentSpawnTool,
   agentApproveTool,
   definitionsListTool,
   agentBroadcastTool,
-  roundtableComposeTool,
+  agentDispatchTool,
 } from './agent-tools';
 import { getAgentExecutor } from './executor';
 import { AgentBus } from './bus';
@@ -62,36 +61,6 @@ describe('agent_* tool parameter aliases', () => {
     expect(missing.success).toBe(false);
   });
 
-  it('agent_spawn accepts camelCase roundtableSessionId and normalizes to snake_case', () => {
-    const parsed = AgentSpawnArgs.safeParse({
-      agent: 'expert-debugging',
-      context: 'investigate the undo crash',
-      expectedResult: 'findings brief',
-      roundtableSessionId: 'rt-abc123',
-    });
-    expect(parsed.success).toBe(true);
-    if (parsed.success) {
-      expect(parsed.data.roundtable_session_id).toBe('rt-abc123');
-      expect(parsed.data).not.toHaveProperty('roundtableSessionId');
-    }
-  });
-
-  it('agent_spawn tool forwards roundtable_session_id to the executor (Agents UI grouping)', async () => {
-    const ex = getAgentExecutor();
-    const spy = vi.spyOn(ex, 'spawn').mockReturnValue({ agentId: 'agent:x', correlationId: 'corr-x' });
-    try {
-      await agentSpawnTool.execute({
-        agent: 'expert-debugging',
-        context: 'investigate',
-        expected_result: 'findings',
-        roundtable_session_id: 'rt-abc123',
-      } as never, {} as never);
-      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ roundtableSessionId: 'rt-abc123' }));
-    } finally {
-      spy.mockRestore();
-    }
-  });
-
   it('agent_dispatch accepts camelCase agentId/expectsResponse', () => {
     const parsed = AgentDispatchArgs.safeParse({
       agentId: 'agent:abc123',
@@ -123,15 +92,19 @@ describe('agent_* tool parameter aliases', () => {
     }
   });
 
-  it('agent_broadcast accepts message + topic (both spellings)', () => {
+  it('agent_broadcast accepts message + topic + intent + re', () => {
     const parsed = AgentBroadcastArgs.safeParse({
       message: 'found a lead',
-      topic: 'roundtable.rt-abc.findings',
+      topic: 'room.findings',
+      intent: 'finding',
+      re: 'Reviewer',
     });
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       expect(parsed.data.message).toBe('found a lead');
-      expect(parsed.data.topic).toBe('roundtable.rt-abc.findings');
+      expect(parsed.data.topic).toBe('room.findings');
+      expect(parsed.data.intent).toBe('finding');
+      expect(parsed.data.re).toBe('Reviewer');
     }
   });
 
@@ -146,13 +119,13 @@ describe('agent_* tool parameter aliases', () => {
     ex.bus = bus;
     try {
       const out = await agentBroadcastTool.execute(
-        { message: 'panel update', topic: 'roundtable.rt-x.findings' } as never,
+        { message: 'panel update', topic: 'room.findings' } as never,
         {} as never,
       );
       expect(out).toContain('messageId');
       expect(out).toContain('topic');
       expect(mailbox.length).toBeGreaterThan(0);
-      expect(mailbox.peek()[0].topic).toBe('roundtable.rt-x.findings');
+      expect(mailbox.peek()[0].topic).toBe('room.findings');
     } finally {
       // @ts-expect-error test seam: restore the bus
       ex.bus = original;
@@ -160,7 +133,7 @@ describe('agent_* tool parameter aliases', () => {
     }
   });
 
-  it('agent_broadcast attributes the sender from ctx.agentId (roundtable attribution)', async () => {
+  it('agent_broadcast attributes the sender from ctx.agentId (room attribution)', async () => {
     const ex = getAgentExecutor();
     const bus = new AgentBus();
     bus.registerMailbox('agent:probe');
@@ -169,13 +142,13 @@ describe('agent_* tool parameter aliases', () => {
     ex.bus = bus;
     try {
       const out = await agentBroadcastTool.execute(
-        { message: 'finding from the debugging expert', topic: 'roundtable.rt-x.findings' } as never,
-        { agentId: 'agent:expert-debugging' } as never,
+        { message: 'finding from the reviewer', topic: 'room.findings' } as never,
+        { agentId: 'agent:reviewer' } as never,
       );
       expect(out).toContain('messageId');
-      expect(out).toContain('agent:expert-debugging');
+      expect(out).toContain('agent:reviewer');
       const msg = bus.getMailbox('agent:probe')!.peek()[0];
-      expect(msg.from).toBe('agent:expert-debugging');
+      expect(msg.from).toBe('agent:reviewer');
     } finally {
       // @ts-expect-error test seam: restore the bus
       ex.bus = original;
@@ -183,48 +156,104 @@ describe('agent_* tool parameter aliases', () => {
     }
   });
 
-  it('roundtable_compose accepts camelCase panelSize/quorumRatio/excludeAreas', () => {
-    const parsed = RoundtableComposeArgs.safeParse({
-      issue: 'editor undo crashes',
-      panelSize: 5,
-      seed: 42,
-      quorumRatio: 0.6,
-      excludeAreas: ['expert-business'],
+  it('agent_spawn accepts a persona (inline-designed sub-agent)', () => {
+    const parsed = AgentSpawnArgs.safeParse({
+      persona: {
+        name: 'Cache Skeptic',
+        system_prompt: 'Attack cache key correctness from the tenant-isolation angle.',
+      },
+      context: 'review the cache layer',
+      expected_result: 'findings brief',
     });
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.panel_size).toBe(5);
-      expect(parsed.data.seed).toBe(42);
-      expect(parsed.data.quorum_ratio).toBe(0.6);
-      expect(parsed.data.exclude_areas).toEqual(['expert-business']);
+      expect(parsed.data.persona?.name).toBe('Cache Skeptic');
+      expect(parsed.data.persona?.system_prompt).toContain('cache key');
+      expect(parsed.data.skill).toBeUndefined();
+      expect(parsed.data.agent).toBeUndefined();
     }
   });
 
-  it('roundtable_compose returns a spawn-ready panel plan', async () => {
-    const out = await roundtableComposeTool.execute(
-      { issue: 'editor undo crashes', panel_size: 5, seed: 7 } as never,
-      {} as never,
-    );
-    const plan = JSON.parse(out);
-    expect(plan.sessionId).toMatch(/^rt-/);
-    expect(plan.topic).toMatch(/^roundtable\.rt-/);
-    expect(plan.panelSize).toBe(5);
-    expect(plan.quorum).toBe(3);
-    expect(plan.experts).toHaveLength(5);
-    for (const e of plan.experts) {
-      expect(e.definition).toMatch(/^expert-/);
-      expect(e.context).toContain('editor undo crashes');
-      expect(e.expectedResult).toBeTruthy();
-      expect(Array.isArray(e.guardrails)).toBe(true);
+  it('persona precedence is enforced at spawn time (persona > agent > skill)', () => {
+    // The schema accepts any combination (the model may drift); the executor
+    // rejects a spawn that names more than one source.
+    const ex = getAgentExecutor();
+    const withSkill = () => (ex as any).resolveDefinition({
+      persona: { name: 'X', system_prompt: 'p' },
+      skill: 'planner',
+      context: 'c',
+      expectedResult: 'e',
+    });
+    expect(withSkill).toThrow(/spawn requires either/);
+    const withAgent = () => (ex as any).resolveDefinition({
+      persona: { name: 'X', system_prompt: 'p' },
+      agent: 'reviewer',
+      context: 'c',
+      expectedResult: 'e',
+    });
+    expect(withAgent).toThrow(/spawn requires either/);
+  });
+
+  it('persona.capabilities is not in the schema (T3 hard security boundary)', () => {
+    const parsed = AgentSpawnArgs.safeParse({
+      persona: {
+        name: 'Escalator',
+        system_prompt: 'p',
+        capabilities: ['destructive', 'orchestrate'],
+      } as never,
+      context: 'c',
+      expected_result: 'e',
+    });
+    // The model-authored capabilities key is stripped by the schema — it can
+    // never reach the built definition (which hard-codes ['peer']).
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect((parsed.data.persona as any).capabilities).toBeUndefined();
     }
   });
 
-  it('roundtable_compose is deterministic with a seed', async () => {
-    const a = JSON.parse(await roundtableComposeTool.execute({ issue: 'x', panel_size: 5, seed: 3 } as never, {} as never));
-    const b = JSON.parse(await roundtableComposeTool.execute({ issue: 'x', panel_size: 5, seed: 3 } as never, {} as never));
-    // Same seed → same experts/traits (session id/time suffix differs).
-    expect(a.experts.map((e: any) => e.definition)).toEqual(b.experts.map((e: any) => e.definition));
-    expect(a.experts[0].traits).toEqual(b.experts[0].traits);
+  it('persona forwards intent/re to the executor via emitSay on broadcast', async () => {
+    const ex = getAgentExecutor();
+    const spy = vi.spyOn(ex, 'emitSay').mockImplementation(() => {});
+    const bus = new AgentBus();
+    const original = ex.getBus();
+    // @ts-expect-error test seam: swap the bus
+    ex.bus = bus;
+    try {
+      await agentBroadcastTool.execute(
+        { message: 'the tenant id is missing', topic: 'room.findings', intent: 'rebuttal', re: 'Reviewer' } as never,
+        { agentId: 'agent:cache-skeptic' } as never,
+      );
+      expect(spy).toHaveBeenCalledWith('agent:cache-skeptic', expect.objectContaining({
+        intent: 'rebuttal',
+        re: 'Reviewer',
+        text: 'the tenant id is missing',
+      }));
+    } finally {
+      spy.mockRestore();
+      // @ts-expect-error test seam: restore the bus
+      ex.bus = original;
+    }
+  });
+
+  it('agent_dispatch emits say with intent question when expects_response', async () => {
+    const ex = getAgentExecutor();
+    const saySpy = vi.spyOn(ex, 'emitSay').mockImplementation(() => {});
+    const dispatchSpy = vi.spyOn(ex, 'dispatch').mockReturnValue('msg-1');
+    try {
+      // snake_case: execute() receives args already validated by the schema.
+      await agentDispatchTool.execute(
+        { agent_id: 'agent:target', message: 'is the cache tenant-scoped?', expects_response: true } as never,
+        { agentId: 'agent:asker' } as never,
+      );
+      expect(saySpy).toHaveBeenCalledWith('agent:asker', expect.objectContaining({
+        intent: 'question',
+        to: 'agent:target',
+      }));
+    } finally {
+      saySpy.mockRestore();
+      dispatchSpy.mockRestore();
+    }
   });
 
   it('explicit snake_case wins when both spellings are provided', () => {
@@ -311,5 +340,29 @@ describe('agent_* tool parameter aliases', () => {
     const impl = parsed.find((d: any) => d.name === 'implementer');
     expect(impl.builtin).toBe(true);
     expect(impl.permissionMode).toBe('acceptEdits');
+  });
+});
+
+describe('room regression guards (§7.2)', () => {
+  it('AGENT_TOOLS has no roundtable_compose and dropped by exactly 1', async () => {
+    const { AGENT_TOOLS } = await import('./agent-tools');
+    const { ALL_TOOLS } = await import('../ai/tool-definitions');
+    const names = AGENT_TOOLS.map(t => t.name);
+    expect(names).not.toContain('roundtable_compose');
+    expect(names).toContain('agent_spawn');
+    expect(names).toContain('agent_broadcast');
+    // 8 tools: spawn, dispatch, broadcast, wait, status, kill, approve, definitions_list.
+    expect(AGENT_TOOLS.length).toBe(8);
+    const allNames = ALL_TOOLS.map(t => t.name);
+    expect(allNames).not.toContain('roundtable_compose');
+  });
+
+  it('ORCHESTRATION_SECTION promotes persona + the shared conversation, with no roundtable guidance', async () => {
+    const { ORCHESTRATION_SECTION, AGENT_SHARED_PREAMBLE } = await import('./prompts');
+    const text = ORCHESTRATION_SECTION + '\n' + AGENT_SHARED_PREAMBLE;
+    expect(text.toLowerCase()).not.toContain('roundtable');
+    expect(text).toContain('Designing a sub-agent');
+    expect(text).toContain('Running a panel');
+    expect(text).toContain('You get 6 broadcasts per run');
   });
 });

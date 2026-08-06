@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AiDrawer } from './AiDrawer';
 import { estimateMessagesTokens } from '../ai/token-counter';
+import { getAgentExecutor } from '../agents/executor';
 import { mockElectronAPI } from '../../test/setup';
 
 function flush(): Promise<void> {
@@ -1430,7 +1431,7 @@ describe('AiDrawer', () => {
       const input = q('.ai-chat-input') as HTMLTextAreaElement;
       type(input, '/');
       const items = () => q('.ai-slash-list').querySelectorAll('.ai-slash-item');
-      expect(items().length).toBe(6);
+      expect(items().length).toBe(8);
       expect(items()[0].classList.contains('is-selected')).toBe(true);
       press(input, 'ArrowDown');
       expect(items()[1].classList.contains('is-selected')).toBe(true);
@@ -1884,6 +1885,348 @@ describe('AiDrawer', () => {
       // The folded note must not split an assistant tool_call from its tool result,
       // and the WHOLE request (system + users + kept tail) must stay under the budget.
       expect(estimateMessagesTokens(apiMessages)).toBeLessThan(16000);
+    });
+  });
+
+  // ─── SUB-AGENT ROOM / PoV ────────────────────────────────────────────────────
+
+  describe('sub-agent room and PoV strip', () => {
+    function fireSpawn(name = 'Reviewer', id = 'agent:xyz'): void {
+      const feed = drawer['feed'];
+      (feed as any).handleEvent(id, {
+        kind: 'spawn',
+        persona: { id, name, icon: 'RV', color: '#ffd54f', definition: 'reviewer' },
+        brief: 'review the cache',
+        expectedResult: 'findings brief',
+        guardrails: [],
+      });
+    }
+
+    it('the strip is hidden with no agents and appears on spawn', async () => {
+      drawer = await createDrawer();
+      const strip = q('.ai-pov-strip') as HTMLElement;
+      expect(strip.classList.contains('is-hidden')).toBe(true);
+
+      fireSpawn();
+      await flush();
+      await flush();
+      expect(strip.classList.contains('is-hidden')).toBe(false);
+      expect(strip.querySelectorAll('.ai-pov-tab').length).toBeGreaterThanOrEqual(2); // Chat + agent
+      expect(strip.textContent).toContain('Reviewer');
+    });
+
+    it('switching views swaps the rendered source; agent speech lands in the chat', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      (drawer['renderCtrl'] as any).activeView = 'chat';
+      fireSpawn();
+      await flush();
+      await flush();
+
+      // Agent speech goes into the main chat — the chat session is the room.
+      (drawer['feed'] as any).handleEvent('agent:xyz', { kind: 'say', text: 'room noise', intent: 'finding' });
+      await flush();
+      await flush();
+      expect(drawer['messages'].some((m: any) => m.content === 'room noise')).toBe(true);
+
+      // Switch to the agent PoV.
+      q('[data-view="agent:xyz"]').click();
+      expect(drawer['renderCtrl'].activeView).toBe('agent:xyz');
+      const pov = q('.ai-chat-messages').textContent;
+      expect(pov).toContain('review the cache');
+      expect(pov).toContain('room noise');
+
+      // Back to chat — the say is still there.
+      q('[data-view="chat"]').click();
+      expect(drawer['renderCtrl'].activeView).toBe('chat');
+      expect(q('.ai-chat-messages').textContent).toContain('room noise');
+    });
+
+    it('agent traffic counts toward the token bar (the chat is the room)', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      const label = q('.ai-token-progress-label') as HTMLElement;
+      // The estimate is 0 until the thread has a user turn — mirror a real chat.
+      drawer['messages'].push({ role: 'user', content: 'initial ask', timestamp: Date.now() });
+      drawer['renderCtrl'].renderTokenUsage();
+      const before = label.textContent;
+
+      fireSpawn();
+      (drawer['feed'] as any).handleEvent('agent:xyz', { kind: 'say', text: 'x'.repeat(2000), intent: 'finding' });
+      (drawer['feed'] as any).handleEvent('agent:xyz', { kind: 'final', text: 'y'.repeat(2000), state: 'done' });
+      await flush();
+      await flush();
+
+      // Agent speech lands in this.messages, so the next main request is more expensive.
+      expect(label.textContent).not.toBe(before);
+    });
+
+    it('agent messages render the name + intent badge; persona script is escaped (T11)', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      fireSpawn('<img src=x onerror=alert(1)>', 'agent:esc');
+      (drawer['feed'] as any).handleEvent('agent:esc', { kind: 'say', text: 'the tenant id is missing', intent: 'rebuttal', re: 'Implementer' });
+      await flush();
+      await flush();
+      drawer['renderCtrl'].renderMessages();
+
+      const text = q('.ai-chat-messages').textContent as string;
+      expect(text).toContain('the tenant id is missing');
+      expect(text).toContain('rebuttal');
+      expect(text).toContain('↩ Implementer');
+      // No live <img> element — the persona name was escaped.
+      expect(q('.ai-chat-messages').querySelector('img')).toBeNull();
+      expect(q('.ai-pov-strip').querySelector('img')).toBeNull();
+    });
+
+    it('kill button is hidden on finished / archived agents', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      fireSpawn('Reviewer', 'agent:done');
+      (drawer['feed'] as any).handleEvent('agent:done', { kind: 'final', text: 'verdict', state: 'done' });
+      await flush();
+      await flush();
+      (drawer['renderCtrl'] as any).activeView = 'agent:done';
+      drawer['renderCtrl'].renderMessages();
+      expect(q('.ai-pov-kill')).toBeNull();
+
+      // A running agent still shows the kill button.
+      fireSpawn('Runner', 'agent:run');
+      await flush();
+      await flush();
+      (drawer['renderCtrl'] as any).activeView = 'agent:run';
+      drawer['renderCtrl'].renderMessages();
+      expect(q('.ai-pov-kill')).toBeTruthy();
+    });
+
+    /** A transcript as it comes back from disk (hydrate), not from a live run. */
+    function seedArchived(drawerRef: AiDrawer, id = 'agent:old'): void {
+      const twoDays = 2 * 86400000;
+      drawerRef['feed'].transcripts.set(id as any, {
+        persona: { id, name: 'Cache Skeptic', icon: 'CS', color: '#4fc3f7', definition: 'adhoc-cache-skeptic-a1b2' },
+        state: 'done',
+        steps: [{
+          role: 'assistant',
+          content: 'the key omits the tenant id',
+          timestamp: Date.now() - twoDays,
+          speaker: { id, name: 'Cache Skeptic', icon: 'CS', color: '#4fc3f7' },
+          intent: 'verdict',
+        }],
+        unread: 0,
+        startedAt: Date.now() - twoDays,
+        finishedAt: Date.now() - twoDays + 252000,
+        sessionFile: 'agents/s1-old.json',
+        archived: true,
+        brief: 'b', expectedResult: 'e', guardrails: [],
+        adhoc: true, stepsCount: 9, tokensUsed: 3200, broadcastsUsed: 2,
+      } as any);
+    }
+
+    it('a replayed agent is marked as history: dimmed tab, replay badge, no kill', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      seedArchived(drawer);
+      drawer['switchView']('agent:old' as any);
+
+      expect(q('.ai-pov-tab.is-agent').classList.contains('is-archived')).toBe(true);
+      const header = q('.ai-pov-header');
+      expect(header.classList.contains('is-replay')).toBe(true);
+      expect(header.textContent).toContain('replay');
+      expect(header.textContent).toContain('done');
+      expect(header.textContent).toContain('9 steps');
+      expect(header.textContent).toContain('ran 4m 12s');
+      expect(q('.ai-pov-kill')).toBeNull();
+    });
+
+    it('a replayed verdict renders in the agent PoV with its date', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      seedArchived(drawer);
+      drawer['switchView']('agent:old' as any);
+
+      // A two-day-old message shows a date, not a bare clock time.
+      expect(q('.ai-chat-msg-agent .ai-chat-msg-time').textContent).toMatch(/\w+ \d+ · \d/);
+    });
+
+    it('loading another session kills the running agents it leaves behind', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      fireSpawn('Reviewer', 'agent:xyz');
+      await flush();
+      await flush();
+      expect(drawer['feed'].transcripts.size).toBe(1);
+
+      const purgeSpy = vi.spyOn(getAgentExecutor(), 'purgeAll');
+      try {
+        const previousId = drawer['sessionStore'].currentSessionId;
+        drawer['sessionStore'].newSession();   // the spawning session is no longer current
+        drawer['switchSession'](previousId);
+        await flush();
+        expect(purgeSpy).toHaveBeenCalled();
+        expect(drawer['feed'].transcripts.size).toBe(0);
+        expect(drawer['renderCtrl'].activeView).toBe('chat');
+      } finally {
+        purgeSpy.mockRestore();
+      }
+    });
+
+    it('a main-thread stream chunk never patches an agent PoV', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      fireSpawn('Reviewer', 'agent:xyz');
+      (drawer['feed'] as any).handleEvent('agent:xyz', { kind: 'say', text: 'room noise', intent: 'finding' });
+      await flush();
+      await flush();
+
+      // Main thread has a streaming assistant message at the same index as a PoV message.
+      drawer['messages'].length = 0;
+      drawer['messages'].push({ role: 'assistant', content: 'main stream', timestamp: Date.now() });
+      drawer['switchView']('agent:xyz');
+      drawer['renderCtrl'].updateStreamingMessage(0);
+
+      const text = q('.ai-chat-messages').textContent as string;
+      expect(text).toContain('room noise');
+      expect(text).not.toContain('main stream');
+    });
+
+    it('a non-hex persona colour falls back to the accent token', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      const id = 'agent:bad';
+      (drawer['feed'] as any).handleEvent(id, {
+        kind: 'spawn',
+        persona: { id, name: 'Sketchy', icon: 'AG', color: 'red" onmouseover="alert(1)', definition: 'reviewer' },
+        brief: 'b', expectedResult: 'r', guardrails: [],
+      });
+      (drawer['feed'] as any).handleEvent(id, { kind: 'say', text: 'hello', intent: 'note' });
+      await flush();
+      await flush();
+
+      expect(q('.ai-pov-strip').innerHTML).not.toContain('onmouseover');
+      const msg = q('.ai-chat-msg-agent');
+      expect(msg.getAttribute('style')).toContain('var(--accent)');
+      expect(msg.getAttribute('onmouseover')).toBeNull();
+    });
+  });
+
+  // ─── @MENTION ROUTING (D5) ──────────────────────────────────────────────────
+
+  describe('@mention routing', () => {
+    it('@Reviewer hi dispatches to the live agent and does not call the LLM', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      const feed = drawer['feed'];
+      (feed as any).handleEvent('agent:xyz', {
+        kind: 'spawn',
+        persona: { id: 'agent:xyz', name: 'Reviewer', icon: 'RV', color: '#ffd54f', definition: 'reviewer' },
+        brief: 'b',
+        expectedResult: 'e',
+        guardrails: [],
+      });
+      await flush();
+
+      const dispatchSpy = vi.spyOn(getAgentExecutor(), 'dispatch').mockReturnValue('msg-1');
+      (globalThis.fetch as any).mockClear();
+      try {
+        (q('.ai-chat-input') as HTMLTextAreaElement).value = '@Reviewer is the cache tenant-scoped?';
+        q('.ai-chat-send-btn').click();
+        await flush();
+        expect(dispatchSpy).toHaveBeenCalledWith('agent:xyz', expect.objectContaining({
+          type: 'request',
+          from: 'main',
+          payload: '[user] is the cache tenant-scoped?',
+        }));
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+        // Chat shows the mention with mentionTo set.
+        const userMsg = drawer['messages'].find((m: any) => m.role === 'user');
+        expect(userMsg?.content).toContain('@Reviewer');
+        expect(userMsg?.mentionTo).toBe('reviewer');
+      } finally {
+        dispatchSpy.mockRestore();
+      }
+    });
+
+    it('@room routes a broadcast to every live agent', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      const broadcastSpy = vi.spyOn(getAgentExecutor(), 'broadcast').mockReturnValue('msg-2');
+      try {
+        (q('.ai-chat-input') as HTMLTextAreaElement).value = '@room anyone see the failing test?';
+        q('.ai-chat-send-btn').click();
+        await flush();
+        expect(broadcastSpy).toHaveBeenCalledWith('[user] anyone see the failing test?', 'room.user', 'main');
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+      } finally {
+        broadcastSpy.mockRestore();
+      }
+    });
+
+    it('@nobody hi falls through to the main agent with a system note', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = '@nobody hello there';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+      const systemMsg = drawer['messages'].find((m: any) => m.role === 'system');
+      expect(systemMsg?.content).toContain('No live agent matches "@nobody"');
+      // The message was still sent to the main agent (LLM called).
+      expect(globalThis.fetch).toHaveBeenCalled();
+    });
+
+    it('the mention popup closes once the message body starts', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      (drawer['feed'] as any).handleEvent('agent:xyz', {
+        kind: 'spawn',
+        persona: { id: 'agent:xyz', name: 'Reviewer', icon: 'RV', color: '#ffd54f', definition: 'reviewer' },
+        brief: 'b', expectedResult: 'e', guardrails: [],
+      });
+      await flush();
+
+      const input = q('.ai-chat-input') as HTMLTextAreaElement;
+      input.value = '@Rev';
+      drawer['handleInput']();
+      expect(q('.ai-slash-popup').style.display).toBe('flex');
+      expect(q('.ai-slash-list').textContent).toContain('Reviewer');
+
+      input.value = '@Reviewer is the cache';
+      drawer['handleInput']();
+      expect(q('.ai-slash-popup').style.display).toBe('none');
+    });
+  });
+
+  // ─── SYSTEM PROMPT REGRESSION GUARDS (§7.2) ────────────────────────────────
+
+  describe('system prompt regression guards', () => {
+    it('buildSystemPrompt contains the panel guidance and no roundtable', async () => {
+      drawer = await createDrawer();
+      const prompt = drawer['llmLoop'].buildSystemPrompt('/ws');
+      expect(prompt).not.toContain('roundtable');
+      expect(prompt).not.toContain('Roundtable');
+      // The main prompt carries the shared-conversation protocol guidance (the
+      // "## The shared conversation" preamble is sub-agent-only).
+      expect(prompt).toContain('### Running a panel');
+      expect(prompt).toContain('### Designing a sub-agent');
+    });
+
+    it('buildSystemPrompt advertises the persona parameter on agent_spawn', async () => {
+      drawer = await createDrawer();
+      const prompt = drawer['llmLoop'].buildSystemPrompt('/ws');
+      expect(prompt).toContain('agent_spawn(skill? OR agent? OR persona?');
     });
   });
 });

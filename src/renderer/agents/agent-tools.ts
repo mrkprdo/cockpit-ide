@@ -3,13 +3,11 @@ import type { ToolContext, ToolDefinition } from '../ai/types';
 import { getAgentExecutor } from './executor';
 import { SKILL_NAMES } from './skills';
 import { listDefinitions } from './definitions';
-import { composeRoundtable, EXPERT_AREAS } from './roundtable';
 import type { AgentId, PermissionMode } from './types';
 
 /**
  * Sub-agent orchestration tools. Registered in ALL_TOOLS via tool-definitions.ts
- * so the main session (and capable peers) can spawn/dispatch/wait/kill/approve
- * and convene roundtable expert panels.
+ * so the main session (and capable peers) can spawn/dispatch/wait/kill/approve.
  *
  * Guardrails for these tools are enforced both here (existence checks) and in
  * the skill layer (skills.ts HARD_DENY: spawn/kill/approve need 'orchestrate',
@@ -49,8 +47,19 @@ function withAliases<T extends z.ZodRawShape>(shape: T, aliases: Record<string, 
 }
 
 export const AgentSpawnArgs = withAliases({
-  skill: SkillEnum.optional().describe('Built-in SDLC skill to launch (mutually exclusive with agent)'),
-  agent: z.string().optional().describe('Custom or built-in subagent definition id (mutually exclusive with skill)'),
+  skill: SkillEnum.optional().describe('Built-in SDLC skill to launch (mutually exclusive with agent and persona)'),
+  agent: z.string().optional().describe('Custom or built-in subagent definition id (mutually exclusive with skill and persona)'),
+  persona: z.object({
+    name: z.string().describe('Display name, e.g. "Cache Skeptic" — how it signs its messages in the shared conversation'),
+    icon: z.string().optional().describe('Short text label for its chip (2–4 chars; defaults to the name initials)'),
+    color: z.string().optional().describe('#rrggbb accent for its chip and message border'),
+    system_prompt: z.string().describe('Its angle, what it must not do, what its verdict must contain'),
+    tools: z.array(z.string()).optional().describe('Tool allowlist; defaults to read-only + the sharing tools'),
+    max_turns: z.number().int().positive().optional(),
+    context_tokens: z.number().int().positive().optional(),
+    timeout_ms: z.number().int().positive().optional(),
+  }).optional()
+    .describe('Design a sub-agent inline instead of naming a built-in. Mutually exclusive with skill/agent.'),
   context: z.string().describe('Task context: files, plan, previous results — keep it tight, the agent has no other memory'),
   expected_result: z.string().describe('What "done" looks like — the agent aims its final respond at this'),
   guardrails: z.array(z.string()).optional().describe('Extra human-readable guardrails for this dispatch'),
@@ -59,14 +68,12 @@ export const AgentSpawnArgs = withAliases({
   model: z.string().optional().describe('Per-agent model override (falls back to definition.model, then the executor config)'),
   permission_mode: PermissionModeEnum.optional().describe('Per-agent permission mode override (default|acceptEdits|auto|plan|dontAsk)'),
   max_turns: z.number().int().positive().optional().describe('Per-agent step cap override'),
-  roundtable_session_id: z.string().optional().describe('Tag this spawn as belonging to a roundtable session (pass plan.sessionId from roundtable_compose) so the Agents UI can group it into a live quorum tracker'),
 }, {
   expectedResult: 'expected_result',
   timeoutMs: 'timeout_ms',
   seedSummary: 'seed_summary',
   permissionMode: 'permission_mode',
   maxTurns: 'max_turns',
-  roundtableSessionId: 'roundtable_session_id',
 });
 
 export const AgentDispatchArgs = withAliases({
@@ -104,25 +111,15 @@ export const AgentApproveArgs = withAliases({
 
 export const AgentBroadcastArgs = withAliases({
   message: z.string().describe('Payload to fan out to every running agent'),
-  topic: z.string().optional().describe('Topic tag, e.g. "roundtable.<sessionId>.findings"'),
+  topic: z.string().optional().describe('Topic tag, e.g. "conversation.findings"'),
+  intent: z.enum(['note', 'finding', 'suggestion', 'rebuttal', 'question', 'verdict']).optional()
+    .describe('How the others should read this. Use rebuttal when you disagree with a named peer.'),
+  re: z.string().optional().describe('Persona name or agent id you are answering (renders as a reply chip)'),
 }, {});
-
-export const RoundtableComposeArgs = withAliases({
-  issue: z.string().describe('The problem/feature/question the roundtable should tackle'),
-  panel_size: z.number().int().min(3).max(15).optional().describe('Panel size (default 5, max 15)'),
-  seed: z.number().int().optional().describe('Deterministic seed: same seed + issue → same panel every time'),
-  quorum_ratio: z.number().min(0.5).max(1).optional().describe('Quorum as a fraction of the panel (default 0.6)'),
-  areas: z.array(z.string()).optional().describe('Restrict the candidate pool to these expert ids (see EXPERT_AREAS)'),
-  exclude_areas: z.array(z.string()).optional().describe('Exclude these expert ids from the candidate pool'),
-}, {
-  panelSize: 'panel_size',
-  quorumRatio: 'quorum_ratio',
-  excludeAreas: 'exclude_areas',
-});
 
 export const agentSpawnTool: ToolDefinition<typeof AgentSpawnArgs> = {
   name: 'agent_spawn',
-  description: 'Launch an autonomous sub-agent. Pass EITHER skill (built-in SDLC skill) OR agent (custom definition id, including the roundtable experts like expert-debugging). Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). Params: skill?/agent?, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?, model?, permission_mode? (alias permissionMode), max_turns?, roundtable_session_id? (alias roundtableSessionId — pass plan.sessionId when spawning a roundtable expert).',
+  description: 'Launch an autonomous sub-agent. Pass EITHER skill (built-in SDLC skill), agent (custom definition id), or persona (inline-designed sub-agent). Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). Params: skill?/agent?/persona?, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?, model?, permission_mode? (alias permissionMode), max_turns?.',
   parameters: AgentSpawnArgs,
   execute: async (args) => {
     const ex = getAgentExecutor();
@@ -130,6 +127,7 @@ export const agentSpawnTool: ToolDefinition<typeof AgentSpawnArgs> = {
       const res = ex.spawn({
         skill: args.skill as never,
         agent: args.agent,
+        persona: args.persona,
         context: args.context,
         expectedResult: args.expected_result,
         guardrails: args.guardrails,
@@ -138,7 +136,6 @@ export const agentSpawnTool: ToolDefinition<typeof AgentSpawnArgs> = {
         model: args.model,
         permissionMode: args.permission_mode as PermissionMode | undefined,
         maxTurns: args.max_turns,
-        roundtableSessionId: args.roundtable_session_id,
       });
       return JSON.stringify(res, null, 2);
     } catch (err: any) {
@@ -165,6 +162,12 @@ export const agentDispatchTool: ToolDefinition<typeof AgentDispatchArgs> = {
         from: (ctx?.agentId ?? 'main') as AgentId,
         payload: args.message,
       });
+      ex.emitSay((ctx?.agentId ?? 'main') as AgentId, {
+        text: args.message,
+        intent: args.expects_response ? 'question' : 'note',
+        to: args.agent_id as AgentId,
+        topic: args.topic,
+      });
       return JSON.stringify({ messageId: msgId, correlationId: correlationId ?? null }, null, 2);
     } catch (err: any) {
       return `Error dispatching: ${err?.message || String(err)}`;
@@ -174,13 +177,20 @@ export const agentDispatchTool: ToolDefinition<typeof AgentDispatchArgs> = {
 
 export const agentBroadcastTool: ToolDefinition<typeof AgentBroadcastArgs> = {
   name: 'agent_broadcast',
-  description: 'Fan out a message to every running agent (topic-tagged). This is how roundtable experts share findings with the whole panel simultaneously — broadcast to the session topic (roundtable.<sessionId>.findings). Requires the peer capability. Params: message, topic?.',
+  description: 'Speak to the other sub-agents: fan a message out to every running agent. Tag intent (note/finding/suggestion/rebuttal/question/verdict) so peers read it correctly, and re to answer a named peer. Requires the peer capability. Params: message, topic?, intent?, re?.',
   parameters: AgentBroadcastArgs,
   execute: async (args, ctx) => {
     const ex = getAgentExecutor();
     try {
-      const msgId = ex.broadcast(args.message, args.topic, (ctx?.agentId ?? 'main') as AgentId);
-      return JSON.stringify({ messageId: msgId, topic: args.topic ?? null, from: ctx?.agentId ?? 'main' }, null, 2);
+      const from = (ctx?.agentId ?? 'main') as AgentId;
+      const msgId = ex.broadcast(args.message, args.topic, from);
+      ex.emitSay(from, {
+        text: args.message,
+        intent: args.intent ?? 'note',
+        topic: args.topic,
+        re: args.re,
+      });
+      return JSON.stringify({ messageId: msgId, topic: args.topic ?? null, intent: args.intent ?? null, re: args.re ?? null, from }, null, 2);
     } catch (err: any) {
       return `Error broadcasting: ${err?.message || String(err)}`;
     }
@@ -228,6 +238,7 @@ export const agentStatusTool: ToolDefinition<typeof AgentStatusArgs> = {
         tokensUsed: a.tokensUsed,
         contextTokens: a.contextTokens,
         mailbox: a.mailboxCount,
+        broadcastsUsed: a.broadcastsUsed,
         startedAt: a.startedAt,
         finishedAt: a.finishedAt,
         brief: a.briefSummary,
@@ -263,27 +274,11 @@ export const agentApproveTool: ToolDefinition<typeof AgentApproveArgs> = {
   },
 };
 
-export const roundtableComposeTool: ToolDefinition<typeof RoundtableComposeArgs> = {
-  name: 'roundtable_compose',
-  description: `Convene a roundtable expert panel for an issue. Returns a spawn-ready plan: sessionId, shared findings topic, panel size, quorum (responds needed), and one expert per seat — each a master of ONE skill area (${EXPERT_AREAS.length} areas available) with random sub-traits. Deterministic when seed is given. Then spawn every expert with agent_spawn(agent: definition, context, expected_result, guardrails) IN PARALLEL, wait for quorum of responds, and synthesize the plan. Params: issue, panel_size? (alias panelSize), seed?, quorum_ratio? (alias quorumRatio), areas?, exclude_areas? (alias excludeAreas).`,
-  parameters: RoundtableComposeArgs,
-  execute: async (args) => {
-    const plan = composeRoundtable(args.issue, {
-      panelSize: args.panel_size,
-      seed: args.seed,
-      quorumRatio: args.quorum_ratio,
-      areas: args.areas,
-      excludeAreas: args.exclude_areas,
-    });
-    return JSON.stringify(plan, null, 2);
-  },
-};
-
 export const DefinitionsListArgs = z.object({});
 
 export const definitionsListTool: ToolDefinition<typeof DefinitionsListArgs> = {
   name: 'definitions_list',
-  description: 'List every available subagent definition: id, built-in vs custom, description, permission mode, max turns, tool count. Use before agent_spawn to pick an agent id (built-in skills AND roundtable experts).',
+  description: 'List every available subagent definition: id, built-in vs custom, description, permission mode, max turns, tool count. Use before agent_spawn to pick an agent id.',
   parameters: DefinitionsListArgs,
   execute: async () => {
     const list = listDefinitions();
@@ -307,6 +302,5 @@ export const AGENT_TOOLS: ToolDefinition<any>[] = [
   agentStatusTool,
   agentKillTool,
   agentApproveTool,
-  roundtableComposeTool,
   definitionsListTool,
 ];

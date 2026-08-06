@@ -5,6 +5,7 @@ import { ALL_TOOLS } from '../ai/tool-definitions';
 import { SubAgentSession } from './session';
 import { BUILTIN_DEFINITIONS } from './definitions';
 import { HookRunner } from './hooks';
+import { getAgentExecutor } from './executor';
 import type { AgentBrief, AgentMessage, SubAgentDefinition } from './types';
 import type { LLMMessage, LLMResponse } from '../ai/types';
 
@@ -259,5 +260,82 @@ describe('SubAgentSession permission + hooks', () => {
     await s.run();
     const toolMsg = s.transcriptSnapshot.find(m => m.role === 'tool');
     expect(toolMsg?.content).toContain('HOOK BLOCKED');
+  });
+});
+
+describe('SubAgentSession room event channel', () => {
+  it('onEvent fires spawn / step / tool (twice per call, same callId) / final', async () => {
+    const bus = new AgentBus();
+    const events: any[] = [];
+    const llm = makeLLM([
+      { content: 'reading', tool_calls: [{ id: 'tc1', type: 'function', function: { name: 'read_file', arguments: '{"path":"/tmp/a.ts"}' } }] },
+      { content: 'finished after tool' },
+    ]);
+    const s = makeSession('implementer', brief(), llm, bus);
+    (s as any).deps.onEvent = (ev: any) => events.push(ev);
+    await s.run();
+
+    const spawns = events.filter(e => e.kind === 'spawn');
+    expect(spawns.length).toBe(1);
+    expect(spawns[0].persona.name).toBe('Implementer');
+    expect(spawns[0].expectedResult).toBe('foo implemented');
+
+    expect(events.some(e => e.kind === 'step' && e.text === 'reading')).toBe(true);
+
+    const tools = events.filter(e => e.kind === 'tool');
+    expect(tools.length).toBe(2);
+    expect(tools[0].callId).toBe('tc1');
+    expect(tools[0].result).toBeUndefined();
+    expect(tools[1].callId).toBe('tc1');
+    expect(tools[1].result).toBeDefined();
+
+    const finals = events.filter(e => e.kind === 'final');
+    expect(finals.length).toBe(1);
+    expect(finals[0].state).toBe('done');
+    expect(finals[0].text).toBe('finished after tool');
+  });
+
+  it('a throwing onEvent listener does not abort the run (T1)', async () => {
+    const bus = new AgentBus();
+    const llm = makeLLM([{ content: 'done: task' }]);
+    const s = makeSession('implementer', brief(), llm, bus);
+    (s as any).deps.onEvent = () => { throw new Error('listener bug'); };
+    const result = await s.run();
+    expect(result).toBe('done: task');
+    expect(s.state).toBe('done');
+  });
+
+  it('the 7th agent_broadcast returns the budget guardrail and does not reach the bus (D7)', async () => {
+    // agent_broadcast's execute fans out via the singleton executor's bus — the
+    // test bus below only carries the session's own envelope traffic.
+    const ex = getAgentExecutor();
+    const bus = ex.getBus();
+    const seen: AgentMessage[] = [];
+    bus.subscribe('*', (m) => seen.push(m));
+    const round = { content: 'b', tool_calls: [{ id: 'tc', type: 'function', function: { name: 'agent_broadcast', arguments: '{"message":"hi","topic":"room.findings"}' } }] };
+    const llm = makeLLM([...Array.from({ length: 7 }, () => round), { content: 'final after budget' }]);
+    const s = makeSession('implementer', brief(), llm, new AgentBus());
+    // Tools only execute when a ToolContext is present.
+    (s as any).deps.ctx = () => ({ agentId: s.id } as never);
+    await s.run();
+    const broadcasts = seen.filter(m => m.type === 'broadcast');
+    expect(broadcasts.length).toBe(6);
+    expect(s.broadcastsUsed).toBe(6);
+    const toolMsgs = s.transcriptSnapshot.filter(m => m.role === 'tool');
+    expect(toolMsgs[toolMsgs.length - 1].content).toContain('Guardrail: broadcast budget spent');
+  });
+
+  it('a broadcast denied by the allowlist does not consume budget', async () => {
+    const bus = new AgentBus();
+    const llm = makeLLM([
+      { content: 'try', tool_calls: [{ id: 'tc1', type: 'function', function: { name: 'agent_broadcast', arguments: '{"message":"x"}' } }] },
+      { content: 'recovered' },
+    ]);
+    // A definition without peer + without agent_broadcast in the allowlist.
+    const s = makeSession('reviewer', brief({ skill: 'reviewer' }), llm, bus, undefined, { tools: ['read_file'], capabilities: [] });
+    await s.run();
+    expect(s.broadcastsUsed).toBe(0);
+    const toolMsg = s.transcriptSnapshot.find(m => m.role === 'tool');
+    expect(toolMsg?.content).toContain('Guardrail');
   });
 });

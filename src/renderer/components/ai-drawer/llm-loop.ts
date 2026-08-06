@@ -11,7 +11,7 @@
 // (refactor.md §B.4) instead of console.error — the ai-drawer modules keep the
 // no-new-console-error discipline.
 
-import { ORCHESTRATION_SECTION, ROUNDTABLE_SECTION } from '../../agents/prompts';
+import { ORCHESTRATION_SECTION } from '../../agents/prompts';
 import { listDefinitions } from '../../agents/definitions';
 import { SKILL_NAMES } from '../../agents/skills';
 import { getToolContext } from '../../ai/cockpit-context';
@@ -131,7 +131,6 @@ export class LlmLoop {
     parts.push(ORCHESTRATION_SECTION);
     const platform = buildPlatformPrompt(detectHostPlatform());
     if (platform) parts.push(platform);
-    parts.push(ROUNDTABLE_SECTION);
     const customs = listDefinitions().filter(d => !SKILL_NAMES.includes(d.name as never));
     if (customs.length > 0) {
       parts.push(
@@ -553,7 +552,7 @@ export class LlmLoop {
         const failedTool = lastFailedTool;
         sameToolFailures = 0;
         lastFailedTool = null;
-        escalationNote = `⚠️ AUTO-ESCALATION: "${failedTool}" has failed ${MAX_SAME_TOOL_FAILURES} times in a row. Do NOT call it again with the same arguments. Investigate first (agent_status, re-read the error), then either fix your approach, or delegate: agent_spawn a debugger, or roundtable_compose for a harder issue.`;
+        escalationNote = `⚠️ AUTO-ESCALATION: "${failedTool}" has failed ${MAX_SAME_TOOL_FAILURES} times in a row. Do NOT call it again with the same arguments. Investigate first (agent_status, re-read the error), then either fix your approach, or delegate: agent_spawn a debugger, or design a small panel of personas to attack it from several angles.`;
         this.render.messages.push({
           role: 'system',
           content: `**Auto-escalation:** "${failedTool}" failed ${MAX_SAME_TOOL_FAILURES}x in a row — nudged the model to stop retrying and investigate or delegate instead.`,

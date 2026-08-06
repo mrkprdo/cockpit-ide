@@ -29,11 +29,6 @@ export class WindowFocus {
     if (cs) { this.lifecycle.focusCard(cs.card.opts.title); this.viewport.panToCard(cs); }
   }
 
-  focusAgents(uuid: string): void {
-    const cs = this.lifecycle.getCards().find(c => c.card.uuid === uuid && c.isOpen);
-    if (cs) { this.lifecycle.focusCard(cs.card.opts.title); this.viewport.panToCard(cs); }
-  }
-
   reopenTerminal(uuid: string): void {
     const cs = this.lifecycle.getCards().find(c => c.card.uuid === uuid && !c.isOpen);
     if (!cs) return;
@@ -56,11 +51,6 @@ export class WindowFocus {
   }
 
   reopenSpecsmap(uuid: string): void {
-    const cs = this.lifecycle.getCards().find(c => c.card.uuid === uuid && !c.isOpen);
-    if (cs) this.lifecycle.reopenCard(cs);
-  }
-
-  reopenAgents(uuid: string): void {
     const cs = this.lifecycle.getCards().find(c => c.card.uuid === uuid && !c.isOpen);
     if (cs) this.lifecycle.reopenCard(cs);
   }

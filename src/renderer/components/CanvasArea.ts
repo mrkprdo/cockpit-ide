@@ -6,7 +6,6 @@ import { ContextMenu } from './ContextMenu';
 import { ExplorerWindow } from './ExplorerWindow';
 import { TerminalWindow } from './TerminalWindow';
 import { SpecsMapWindow } from './SpecsMapWindow';
-import { AgentsWindow } from './AgentsWindow';
 import type { SaveState, CardState, WindowEntry } from './canvas-area/types';
 import { Viewport, WORLD_BOUNDS_X, WORLD_BOUNDS_Y } from './canvas-area/viewport';
 import { Notifier } from './canvas-area/notify';
@@ -23,7 +22,6 @@ export class CanvasArea {
   onExplorersChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onGitChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onSpecsmapChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
-  onAgentsChanged: ((items: { uuid: string; title: string; isOpen: boolean }[]) => void) | null = null;
   onLockToggle: (() => void) | null = null;
   workspaceName = 'no workspace';
 
@@ -149,7 +147,6 @@ export class CanvasArea {
       getExplorersChanged: () => this.onExplorersChanged,
       getGitChanged: () => this.onGitChanged,
       getSpecsmapChanged: () => this.onSpecsmapChanged,
-      getAgentsChanged: () => this.onAgentsChanged,
     });
     this.viewport = new Viewport(this.el, this.worldEl, {
       getOverlayLeft: () => this.overlayLeft,
@@ -318,8 +315,6 @@ export class CanvasArea {
 
   addSpecsmap(wsPath: string): void { this.factories.addSpecsmap(wsPath); }
 
-  addAgents(wsPath: string): void { this.factories.addAgents(wsPath); }
-
   addTerminal(cwd?: string): Promise<string> { return this.factories.addTerminal(cwd); }
 
   addDevConsole(wsPath: string): void { this.factories.addDevConsole(wsPath); }
@@ -332,8 +327,6 @@ export class CanvasArea {
 
   focusSpecsmap(uuid: string): void { this.focus.focusSpecsmap(uuid); }
 
-  focusAgents(uuid: string): void { this.focus.focusAgents(uuid); }
-
   focusCard(title: string): void { this.lifecycle.focusCard(title); }
 
   cycleCard(direction: 1 | -1): void { this.lifecycle.cycleCard(direction); }
@@ -345,8 +338,6 @@ export class CanvasArea {
   reopenGit(uuid: string): void { this.focus.reopenGit(uuid); }
 
   reopenSpecsmap(uuid: string): void { this.focus.reopenSpecsmap(uuid); }
-
-  reopenAgents(uuid: string): void { this.focus.reopenAgents(uuid); }
 
   reopenCardByTitle(title: string): boolean { return this.lifecycle.reopenCardByTitle(title); }
 
@@ -382,8 +373,6 @@ export class CanvasArea {
   getTerminalWindow(uuid: string): TerminalWindow | null { return this.lifecycle.getTerminalWindow(uuid); }
 
   getActiveSpecsMapWindow(): SpecsMapWindow | null { return this.lifecycle.getActiveSpecsMapWindow(); }
-
-  getActiveAgentsWindow(): AgentsWindow | null { return this.lifecycle.getActiveAgentsWindow(); }
 
   killAllTerminals(): void { this.lifecycle.killAllTerminals(); }
 
@@ -451,6 +440,9 @@ export class CanvasArea {
     state.windows = state.windows.filter(p => p.title !== 'Markdown');
     // Dev console is ephemeral — always opened fresh, never restored.
     state.windows = state.windows.filter(p => p.title !== 'DevConsole');
+    // ponytail: legacy card type; workspaces saved before the group-chat panel
+    // landed get skipped here so no empty WindowCard shell is mounted.
+    state.windows = state.windows.filter(p => p.title !== 'Agents');
 
     for (const p of state.windows) {
       if (p.title.startsWith('Terminal')) {
@@ -504,14 +496,6 @@ export class CanvasArea {
         });
 
         if (p.isOpen) this.lifecycle.mountSpecsmap(cs, wsPath);
-      } else if (p.title === 'Agents') {
-        const cs = this.lifecycle.createCardFromDef(p, {
-          onMinimize: () => { cs.isOpen = false; cs.card.el.style.display = 'none'; this.notifier.notifyAgentsChanged(); },
-          onFitViewport: () => this.fitViewport(cs),
-          onTerminate: () => this.terminateCard(cs),
-        });
-
-        if (p.isOpen) this.lifecycle.mountAgents(cs, wsPath);
       }
     }
 
@@ -521,7 +505,6 @@ export class CanvasArea {
     this.notifier.notifyExplorersChanged();
     this.notifier.notifyGitChanged();
     this.notifier.notifySpecsmapChanged();
-    this.notifier.notifyAgentsChanged();
   }
 
   // ── input wiring ────────────────────────────────────────────────

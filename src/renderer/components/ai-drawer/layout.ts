@@ -3,7 +3,7 @@
 // drawer occupies. Owns detached state, the float-preview DOM, and the drawer
 // chrome refs it moves around.
 
-import { formatBody } from './render';
+import { formatBody, scrollToBottomIfNearBottom } from './render';
 import type { AiDrawerDom, ChatMessage, FloatPreviewState } from './types';
 
 export interface DrawerLayoutDeps {
@@ -122,8 +122,8 @@ export class DrawerLayout {
       el.className = state === 'stream' ? 'ai-float-preview is-stream' : 'ai-float-preview is-done';
       el.innerHTML = `<button class="ai-float-preview-close" aria-label="Clear response" title="Clear response">&#215;</button><div class="ai-float-preview-body">${formatBody(text || '')}</div>`;
       if (state === 'stream') {
-        const body = el.querySelector('.ai-float-preview-body')!;
-        body.scrollTop = body.scrollHeight;
+        const body = el.querySelector('.ai-float-preview-body') as HTMLElement | null;
+        if (body) scrollToBottomIfNearBottom(body);
       }
     }
   }

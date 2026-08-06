@@ -7,7 +7,6 @@ import { TerminalWindow } from '../TerminalWindow';
 import { ExplorerWindow } from '../ExplorerWindow';
 import { GitWindow } from '../GitWindow';
 import { SpecsMapWindow } from '../SpecsMapWindow';
-import { AgentsWindow } from '../AgentsWindow';
 import { DevConsoleWindow } from '../dev-console/DevConsoleWindow';
 import type { CardState } from './types';
 
@@ -126,7 +125,7 @@ export class CardLifecycle {
         menu.onClose = () => { this.host.setContextMenuOpen(false); };
       },
     }, () => ({ scale: this.viewport.scale, panX: this.viewport.panX, panY: this.viewport.panY }));
-    cs = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalWindow: null, explorerWindow: null, gitWindow: null, specsmapWindow: null, agentsWindow: null, devConsoleWindow: null };
+    cs = { card, worldX: sx, worldY: sy, isOpen: true, savedTitle: title, savedWidth: sw, savedHeight: sh, savedWX: sx, savedWY: sy, terminalWindow: null, explorerWindow: null, gitWindow: null, specsmapWindow: null, devConsoleWindow: null };
     this.cards.push(cs);
     this.positionCard(cs);
     return cs;
@@ -182,7 +181,7 @@ export class CardLifecycle {
 
     const cx = this.viewport.clampWorld(p.x, 'x');
     const cy = this.viewport.clampWorld(p.y, 'y');
-    cs = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalWindow: null, explorerWindow: null, gitWindow: null, specsmapWindow: null, agentsWindow: null, devConsoleWindow: null };
+    cs = { card, worldX: cx, worldY: cy, isOpen: p.isOpen, savedTitle: p.title, savedWidth: p.width, savedHeight: p.height, savedWX: cx, savedWY: cy, terminalWindow: null, explorerWindow: null, gitWindow: null, specsmapWindow: null, devConsoleWindow: null };
     this.cards.push(cs);
 
     if (!p.isOpen) card.el.style.display = 'none';
@@ -225,10 +224,6 @@ export class CardLifecycle {
 
   getActiveSpecsMapWindow(): SpecsMapWindow | null {
     return this.cards.find(c => c.specsmapWindow && c.isOpen)?.specsmapWindow ?? null;
-  }
-
-  getActiveAgentsWindow(): AgentsWindow | null {
-    return this.cards.find(c => c.agentsWindow && c.isOpen)?.agentsWindow ?? null;
   }
 
   focusCard(title: string): void {
@@ -336,17 +331,6 @@ export class CardLifecycle {
     cs.card.onDestroy = () => sm.destroy();
   }
 
-  mountAgents(cs: CardState, wsPath: string): void {
-    const body = cs.card.el.querySelector('.card-body') as HTMLElement;
-    if (!body) return;
-    body.style.padding = '0';
-    body.style.alignItems = 'stretch';
-    body.style.justifyContent = 'stretch';
-    const ag = new AgentsWindow(body, wsPath);
-    cs.agentsWindow = ag;
-    cs.card.onDestroy = () => ag.destroy();
-  }
-
   reopenCard(cs: CardState): void {
     if (cs.isOpen) return;
     if (cs.savedTitle.startsWith('Terminal')) {
@@ -409,23 +393,6 @@ export class CardLifecycle {
       cs.worldY = cs.savedWY;
       this.positionCard(cs);
       this.notifier.notifySpecsmapChanged();
-      this.host.getOnStateChange()?.();
-    } else if (cs.savedTitle === 'Agents') {
-      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
-      if (body && !body.hasChildNodes()) {
-        body.style.padding = '0';
-        body.style.alignItems = 'stretch';
-        body.style.justifyContent = 'stretch';
-        const ag = new AgentsWindow(body, this.host.getWsPath());
-        cs.agentsWindow = ag;
-        cs.card.onDestroy = () => ag.destroy();
-      }
-      cs.isOpen = true;
-      cs.card.el.style.display = '';
-      cs.worldX = cs.savedWX;
-      cs.worldY = cs.savedWY;
-      this.positionCard(cs);
-      this.notifier.notifyAgentsChanged();
       this.host.getOnStateChange()?.();
     } else if (cs.savedTitle === 'DevConsole') {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;

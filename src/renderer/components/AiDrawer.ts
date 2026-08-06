@@ -10,18 +10,22 @@ import { detectHostPlatform } from '../ai/prompts';
 import { ALL_TOOLS } from '../ai/tool-definitions';
 import { ToolRegistry } from '../ai/tool-registry';
 import type { LLMMessage } from '../ai/types';
+import { getAgentExecutor } from '../agents/executor';
 import { bindGuarded } from '../health/monitor';
 import { createLogger } from '../logging/logger';
 import { ContextWindow } from './ai-drawer/context-window';
 
 const log = createLogger('ai-drawer');
+import { AgentFeed } from './ai-drawer/agent-feed';
+import { AgentSessionStore } from './ai-drawer/agent-sessions';
 import { DrawerLayout } from './ai-drawer/layout';
 import { LlmLoop } from './ai-drawer/llm-loop';
-import { RenderController, escapeHtml } from './ai-drawer/render';
+import { Mentions } from './ai-drawer/mentions';
+import { RenderController, escapeHtml, scrollToBottomIfNearBottom } from './ai-drawer/render';
 import { SessionStore } from './ai-drawer/sessions';
 import { SettingsStore } from './ai-drawer/settings';
 import { SlashCommands } from './ai-drawer/slash-commands';
-import type { AgentMode, AiDrawerDom, ChatMessage, Session, SlashCommand } from './ai-drawer/types';
+import type { AgentMode, AiDrawerDom, ChatMessage, PanelView, Session, SlashCommand } from './ai-drawer/types';
 
 export { MAX_CONSECUTIVE_EMPTIES } from './ai-drawer/llm-loop';
 export { LOOP_CONTEXT_MIN_LIMIT, LOOP_CONTEXT_MULTIPLIER } from './ai-drawer/context-window';
@@ -36,6 +40,9 @@ export class AiDrawer {
   private contextWindow: ContextWindow;
   private llmLoop: LlmLoop;
   private layout: DrawerLayout;
+  private feed: AgentFeed;
+  private agentSessions: AgentSessionStore;
+  private mentions: Mentions;
 
   // Queue + steer state (facade-owned; the sub-controllers read it via hosts)
   private promptQueue: string[] = [];
@@ -44,7 +51,9 @@ export class AiDrawer {
   // Shell-style input-history recall state
   private historyIndex = -1;
   private historyDraft = '';
-
+  // rAF coalescing for feed-driven renders (step events can outpace frames).
+  private feedRafPending = false;
+  private announcedWave = false;
   onDetachChange?: (detached: boolean) => void;
 
   constructor() {
@@ -80,12 +89,14 @@ export class AiDrawer {
 
     this.dom = { el, wrapper, notch, resizeHandle } as AiDrawerDom;
 
+    this.feed = new AgentFeed();
     this.renderCtrl = new RenderController(this.dom, {
       estimateContextTokens: () => this.contextWindow.estimateContextTokens(),
       getPromptQueue: () => this.promptQueue,
       setPromptQueue: (queue) => { this.promptQueue = queue; },
       syncFloatStream: (content) => this.layout.updateFloatPreview('stream', content),
       getSettings: () => this.settingsStore.snapshot(),
+      getFeed: () => this.feed,
     });
 
     this.settingsStore = new SettingsStore(this.dom);
@@ -97,6 +108,32 @@ export class AiDrawer {
       renderMessages: () => this.renderCtrl.renderMessages(),
       syncFloatPreviewToMessages: () => this.layout.syncFloatPreviewToMessages(),
       onInitFirstSession: () => this.initFirstSession(),
+      onSessionLoaded: (session) => {
+        // Agents belong to the session that spawned them: leaving it kills them,
+        // else they keep running (and writing) against the session now on screen.
+        getAgentExecutor().purgeAll();
+        this.feed.reset();
+        this.agentSessions.reset();
+        this.renderCtrl.activeView = 'chat';
+        this.feed.activeView = 'chat';
+        this.announcedWave = false;
+        void this.feed.hydrate(session.agents ?? []).then(() => {
+          this.renderMessages();
+        });
+      },
+      onDeleteSession: (session) => {
+        void this.agentSessions.deleteSessionFiles(session.id);
+      },
+    });
+
+    this.agentSessions = new AgentSessionStore(this.feed, this.sessionStore);
+
+    this.mentions = new Mentions({
+      getFeed: () => this.feed,
+      getMessages: () => this.renderCtrl.messages,
+      renderMessages: () => this.renderMessages(),
+      persistChat: () => this.persistChat(),
+      runMessage: (text) => this.runMessage(text),
     });
 
     this.slash = new SlashCommands(this.dom, {
@@ -110,6 +147,14 @@ export class AiDrawer {
       getMessages: () => this.renderCtrl.messages,
       setMessages: (messages) => { this.renderCtrl.messages = messages; },
       renderMessages: () => this.renderCtrl.renderMessages(),
+      getActiveAgents: () => this.feed.activeAgents().map(a => ({
+        id: a.persona.id,
+        name: a.persona.name,
+        icon: a.persona.icon,
+        color: a.persona.color,
+        state: a.state,
+      })),
+      purgeFinished: () => this.purgeFinished(),
     });
 
     // llm-loop's streamPlainText, wired after llm-loop exists (breaks the
@@ -175,6 +220,36 @@ export class AiDrawer {
     this.slash.registerDefaults();
     this.bindEvents();
     this.settingsStore.loadSettings();
+
+    // Live sub-agents: attach to the executor's event channel. The main chat
+    // session IS the room — room-visible speech lands straight in `messages`.
+    this.feed.attach(getAgentExecutor());
+    this.feed.onChange = () => this.scheduleFeedRender();
+    this.feed.onChatMessage = (msg) => {
+      this.renderCtrl.messages.push(msg);
+      this.persistChat();
+    };
+  }
+
+  private scheduleFeedRender(): void {
+    this.agentSessions.scheduleWrites();
+    if (this.feedRafPending) return;
+    this.feedRafPending = true;
+    requestAnimationFrame(() => {
+      this.feedRafPending = false;
+      if (!this.announcedWave && this.feed.all().length > 0) {
+        // One compact summary line in Chat; no auto-switch.
+        this.announcedWave = true;
+        const n = this.feed.all().length;
+        this.renderCtrl.messages.push({
+          role: 'system',
+          content: `**${n} agent${n > 1 ? 's' : ''} working**`,
+          timestamp: Date.now(),
+        });
+        this.persistChat();
+      }
+      this.renderMessages();
+    });
   }
 
   // ── State accessors (thin views into sub-controllers) ─────────────────────
@@ -255,6 +330,13 @@ export class AiDrawer {
   }
 
   resetSessions(): void {
+    // T12: kill running agents before the workspace path changes, then drop the feed.
+    this.feed.reset();
+    this.agentSessions.reset();
+    getAgentExecutor().purgeAll();
+    this.renderCtrl.activeView = 'chat';
+    this.feed.activeView = 'chat';
+    this.announcedWave = false;
     this.sessionStore.reset();
     this.promptQueue = [];
     this.steeringMessage = null;
@@ -262,8 +344,6 @@ export class AiDrawer {
     this.renderMessages();
     this.syncFloatPreviewToMessages();
     this.renderSessionsList();
-    // If drawer is already open, load the new workspace's sessions immediately
-    // rather than waiting for the user to close and reopen.
     if (this.dom.el.classList.contains('is-open')) {
       this.loadSessions().then(() => {
         this.syncFloatPreviewToMessages();
@@ -286,7 +366,14 @@ export class AiDrawer {
 
   private async loadSessions(): Promise<void> { return this.sessionStore.loadSessions(); }
   private renderSessionsList(): void { this.sessionStore.renderSessionsList(); }
-  private newSession(): void { this.sessionStore.newSession(); }
+  private newSession(): void {
+    this.feed.reset();
+    this.agentSessions.reset();
+    this.renderCtrl.activeView = 'chat';
+    this.feed.activeView = 'chat';
+    this.announcedWave = false;
+    this.sessionStore.newSession();
+  }
   private switchSession(id: string): void { this.sessionStore.switchSession(id); }
   private deleteSession(id: string): void { this.sessionStore.deleteSession(id); }
   private saveSessionById(id: string, messages: ChatMessage[]): void { this.sessionStore.saveSessionById(id, messages); }
@@ -321,7 +408,7 @@ export class AiDrawer {
     this.steeringMessage = text;
     this.renderCtrl.messages.push({ role: 'user', content: text, timestamp: Date.now(), isSteer: true });
     this.renderMessages();
-    requestAnimationFrame(() => { this.dom.messagesEl.scrollTop = this.dom.messagesEl.scrollHeight; });
+    requestAnimationFrame(() => scrollToBottomIfNearBottom(this.dom.messagesEl));
   }
 
   private processQueue(): void {
@@ -359,6 +446,38 @@ export class AiDrawer {
     }
   }
 
+  private switchView(view: PanelView): void {
+    // T13: a detached float card only shows Chat, so tab clicks reopen the drawer.
+    if (this.isDetached) this.layout.ensureDrawerOpen();
+    this.renderCtrl.activeView = view;
+    this.feed.activeView = view;
+    this.feed.clearUnread(view);
+    this.renderMessages();
+  }
+
+  private purgeFinished(): void {
+    // Flush every finished verdict first — the purge deletes the transcripts.
+    for (const t of this.feed.all()) {
+      if (['done', 'error', 'killed'].includes(t.state) && !t.archived) {
+        void this.agentSessions.flush(t);
+      }
+    }
+    this.feed.purgeFinished();
+    if (this.renderCtrl.activeView !== 'chat') {
+      const t = this.feed.transcripts.get(this.renderCtrl.activeView);
+      if (!t) this.switchView('chat');
+    }
+  }
+
+  /**
+   * Persist the main thread from paths that never enter the LLM loop (@mention
+   * lines, the agent-wave banner) — llm-loop's save is the only other one.
+   */
+  private persistChat(): void {
+    const id = this.sessionStore.getActiveSession()?.id;
+    if (id) this.sessionStore.saveSessionById(id, this.renderCtrl.messages);
+  }
+
   // ── Input handling ─────────────────────────────────────────────────────────
 
   private async sendMessage(): Promise<void> {
@@ -367,6 +486,16 @@ export class AiDrawer {
     log.info('ai send', { mode: this.agentMode, len: text.length });
     if (!text) return;
     this.historyIndex = -1;
+
+    // @mention: route one message to a live agent / the room (D5).
+    if (text.startsWith('@')) {
+      const mention = this.mentions.parse(text);
+      if (mention) {
+        this.dom.inputEl.value = '';
+        this.mentions.send(mention.name, mention.rest, text);
+        return;
+      }
+    }
 
     // Exact slash command (e.g. "/new" or "/new  ") bypasses the LLM.
     const slashCmd = this.slash.commands.find(cmd => text === cmd.label || text === `/${cmd.name}`);
@@ -390,7 +519,7 @@ export class AiDrawer {
   private handleInput(): void {
     this.historyIndex = -1; // typing starts a fresh draft
     const value = this.dom.inputEl.value;
-    if (value.startsWith('/')) {
+    if (value.startsWith('/') || value.startsWith('@')) {
       this.slash.open(value);
     } else {
       this.slash.close();
@@ -515,5 +644,25 @@ export class AiDrawer {
     }, src));
 
     this.settingsStore.bindPanel();
+
+    // Tab strip: switch view or purge finished agents (delegation — rebuilt every render).
+    this.unbinders.push(bindGuarded(this.dom.povStripEl, 'click', (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>('[data-view]');
+      if (target) {
+        this.switchView(target.dataset.view as PanelView);
+        return;
+      }
+      if ((e.target as HTMLElement).closest('.ai-pov-purge')) {
+        this.purgeFinished();
+      }
+    }, src));
+
+    // Per-agent kill (D6) lives in the PoV header inside the message list.
+    this.unbinders.push(bindGuarded(this.dom.messagesEl, 'click', (e: MouseEvent) => {
+      const kill = (e.target as HTMLElement).closest<HTMLElement>('.ai-pov-kill');
+      if (!kill) return;
+      getAgentExecutor().kill(kill.dataset.id as never);
+      this.switchView('chat');
+    }, src));
   }
 }

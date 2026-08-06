@@ -3,9 +3,11 @@
 // Stateless formatting helpers (escapeHtml, formatBody) live here as plain
 // functions so sibling modules can import them without an import cycle.
 
+import { ROOM_BROADCAST_BUDGET } from '../../agents/definitions';
 import { checkContextBudget } from '../../ai/token-counter';
 import { ZEN_MODELS, type SettingsSnapshot } from './settings';
-import type { AiDrawerDom, ChatMessage } from './types';
+import type { AgentFeed } from './agent-feed';
+import type { AiDrawerDom, ChatMessage, PanelView } from './types';
 
 /** Two-overlapping-squares copy icon (stroke inherits button color). */
 export const COPY_ICON_SVG =
@@ -15,6 +17,61 @@ export function escapeHtml(str: string): string {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+/**
+ * Persona colours reach an inline `style="--agent-color:…"`, where escaping is
+ * not enough — anything but a plain hex must not survive. Ad-hoc personas are
+ * already sanitised in the executor (T11), but custom `.cockpit/agents/*.json`
+ * definitions and hydrated agent session files are unvalidated on disk.
+ */
+export function safeAgentColor(color: string | undefined): string {
+  return /^#[0-9a-f]{6}$/i.test(color ?? '') ? color! : 'var(--accent)';
+}
+
+/** "just now" / "12m ago" / "3h ago" / "2d ago" / a date. Shared with the session list. */
+export function formatAge(ts: number, now: number): string {
+  const d = now - ts;
+  const mins = Math.floor(d / 60000);
+  const hours = Math.floor(d / 3600000);
+  const days = Math.floor(d / 86400000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+/** A replayed room spans days; a bare clock time reads as "today" and misleads. */
+export function formatMsgTime(ts: number): string {
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const today = new Date();
+  const sameDay = d.getFullYear() === today.getFullYear()
+    && d.getMonth() === today.getMonth()
+    && d.getDate() === today.getDate();
+  return sameDay ? time : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} · ${time}`;
+}
+
+/** Elapsed run time, "4m 12s" / "38s" / "1h 04m". */
+export function formatDuration(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+}
+
+/**
+ * Scroll a chat container to the bottom, but ONLY if it is already near it —
+ * a user who scrolled up to read earlier content must not be yanked back down
+ * by a new response, tool chip, or streaming chunk. Once they scroll back to
+ * the bottom the guard lets auto-follow resume.
+ */
+export function scrollToBottomIfNearBottom(el: HTMLElement, threshold = 80): void {
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < threshold) {
+    el.scrollTop = el.scrollHeight;
+  }
 }
 
 export function formatBody(content: string): string {
@@ -46,10 +103,14 @@ export interface RenderHost {
   /** Keep a detached float card's stream preview in sync (facade wires to layout). */
   syncFloatStream(content: string): void;
   getSettings(): SettingsSnapshot;
+  /** The live sub-agent feed (room + PoV transcripts). */
+  getFeed(): AgentFeed;
 }
 
 export class RenderController {
   messages: ChatMessage[] = [];
+  /** Which conversation surface is rendered (T4: token bar measures chat only). */
+  activeView: PanelView = 'chat';
 
   constructor(private dom: AiDrawerDom, private host: RenderHost) {}
 
@@ -64,6 +125,7 @@ export class RenderController {
             <button class="ai-drawer-close-btn" aria-label="Close AI panel" title="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4l-4 4 4 4"/><path d="M6 4l-4 4 4 4"/></svg></button>
           </div>
         </div>
+        <div class="ai-pov-strip is-hidden" role="tablist" aria-label="Conversation view"></div>
         <div class="ai-drawer-body">
           <div class="ai-chat-messages" aria-live="polite" aria-label="Conversation"></div>
           <div class="ai-chat-loading" style="display:none">
@@ -165,6 +227,7 @@ export class RenderController {
     const el = this.dom.el;
     this.dom.bodyEl = el.querySelector('.ai-drawer-body')!;
     this.dom.messagesEl = el.querySelector('.ai-chat-messages')!;
+    this.dom.povStripEl = el.querySelector('.ai-pov-strip')!;
     this.dom.inputEl = el.querySelector('.ai-chat-input')!;
     this.dom.sendBtn = el.querySelector('.ai-chat-send-btn')!;
     this.dom.abortBtn = el.querySelector('.ai-chat-abort-btn')!;
@@ -190,31 +253,109 @@ export class RenderController {
   }
 
   renderMessages(): void {
-    if (this.messages.length === 0) {
-      this.dom.messagesEl.innerHTML = `<div class="ai-chat-empty">
-        <div class="ai-chat-empty-logo" aria-hidden="true">
-          <svg class="ai-chat-empty-icon" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-            <circle class="ai-logo-c ai-logo-c1" cx="72" cy="72" r="56"/>
-            <circle class="ai-logo-c ai-logo-c2" cx="184" cy="72" r="56"/>
-            <circle class="ai-logo-c ai-logo-c3" cx="72" cy="184" r="56"/>
-            <circle class="ai-logo-c ai-logo-c4" cx="184" cy="184" r="56"/>
-          </svg>
-        </div>
-        <div class="ai-chat-empty-title">Cockpit Agent ready.</div>
-        <div class="ai-chat-empty-sub">I can read/write files, open them in the editor, and arrange the canvas.</div>
-      </div>`;
+    this.renderStrip();
+    const source = this.currentSource();
+    if (source.length === 0) {
+      this.dom.messagesEl.innerHTML = this.viewHeader() + this.emptyHtml();
       this.renderTokenUsage();
       return;
     }
-    this.dom.messagesEl.innerHTML = this.messages.map((m, i) => this.renderMessage(m, i)).join('');
+    this.dom.messagesEl.innerHTML = this.viewHeader() + source.map((m, i) => this.renderMessage(m, i)).join('');
     // Mark only the last message for entrance animation; previous messages render instantly
     const last = this.dom.messagesEl.lastElementChild as HTMLElement | null;
     if (last) last.classList.add('is-new');
     this.renderTokenUsage();
-    // Defer scroll so browser has painted the new content and scrollHeight is final
+    // Defer scroll so browser has painted the new content and scrollHeight is
+    // final — and never yank a user who is reading earlier messages.
     requestAnimationFrame(() => {
-      this.dom.messagesEl.scrollTop = this.dom.messagesEl.scrollHeight;
+      scrollToBottomIfNearBottom(this.dom.messagesEl);
     });
+  }
+
+  /** The rendered message list depends on the active view (chat / an agent PoV). */
+  private currentSource(): ChatMessage[] {
+    if (this.activeView === 'chat') return this.messages;
+    return this.host.getFeed().transcripts.get(this.activeView)?.steps ?? [];
+  }
+
+  /** The tab strip between header and messages — the "show active agents" surface. */
+  private renderStrip(): void {
+    if (!this.dom.povStripEl) return;
+    const feed = this.host.getFeed();
+    const agents = feed.all();
+    if (agents.length === 0 && this.activeView === 'chat') {
+      this.dom.povStripEl.classList.add('is-hidden');
+      this.dom.povStripEl.innerHTML = '';
+      return;
+    }
+    this.dom.povStripEl.classList.remove('is-hidden');
+
+    const tabCls = (view: string) => `ai-pov-tab${this.activeView === view ? ' is-selected' : ''}`;
+    const selected = (view: string) => String(this.activeView === view);
+    const chatTab = `<button class="${tabCls('chat')}" role="tab" aria-selected="${selected('chat')}" data-view="chat">Chat</button>`;
+    const agentTabs = agents.map(a => {
+      const unread = a.unread > 0 ? `<span class="ai-pov-badge" aria-label="${a.unread} unread">${a.unread}</span>` : '';
+      const archived = a.archived ? ' is-archived' : '';
+      const title = a.archived ? ' title="Replayed from this session\'s saved run"' : '';
+      return `<button class="${tabCls(a.persona.id)} is-agent${archived}" role="tab" aria-selected="${selected(a.persona.id)}" data-view="${a.persona.id}" style="--agent-color:${safeAgentColor(a.persona.color)}"${title}><span class="ai-pov-ring is-${a.state}" aria-hidden="true"></span><span class="ai-pov-icon" aria-hidden="true">${escapeHtml(a.persona.icon)}</span> ${escapeHtml(a.persona.name)}${unread}</button>`;
+    }).join('');
+    const hasFinished = agents.some(a => ['done', 'error', 'killed'].includes(a.state));
+    const purge = hasFinished
+      ? '<button class="ai-pov-purge" title="Purge finished agents" aria-label="Purge finished agents">⌫</button>'
+      : '';
+    this.dom.povStripEl.innerHTML = chatTab + agentTabs + purge;
+  }
+
+  /** Header above an agent PoV: the run card with its kill control (D6). */
+  private viewHeader(): string {
+    if (this.activeView === 'chat') return '';
+    return this.renderPovHeader();
+  }
+
+  /** PoV run card: who, how it ended, how long, and the kill control (D6). */
+  private renderPovHeader(): string {
+    const view = this.activeView;
+    if (view === 'chat') return '';   // narrows PanelView → AgentId
+    const t = this.host.getFeed().transcripts.get(view);
+    if (!t) return '';
+    const finished = ['done', 'error', 'killed'].includes(t.state);
+    const killHidden = finished || t.archived;
+    const elapsed = (t.finishedAt ?? Date.now()) - t.startedAt;
+    const facts = [
+      `${t.stepsCount} step${t.stepsCount === 1 ? '' : 's'}`,
+      `${(t.tokensUsed / 1000).toFixed(1)}k tokens`,
+      `${t.broadcastsUsed} of ${ROOM_BROADCAST_BUDGET} broadcasts`,
+      finished ? `ran ${formatDuration(elapsed)}` : `running ${formatDuration(elapsed)}`,
+      finished && t.finishedAt ? formatAge(t.finishedAt, Date.now()) : '',
+    ].filter(Boolean).join(' · ');
+
+    return `<div class="ai-pov-header${t.archived ? ' is-replay' : ''}" style="--agent-color:${safeAgentColor(t.persona.color)}">
+      <span class="ai-pov-persona"><span class="ai-pov-icon" aria-hidden="true">${escapeHtml(t.persona.icon)}</span> ${escapeHtml(t.persona.name)}</span>
+      <span class="ai-run-badge is-${t.state}">${t.state}</span>
+      ${t.archived ? '<span class="ai-run-badge is-replay">replay</span>' : ''}
+      <span class="ai-pov-stat">${facts}</span>
+      ${killHidden ? '' : `<button class="ai-pov-kill" data-id="${t.persona.id}">✕ Kill</button>`}
+    </div>`;
+  }
+
+  private emptyHtml(): string {
+    if (this.activeView !== 'chat') {
+      return `<div class="ai-chat-empty">
+        <div class="ai-chat-empty-sub">No messages yet.</div>
+      </div>`;
+    }
+    return `<div class="ai-chat-empty">
+      <div class="ai-chat-empty-logo" aria-hidden="true">
+        <svg class="ai-chat-empty-icon" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+          <circle class="ai-logo-c ai-logo-c1" cx="72" cy="72" r="56"/>
+          <circle class="ai-logo-c ai-logo-c2" cx="184" cy="72" r="56"/>
+          <circle class="ai-logo-c ai-logo-c3" cx="72" cy="184" r="56"/>
+          <circle class="ai-logo-c ai-logo-c4" cx="184" cy="184" r="56"/>
+        </svg>
+      </div>
+      <div class="ai-chat-empty-title">Cockpit Agent ready.</div>
+      <div class="ai-chat-empty-sub">I can read/write files, open them in the editor, and arrange the canvas.</div>
+    </div>`;
   }
 
   /**
@@ -222,6 +363,9 @@ export class RenderController {
    * the whole list. This preserves selection and avoids flicker while chunks arrive.
    */
   updateStreamingMessage(index: number): void {
+    // Indices address `this.messages`; while a room/PoV view is rendered the DOM
+    // holds someone else's messages at that index. The next full render catches up.
+    if (this.activeView !== 'chat') return;
     const msg = this.messages[index];
     const el = this.dom.messagesEl.querySelector(`[data-msg-index="${index}"]`) as HTMLElement | null;
     if (!msg || !el) return;
@@ -238,8 +382,10 @@ export class RenderController {
       this.host.syncFloatStream(msg.content);
     }
 
+    // Same guard as renderMessages: streaming must not drag a scrolled-up
+    // reader back to the newest chunk.
     requestAnimationFrame(() => {
-      this.dom.messagesEl.scrollTop = this.dom.messagesEl.scrollHeight;
+      scrollToBottomIfNearBottom(this.dom.messagesEl);
     });
   }
 
@@ -336,11 +482,41 @@ export class RenderController {
       return `<div class="ai-chat-msg ai-chat-msg-thinking" data-msg-index="${index}"><details class="ai-thinking-details" open><summary class="ai-thinking-header"><span class="ai-thinking-icon">◈</span><span class="ai-thinking-label">Agent reasoning</span><span class="ai-thinking-toggle">▸</span></summary><div class="ai-thinking-body">${body}</div></details></div>`;
     }
 
-    const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = formatMsgTime(m.timestamp);
     const body = this.renderMessageText(m);
 
     if (m.role === 'system') {
+      // A join marker (system + speaker) reads as a labelled rule, not a bubble.
+      if (m.speaker) {
+        return `<div class="ai-room-join" style="--agent-color:${safeAgentColor(m.speaker.color)}">
+          <span class="ai-room-join-icon">${escapeHtml(m.speaker.icon)}</span>
+          <span class="ai-room-join-label">${escapeHtml(m.speaker.name)} joined</span>
+          <span class="ai-room-join-time">${time}</span>
+        </div>`;
+      }
       return `<div class="ai-chat-msg ai-chat-msg-system"><div class="ai-chat-msg-bubble">${body}</div></div>`;
+    }
+
+    // A sub-agent turn: role stays 'assistant' but carries a speaker identity.
+    if (m.speaker) {
+      const intentBadge = m.intent
+        ? `<span class="ai-intent-badge is-${m.intent}">${m.intent}</span>`
+        : '';
+      const reply = m.replyTo ? `<span class="ai-agent-reply">↩ ${escapeHtml(m.replyTo)}</span>` : '';
+      const toName = m.toName ? `<span class="ai-agent-to">→ ${escapeHtml(m.toName)}</span>` : '';
+      const isError = m.intent === 'verdict' && /^\[(ERROR|KILLED)\]/.test(m.content);
+      return `
+        <div class="ai-chat-msg ai-chat-msg-agent${isError ? ' is-error' : ''}" style="--agent-color:${safeAgentColor(m.speaker.color)}" data-msg-index="${index}">
+          <div class="ai-agent-head">
+            <span class="ai-agent-icon">${escapeHtml(m.speaker.icon)}</span>
+            <span class="ai-agent-name">${escapeHtml(m.speaker.name)}</span>
+            ${intentBadge}${reply}${toName}
+          </div>
+          <div class="ai-chat-msg-text">${body}</div>
+          <div class="ai-chat-msg-meta">
+            <span class="ai-chat-msg-time">${time}</span>
+          </div>
+        </div>`;
     }
 
     const steerBadge = m.isSteer ? '<span class="ai-steer-badge">&#x21B3; steer</span>' : '';

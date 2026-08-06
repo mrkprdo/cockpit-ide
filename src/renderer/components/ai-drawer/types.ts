@@ -3,8 +3,12 @@
 // stays acyclic (no module imports another that imports it back).
 
 import type { LLMMessage, LLMToolCall } from '../../ai/types';
+import type { AgentId, AgentState, SpeechIntent } from '../../agents/types';
 
 export type AgentMode = 'auto' | 'plan' | 'step';
+
+/** The visible conversation surface: the main chat or one agent's PoV. */
+export type PanelView = 'chat' | AgentId;
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'tool' | 'thinking';
@@ -17,6 +21,16 @@ export interface ChatMessage {
   /** The tool_call_id of the call whose result this tool message carries. */
   toolCallId?: string;
   isSteer?: boolean;
+  /** Agent identity for room/PoV messages (role stays 'assistant' when set). */
+  speaker?: { id: string; name: string; icon: string; color: string };
+  /** Room intent tag (note/finding/suggestion/rebuttal/question/verdict). */
+  intent?: SpeechIntent;
+  /** Persona name this message answers (from the broadcast `re` param). */
+  replyTo?: string;
+  /** Directed-message target, renders '→ Reviewer'. */
+  toName?: string;
+  /** Set on a user @mention message (Chat shows what was said). */
+  mentionTo?: string;
 }
 
 export interface Session {
@@ -27,6 +41,22 @@ export interface Session {
   messages: ChatMessage[];
   /** Compacted context used in place of the full message history. */
   context?: LLMMessage[];
+  /** Links to this session's sub-agent session files (additive, optional). */
+  agents?: AgentLink[];
+}
+
+/** Link from the main session file to one sub-agent's session file (D8/T14). */
+export interface AgentLink {
+  agentId: AgentId;
+  /** Relative to the sessions dir, e.g. 'agents/msd1-a4f2.json'. */
+  file: string;
+  name: string;
+  icon: string;
+  color: string;
+  definition: string;
+  state: AgentState;
+  startedAt: number;
+  finishedAt: number | null;
 }
 
 export interface SlashCommand {
@@ -51,6 +81,7 @@ export interface AiDrawerDom {
   resizeHandle: HTMLDivElement;
   bodyEl: HTMLDivElement;
   messagesEl: HTMLDivElement;
+  povStripEl: HTMLDivElement;
   inputEl: HTMLTextAreaElement;
   sendBtn: HTMLButtonElement;
   abortBtn: HTMLButtonElement;

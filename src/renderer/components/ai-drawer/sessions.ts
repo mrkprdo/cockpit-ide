@@ -3,7 +3,7 @@
 // State moves here with the logic (refactor.md §A.3.3): the facade delegates
 // through thin accessors and the SessionsHost callbacks.
 
-import { escapeHtml } from './render';
+import { escapeHtml, formatAge } from './render';
 import type { AiDrawerDom, ChatMessage, Session } from './types';
 
 export interface SessionsHost {
@@ -14,6 +14,10 @@ export interface SessionsHost {
   syncFloatPreviewToMessages(): void;
   /** Facade hook for the "first session" path — lets tests/spies intercept it. */
   onInitFirstSession(): void;
+  /** Facade hook after a session becomes active (hydrates linked agent files). */
+  onSessionLoaded?(session: Session): void;
+  /** Facade hook when a session is deleted (cascades to its agent files, T15). */
+  onDeleteSession?(session: Session): void;
 }
 
 export class SessionStore {
@@ -66,6 +70,7 @@ export class SessionStore {
       this.host.setMessages([...current.messages]);
       this.host.renderMessages();
       this.host.syncFloatPreviewToMessages();
+      this.host.onSessionLoaded?.(current);
     } catch { this.host.onInitFirstSession(); }
   }
 
@@ -149,6 +154,7 @@ export class SessionStore {
     if (this.host.getMessages().length === 0) this.host.setMessages([]);
     this.host.renderMessages();
     this.host.syncFloatPreviewToMessages();
+    this.host.onSessionLoaded?.(session);
     this.renderSessionsList();
     this.dom.sessionsPanelEl.classList.remove('is-visible');
     this.saveSessions();
@@ -157,6 +163,8 @@ export class SessionStore {
   deleteSession(id: string): void {
     const dir = this.getSessionsDir();
     if (dir) window.electronAPI?.fs.delete(`${dir}/${id}.json`).catch(() => {});
+    const session = this.sessions.find(s => s.id === id);
+    if (session) this.host.onDeleteSession?.(session);
     this.sessions = this.sessions.filter(s => s.id !== id);
     if (this.sessions.length === 0) {
       this.host.onInitFirstSession();
@@ -206,15 +214,7 @@ export class SessionStore {
   }
 
   formatAge(ts: number, now: number): string {
-    const d = now - ts;
-    const mins = Math.floor(d / 60000);
-    const hours = Math.floor(d / 3600000);
-    const days = Math.floor(d / 86400000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return new Date(ts).toLocaleDateString();
+    return formatAge(ts, now);
   }
 
   getActiveSession(): Session | undefined {

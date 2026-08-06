@@ -1,0 +1,331 @@
+/* ===== Sub-agent PoV strip (group chat inside the AI panel) =====
+   Registered where styles-agents-fleet.css used to sit. Token-scaled per
+   DESIGN.md + the e24d078 pass; no hard-coded hex outside the per-persona
+   --agent-color variable. The persona colour is injected inline from the
+   sanitised model-authored value (T11). Icons are short text initials,
+   coloured by the persona — no emoji. */
+
+.ai-pov-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 6px 8px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  min-height: 38px;
+}
+.ai-pov-strip.is-hidden {
+  display: none;
+}
+
+.ai-pov-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  min-height: 30px;
+  min-width: 44px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--secondary);
+  font-family: var(--font);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+.ai-pov-tab:hover {
+  border-color: var(--accent);
+  color: var(--primary);
+}
+.ai-pov-tab.is-selected {
+  border-color: var(--accent);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+.ai-pov-tab.is-agent.is-selected {
+  border-color: var(--agent-color, var(--accent));
+  color: var(--agent-color, var(--primary));
+}
+
+/* Text icon (initials) in a tab or run header — coloured by the persona */
+.ai-pov-icon {
+  flex: 0 0 auto;
+  color: var(--agent-color, var(--accent));
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  min-width: 14px;
+  text-align: center;
+}
+
+/* State ring — mirrors AgentState classes from the old fleet card */
+.ai-pov-ring {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1.5px solid var(--agent-color, var(--secondary));
+  background: transparent;
+}
+.ai-pov-ring.is-active {
+  background: var(--agent-color, var(--accent));
+  animation: ai-pov-pulse 1.6s ease-in-out infinite;
+}
+.ai-pov-ring.is-spawning {
+  background: var(--agent-color, var(--accent));
+  animation: ai-pov-blink 1s linear infinite;
+}
+.ai-pov-ring.is-waiting {
+  border-style: dashed;
+}
+.ai-pov-ring.is-done {
+  background: var(--green);
+  border-color: var(--green);
+}
+.ai-pov-ring.is-error {
+  background: var(--red);
+  border-color: var(--red);
+}
+.ai-pov-ring.is-killed {
+  background: var(--tertiary);
+  border-color: var(--tertiary);
+  opacity: 0.5;
+}
+@keyframes ai-pov-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--agent-color) 45%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--agent-color) 0%, transparent); }
+}
+@keyframes ai-pov-blink {
+  50% { opacity: 0.35; }
+}
+
+.ai-pov-badge {
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--accent2);
+  color: var(--bg);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ai-pov-purge {
+  flex: 0 0 auto;
+  min-width: 30px;
+  min-height: 30px;
+  margin-left: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--tertiary);
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+.ai-pov-purge:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* PoV header above an agent's transcript (per-agent kill control, D6) */
+.ai-pov-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  margin-bottom: 8px;
+}
+.ai-pov-persona {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.02em;
+}
+.ai-pov-stat {
+  flex: 1 1 auto;
+  font-size: var(--text-2xs);
+  color: var(--tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-pov-kill {
+  flex: 0 0 auto;
+  min-width: 56px;
+  min-height: 30px;
+  padding: 3px 10px;
+  border: 1px solid var(--red);
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--red);
+  font-family: var(--font);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+.ai-pov-kill:hover {
+  background: var(--red);
+  color: var(--bg);
+}
+
+/* Replayed (restored-from-disk) agents read as history, not as a live run */
+.ai-pov-tab.is-archived {
+  opacity: 0.62;
+  border-style: dashed;
+}
+.ai-pov-tab.is-archived:hover,
+.ai-pov-tab.is-archived.is-selected {
+  opacity: 1;
+}
+.ai-pov-header.is-replay {
+  border-style: dashed;
+}
+
+/* Outcome chips in the run headers: state, replay, live count */
+.ai-run-badge {
+  flex: 0 0 auto;
+  font-size: var(--text-2xs);
+  line-height: 1;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ai-run-badge.is-done { border-color: var(--green); color: var(--green); }
+.ai-run-badge.is-error { border-color: var(--red); color: var(--red); }
+.ai-run-badge.is-killed { border-color: var(--tertiary); color: var(--tertiary); }
+.ai-run-badge.is-active,
+.ai-run-badge.is-spawning,
+.ai-run-badge.is-waiting,
+.ai-run-badge.is-live { border-color: var(--accent); color: var(--accent); }
+.ai-run-badge.is-replay {
+  border-style: dashed;
+  border-color: var(--tertiary);
+  color: var(--tertiary);
+}
+
+/* Join marker in the chat — a labelled rule, so the conversation reads as a timeline */
+.ai-room-join {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--agent-color, var(--border)) 45%, transparent);
+  font-size: var(--text-2xs);
+  color: var(--tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ai-room-join-icon {
+  color: var(--agent-color, var(--secondary));
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: none;
+}
+.ai-room-join-label {
+  flex: 1 1 auto;
+  color: var(--agent-color, var(--secondary));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Agent message in the chat / PoV — tinted by the persona colour */
+/* Speaker identity rides the name + tint, not a slab border. */
+.ai-chat-msg-agent {
+  border: 1px solid color-mix(in srgb, var(--agent-color, var(--accent)) 28%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--agent-color, var(--accent)) 6%, var(--surface));
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.ai-chat-msg-agent.is-error {
+  border-color: color-mix(in srgb, var(--red) 55%, var(--border));
+  background: color-mix(in srgb, var(--red) 8%, var(--surface));
+}
+.ai-agent-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.ai-agent-icon {
+  color: var(--agent-color, var(--accent));
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.ai-agent-name {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--agent-color, var(--primary));
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.ai-intent-badge {
+  font-size: var(--text-2xs);
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  color: var(--secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ai-intent-badge.is-rebuttal { border-color: var(--red); color: var(--red); }
+.ai-intent-badge.is-question { border-color: var(--accent); color: var(--accent); }
+.ai-intent-badge.is-suggestion { border-color: var(--accent2); color: var(--accent2); }
+.ai-intent-badge.is-verdict {
+  border-color: var(--agent-color, var(--accent));
+  color: var(--agent-color, var(--accent));
+  border-style: dashed;
+}
+.ai-intent-badge.is-error { border-color: var(--red); color: var(--red); }
+.ai-agent-reply,
+.ai-agent-to {
+  font-size: var(--text-2xs);
+  color: var(--tertiary);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-full);
+  padding: 2px 7px;
+}
+.ai-chat-msg-agent .ai-chat-msg-text {
+  font-size: var(--text-sm);
+  line-height: var(--lh-read);
+  color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-pov-ring.is-active,
+  .ai-pov-ring.is-spawning {
+    animation: none;
+  }
+  .ai-pov-tab,
+  .ai-pov-purge,
+  .ai-pov-kill {
+    transition: none;
+  }
+}

@@ -100,6 +100,8 @@ export interface AgentStatus {
   contextTokens: number;
   startedAt: number | null;
   finishedAt: number | null;
+  /** Room broadcasts spent this run (the room budget cap is 6). */
+  broadcastsUsed: number;
   briefSummary: string;          // truncated brief text
   expectedResult: string;
   guardrails: string[];
@@ -107,8 +109,6 @@ export interface AgentStatus {
   lastActivityAt: number;
   resultPreview: string | null;  // final respond preview
   error: string | null;
-  /** Roundtable session this agent belongs to, if spawned as a panel expert. */
-  roundtableSessionId: string | null;
 }
 
 /** What a spawned agent is asked to do. */
@@ -196,4 +196,31 @@ export interface WaitResult {
   message: AgentMessage | null;
   reason: 'respond' | 'timeout' | 'aborted' | 'expired' | 'error' | 'needs-approval';
 }
+
+/** How a room message should be read by the other agents. */
+export type SpeechIntent =
+  | 'note' | 'finding' | 'suggestion' | 'rebuttal' | 'question' | 'verdict';
+
+/** The public identity of a sub-agent shown in the room and PoV tabs. */
+export interface AgentPersona {
+  id: AgentId;
+  name: string;
+  icon: string;
+  color: string;
+  /** Definition id (built-in skill or custom). Empty for ad-hoc personas. */
+  definition: string;
+}
+
+/**
+ * Typed per-step observer events. Travel on the executor's `onAgentEvent`
+ * channel (T1) — never on the bus, so per-step prose doesn't burn every
+ * agent's context window. UI observers subscribe via AgentExecutor.onAgentEvent.
+ */
+export type AgentEvent =
+  | { kind: 'spawn'; persona: AgentPersona; brief: string; expectedResult: string; guardrails: string[] }
+  | { kind: 'step'; text: string; step: number }
+  | { kind: 'tool'; name: string; args: string; result?: string; callId: string }
+  | { kind: 'say'; text: string; intent: SpeechIntent; topic?: string; to?: AgentId; re?: string }
+  | { kind: 'state'; state: AgentState; note?: string }
+  | { kind: 'final'; text: string; state: AgentState };
 

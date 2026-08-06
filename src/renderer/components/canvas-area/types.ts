@@ -3,7 +3,6 @@ import type { TerminalWindow } from '../TerminalWindow';
 import type { ExplorerWindow } from '../ExplorerWindow';
 import type { GitWindow, GitState } from '../GitWindow';
 import type { SpecsMapWindow } from '../SpecsMapWindow';
-import type { AgentsWindow } from '../AgentsWindow';
 import type { DevConsoleWindow } from '../dev-console/DevConsoleWindow';
 
 export type EditorState = { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }>; markdownOpenFiles?: string[]; markdownActiveFile?: string; markdownScrollTops?: Record<string, number> };
@@ -24,7 +23,6 @@ export interface CardState {
   explorerWindow: ExplorerWindow | null;
   gitWindow: GitWindow | null;
   specsmapWindow: SpecsMapWindow | null;
-  agentsWindow: AgentsWindow | null;
   devConsoleWindow: DevConsoleWindow | null;
   onCardResize?: () => void;
 }

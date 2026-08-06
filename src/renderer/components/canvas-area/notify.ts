@@ -8,7 +8,6 @@ export interface NotifyHost {
   getExplorersChanged(): ((items: CardListItem[]) => void) | null;
   getGitChanged(): ((items: CardListItem[]) => void) | null;
   getSpecsmapChanged(): ((items: CardListItem[]) => void) | null;
-  getAgentsChanged(): ((items: CardListItem[]) => void) | null;
 }
 
 export class Notifier {
@@ -19,7 +18,6 @@ export class Notifier {
     else if (title === 'Explorer') this.notifyExplorersChanged();
     else if (title === 'Git') this.notifyGitChanged();
     else if (title === 'SpecsMap') this.notifySpecsmapChanged();
-    else if (title === 'Agents') this.notifyAgentsChanged();
   }
 
   notifyTerminalsChanged(): void {
@@ -44,11 +42,5 @@ export class Notifier {
     const list = this.host.getCards().filter(c => c.savedTitle === 'SpecsMap')
       .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
     this.host.getSpecsmapChanged()?.(list);
-  }
-
-  notifyAgentsChanged(): void {
-    const list = this.host.getCards().filter(c => c.savedTitle === 'Agents')
-      .map(c => ({ uuid: c.card.uuid, title: c.savedTitle, isOpen: c.isOpen }));
-    this.host.getAgentsChanged()?.(list);
   }
 }

@@ -46,16 +46,16 @@ describe('AgentExecutor', () => {
     vi.restoreAllMocks();
   });
 
-  it('broadcast() attributes the sender when a peer calls it (roundtable experts)', () => {
+  it('broadcast() attributes the sender when a peer calls it (room participants)', () => {
     const bus = new AgentBus();
     const ex = new AgentExecutor(bus);
-    bus.registerMailbox('agent:expert-debugging');
+    bus.registerMailbox('agent:reviewer');
     const seen: AgentMessage[] = [];
     bus.subscribe('*', (m) => seen.push(m));
-    ex.broadcast('panel finding', 'roundtable.rt-xyz.findings', 'agent:expert-debugging');
+    ex.broadcast('panel finding', 'room.findings', 'agent:reviewer');
     expect(seen.length).toBe(1);
-    expect(seen[0].from).toBe('agent:expert-debugging');
-    expect(seen[0].topic).toBe('roundtable.rt-xyz.findings');
+    expect(seen[0].from).toBe('agent:reviewer');
+    expect(seen[0].topic).toBe('room.findings');
     expect(seen[0].type).toBe('broadcast');
     // Default sender stays 'main' when no from is passed (orchestrator broadcasts).
     ex.broadcast('orchestrator note', 'orchestrator.note');
@@ -193,21 +193,6 @@ describe('AgentExecutor', () => {
     expect(st.tokensUsed).toBeGreaterThanOrEqual(0);
   });
 
-  it('status() surfaces roundtableSessionId when a spawn is tagged; null otherwise', async () => {
-    const ex = new AgentExecutor();
-    ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
-    const tagged = ex.spawn({
-      skill: 'implementer',
-      context: 'ctx',
-      expectedResult: 'exp',
-      roundtableSessionId: 'rt-abc123',
-    });
-    const untagged = ex.spawn({ skill: 'reviewer', context: 'ctx', expectedResult: 'exp' });
-    const statuses = ex.status();
-    expect(statuses.find(s => s.id === tagged.agentId)?.roundtableSessionId).toBe('rt-abc123');
-    expect(statuses.find(s => s.id === untagged.agentId)?.roundtableSessionId).toBeNull();
-  });
-
   it('spawns a custom definition by agent id; status reports definition + mode', async () => {
     const ex = new AgentExecutor();
     ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
@@ -266,5 +251,87 @@ describe('AgentExecutor', () => {
     expect(resolved).toBe(true);
     // Unknown correlation → no parked approval.
     expect(ex.approve('corr-missing', true)).toBe(false);
+  });
+
+  it('persona spawn → status() shows label/icon/color, isCustom: true, skill: null (T10)', async () => {
+    const ex = new AgentExecutor();
+    ex.setConfigOverride({ endpoint: 'https://fake.local/v1', apiKey: 'k', model: 'm' });
+    const res = ex.spawn({
+      persona: { name: 'Cache Skeptic', icon: 'CACHE', color: '#ffd54f', system_prompt: 'verify cache isolation' },
+      context: 'review cache',
+      expectedResult: 'brief',
+    });
+    await ex.waitFor(res.correlationId, 2000);
+    const st = ex.status().find(s => s.id === res.agentId);
+    expect(st?.skill).toBeNull();
+    expect(st?.isCustom).toBe(true);
+    expect(st?.label).toContain('Cache Skeptic');
+    expect(st?.icon).toBe('CACH'); // text icon, truncated to 4 chars
+    expect(st?.color).toBe('#ffd54f');
+  });
+
+  it('sanitizePersona clamps a 500-char name, rejects "red", strips emoji to text initials', () => {
+    const ex = new AgentExecutor();
+    const longName = 'A'.repeat(500);
+    const { defn } = (ex as any).resolveDefinition({
+      persona: { name: longName, icon: '👨👩👧👦', color: 'red', system_prompt: 'p' },
+      context: 'c',
+      expectedResult: 'e',
+    });
+    expect(defn.label).toHaveLength(32);
+    expect(defn.icon).toBe('AA'); // emoji stripped → initials of the name
+    expect(defn.color).toMatch(/^#[0-9a-f]{6}$/i); // palette fallback, not 'red'
+  });
+
+  it('adhoc persona definition names never collide with a built-in', () => {
+    const ex = new AgentExecutor();
+    const { name } = (ex as any).resolveDefinition({
+      persona: { name: 'Implementer', system_prompt: 'p' },
+      context: 'c',
+      expectedResult: 'e',
+    });
+    expect(name.startsWith('adhoc-')).toBe(true);
+    expect(name).not.toBe('implementer');
+    expect((ex as any).resolveDefinition({ skill: 'implementer', context: 'c', expectedResult: 'e' }).name).toBe('implementer');
+  });
+
+  it('adhoc persona defs carry peer capability + room tools but never capabilities (T3)', () => {
+    const ex = new AgentExecutor();
+    const { defn } = (ex as any).resolveDefinition({
+      persona: { name: 'Sneaky', system_prompt: 'p' },
+      context: 'c',
+      expectedResult: 'e',
+    });
+    expect(defn.capabilities).toEqual(['peer']);
+    expect(defn.tools).toContain('agent_broadcast');
+    expect(defn.tools).toContain('agent_status');
+  });
+
+  it('roomLog caps at 30 entries and the digest reaches a later spawn context', () => {
+    const ex = new AgentExecutor();
+    const roomLog = (ex as any).roomLog as Array<{ from: string; name: string; intent: string; text: string }>;
+    for (let i = 0; i < 40; i++) {
+      ex.emitSay('agent:a', { text: `note ${i}`, intent: 'note' });
+    }
+    expect(roomLog.length).toBe(30);
+    expect(roomLog[0].text).toBe('note 10'); // oldest 10 evicted
+    const digest = (ex as any).roomDigest();
+    expect(digest).toContain('## Conversation so far');
+    expect(digest).toContain('note 39');
+    // A later spawn context includes the digest.
+    const { defn } = (ex as any).resolveDefinition({ skill: 'planner', context: 'c', expectedResult: 'e' });
+    expect(defn).toBeTruthy();
+    const spawned = (ex as any).spawn({ skill: 'planner', context: 'fresh task', expectedResult: 'plan' });
+    const runtime = ex.getAgentSession(spawned.agentId);
+    expect(runtime?.brief.context).toContain('## Conversation so far');
+    expect(runtime?.brief.context).toContain('note 39');
+  });
+
+  it('purgeAll clears the room log', () => {
+    const ex = new AgentExecutor();
+    ex.emitSay('agent:a', { text: 'hi', intent: 'note' });
+    expect((ex as any).roomLog.length).toBeGreaterThan(0);
+    ex.purgeAll();
+    expect((ex as any).roomLog.length).toBe(0);
   });
 });

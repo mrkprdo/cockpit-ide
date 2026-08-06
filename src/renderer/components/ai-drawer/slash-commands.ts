@@ -3,6 +3,7 @@
 // go through the shared AiDrawerDom refs and the injected SlashHost callbacks.
 
 import { escapeHtml } from './render';
+import type { AgentState } from '../../agents/types';
 import type { AiDrawerDom, ChatMessage, SlashCommand } from './types';
 
 export interface SlashHost {
@@ -16,12 +17,20 @@ export interface SlashHost {
   getMessages(): ChatMessage[];
   setMessages(messages: ChatMessage[]): void;
   renderMessages(): void;
+  /** Live agents for the @mention popup. */
+  getActiveAgents(): Array<{ id: string; name: string; icon: string; color: string; state: AgentState }>;
+  /** Purge finished agent tabs (files stay on disk). */
+  purgeFinished(): void;
 }
+
+type PopupMode = 'slash' | 'mention';
 
 export class SlashCommands {
   commands: SlashCommand[] = [];
   private slashSelectedIndex = 0;
   private slashFiltered: SlashCommand[] = [];
+  private mentionFiltered: Array<{ id: string; name: string; icon: string; color: string; state: AgentState }> = [];
+  private mode: PopupMode = 'slash';
 
   constructor(private dom: AiDrawerDom, private host: SlashHost) {}
 
@@ -55,11 +64,39 @@ export class SlashCommands {
       action: () => this.host.compactSession(),
     });
     this.register({
+      name: 'agents',
+      label: '/agents',
+      description: 'List live sub-agents in Chat',
+      action: () => this.listAgents(),
+    });
+    this.register({
+      name: 'purge',
+      label: '/purge',
+      description: 'Purge finished agent tabs',
+      action: () => this.host.purgeFinished(),
+    });
+    this.register({
       name: 'exit',
       label: '/exit',
       description: 'Close the entire application',
       action: () => window.electronAPI?.window.close(),
     });
+  }
+
+  listAgents(): void {
+    const agents = this.host.getActiveAgents();
+    if (agents.length === 0) {
+      this.pushSystem('No sub-agents are running.');
+      return;
+    }
+    this.pushSystem(
+      agents.map(a => `${a.icon} **${a.name}** · ${a.state} · \`${a.id}\``).join('\n')
+    );
+  }
+
+  private pushSystem(content: string): void {
+    this.host.getMessages().push({ role: 'system', content, timestamp: Date.now() });
+    this.host.renderMessages();
   }
 
   async runOpencode(): Promise<void> {
@@ -78,11 +115,24 @@ export class SlashCommands {
   }
 
   open(value: string): void {
-    const query = value.slice(1).toLowerCase();
-    this.slashFiltered = this.commands.filter(cmd =>
-      cmd.label.toLowerCase().startsWith('/' + query)
-    );
-    this.slashSelectedIndex = this.slashFiltered.length > 0 ? 0 : -1;
+    if (value.startsWith('@')) {
+      // Only while the @token is still being typed — once a space lands the rest
+      // is the message body, not a filter.
+      if (/\s/.test(value)) { this.close(); return; }
+      this.mode = 'mention';
+      const query = value.slice(1).toLowerCase();
+      this.mentionFiltered = this.host.getActiveAgents().filter(a =>
+        a.name.toLowerCase().includes(query) || a.id.toLowerCase().includes(query)
+      );
+      this.slashSelectedIndex = this.mentionFiltered.length > 0 ? 0 : -1;
+    } else {
+      this.mode = 'slash';
+      const query = value.slice(1).toLowerCase();
+      this.slashFiltered = this.commands.filter(cmd =>
+        cmd.label.toLowerCase().startsWith('/' + query)
+      );
+      this.slashSelectedIndex = this.slashFiltered.length > 0 ? 0 : -1;
+    }
     this.renderPopup();
     this.dom.slashPopupEl.style.display = 'flex';
   }
@@ -91,35 +141,52 @@ export class SlashCommands {
     if (!this.dom.slashPopupEl) return;
     this.dom.slashPopupEl.style.display = 'none';
     this.slashFiltered = [];
+    this.mentionFiltered = [];
     this.slashSelectedIndex = -1;
   }
 
   handleKeydown(e: KeyboardEvent): void {
+    const listLen = this.mode === 'mention' ? this.mentionFiltered.length : this.slashFiltered.length;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (this.slashFiltered.length > 0) {
-        this.slashSelectedIndex = (this.slashSelectedIndex + 1) % this.slashFiltered.length;
+      if (listLen > 0) {
+        this.slashSelectedIndex = (this.slashSelectedIndex + 1) % listLen;
         this.updateSelection();
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if (this.slashFiltered.length > 0) {
-        this.slashSelectedIndex = (this.slashSelectedIndex - 1 + this.slashFiltered.length) % this.slashFiltered.length;
+      if (listLen > 0) {
+        this.slashSelectedIndex = (this.slashSelectedIndex - 1 + listLen) % listLen;
         this.updateSelection();
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const cmd = this.slashFiltered[this.slashSelectedIndex];
-      if (cmd && this.inputMatches(cmd)) {
-        this.execute(cmd);
+      if (this.mode === 'mention') {
+        const agent = this.mentionFiltered[this.slashSelectedIndex];
+        if (agent) {
+          this.autocompleteMention(agent.name);
+        } else {
+          this.close();
+          this.host.sendMessage();
+        }
       } else {
-        this.close();
-        this.host.sendMessage();
+        const cmd = this.slashFiltered[this.slashSelectedIndex];
+        if (cmd && this.inputMatches(cmd)) {
+          this.execute(cmd);
+        } else {
+          this.close();
+          this.host.sendMessage();
+        }
       }
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      const cmd = this.slashFiltered[this.slashSelectedIndex];
-      if (cmd) this.autocomplete(cmd);
+      if (this.mode === 'mention') {
+        const agent = this.mentionFiltered[this.slashSelectedIndex];
+        if (agent) this.autocompleteMention(agent.name);
+      } else {
+        const cmd = this.slashFiltered[this.slashSelectedIndex];
+        if (cmd) this.autocomplete(cmd);
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       this.close();
@@ -133,6 +200,13 @@ export class SlashCommands {
 
   autocomplete(cmd: SlashCommand): void {
     this.host.setInputValue(cmd.label);
+    this.host.handleInput();
+    this.host.getInputEl().focus();
+  }
+
+  /** Insert `@Name ` so the mention resolves by persona name (case-insensitive). */
+  autocompleteMention(name: string): void {
+    this.host.setInputValue(`@${name} `);
     this.host.handleInput();
     this.host.getInputEl().focus();
   }
@@ -155,13 +229,41 @@ export class SlashCommands {
 
   private renderPopup(): void {
     this.dom.slashListEl.innerHTML = '';
-    if (this.slashFiltered.length === 0) {
+    const header = this.dom.el.querySelector('.ai-slash-popup-header');
+    if (header) header.textContent = this.mode === 'mention' ? 'Agents' : 'Commands';
+    this.dom.slashEmptyEl.textContent =
+      this.mode === 'mention' ? 'No live agents' : 'No matching commands';
+    const listLen = this.mode === 'mention' ? this.mentionFiltered.length : this.slashFiltered.length;
+    if (listLen === 0) {
       this.dom.slashListEl.style.display = 'none';
       this.dom.slashEmptyEl.style.display = '';
       return;
     }
     this.dom.slashListEl.style.display = '';
     this.dom.slashEmptyEl.style.display = 'none';
+
+    if (this.mode === 'mention') {
+      this.mentionFiltered.forEach((a, i) => {
+        const item = document.createElement('div');
+        item.className = 'ai-slash-item' + (i === this.slashSelectedIndex ? ' is-selected' : '');
+        item.dataset.command = a.id;
+        item.innerHTML = `
+          <span class="ai-slash-name">${escapeHtml(a.icon)} ${escapeHtml(a.name)}</span>
+          <span class="ai-slash-desc">${a.state}</span>
+        `;
+        item.addEventListener('mouseenter', () => {
+          this.slashSelectedIndex = i;
+          this.updateSelection();
+        });
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          this.autocompleteMention(a.name);
+        });
+        this.dom.slashListEl.appendChild(item);
+      });
+      return;
+    }
+
     this.slashFiltered.forEach((cmd, i) => {
       const item = document.createElement('div');
       item.className = 'ai-slash-item' + (i === this.slashSelectedIndex ? ' is-selected' : '');

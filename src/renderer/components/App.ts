@@ -9,7 +9,6 @@ import { theme } from '../theme';
 import { memoryStore } from '../ai/memory-store';
 import { getAgentExecutor } from '../agents/executor';
 import { loadDefinitionsFromWorkspace } from '../agents/definition-file';
-import { registerRoundtableExperts } from '../agents/roundtable';
 import { createLogger } from '../logging/logger';
 import { viewPrefs } from '../ai/view-prefs';
 
@@ -95,7 +94,6 @@ export class App {
 
     this.canvas.onGitChanged = (items) => this.topBar.setGitItems(items);
     this.canvas.onSpecsmapChanged = (items) => this.topBar.setSpecsmapItems(items);
-    this.canvas.onAgentsChanged = (items) => this.topBar.setAgentsItems(items);
 
     this.canvas.onLockToggle = async () => {
       this.canvas.locked = !this.canvas.locked;
@@ -138,9 +136,6 @@ export class App {
       onNewSpecsmap: () => this.canvas.addSpecsmap(this.wsPath),
       onFocusSpecsmap: (uuid) => this.canvas.focusSpecsmap(uuid),
       onReopenSpecsmap: (uuid) => this.canvas.reopenSpecsmap(uuid),
-      onNewAgents: () => this.canvas.addAgents(this.wsPath),
-      onFocusAgents: (uuid) => this.canvas.focusAgents(uuid),
-      onReopenAgents: (uuid) => this.canvas.reopenAgents(uuid),
       onNewDevConsole: () => this.canvas.addDevConsole(this.wsPath),
       onAbout: () => {
         this.canvas.locked = true;
@@ -281,7 +276,6 @@ export class App {
           case 'git': this.canvas.addGit(this.wsPath); break;
           case 'markdown': this.canvas.ensureExplorer(); break;
           case 'specsmap': this.canvas.addSpecsmap(this.wsPath); break;
-          case 'agents': this.canvas.addAgents(this.wsPath); break;
         }
       },
       addTerminal: () => this.canvas.addTerminal(this.wsPath),
@@ -363,8 +357,6 @@ export class App {
     // Load custom subagent definitions from .cockpit/agents/*.json.
     try {
       const res = await loadDefinitionsFromWorkspace(path);
-    // The 15 roundtable experts are code-registered (they must survive .cockpit reloads).
-    registerRoundtableExperts();
       const errors = res.errors.length > 0 ? ` (${res.errors.length} definition errors)` : '';
       const loaded = res.loaded.length > 0 ? ` · ${res.loaded.map(d => d.name).join(', ')}` : '';
       console.debug(`[agents] definitions loaded${loaded}${errors}`);

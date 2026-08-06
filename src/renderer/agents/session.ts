@@ -4,14 +4,17 @@ import { estimateMessagesTokens, estimateTokens, checkContextBudget } from '../a
 import type { ToolContext, LLMMessage } from '../ai/types';
 import type { LLMClient } from '../ai/llm-client';
 import type { AgentBus } from './bus';
+import { ROOM_BROADCAST_BUDGET, DEFAULT_AGENT_TIMEOUT_MS, initials } from './definitions';
 import { definitionToSkill, guardToolCall } from './skills';
 import { evaluatePermission, applyMode } from './permissions';
 import { HookRunner } from './hooks';
 import { AGENT_SHARED_PREAMBLE, COMPACTION_PROMPT } from './prompts';
 import type {
   AgentBrief,
+  AgentEvent,
   AgentId,
   AgentMessage,
+  AgentPersona,
   AgentState,
   Skill,
   SubAgentDefinition,
@@ -27,6 +30,8 @@ export interface SessionDeps {
   /** Resolve the current workspace path (for permission path matching). */
   workspacePath?: () => string | null;
   onStateChange?: (s: SubAgentSession) => void;
+  /** Typed per-step observer channel (T1) — never the bus. */
+  onEvent?: (ev: AgentEvent) => void;
 }
 
 /** How many recent tool result turns are kept before older ones are folded. */
@@ -56,6 +61,8 @@ export class SubAgentSession {
   state: AgentState = 'spawning';
   steps = 0;
   tokensUsed = 0;
+  /** Room broadcasts spent this run (surfaced in agent_status). */
+  broadcastsUsed = 0;
   startedAt: number | null = null;
   finishedAt: number | null = null;
   result: string | null = null;
@@ -108,9 +115,31 @@ export class SubAgentSession {
     this.controller.abort();
   }
 
+  /** Public identity shown in the room and PoV tabs. */
+  private persona(): AgentPersona {
+    return {
+      id: this.id,
+      name: this.def.label ?? this.def.name,
+      icon: this.def.icon ?? initials(this.def.label ?? this.def.name),
+      // No colour of its own → the panel falls back to the accent token.
+      color: this.def.color ?? '',
+      definition: this.def.name,
+    };
+  }
+
+  /** Emit an observer event. A UI listener must never break a run (T1). */
+  private emit(ev: AgentEvent): void {
+    try {
+      this.deps.onEvent?.(ev);
+    } catch {
+      // A throwing UI listener is a bug in the listener, not the run.
+    }
+  }
+
   private setState(s: AgentState): void {
     this.state = s;
     this.lastActivityAt = Date.now();
+    this.emit({ kind: 'state', state: s });
     this.deps.onStateChange?.(this);
   }
 
@@ -148,8 +177,15 @@ export class SubAgentSession {
     this.running = true;
     this.startedAt = Date.now();
     this.setState('active');
+    this.emit({
+      kind: 'spawn',
+      persona: this.persona(),
+      brief: this.brief.context,
+      expectedResult: this.brief.expectedResult,
+      guardrails: this.brief.guardrails,
+    });
 
-    const timeoutMs = this.brief.timeoutMs ?? this.def.timeoutMs ?? 300_000;
+    const timeoutMs = this.brief.timeoutMs ?? this.def.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS;
     this.timeoutTimer = setTimeout(() => {
       this.error = `Timed out after ${Math.round(timeoutMs / 1000)}s`;
       this.controller.abort();
@@ -218,6 +254,7 @@ export class SubAgentSession {
           final = content || 'No response.';
           break;
         }
+        if (content) this.emit({ kind: 'step', text: content, step: this.steps });
 
         // Omit `content` (not `null`) — strict gateways fail to deserialize
         // a null content on an assistant tool-call message.
@@ -232,7 +269,10 @@ export class SubAgentSession {
           const name = tc.function?.name || '';
           const rawArgs = tc.function?.arguments || '{}';
 
-          const output = await this.guardedExecute(name, rawArgs, tc.id || `tc-${this.steps}`);
+          const callId = tc.id || `tc-${this.steps}`;
+          this.emit({ kind: 'tool', name, args: rawArgs, callId });
+          const output = await this.guardedExecute(name, rawArgs, callId);
+          this.emit({ kind: 'tool', name, args: rawArgs, result: output, callId });
           this.tokensUsed += estimateTokens(output);
           this.transcript.push({ role: 'tool', tool_call_id: tc.id || `tc-${this.steps}`, content: output });
           this.markActivity();
@@ -244,12 +284,14 @@ export class SubAgentSession {
 
       this.result = final;
       this.setState('done');
+      this.emit({ kind: 'final', text: final, state: 'done' });
       this.postRespond(final, 'done');
       return final;
     } catch (err: any) {
       this.error = err?.message || String(err);
       const aborted = this.controller.signal.aborted;
       this.setState(aborted ? 'killed' : 'error');
+      this.emit({ kind: 'final', text: `[${this.state.toUpperCase()}] ${this.error}`, state: this.state });
       this.postStatus(this.state, this.error ?? undefined);
       // Resolve any pending agent_wait on our correlationId FAST — a failed or
       // killed agent must not leave the main session hanging for the full wait
@@ -284,6 +326,16 @@ export class SubAgentSession {
     // 1. Skill allowlist + capability hard-deny (fast path, stays strict).
     const guard = guardToolCall(this.skill, name);
     if (!guard.ok) return guard.error || `Guardrail denied: ${name}`;
+
+    // 1b. Room broadcast budget (D7). Placed after the allowlist so a broadcast
+    // denied by the skill never consumes budget; the 7th approved broadcast
+    // returns the guardrail and never reaches the bus.
+    if (name === 'agent_broadcast') {
+      if (this.broadcastsUsed >= ROOM_BROADCAST_BUDGET) {
+        return `Guardrail: broadcast budget spent (${ROOM_BROADCAST_BUDGET} broadcasts). Save the rest for your verdict.`;
+      }
+      this.broadcastsUsed++;
+    }
 
     // Parse args once for permission matching.
     let args: Record<string, unknown> = {};

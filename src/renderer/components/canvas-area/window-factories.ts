@@ -6,7 +6,6 @@ import { TerminalWindow } from '../TerminalWindow';
 import { ExplorerWindow } from '../ExplorerWindow';
 import { GitWindow } from '../GitWindow';
 import { SpecsMapWindow } from '../SpecsMapWindow';
-import { AgentsWindow } from '../AgentsWindow';
 import { DevConsoleWindow } from '../dev-console/DevConsoleWindow';
 import { createLogger } from '../../logging/logger';
 
@@ -148,37 +147,6 @@ export class WindowFactories {
         cs.specsmapWindow = sm;
         cs.card.onDestroy = () => sm.destroy();
         this.notifier.notifySpecsmapChanged();
-        this.lifecycle.bringToFront(cs.card);
-        this.viewport.panToCard(cs);
-      }
-    });
-  }
-
-  addAgents(wsPath: string): void {
-    const existing = this.lifecycle.getCards().find(c => c.savedTitle === 'Agents');
-    if (existing) {
-      existing.isOpen = true;
-      existing.card.el.style.display = '';
-      existing.worldX = existing.savedWX;
-      existing.worldY = existing.savedWY;
-      this.lifecycle.positionCard(existing);
-      this.lifecycle.bringToFront(existing.card);
-      this.viewport.panToCard(existing);
-      this.notifier.notifyAgentsChanged();
-      return;
-    }
-    const cs = this.lifecycle.addCard('Agents', '', -400, -250, 800, 500);
-    log.info('add agents card');
-    requestAnimationFrame(() => {
-      const body = cs.card.el.querySelector('.card-body') as HTMLElement;
-      if (body) {
-        body.style.padding = '0';
-        body.style.alignItems = 'stretch';
-        body.style.justifyContent = 'stretch';
-        const ag = new AgentsWindow(body, wsPath);
-        cs.agentsWindow = ag;
-        cs.card.onDestroy = () => ag.destroy();
-        this.notifier.notifyAgentsChanged();
         this.lifecycle.bringToFront(cs.card);
         this.viewport.panToCard(cs);
       }

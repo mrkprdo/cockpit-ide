@@ -3,11 +3,12 @@ import { ToolRegistry } from '../ai/tool-registry';
 import { getToolContext } from '../ai/cockpit-context';
 import type { ToolContext } from '../ai/types';
 import { getDefaultBus, type AgentBus } from './bus';
-import { getDefinition, isCustomDefinition } from './definitions';
+import { getDefinition, isCustomDefinition, READ_ONLY_TOOLS, ROOM_TOOLS, DEFAULT_AGENT_TIMEOUT_MS, initials } from './definitions';
 import { HookRunner } from './hooks';
 import { SubAgentSession } from './session';
 import type {
   AgentBrief,
+  AgentEvent,
   AgentId,
   AgentMessage,
   AgentStatus,
@@ -15,6 +16,7 @@ import type {
   PermissionMode,
   SkillName,
   SpawnResult,
+  SpeechIntent,
   SubAgentDefinition,
   WaitResult,
 } from './types';
@@ -28,6 +30,8 @@ export interface SpawnParams {
   agent?: string;
   /** Legacy built-in skill name (back-compat with existing callers). */
   skill?: SkillName;
+  /** Ad-hoc persona designed by the main session — mutually exclusive with agent/skill. */
+  persona?: PersonaInput;
   context: string;
   expectedResult: string;
   guardrails?: string[];
@@ -40,8 +44,18 @@ export interface SpawnParams {
   permissionMode?: PermissionMode;
   /** Per-agent maxTurns override (else definition.maxTurns). */
   maxTurns?: number;
-  /** Tag this spawn as belonging to a roundtable session (see agents/roundtable.ts). */
-  roundtableSessionId?: string;
+}
+
+/** A persona as authored by the main session (agent_spawn `persona` param). */
+export interface PersonaInput {
+  name: string;
+  icon?: string;
+  color?: string;
+  system_prompt: string;
+  tools?: string[];
+  max_turns?: number;
+  context_tokens?: number;
+  timeout_ms?: number;
 }
 
 interface AgentRuntime {
@@ -51,12 +65,33 @@ interface AgentRuntime {
   runPromise: Promise<string>;
   briefSummary: string;
   guardrails: string[];
-  roundtableSessionId: string | null;
+  adhoc: boolean;
 }
 
-const MAX_CONCURRENT = 8; // roundtable panels (5 experts) + headroom
+const MAX_CONCURRENT = 8; // concurrent sub-agents in one room + headroom
 /** How many recent respond payloads to keep for fast agent_wait resolution. */
 const RESPOND_CACHE_SIZE = 100;
+
+/** Accent palette for ad-hoc personas whose colour is missing/invalid (T11). */
+const PERSONA_PALETTE = [
+  '#00e5ff', '#ffd54f', '#ef5350', '#a5d6a7', '#ce93d8',
+  '#ffb74d', '#4fc3f7', '#f48fb1', '#9e9d24', '#80cbc4',
+  '#ff8a65', '#b39ddb',
+];
+let personaColorIdx = 0;
+
+/** Clamp model-authored persona strings before they reach the DOM (T11). */
+function sanitizePersona(p: PersonaInput): { name: string; icon: string; color: string } {
+  const name = p.name.trim().slice(0, 32) || 'Agent';
+  // Text icons only — strip anything non-alphanumeric (emoji included) and fall
+  // back to the name's initials. "Single emoji" chips are out.
+  const rawIcon = (p.icon ?? '').replace(/[^A-Za-z0-9]/g, '').slice(0, 4);
+  const icon = rawIcon || initials(name);
+  const color = /^#[0-9a-f]{6}$/i.test(p.color ?? '')
+    ? p.color!
+    : PERSONA_PALETTE[personaColorIdx++ % PERSONA_PALETTE.length];
+  return { name, icon, color };
+}
 
 /**
  * AgentExecutor — the fleet orchestrator.
@@ -94,6 +129,13 @@ export class AgentExecutor {
   onStatusChange: (() => void) | null = null;
   /** Fired when a message travels the bus (edges animation). */
   onBusMessage: ((msg: AgentMessage) => void) | null = null;
+  /** Fired for every observable event on any agent (the AI panel subscribes here). */
+  onAgentEvent: ((id: AgentId, ev: AgentEvent) => void) | null = null;
+
+  /** Room transcript — what each agent said, for late-joiners (bounded). */
+  private roomLog: Array<{ from: AgentId; name: string; icon: string; intent: SpeechIntent; text: string; ts: number }> = [];
+  private static readonly ROOM_LOG_MAX = 30;
+  private static readonly ROOM_DIGEST_CHARS = 3000;
 
   constructor(bus?: AgentBus, registry?: ToolRegistry) {
     this.bus = bus ?? getDefaultBus();
@@ -173,22 +215,46 @@ export class AgentExecutor {
   }
 
   /**
-   * Resolve a definition by `agent` or `skill`. `skill` maps to the built-in
-   * of the same name (back-compat); `agent` can be a custom or built-in id.
+   * Resolve a definition by `persona`, `agent`, or `skill`. `skill` maps to the
+   * built-in of the same name (back-compat); `agent` can be a custom or built-in
+   * id. A `persona` builds an ephemeral definition inline (T2) — it is never
+   * registered in the definition registry and its capabilities are hard-coded
+   * to `['peer']` (T3).
    */
-  private resolveDefinition(params: SpawnParams): { defn: SubAgentDefinition; name: string } {
+  private resolveDefinition(params: SpawnParams): { defn: SubAgentDefinition; name: string; adhoc: boolean } {
+    if (params.persona) {
+      const named = [params.agent, params.skill].filter(Boolean).length;
+      if (named > 0) {
+        throw new Error('spawn requires either agent (definition id), skill, or persona — not two');
+      }
+      const { name, icon, color } = sanitizePersona(params.persona);
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24);
+      const defn: SubAgentDefinition = {
+        name: `adhoc-${slug}-${Math.random().toString(36).slice(2, 6)}`,
+        label: name, icon, color,
+        description: `Ad-hoc persona designed by the main session: ${name}`,
+        systemPrompt: params.persona.system_prompt,
+        tools: [...(params.persona.tools ?? READ_ONLY_TOOLS), ...ROOM_TOOLS],
+        capabilities: ['peer'],        // hard-coded — see T3
+        permissionMode: 'default',     // read-only by default; per-spawn override still possible
+        maxTurns: params.persona.max_turns ?? 12,
+        contextTokens: params.persona.context_tokens ?? 4096,
+        timeoutMs: params.persona.timeout_ms ?? DEFAULT_AGENT_TIMEOUT_MS,
+      };
+      return { defn, name: defn.name, adhoc: true };
+    }
     const agent = params.agent;
     if (agent) {
       const defn = getDefinition(agent);
       if (!defn) throw new Error(`Unknown agent definition "${agent}". Use definitions_list or agent_status.`);
-      return { defn, name: defn.name };
+      return { defn, name: defn.name, adhoc: false };
     }
     if (params.skill) {
       const defn = getDefinition(params.skill);
       if (!defn) throw new Error(`Unknown skill "${params.skill}"`);
-      return { defn, name: defn.name };
+      return { defn, name: defn.name, adhoc: false };
     }
-    throw new Error('spawn requires either agent (definition id) or skill');
+    throw new Error('spawn requires either agent (definition id), skill, or persona');
   }
 
   /** Spawn a sub-agent for a definition/skill. Returns agentId + correlationId. Non-blocking. */
@@ -200,13 +266,17 @@ export class AgentExecutor {
       throw new Error(`Agent cap reached (${this.maxConcurrent} concurrent). Kill an agent or wait.`);
     }
 
-    const { defn, name } = this.resolveDefinition(params);
+    const { defn, name, adhoc } = this.resolveDefinition(params);
     const agentId: AgentId = `agent:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const correlationId = params.correlationId ?? `corr-${agentId.slice(6)}`;
 
+    // Late-joiner digest (T: an agent spawned mid-discussion gets the room so far).
+    const digest = this.roomDigest();
+    const context = digest ? `${params.context}\n\n${digest}` : params.context;
+
     const brief: AgentBrief = {
       skill: params.skill ?? (defn.name as SkillName),
-      context: params.context,
+      context,
       expectedResult: params.expectedResult,
       guardrails: params.guardrails ?? [],
       timeoutMs: params.timeoutMs,
@@ -235,6 +305,9 @@ export class AgentExecutor {
         this.notifyStatus();
         this.persist('roster', this.serializeRoster());
       },
+      onEvent: (ev) => {
+        this.handleAgentEvent(agentId, ev);
+      },
     });
 
     this.bus.registerMailbox(agentId);
@@ -246,7 +319,7 @@ export class AgentExecutor {
       runPromise: Promise.resolve().then(() => session.run()),
       briefSummary: params.context.slice(0, 140) + (params.context.length > 140 ? '…' : ''),
       guardrails: [...(params.guardrails ?? [])],
-      roundtableSessionId: params.roundtableSessionId ?? null,
+      adhoc,
     };
 
     // Rejections are already surfaced via status messages; keep the promise from
@@ -336,6 +409,15 @@ export class AgentExecutor {
     return msg.id;
   }
 
+  /**
+   * Emit a `say` event on an agent's event channel (the room's speak primitive,
+   * called by the agent_broadcast/agent_dispatch tools so the intent tag travels
+   * with the call). Recorded in the room log and forwarded to onAgentEvent.
+   */
+  emitSay(from: AgentId, ev: Omit<Extract<AgentEvent, { kind: 'say' }>, 'kind'>): void {
+    this.handleAgentEvent(from, { kind: 'say', ...ev });
+  }
+
   /** Kill an agent: abort at next yield, status → killed. */
   kill(agentId: AgentId): boolean {
     const runtime = this.agents.get(agentId);
@@ -394,20 +476,21 @@ export class AgentExecutor {
       const defn = s.def;
       list.push({
         id: r.id,
-        skill: (defn.name as SkillName) ?? null,
+        skill: r.adhoc ? null : (defn.name as SkillName),
         definition: defn.name,
         definitionDescription: defn.description,
-        isCustom: isCustomDefinition(defn.name),
+        isCustom: r.adhoc || isCustomDefinition(defn.name),
         permissionMode: s.def.permissionMode ?? 'acceptEdits',
         state: s.state,
         label: `${defn.label ?? defn.name} ${r.id.slice(6, 10)}`,
-        icon: defn.icon ?? '🤖',
+        icon: defn.icon ?? initials(defn.label ?? defn.name),
         color: defn.color ?? '#78909c',
         steps: s.steps,
         tokensUsed: s.tokensUsed,
         contextTokens: defn.contextTokens ?? s.skill.contextTokens,
         startedAt: s.startedAt,
         finishedAt: s.finishedAt,
+        broadcastsUsed: s.broadcastsUsed,
         briefSummary: r.briefSummary,
         expectedResult: s.brief.expectedResult,
         guardrails: r.guardrails,
@@ -415,7 +498,6 @@ export class AgentExecutor {
         lastActivityAt: s.lastActivityAt,
         resultPreview: s.result ? s.result.slice(0, 200) : null,
         error: s.error,
-        roundtableSessionId: r.roundtableSessionId,
       });
     }
     // Oldest first (stable order for the UI).
@@ -445,6 +527,7 @@ export class AgentExecutor {
     this.agents.clear();
     this.bus.clearDeliveryLog();
     this.respondCache.clear();
+    this.roomLog = [];
     this.notifyStatus();
     this.persist('roster', this.serializeRoster());
   }
@@ -459,6 +542,42 @@ export class AgentExecutor {
 
   private notifyStatus(): void {
     this.onStatusChange?.();
+  }
+
+  /** Route one per-step event: keep the room log warm and fan out to observers. */
+  private handleAgentEvent(agentId: AgentId, ev: AgentEvent): void {
+    try {
+      if (ev.kind === 'say' || ev.kind === 'final') {
+        const r = this.agents.get(agentId);
+        const name = r ? (r.session.def.label ?? r.session.def.name) : agentId;
+        const icon = r?.session.def.icon ?? initials(name);
+        const intent = ev.kind === 'say' ? ev.intent : 'verdict';
+        this.roomLog.push({ from: agentId, name, icon, intent, text: ev.text, ts: Date.now() });
+        if (this.roomLog.length > AgentExecutor.ROOM_LOG_MAX) {
+          this.roomLog.splice(0, this.roomLog.length - AgentExecutor.ROOM_LOG_MAX);
+        }
+      }
+      this.onAgentEvent?.(agentId, ev);
+    } catch {
+      // A throwing UI observer must never break the fleet.
+    }
+  }
+
+  /** Conversation digest for late-joining agents; truncated oldest-first to the cap. */
+  private roomDigest(): string {
+    if (this.roomLog.length === 0) return '';
+    let text = '## Conversation so far\n' + this.roomLog
+      .map(e => `[${e.icon} ${e.name} · ${e.intent}] ${e.text}`)
+      .join('\n');
+    if (text.length > AgentExecutor.ROOM_DIGEST_CHARS) {
+      while (text.length > AgentExecutor.ROOM_DIGEST_CHARS) {
+        const nl = text.indexOf('\n');
+        if (nl === -1) { text = ''; break; }
+        text = text.slice(nl + 1);
+      }
+      text = `[conversation log truncated]\n${text}`;
+    }
+    return text;
   }
 
   private serializeRoster() {
