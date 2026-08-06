@@ -86,6 +86,8 @@ src/
 │       ├── GitWindow.ts, SearchOverlay.ts (Ctrl+P), AiDrawer.ts,
 │       ├── CommandPalette.ts, TopBar.ts, ThemeModal.ts, Tutorial.ts,
 │       ├── modals: WelcomeModal / AboutModal / ConfirmModal / ContextMenu
+│       ├── ai-drawer/     # AI panel sub-controllers (agent-feed.ts, agent-sessions.ts,
+│       │                  # render, sessions, settings, slash-commands, llm-loop, layout)
 │       └── specsmap/     # SpecsMap window helpers (cycles.ts, search.ts)
 └── test/                 # cross-component suites (edge-cases, workflows, e2e-advanced)
 ```
@@ -94,15 +96,15 @@ Main-process APIs cross to the renderer exclusively via `window.electronAPI` (pr
 
 ## Testing conventions
 
-- 63 test files, 1757 tests. Global mocks in `src/test/setup.ts` (IPC, Canvas, xterm, DOM, ResizeObserver) — most tests need no extra mocking. `.md` files are imported as text via the `md-text` vitest window.
+- 67 test files, 1632 tests. Global mocks in `src/test/setup.ts` (IPC, Canvas, xterm, DOM, ResizeObserver) — most tests need no extra mocking. `.md` files are imported as text via the `md-text` vitest window.
 - Unit tests live next to each source file; `src/test/` holds cross-cutting suites: `edge-cases.test.ts`, `workflows.test.ts`, `e2e-advanced.test.ts`.
 - Integration tests that touch the main process use `main._testTrustPath(...)` (test-only export) to bypass the workspace-path trust gate.
-- Full suite is green (as of 2026-08-03): 1757/1757 pass with no known pre-existing failures.
-- `src/test/README.md` ("23 files, 755 tests") is stale — the suite is 63 files / 1757 tests.
+- Full suite is green (as of 2026-08-05): 1632/1632 pass with no known pre-existing failures.
+- `src/test/README.md` ("23 files, 755 tests") is stale — the suite is 67 files / 1632 tests.
 
 ## Gotchas
 
 - **Dangling npm scripts:** `npm run ralph` and `npm run user-stories:verify` reference `scripts/ralph/*.mjs` which does **not exist** — they will fail. Ignore unless you're (re)adding the ralph-loop workflow.
 - Windows-only repo conventions: `copy`/`rm -rf` in npm scripts, `bin/cockpit.bat` launcher, NSIS packaging. Renderer CSS is the design system — new components should use existing CSS custom properties, not hardcoded colors.
-- `renderer/styles.css` was split (2026-08-03) into 25 `styles-*.css` files, one per component (`styles-topbar.css`, `styles-git-window.css`, etc.); oversized/non-contiguous components use `-01`/`-02` suffixes (`styles-ai-drawer-01..04.css`, `styles-tutorial-01/02.css`). Cascade order matters — `index.html` `<link>`s them in the original file's line order. Build's `copy src\renderer\*.css` wildcard picks up new files automatically; adding a new one only needs the `<link>` in `index.html`.
+- `renderer/styles.css` was split (2026-08-03) into 25 `styles-*.css` files, one per component (`styles-topbar.css`, `styles-git-window.css`, etc.); oversized/non-contiguous components use `-01`/`-02` suffixes (`styles-ai-drawer-01..05.css`, `styles-tutorial-01/02.css`; `styles-ai-drawer-05.css` holds the sub-agent PoV strip — the main chat is the shared conversation). Cascade order matters — `index.html` `<link>`s them in the original file's line order. Build's `copy src\renderer\*.css` wildcard picks up new files automatically; adding a new one only needs the `<link>` in `index.html`.
 - `npm run dev` launches the app detached via `Start-Process` (no console attached); logs go to Electron's stdout only if run directly.
