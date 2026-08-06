@@ -33,11 +33,12 @@ export const ROOM_TOOLS = ['agent_broadcast', 'agent_status'];
 export const ROOM_BROADCAST_BUDGET = 6;
 
 /**
- * Default sub-agent run budget. Some tasks (test suites, spec reconciles, big
- * builds) outlive a 15-minute cap; the wait default is 120s, so orchestrators
- * pass timeout_ms >= this explicitly. User-set: "900s is too short".
+ * Default sub-agent run budget. Long-running tasks (test suites, spec
+ * reconciles, big builds, slow streams) must never be killed early — every
+ * built-in and the persona default use this. The wait default is 120s, so
+ * orchestrators pass timeout_ms >= this explicitly.
  */
-export const DEFAULT_AGENT_TIMEOUT_MS = 1_800_000; // 30 min
+export const DEFAULT_AGENT_TIMEOUT_MS = 3_600_000; // 1 hour
 
 /**
  * Short text marker for an agent's chip — the user prefers initials over emoji.
@@ -71,19 +72,19 @@ export const BUILTIN_DEFINITIONS: Record<SkillName, SubAgentDefinition> = {
   planner: def(
     'planner', 'Planner', 'PL', '#8b9dc3',
     ['specs_explore', 'read_file', 'list_directory', 'grep_workspace', 'memory_list', 'memory_search', 'memory_get', 'get_canvas_state', 'agent_broadcast', 'agent_status'],
-    ['peer'], 'default', 4096, 8, 180_000,
+    ['peer'], 'default', 4096, 8, DEFAULT_AGENT_TIMEOUT_MS,
     'Produces a numbered, dependency-ordered execution plan for a task without editing files.',
   ),
   'spec-orienter': def(
     'spec-orienter', 'Spec Orienter', 'SO', '#4fc3f7',
     ['specs_explore', 'specs_validate', 'read_file', 'list_directory', 'grep_workspace', 'get_canvas_state', 'agent_broadcast', 'agent_status'],
-    ['peer'], 'default', 4096, 10, 180_000,
+    ['peer'], 'default', 4096, 10, DEFAULT_AGENT_TIMEOUT_MS,
     'Maps the SPECGEN spec graph for a feature area before code changes (read-only orientation brief).',
   ),
   scaffolder: def(
     'scaffolder', 'Scaffolder', 'SC', '#ffb74d',
     ['read_file', 'list_directory', 'write_file', 'create_directory', 'copy_file', 'rename_file', 'grep_workspace', 'specs_reconcile', 'get_canvas_state', 'reveal_file_in_explorer', 'agent_broadcast', 'agent_status'],
-    ['destructive', 'peer'], 'acceptEdits', 4096, 12, 180_000,
+    ['destructive', 'peer'], 'acceptEdits', 4096, 12, DEFAULT_AGENT_TIMEOUT_MS,
     'Creates skeleton structure for a feature: directories, headers, index barrels, initial spec skeletons (stubs and TODOs only).',
   ),
   implementer: def(
@@ -102,7 +103,7 @@ export const BUILTIN_DEFINITIONS: Record<SkillName, SubAgentDefinition> = {
   reviewer: def(
     'reviewer', 'Reviewer', 'RV', '#ffd54f',
     ['read_file', 'list_directory', 'grep_workspace', 'git_status', 'git_diff', 'git_log', 'specs_explore', 'specs_validate', 'get_canvas_state', 'agent_dispatch', 'agent_wait', 'agent_status', 'agent_broadcast'],
-    ['peer'], 'default', 4096, 14, 300_000,
+    ['peer'], 'default', 4096, 14, DEFAULT_AGENT_TIMEOUT_MS,
     'Read-only code review for correctness, conventions, and spec alignment (never writes files).',
   ),
   tester: def(
@@ -127,19 +128,19 @@ export const BUILTIN_DEFINITIONS: Record<SkillName, SubAgentDefinition> = {
   'git-committer': def(
     'git-committer', 'Git Committer', 'GC', '#ce93d8',
     ['git_status', 'git_diff', 'git_log', 'git_stage', 'git_unstage', 'git_commit', 'git_branches', 'read_file', 'list_directory', 'get_canvas_state', 'agent_broadcast', 'agent_status'],
-    ['destructive', 'peer'], 'acceptEdits', 4096, 10, 180_000,
+    ['destructive', 'peer'], 'acceptEdits', 4096, 10, DEFAULT_AGENT_TIMEOUT_MS,
     'Turns staged or working-tree changes into a clean conventional commit. Never pushes or amends history.',
   ),
   'docs-writer': def(
     'docs-writer', 'Docs Writer', 'DW', '#f48fb1',
     ['read_file', 'write_file', 'list_directory', 'grep_workspace', 'open_in_markdown', 'reveal_file_in_explorer', 'get_canvas_state', 'agent_broadcast', 'agent_status'],
-    ['destructive', 'peer'], 'acceptEdits', 4096, 10, 300_000,
+    ['destructive', 'peer'], 'acceptEdits', 4096, 10, DEFAULT_AGENT_TIMEOUT_MS,
     'Writes or updates documentation (READMEs, DESIGN docs, plan docs) to reflect the actual state of the code.',
   ),
   'spec-sync': def(
     'spec-sync', 'Spec Sync', 'SY', '#9e9d24',
     ['specs_explore', 'specs_validate', 'specs_reconcile', 'specs_reload', 'read_file', 'list_directory', 'grep_workspace', 'get_canvas_state', 'agent_broadcast', 'agent_status'],
-    ['destructive', 'peer'], 'acceptEdits', 4096, 12, 300_000,
+    ['destructive', 'peer'], 'acceptEdits', 4096, 12, DEFAULT_AGENT_TIMEOUT_MS,
     'Keeps the SPECGEN spec graph in sync with source: validates drift, reconciles structural fields, updates contract prose.',
   ),
 };

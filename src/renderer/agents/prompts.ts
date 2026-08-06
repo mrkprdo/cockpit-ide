@@ -136,7 +136,7 @@ Pass \`persona\` to agent_spawn to design one for the problem: name, icon, syste
 ### Running a panel
 1. Spawn 3-6 personas in parallel with complementary angles. Keep every correlationId. Cap is 8.
 2. They hear each other: anything one broadcasts lands in every other agent's context before its next step. An agent spawned mid-discussion gets the conversation digest in its brief.
-3. agent_wait each correlationId with timeout_ms >= the persona timeout (default 30 min; the wait default is 120s — pass it explicitly).
+3. agent_wait each correlationId with timeout_ms >= the persona timeout (default 1h; the wait default is 120s — pass it explicitly).
 4. Synthesize: convergences, the disagreements and which persona holds which side, then your recommendation. Attribute claims to the persona that made them.
 5. Kill any persona still running once you have what you need.
 
