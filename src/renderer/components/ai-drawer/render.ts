@@ -74,6 +74,9 @@ export function scrollToBottomIfNearBottom(el: HTMLElement, threshold = 80): voi
   }
 }
 
+/** Messages longer than this collapse to a preview with a show-more toggle. */
+export const LONG_MESSAGE_CHARS = 200;
+
 export function formatBody(content: string): string {
   // Escape all HTML first so raw LLM output can never inject tags.
   // Fenced code blocks are pulled aside so the bold/italic/line-break rules
@@ -111,6 +114,8 @@ export class RenderController {
   messages: ChatMessage[] = [];
   /** Which conversation surface is rendered (T4: token bar measures chat only). */
   activeView: PanelView = 'chat';
+  /** Long messages the user has expanded (keyed by message object, per session). */
+  private expanded = new WeakSet<ChatMessage>();
 
   constructor(private dom: AiDrawerDom, private host: RenderHost) {}
 
@@ -459,12 +464,38 @@ export class RenderController {
         if (msg) window.electronAPI?.clipboard.writeText(msg.content).catch(() => {});
         return;
       }
+      const toggleBtn = target.closest<HTMLButtonElement>('.ai-msg-toggle');
+      if (toggleBtn) {
+        const idx = parseInt(toggleBtn.dataset.msgIndex ?? '-1', 10);
+        const msg = idx >= 0 ? this.currentSource()[idx] : undefined;
+        if (msg) {
+          if (this.expanded.has(msg)) this.expanded.delete(msg);
+          else this.expanded.add(msg);
+          this.renderMessages();
+        }
+        return;
+      }
       const codeBtn = target.closest<HTMLButtonElement>('.ai-chat-code-copy');
       if (codeBtn) {
         const pre = codeBtn.closest('.ai-chat-code-wrap')?.querySelector<HTMLElement>('pre');
         if (pre) window.electronAPI?.clipboard.writeText(pre.textContent ?? '').catch(() => {});
       }
     });
+  }
+
+  /**
+   * Render a message's text body. Long messages (>{@link LONG_MESSAGE_CHARS}
+   * chars) collapse to a clamped preview with a show-more/show-less toggle; the
+   * expanded state is tracked per message object so a full re-render keeps it.
+   */
+  private renderTextBlock(m: ChatMessage, body: string, index: number): string {
+    const isLong = m.content.length > LONG_MESSAGE_CHARS;
+    if (!isLong) return `<div class="ai-chat-msg-text">${body}</div>`;
+    const expanded = this.expanded.has(m);
+    return (
+      `<div class="ai-chat-msg-text${expanded ? '' : ' is-clamped'}">${body}</div>` +
+      `<button class="ai-msg-toggle" data-msg-index="${index}" aria-expanded="${String(expanded)}" title="${expanded ? 'Show less' : 'Show more'}">${expanded ? 'Show less ▴' : 'Show more ▾'}</button>`
+    );
   }
 
   private renderMessage(m: ChatMessage, index = 0): string {
@@ -494,7 +525,7 @@ export class RenderController {
           <span class="ai-room-join-time">${time}</span>
         </div>`;
       }
-      return `<div class="ai-chat-msg ai-chat-msg-system"><div class="ai-chat-msg-bubble">${body}</div></div>`;
+      return `<div class="ai-chat-msg ai-chat-msg-system"><div class="ai-chat-msg-bubble">${this.renderTextBlock(m, body, index)}</div></div>`;
     }
 
     // A sub-agent turn: role stays 'assistant' but carries a speaker identity.
@@ -512,7 +543,7 @@ export class RenderController {
             <span class="ai-agent-name">${escapeHtml(m.speaker.name)}</span>
             ${intentBadge}${reply}${toName}
           </div>
-          <div class="ai-chat-msg-text">${body}</div>
+          ${this.renderTextBlock(m, body, index)}
           <div class="ai-chat-msg-meta">
             <span class="ai-chat-msg-time">${time}</span>
           </div>
@@ -524,7 +555,7 @@ export class RenderController {
       <div class="ai-chat-msg ai-chat-msg-${m.role}${m.isSteer ? ' is-steer' : ''}" data-msg-index="${index}">
         <div class="ai-chat-msg-bubble">
           ${steerBadge}
-          <div class="ai-chat-msg-text">${body}</div>
+          ${this.renderTextBlock(m, body, index)}
           <div class="ai-chat-msg-meta">
             <span class="ai-chat-msg-time">${time}</span>
             ${m.role === 'assistant' ? `<button class="ai-chat-copy-btn" data-msg-index="${index}" title="Copy text">${COPY_ICON_SVG}</button>` : ''}

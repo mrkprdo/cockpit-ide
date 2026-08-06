@@ -370,6 +370,37 @@
 .ai-chat-msg-text strong { color: var(--accent2); font-weight: 700; }
 .ai-chat-msg-user .ai-chat-msg-text strong { color: #0a0f18; }
 
+/* Long messages collapse to a few-line preview with a show-more toggle */
+.ai-chat-msg-text.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ai-msg-toggle {
+  display: block;
+  margin-top: 5px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  color: var(--secondary);
+  font-family: var(--font);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: border-color 120ms ease-out, color 120ms ease-out;
+}
+.ai-msg-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.ai-chat-msg-user .ai-msg-toggle {
+  border-color: rgba(10, 15, 24, 0.4);
+  color: #0a0f18;
+}
+.ai-chat-msg-user .ai-msg-toggle:hover {
+  border-color: rgba(10, 15, 24, 0.7);
+}
+
 .ai-chat-msg-loading {
   display: inline-flex;
   align-items: center;

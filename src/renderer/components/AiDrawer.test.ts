@@ -2257,6 +2257,58 @@ describe('AiDrawer', () => {
     });
   });
 
+  // ─── LONG MESSAGE COLLAPSE ──────────────────────────────────────────────────
+
+  describe('long message collapse', () => {
+    it('collapses long messages to a preview and expands/collapses on the toggle', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      drawer['messages'].push({ role: 'assistant', content: 'x'.repeat(201), timestamp: Date.now() });
+      drawer['renderCtrl'].renderMessages();
+
+      const textSel = '.ai-chat-msg-assistant .ai-chat-msg-text';
+      expect(q(textSel).classList.contains('is-clamped')).toBe(true);
+      expect(q('.ai-chat-msg-assistant .ai-msg-toggle')).toBeTruthy();
+
+      (q('.ai-chat-msg-assistant .ai-msg-toggle') as HTMLElement).click();
+      expect(q(textSel).classList.contains('is-clamped')).toBe(false);
+
+      (q('.ai-chat-msg-assistant .ai-msg-toggle') as HTMLElement).click();
+      expect(q(textSel).classList.contains('is-clamped')).toBe(true);
+    });
+
+    it('does not add a toggle to short messages', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      drawer['messages'].push({ role: 'assistant', content: 'short reply', timestamp: Date.now() });
+      drawer['renderCtrl'].renderMessages();
+      expect(q('.ai-chat-msg-assistant .ai-msg-toggle')).toBeNull();
+      expect(q('.ai-chat-msg-assistant .ai-chat-msg-text').classList.contains('is-clamped')).toBe(false);
+    });
+
+    it('collapses long sub-agent verdicts in the chat too', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      (drawer['feed'] as any).handleEvent('agent:xyz', {
+        kind: 'spawn',
+        persona: { id: 'agent:xyz', name: 'Reviewer', icon: 'RV', color: '#ffd54f', definition: 'reviewer' },
+        brief: 'b', expectedResult: 'e', guardrails: [],
+      });
+      (drawer['feed'] as any).handleEvent('agent:xyz', {
+        kind: 'final',
+        text: 'y'.repeat(250),
+        state: 'done',
+      });
+      await flush();
+      await flush();
+      expect(q('.ai-chat-msg-agent .ai-chat-msg-text').classList.contains('is-clamped')).toBe(true);
+      expect(q('.ai-chat-msg-agent .ai-msg-toggle')).toBeTruthy();
+    });
+  });
+
   // ─── SYSTEM PROMPT REGRESSION GUARDS (§7.2) ────────────────────────────────
 
   describe('system prompt regression guards', () => {
