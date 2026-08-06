@@ -2209,6 +2209,54 @@ describe('AiDrawer', () => {
     });
   });
 
+  // ─── LLM RETRY (transient failures retry after a cooldown) ──────────────────
+
+  describe('LLM retry', () => {
+    it('retries a transient 503 after a cooldown instead of ending the run', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      let calls = 0;
+      (globalThis.fetch as any).mockImplementation(() => {
+        calls++;
+        if (calls === 1) {
+          return Promise.resolve({ ok: false, status: 503, text: () => Promise.resolve('Service Unavailable') } as any);
+        }
+        return Promise.resolve(makeTextResponse('Recovered.'));
+      });
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'hello';
+      q('.ai-chat-send-btn').click();
+
+      await vi.waitFor(
+        () => expect(drawer['messages'].some((m: any) => m.content === 'Recovered.')).toBe(true),
+        { timeout: 8000, interval: 25 },
+      );
+      expect(calls).toBeGreaterThanOrEqual(2);
+      // The transient notice was replaced by a recovery note.
+      expect(drawer['messages'].some((m: any) => (m.content || '').includes('Recovered after 1 retry'))).toBe(true);
+      // No error bubble.
+      expect(drawer['messages'].some((m: any) => (m.content || '').includes('**Error:**'))).toBe(false);
+    });
+
+    it('surfaces a config error (401) immediately without retrying', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      let calls = 0;
+      (globalThis.fetch as any).mockImplementation(() => {
+        calls++;
+        return Promise.resolve({ ok: false, status: 401, text: () => Promise.resolve('Unauthorized') } as any);
+      });
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'hello';
+      q('.ai-chat-send-btn').click();
+      await vi.waitFor(
+        () => expect(drawer['messages'].some((m: any) => (m.content || '').includes('**Error:**'))).toBe(true),
+        { timeout: 2000, interval: 10 },
+      );
+      expect(calls).toBe(1); // no retry — retrying a bad key never helps
+    });
+  });
+
   // ─── SYSTEM PROMPT REGRESSION GUARDS (§7.2) ────────────────────────────────
 
   describe('system prompt regression guards', () => {

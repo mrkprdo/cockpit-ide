@@ -22,6 +22,7 @@ import { ToolRegistry } from '../../ai/tool-registry';
 import { executeToolCall } from '../../ai/tool-executor';
 import type { LLMMessage, LLMToolCall, ToolContext } from '../../ai/types';
 import { reportFailure } from '../../health/monitor';
+import { RetryController } from './llm-retry';
 import { escapeHtml } from './render';
 import type { ContextWindow } from './context-window';
 import type { RenderController } from './render';
@@ -72,6 +73,9 @@ export class LlmLoop {
   fetchController: AbortController | null = null;
   agentMode: AgentMode = 'auto';
 
+  /** Owns the indefinite LLM-retry cooldown + in-chat notice (see llm-retry.ts). */
+  private retry: RetryController;
+
   constructor(
     private host: LlmLoopHost,
     private dom: AiDrawerDom,
@@ -79,12 +83,22 @@ export class LlmLoop {
     private sessions: SessionStore,
     private settings: SettingsStore,
     private contextWindow: ContextWindow,
-  ) {}
+  ) {
+    this.retry = new RetryController({
+      getAbortRequested: () => this.host.getAbortRequested(),
+      getFetchController: () => this.host.getFetchController(),
+      getMessages: () => this.render.messages,
+      renderMessages: () => this.render.renderMessages(),
+    });
+  }
 
   async runMessage(text: string): Promise<void> {
     if (!this.settings.apiKey) await this.settings.loadSettings();
 
     const pinnedSessionId = this.sessions.currentSessionId;
+    // Fresh retry bookkeeping for this run (the notice index is per-messages
+    // array; reset so a previous run's stale notice is never reused).
+    this.retry.retryNoticeIndex = -1;
 
     if (this.host.isDetached()) this.host.updateFloatPreview('hidden');
     this.render.messages.push({ role: 'user', content: text, timestamp: Date.now() });
@@ -111,6 +125,8 @@ export class LlmLoop {
         this.render.messages.push({ role: 'assistant', content: response, timestamp: Date.now() });
       }
     } catch (err: any) {
+      // User aborted mid-cooldown — no error bubble, just stop.
+      if (err?.name === 'AbortError') return;
       this.render.messages.push({
         role: 'assistant',
         content: `**Error:** ${escapeHtml(err.message || 'Unknown error')}`,
@@ -357,41 +373,47 @@ export class LlmLoop {
 
       try {
         if (this.settings.streamResponses) {
-          placeholderIndex = this.render.messages.length;
-          this.render.messages.push({ role: 'assistant', content: '', timestamp: Date.now() });
-          this.render.renderMessages();
-
-          for await (const event of client.streamChatCompletion({
-            messages: apiMessages,
-            tools,
-            tool_choice: 'auto',
-            temperature: 0.2,
-            max_tokens: this.settings.getMaxOutputTokens(),
-            signal: this.host.getFetchController()?.signal,
-          })) {
-            if (this.host.getAbortRequested()) break;
-
-            if (event.type === 'content') {
-              streamedContent += event.delta;
-              if (this.render.messages[placeholderIndex]) {
-                this.render.messages[placeholderIndex].content = streamedContent;
-                this.render.updateStreamingMessage(placeholderIndex);
+          // Each attempt pushes its own placeholder; a failed attempt removes it
+          // so the retry (and the chat) stays clean. withRetry owns the cooldown.
+          const result = await this.retry.withRetry(async () => {
+            const idx = this.render.messages.length;
+            this.render.messages.push({ role: 'assistant', content: '', timestamp: Date.now() });
+            this.render.renderMessages();
+            let content = '';
+            let calls: LLMToolCall[] | null = null;
+            try {
+              for await (const event of client.streamChatCompletion({
+                messages: apiMessages,
+                tools,
+                tool_choice: 'auto',
+                temperature: 0.2,
+                max_tokens: this.settings.getMaxOutputTokens(),
+                signal: this.host.getFetchController()?.signal,
+              })) {
+                if (this.host.getAbortRequested()) break;
+                if (event.type === 'content') {
+                  content += event.delta;
+                  if (this.render.messages[idx]) {
+                    this.render.messages[idx].content = content;
+                    this.render.updateStreamingMessage(idx);
+                  }
+                } else if (event.type === 'tool_calls') {
+                  calls = event.tool_calls;
+                  break;
+                }
               }
-            } else if (event.type === 'tool_calls') {
-              toolCalls = event.tool_calls;
-              // Convert the streaming placeholder into a reasoning entry.
-              const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
-              if (this.render.messages[placeholderIndex]) {
-                this.render.messages[placeholderIndex].role = 'thinking';
-                this.render.messages[placeholderIndex].content = streamedContent.trim()
-                  ? `${streamedContent.trim()}\n\n→ **${toolNames}**`
-                  : `→ **${toolNames}**`;
-                this.render.messages[placeholderIndex].toolCalls = toolCalls;
+              return { idx, content, calls };
+            } catch (err: any) {
+              if (this.render.messages[idx]) {
+                this.render.messages.splice(idx, 1);
                 this.render.renderMessages();
               }
-              break;
+              throw err;
             }
-          }
+          });
+          placeholderIndex = result.idx;
+          streamedContent = result.content;
+          toolCalls = result.calls;
 
           if (this.host.getAbortRequested()) {
             const kept = this.render.messages[placeholderIndex]?.content || streamedContent || '';
@@ -400,6 +422,17 @@ export class LlmLoop {
               this.render.renderMessages();
             }
             return kept || 'Aborted.';
+          }
+
+          if (toolCalls && this.render.messages[placeholderIndex]) {
+            // Convert the streaming placeholder into a reasoning entry.
+            const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
+            this.render.messages[placeholderIndex].role = 'thinking';
+            this.render.messages[placeholderIndex].content = streamedContent.trim()
+              ? `${streamedContent.trim()}\n\n→ **${toolNames}**`
+              : `→ **${toolNames}**`;
+            this.render.messages[placeholderIndex].toolCalls = toolCalls;
+            this.render.renderMessages();
           }
 
           if (!toolCalls) {
@@ -421,14 +454,14 @@ export class LlmLoop {
             return outcome;
           }
         } else {
-          const data = await client.chatCompletion({
+          const data = await this.retry.withRetry(() => client.chatCompletion({
             messages: apiMessages,
             tools,
             tool_choice: 'auto',
             temperature: 0.2,
             max_tokens: this.settings.getMaxOutputTokens(),
             signal: this.host.getFetchController()?.signal,
-          });
+          }));
           const msg = data.choices?.[0]?.message;
           if (!msg) throw new Error('Empty response from model');
 
@@ -462,6 +495,8 @@ export class LlmLoop {
           this.render.messages.splice(placeholderIndex, 1);
           this.render.renderMessages();
         }
+        // withRetry already retried transient failures; only permanent errors
+        // (auth, bad request) reach here — report once and surface them.
         reportFailure({ kind: 'llm.stream-error', source: 'ai-drawer/llm-loop.ts', message: String(err?.message ?? err) });
         throw err;
       }
@@ -588,46 +623,47 @@ export class LlmLoop {
     maxTokens = this.settings.getMaxOutputTokens(),
     keepAsRole: ChatMessage['role'] | null = null,
   ): Promise<string> {
-    const placeholderIndex = this.render.messages.length;
-    this.render.messages.push({ role: 'assistant', content: '', timestamp: Date.now() });
-    this.render.renderMessages();
+    return this.retry.withRetry(async () => {
+      const placeholderIndex = this.render.messages.length;
+      this.render.messages.push({ role: 'assistant', content: '', timestamp: Date.now() });
+      this.render.renderMessages();
 
-    let content = '';
-    try {
-      for await (const event of client.streamChatCompletion({
-        messages,
-        temperature: 0.2,
-        max_tokens: maxTokens,
-        signal: this.host.getFetchController()?.signal,
-      })) {
-        if (this.host.getAbortRequested()) break;
-        if (event.type === 'content') {
-          content += event.delta;
-          if (this.render.messages[placeholderIndex]) {
-            this.render.messages[placeholderIndex].content = content;
-            this.render.updateStreamingMessage(placeholderIndex);
+      let content = '';
+      try {
+        for await (const event of client.streamChatCompletion({
+          messages,
+          temperature: 0.2,
+          max_tokens: maxTokens,
+          signal: this.host.getFetchController()?.signal,
+        })) {
+          if (this.host.getAbortRequested()) break;
+          if (event.type === 'content') {
+            content += event.delta;
+            if (this.render.messages[placeholderIndex]) {
+              this.render.messages[placeholderIndex].content = content;
+              this.render.updateStreamingMessage(placeholderIndex);
+            }
           }
         }
+      } catch (err: any) {
+        // Drop this attempt's placeholder so a retry (or an abort) starts clean.
+        if (this.render.messages[placeholderIndex]) {
+          this.render.messages.splice(placeholderIndex, 1);
+          this.render.renderMessages();
+        }
+        throw err; // withRetry classifies: retryable → cooldown+retry, Abort → up
       }
-    } catch (err: any) {
-      if (this.render.messages[placeholderIndex]) {
+
+      if (keepAsRole !== null && this.render.messages[placeholderIndex]) {
+        this.render.messages[placeholderIndex].role = keepAsRole;
+        this.render.messages[placeholderIndex].content = content || '…';
+        this.render.renderMessages();
+      } else if (this.render.messages[placeholderIndex]) {
         this.render.messages.splice(placeholderIndex, 1);
         this.render.renderMessages();
       }
-      if (err?.name === 'AbortError') return content || 'Aborted.';
-      reportFailure({ kind: 'llm.stream-error', source: 'ai-drawer/llm-loop.ts', message: String(err?.message ?? err) });
-      throw err;
-    }
-
-    if (keepAsRole !== null && this.render.messages[placeholderIndex]) {
-      this.render.messages[placeholderIndex].role = keepAsRole;
-      this.render.messages[placeholderIndex].content = content || '…';
-      this.render.renderMessages();
-    } else if (this.render.messages[placeholderIndex]) {
-      this.render.messages.splice(placeholderIndex, 1);
-      this.render.renderMessages();
-    }
-    return content;
+      return content;
+    });
   }
 
   private async callLLMBasic(apiMessages: LLMMessage[]): Promise<string> {
@@ -644,6 +680,6 @@ export class LlmLoop {
     if (this.settings.streamResponses) {
       return this.streamPlainText(client, msgs);
     }
-    return client.complete(msgs, this.host.getFetchController()?.signal);
+    return this.retry.withRetry(() => client.complete(msgs, this.host.getFetchController()?.signal));
   }
 }
