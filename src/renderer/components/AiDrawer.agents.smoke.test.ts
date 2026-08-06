@@ -85,6 +85,14 @@ describe('AiDrawer agents smoke (tool-call driven)', () => {
     await drawer.toggle();
     await drawer['loadSessions']();
 
+    // A reviewer is a verify-stage agent; satisfy the SDLC pipeline first
+    // (plan → implement → test confirmed, with a tester having actually run).
+    const pipeline = getAgentExecutor().getPipeline();
+    pipeline.recordRun('test');
+    pipeline.confirm('plan');
+    pipeline.confirm('implement');
+    pipeline.confirm('test');
+
     // Spawn through the exact tool the LLM uses.
     const spawn = JSON.parse(await agentSpawnTool.execute({
       skill: 'reviewer',

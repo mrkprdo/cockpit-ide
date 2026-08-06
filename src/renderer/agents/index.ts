@@ -19,3 +19,4 @@ export * from './memory-scopes';
 export * from './prompts';
 export * from './session';
 export * from './executor';
+export * from './pipeline';

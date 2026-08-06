@@ -1,6 +1,7 @@
 import { z } from 'zod/v3';
 import type { ToolContext, ToolDefinition } from '../ai/types';
 import { getAgentExecutor } from './executor';
+import { PIPELINE_STAGES, stageForSkill, type Pipeline, type PipelineStage } from './pipeline';
 import { SKILL_NAMES } from './skills';
 import { listDefinitions } from './definitions';
 import type { AgentId, PermissionMode } from './types';
@@ -119,11 +120,18 @@ export const AgentBroadcastArgs = withAliases({
 
 export const agentSpawnTool: ToolDefinition<typeof AgentSpawnArgs> = {
   name: 'agent_spawn',
-  description: 'Launch an autonomous sub-agent. Pass EITHER skill (built-in SDLC skill), agent (custom definition id), or persona (inline-designed sub-agent). Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). Params: skill?/agent?/persona?, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?, model?, permission_mode? (alias permissionMode), max_turns?.',
+  description: 'Launch an autonomous sub-agent. Pass EITHER skill (built-in SDLC skill), agent (custom definition id), or persona (inline-designed sub-agent). Returns {agentId, correlationId}. Non-blocking: the agent runs on the bus; await its result with agent_wait(correlationId). The SDLC pipeline (pipeline_status) blocks out-of-order spawns — e.g. you cannot spawn a tester before an implementation exists. Params: skill?/agent?/persona?, context, expected_result (alias expectedResult), guardrails?, timeout_ms? (alias timeoutMs), seed_summary?, model?, permission_mode? (alias permissionMode), max_turns?.',
   parameters: AgentSpawnArgs,
   execute: async (args) => {
     const ex = getAgentExecutor();
     try {
+      // SDLC pipeline gate: built-in skill spawns must satisfy stage ordering.
+      const defName = args.skill ?? args.agent;
+      const stage = defName ? stageForSkill(defName) : null;
+      if (stage) {
+        const gate = ex.getPipeline().checkSpawn(stage);
+        if (!gate.ok) return gate.error!;
+      }
       const res = ex.spawn({
         skill: args.skill as never,
         agent: args.agent,
@@ -221,12 +229,13 @@ export const agentWaitTool: ToolDefinition<typeof AgentWaitArgs> = {
 
 export const agentStatusTool: ToolDefinition<typeof AgentStatusArgs> = {
   name: 'agent_status',
-  description: 'List all sub-agents: id, definition/skill, lifecycle state, steps, tokens, mailbox depth, brief summary, result preview. Also reports the current LLM config source and concurrency cap.',
+  description: 'List all sub-agents: id, definition/skill, lifecycle state, steps, tokens, mailbox depth, brief summary, result preview. Also reports the current LLM config source, concurrency cap, and SDLC pipeline progress.',
   parameters: AgentStatusArgs,
   execute: async () => {
     const ex = getAgentExecutor();
     return JSON.stringify({
       cap: ex.getMaxConcurrent(),
+      pipeline: pipelineStatusJson(ex.getPipeline()),
       agents: ex.status().map(a => ({
         id: a.id,
         skill: a.skill,
@@ -294,6 +303,63 @@ export const definitionsListTool: ToolDefinition<typeof DefinitionsListArgs> = {
   },
 };
 
+/** Compact pipeline snapshot shared by pipeline_status and agent_status. */
+function pipelineStatusJson(p: Pipeline): Record<string, unknown> {
+  const s = p.status();
+  return {
+    stages: PIPELINE_STAGES.map(stage => ({
+      stage,
+      ran: p.hasRun(stage),
+      confirmed: p.isConfirmed(stage),
+    })),
+    next: s.next,
+    canFinish: s.canFinish,
+  };
+}
+
+export const PipelineStageArg = z.enum(['plan', 'implement', 'test', 'verify']);
+
+export const PipelineConfirmArgs = withAliases({
+  stage: PipelineStageArg.describe('SDLC stage to mark complete (order-enforced; test/verify require an agent of that stage to have actually run)'),
+}, {});
+
+export const pipelineConfirmTool: ToolDefinition<typeof PipelineConfirmArgs> = {
+  name: 'pipeline_confirm',
+  description: 'Confirm an SDLC pipeline stage is complete (plan → implement → test → verify). Order is enforced: a stage cannot be confirmed before its prerequisites. plan/implement may be confirmed directly; test/verify require a tester/reviewer to have actually run and responded. Returns {ok, stage, error?, pipeline}. Do not report the task as done until pipeline_status shows canFinish: true.',
+  parameters: PipelineConfirmArgs,
+  execute: async (args) => {
+    const p = getAgentExecutor().getPipeline();
+    const res = p.confirm(args.stage as PipelineStage);
+    return JSON.stringify({
+      ok: res.ok,
+      stage: args.stage,
+      ...(res.error ? { error: res.error } : {}),
+      pipeline: pipelineStatusJson(p),
+    }, null, 2);
+  },
+};
+
+export const PipelineStatusArgs = z.object({});
+
+export const pipelineStatusTool: ToolDefinition<typeof PipelineStatusArgs> = {
+  name: 'pipeline_status',
+  description: 'Show the SDLC pipeline: each stage (plan/implement/test/verify) and whether it has run / been confirmed, what is next, and whether the task can be marked done (canFinish). Check this before reporting a task complete.',
+  parameters: PipelineStatusArgs,
+  execute: async () => JSON.stringify(pipelineStatusJson(getAgentExecutor().getPipeline()), null, 2),
+};
+
+export const PipelineResetArgs = z.object({});
+
+export const pipelineResetTool: ToolDefinition<typeof PipelineResetArgs> = {
+  name: 'pipeline_reset',
+  description: 'Reset the SDLC pipeline to start a fresh closed loop for a new task.',
+  parameters: PipelineResetArgs,
+  execute: async () => {
+    getAgentExecutor().getPipeline().reset();
+    return JSON.stringify({ ok: true }, null, 2);
+  },
+};
+
 export const AGENT_TOOLS: ToolDefinition<any>[] = [
   agentSpawnTool,
   agentDispatchTool,
@@ -302,5 +368,8 @@ export const AGENT_TOOLS: ToolDefinition<any>[] = [
   agentStatusTool,
   agentKillTool,
   agentApproveTool,
+  pipelineStatusTool,
+  pipelineConfirmTool,
+  pipelineResetTool,
   definitionsListTool,
 ];

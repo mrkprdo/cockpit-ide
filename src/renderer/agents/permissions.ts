@@ -28,7 +28,7 @@ export const TOOL_FAMILIES: Record<string, string[]> = {
   Bash: ['write_to_terminal', 'send_key_to_terminal', 'kill_terminal'],
   Grep: ['grep_workspace'],
   WebFetch: ['open_external'],
-  Agent: ['agent_spawn', 'agent_dispatch', 'agent_kill', 'agent_wait', 'agent_status', 'agent_broadcast', 'agent_approve', 'definitions_list'],
+  Agent: ['agent_spawn', 'agent_dispatch', 'agent_kill', 'agent_wait', 'agent_status', 'agent_broadcast', 'agent_approve', 'pipeline_confirm', 'pipeline_status', 'pipeline_reset', 'definitions_list'],
 };
 
 /** Extract the primary argument a pattern is matched against, per family. */

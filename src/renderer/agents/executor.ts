@@ -5,6 +5,7 @@ import type { ToolContext } from '../ai/types';
 import { getDefaultBus, type AgentBus } from './bus';
 import { getDefinition, isCustomDefinition, READ_ONLY_TOOLS, ROOM_TOOLS, DEFAULT_AGENT_TIMEOUT_MS, initials } from './definitions';
 import { HookRunner } from './hooks';
+import { Pipeline, stageForSkill } from './pipeline';
 import { SubAgentSession } from './session';
 import type {
   AgentBrief,
@@ -131,6 +132,13 @@ export class AgentExecutor {
   onBusMessage: ((msg: AgentMessage) => void) | null = null;
   /** Fired for every observable event on any agent (the AI panel subscribes here). */
   onAgentEvent: ((id: AgentId, ev: AgentEvent) => void) | null = null;
+
+  /** SDLC pipeline guard — enforces plan → implement → test → verify ordering. */
+  private pipeline = new Pipeline();
+
+  getPipeline(): Pipeline {
+    return this.pipeline;
+  }
 
   /** Room transcript — what each agent said, for late-joiners (bounded). */
   private roomLog: Array<{ from: AgentId; name: string; icon: string; intent: SpeechIntent; text: string; ts: number }> = [];
@@ -528,6 +536,7 @@ export class AgentExecutor {
     this.bus.clearDeliveryLog();
     this.respondCache.clear();
     this.roomLog = [];
+    this.pipeline.reset();
     this.notifyStatus();
     this.persist('roster', this.serializeRoster());
   }
@@ -556,6 +565,13 @@ export class AgentExecutor {
         if (this.roomLog.length > AgentExecutor.ROOM_LOG_MAX) {
           this.roomLog.splice(0, this.roomLog.length - AgentExecutor.ROOM_LOG_MAX);
         }
+      }
+      // A successful deliverable advances its SDLC stage (test/verify stages
+      // can only be confirmed after an agent of that stage has actually run).
+      if (ev.kind === 'final' && ev.state === 'done') {
+        const defName = this.agents.get(agentId)?.session.def.name;
+        const stage = defName ? stageForSkill(defName) : null;
+        if (stage) this.pipeline.recordRun(stage);
       }
       this.onAgentEvent?.(agentId, ev);
     } catch {

@@ -117,7 +117,19 @@ You can delegate SDLC work to autonomous sub-agents. They run on a message bus w
 - agent_status() — list all agents, their lifecycle state, tokens, steps, mailbox depth, definition, permission mode, and broadcast budget spent.
 - agent_kill(agent_id) — abort an agent.
 - agent_approve(correlation_id, approve) — if agent_wait returned "needs-approval", approve=true lets the parked tool run, false denies it.
+- pipeline_status() — show the SDLC pipeline: which stages are confirmed, what is next, and whether the task can be marked done (canFinish).
+- pipeline_confirm(stage) — mark an SDLC stage complete (order-enforced). plan/implement may be confirmed directly; test/verify require an agent of that stage to have actually run.
+- pipeline_reset() — reset the pipeline to start a fresh closed loop.
 - definitions_list() — list every available agent definition (built-in + custom) before choosing what to spawn.
+
+### SDLC pipeline (enforced)
+Sub-agent work MUST follow a closed loop. The executor tracks four stages and REFUSES out-of-order spawns, so you cannot skip ahead:
+plan → implement → test → verify → done
+- **plan** — planner 🗺️ / spec-orienter 🧭 produce the plan. Confirm with pipeline_confirm("plan") once you have it (you may confirm directly if you already have a plan).
+- **implement** — scaffolder 🏗️ / implementer 🛠️ / debugger 🐞 build it. Confirm "implement" once the implementation exists (directly, if you implemented it yourself with file tools).
+- **test** — tester 🧪 MUST actually run before you can confirm "test"; only confirm after its respond shows the tests passed. If they failed, spawn a debugger to fix and re-test.
+- **verify** — reviewer 🔍 reviews the change; then close out with spec-sync 🔄 / docs-writer 📝 / git-committer 📦. Cannot be spawned before tests have run.
+- **done** — report the task complete ONLY after pipeline_status shows canFinish: true (all four stages confirmed). Check it before your final answer.
 
 ### Skills (built-in definitions)
 planner 🗺️ · spec-orienter 🧭 · scaffolder 🏗️ · implementer 🛠️ · reviewer 🔍 · tester 🧪 · debugger 🐞 · git-committer 📦 · docs-writer 📝 · spec-sync 🔄

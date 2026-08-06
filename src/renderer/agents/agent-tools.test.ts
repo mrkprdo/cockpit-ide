@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod/v3';
 import { zodToJsonSchema } from '../ai/zod-to-openai';
 import {
@@ -344,15 +344,19 @@ describe('agent_* tool parameter aliases', () => {
 });
 
 describe('room regression guards (§7.2)', () => {
-  it('AGENT_TOOLS has no roundtable_compose and dropped by exactly 1', async () => {
+  it('AGENT_TOOLS has no roundtable_compose and carries the pipeline tools', async () => {
     const { AGENT_TOOLS } = await import('./agent-tools');
     const { ALL_TOOLS } = await import('../ai/tool-definitions');
     const names = AGENT_TOOLS.map(t => t.name);
     expect(names).not.toContain('roundtable_compose');
     expect(names).toContain('agent_spawn');
     expect(names).toContain('agent_broadcast');
-    // 8 tools: spawn, dispatch, broadcast, wait, status, kill, approve, definitions_list.
-    expect(AGENT_TOOLS.length).toBe(8);
+    expect(names).toContain('pipeline_status');
+    expect(names).toContain('pipeline_confirm');
+    expect(names).toContain('pipeline_reset');
+    // 11 tools: spawn, dispatch, broadcast, wait, status, kill, approve,
+    // pipeline_status, pipeline_confirm, pipeline_reset, definitions_list.
+    expect(AGENT_TOOLS.length).toBe(11);
     const allNames = ALL_TOOLS.map(t => t.name);
     expect(allNames).not.toContain('roundtable_compose');
   });
@@ -364,5 +368,83 @@ describe('room regression guards (§7.2)', () => {
     expect(text).toContain('Designing a sub-agent');
     expect(text).toContain('Running a panel');
     expect(text).toContain('You get 6 broadcasts per run');
+  });
+});
+
+describe('SDLC pipeline tools', () => {
+  beforeEach(() => {
+    getAgentExecutor().getPipeline().reset();
+  });
+
+  it('pipeline_status reports the fresh loop and canFinish false', async () => {
+    const { pipelineStatusTool } = await import('./agent-tools');
+    const out = JSON.parse(await pipelineStatusTool.execute({} as never, {} as never));
+    expect(out.stages).toHaveLength(4);
+    expect(out.canFinish).toBe(false);
+    expect(out.next).toBe('plan');
+    expect(out.stages.find((s: any) => s.stage === 'plan').confirmed).toBe(false);
+  });
+
+  it('pipeline_confirm enforces order through the tool', async () => {
+    const { pipelineConfirmTool, pipelineStatusTool } = await import('./agent-tools');
+    const early = JSON.parse(await pipelineConfirmTool.execute({ stage: 'implement' } as never, {} as never));
+    expect(early.ok).toBe(false);
+    expect(early.error).toContain('plan');
+
+    const plan = JSON.parse(await pipelineConfirmTool.execute({ stage: 'plan' } as never, {} as never));
+    expect(plan.ok).toBe(true);
+    expect(plan.pipeline.canFinish).toBe(false);
+
+    // Order first: test still needs implement confirmed.
+    const order = JSON.parse(await pipelineConfirmTool.execute({ stage: 'test' } as never, {} as never));
+    expect(order.ok).toBe(false);
+    expect(order.error).toContain('implement');
+
+    const impl = JSON.parse(await pipelineConfirmTool.execute({ stage: 'implement' } as never, {} as never));
+    expect(impl.ok).toBe(true);
+
+    // Ran requirement: a tester must have actually run before test can be confirmed.
+    const noRun = JSON.parse(await pipelineConfirmTool.execute({ stage: 'test' } as never, {} as never));
+    expect(noRun.ok).toBe(false);
+    expect(noRun.error).toContain('no test sub-agent has run');
+
+    getAgentExecutor().getPipeline().recordRun('test');
+    const test2 = JSON.parse(await pipelineConfirmTool.execute({ stage: 'test' } as never, {} as never));
+    expect(test2.ok).toBe(true);
+
+    const done = JSON.parse(await pipelineStatusTool.execute({} as never, {} as never));
+    expect(done.canFinish).toBe(false);
+  });
+
+  it('pipeline_reset clears the loop', async () => {
+    const { pipelineConfirmTool, pipelineResetTool, pipelineStatusTool } = await import('./agent-tools');
+    await pipelineConfirmTool.execute({ stage: 'plan' } as never, {} as never);
+    await pipelineResetTool.execute({} as never, {} as never);
+    const out = JSON.parse(await pipelineStatusTool.execute({} as never, {} as never));
+    expect(out.stages.find((s: any) => s.stage === 'plan').confirmed).toBe(false);
+    expect(out.next).toBe('plan');
+  });
+
+  it('agent_spawn refuses an implementer before plan is confirmed (closed-loop gate)', async () => {
+    const { agentSpawnTool } = await import('./agent-tools');
+    const out = await agentSpawnTool.execute({
+      skill: 'implementer',
+      context: 'build it',
+      expected_result: 'built',
+    } as never, {} as never);
+    expect(out).toContain('Guardrail: cannot spawn a "implement" agent');
+    expect(out).toContain('plan');
+    // No agent was actually spawned.
+    expect(getAgentExecutor().status().length).toBe(0);
+  });
+
+  it('agent_spawn allows a plan-stage agent (the loop starts here)', async () => {
+    const { agentSpawnTool } = await import('./agent-tools');
+    const out = await agentSpawnTool.execute({
+      skill: 'planner',
+      context: 'plan the cache work',
+      expected_result: 'a plan',
+    } as never, {} as never);
+    expect(out).toContain('agentId');
   });
 });
