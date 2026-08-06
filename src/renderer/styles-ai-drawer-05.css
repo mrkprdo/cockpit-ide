@@ -252,8 +252,11 @@
 }
 
 /* Agent message in the chat / PoV — tinted by the persona colour */
-/* Speaker identity rides the name + tint, not a slab border. */
+/* Speaker identity rides the name + tint, not a slab border. The card is a
+   self-contained column: head (name + intent chips) on top, body, meta. */
 .ai-chat-msg-agent {
+  flex-direction: column;
+  align-items: stretch;
   border: 1px solid color-mix(in srgb, var(--agent-color, var(--accent)) 28%, var(--border));
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--agent-color, var(--accent)) 6%, var(--surface));
@@ -316,6 +319,9 @@
   font-size: var(--text-sm);
   line-height: var(--lh-read);
   color: var(--primary);
+  /* Long unbroken strings (URLs, paths) must wrap inside the card. */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 @media (prefers-reduced-motion: reduce) {
