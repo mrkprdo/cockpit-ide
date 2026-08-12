@@ -334,6 +334,15 @@
   flex-shrink: 0;
   background: color-mix(in srgb, var(--surface) 40%, transparent);
 }
+/* Maximized drawer: keep the composer at panel width, centered instead of stretched */
+.ai-drawer.is-maximized .ai-chat-input-area {
+  display: flex;
+  justify-content: center;
+}
+.ai-drawer.is-maximized .ai-input-box {
+  width: 100%;
+  max-width: 800px;
+}
 /* Bordered box: textarea on top, toolbar row below (Claude Code composer layout) */
 .ai-input-box {
   display: flex;

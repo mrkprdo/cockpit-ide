@@ -100,6 +100,8 @@ export interface AiDrawerDom {
   inputAreaEl: HTMLDivElement;
   drawerContentEl: HTMLDivElement;
   detachBtn: HTMLButtonElement;
+  expandBtn: HTMLButtonElement;
+  backBtn: HTMLButtonElement;
   inputModeBtn: HTMLButtonElement;
   slashPopupEl: HTMLDivElement;
   slashListEl: HTMLDivElement;

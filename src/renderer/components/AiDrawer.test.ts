@@ -250,6 +250,93 @@ describe('AiDrawer', () => {
     });
   });
 
+  // ─── MAXIMIZE ────────────────────────────────────────────────────────────────
+
+  describe('maximize', () => {
+    it('renders header actions back/expand/close (panel: back+expand; expanded: back+close)', async () => {
+      drawer = await createDrawer();
+      const actions = q('.ai-drawer-header-actions');
+      expect(actions.querySelector('.ai-drawer-back-btn')).toBeTruthy();
+      expect(actions.querySelector('.ai-drawer-expand-btn')).toBeTruthy();
+      expect(actions.querySelector('.ai-drawer-close-btn')).toBeTruthy();
+      const ids = Array.from(actions.children).map(c => c.className);
+      expect(ids).toEqual(['ai-drawer-back-btn', 'ai-drawer-expand-btn', 'ai-drawer-close-btn']);
+      const closeSvg = q('.ai-drawer-close-btn svg').innerHTML;
+      expect(closeSvg).toContain('M4 4l8 8');
+      expect(closeSvg).toContain('M12 4l-8 8');
+    });
+
+    it('clicking expand pushes the drawer to full window width and readies << as back', async () => {
+      const cockpit = (window as any).__cockpit;
+      drawer = await createDrawer();
+      await drawer.toggle();
+      expect(q('.ai-drawer-back-btn').title).toBe('Close panel');
+      q('.ai-drawer-expand-btn').click();
+      expect(drawer['el'].classList.contains('is-maximized')).toBe(true);
+      expect(drawer['el'].style.width).toBe(`${window.innerWidth}px`);
+      expect(cockpit.setCanvasOverlay).toHaveBeenCalledWith(window.innerWidth);
+      expect(q('.ai-drawer-back-btn').title).toBe('Back to panel');
+      expect(q('.ai-drawer-close-btn')).toBeTruthy();
+    });
+
+    it('<< while maximized restores the panel width and becomes Close panel again', async () => {
+      const cockpit = (window as any).__cockpit;
+      drawer = await createDrawer();
+      await drawer.toggle();
+      q('.ai-drawer-expand-btn').click();
+      cockpit.setCanvasOverlay.mockClear();
+      q('.ai-drawer-back-btn').click();
+      expect(drawer['el'].classList.contains('is-maximized')).toBe(false);
+      expect(drawer['el'].style.width).toBe(`${drawer['drawerWidth']}px`);
+      expect(cockpit.setCanvasOverlay).toHaveBeenCalledWith(drawer['occupiedLeft'](drawer['drawerWidth']));
+      expect(q('.ai-drawer-back-btn').title).toBe('Close panel');
+    });
+
+    it('<< at panel width closes the drawer', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      expect(drawer['el'].classList.contains('is-open')).toBe(true);
+      q('.ai-drawer-back-btn').click();
+      expect(drawer['el'].classList.contains('is-open')).toBe(false);
+    });
+
+    it('close() clears the maximized state and resets the back control', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      q('.ai-drawer-expand-btn').click();
+      expect(drawer['el'].classList.contains('is-maximized')).toBe(true);
+      drawer['close']();
+      expect(drawer['el'].classList.contains('is-maximized')).toBe(false);
+      expect(q('.ai-drawer-back-btn').title).toBe('Close panel');
+    });
+
+    it('expanding while floating re-attaches the input card and maximizes', async () => {
+      const cockpit = (window as any).__cockpit;
+      drawer = await createDrawer();
+      await drawer.toggle();
+      drawer.detach();
+      expect(drawer.isDetached).toBe(true);
+      q('.ai-drawer-expand-btn').click();
+      expect(drawer.isDetached).toBe(false);
+      expect(document.querySelector('.ai-float-input')).toBeNull();
+      expect(q('.ai-drawer-expand-btn').style.display).not.toBe('none');
+      expect(drawer['el'].classList.contains('is-maximized')).toBe(true);
+      expect(drawer['el'].style.width).toBe(`${window.innerWidth}px`);
+      expect(cockpit.setCanvasOverlay).toHaveBeenCalledWith(window.innerWidth);
+    });
+
+    it('detach() while maximized restores panel width first', async () => {
+      const cockpit = (window as any).__cockpit;
+      drawer = await createDrawer();
+      await drawer.toggle();
+      q('.ai-drawer-expand-btn').click();
+      expect(drawer['el'].style.width).toBe(`${window.innerWidth}px`);
+      drawer.detach();
+      expect(drawer['el'].style.width).toBe(`${drawer['drawerWidth']}px`);
+      expect(cockpit.setCanvasOverlay).toHaveBeenCalledWith(drawer['occupiedLeft'](drawer['drawerWidth']));
+    });
+  });
+
   // ─── AGENT MODES ─────────────────────────────────────────────────────────────
 
   describe('agent mode cycle button', () => {

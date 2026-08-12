@@ -16,6 +16,7 @@ export interface DrawerLayoutDeps {
 export class DrawerLayout {
   isDetached = false;
   drawerWidth = 420;
+  isMaximized = false;
   /** Matches CSS `--ai-shell-inset` (now 0 — drawer is edge-to-edge). */
   private readonly shellInset = 0;
   private escHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -35,6 +36,8 @@ export class DrawerLayout {
 
   detach(): void {
     if (this.isDetached) return;
+    // Floating mode reuses the panel resize width: restore before undocking.
+    if (this.isMaximized) this.restore();
     this.isDetached = true;
     const dom = this.deps.dom;
 
@@ -138,7 +141,9 @@ export class DrawerLayout {
 
   updateFloatPosition(): void {
     if (!this.floatEl) return;
-    const overlayLeft = this.deps.dom.el.classList.contains('is-open') ? this.occupiedLeft(this.drawerWidth) : 0;
+    const overlayLeft = this.deps.dom.el.classList.contains('is-open')
+      ? this.isMaximized ? window.innerWidth : this.occupiedLeft(this.drawerWidth)
+      : 0;
     const centerX = (window.innerWidth + overlayLeft) / 2;
     this.floatEl.style.left = `${Math.round(centerX)}px`;
   }
@@ -159,6 +164,54 @@ export class DrawerLayout {
     (window as any).__cockpit?.setCanvasOverlay(left);
   }
 
+  /** Expand the open drawer to the full window width. */
+  maximize(): void {
+    if (this.isMaximized) return;
+    this.isMaximized = true;
+    this.deps.dom.el.classList.add('is-maximized');
+    this.setBackTitle('Back to panel');
+    this.applyWidth(window.innerWidth);
+  }
+
+  /** Return the drawer to its resized panel width. */
+  restore(): void {
+    if (!this.isMaximized) return;
+    this.isMaximized = false;
+    this.deps.dom.el.classList.remove('is-maximized');
+    this.setBackTitle('Close panel');
+    this.applyWidth(this.drawerWidth);
+  }
+
+  toggleMaximize(): void {
+    // Floating: pull the input card back into the panel before expanding.
+    if (this.isDetached) this.attach();
+    this.ensureDrawerOpen();
+    if (this.isMaximized) this.restore();
+    else this.maximize();
+  }
+
+  /** << control: a maximized drawer returns to the panel; otherwise the panel closes. */
+  back(): void {
+    if (this.isMaximized) this.restore();
+    else this.close();
+  }
+
+  /** Reflect the << control's meaning in its accessible label. */
+  private setBackTitle(action: 'Close panel' | 'Back to panel'): void {
+    const btn = this.deps.dom.backBtn;
+    if (btn) {
+      btn.setAttribute('aria-label', action);
+      btn.setAttribute('title', action);
+    }
+  }
+
+  /** Set drawer width and re-sync the canvas overlay + float position. */
+  private applyWidth(w: number): void {
+    this.setOpenWidth(w);
+    this.setCanvasOverlay(this.occupiedLeft(w));
+    this.updateFloatPosition();
+  }
+
   open(): void {
     const occ = this.occupiedLeft(this.drawerWidth);
     this.shiftCanvasPan(occ);
@@ -175,6 +228,11 @@ export class DrawerLayout {
     const occ = this.occupiedLeft(this.drawerWidth);
     this.shiftCanvasPan(-occ);
     this.setCanvasOverlay(0);
+    if (this.isMaximized) {
+      this.isMaximized = false;
+      this.deps.dom.el.classList.remove('is-maximized');
+    }
+    this.setBackTitle('Close panel');
     this.deps.dom.el.style.width = '0';
     this.deps.dom.el.classList.remove('is-open');
     this.updateFloatPosition();
@@ -207,6 +265,8 @@ export class DrawerLayout {
       this.isDragging = true;
       startX = e.clientX;
       startW = dom.el.offsetWidth || this.drawerWidth;
+      // Dragging a maximized drawer restores the panel mode first.
+      if (this.isMaximized) this.restore();
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     });

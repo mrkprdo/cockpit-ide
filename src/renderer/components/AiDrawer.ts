@@ -385,6 +385,8 @@ export class AiDrawer {
   private occupiedLeft(w?: number): number { return this.layout.occupiedLeft(w); }
   private shiftCanvasPan(delta: number): void { this.layout.shiftCanvasPan(delta); }
   private setCanvasOverlay(left: number): void { this.layout.setCanvasOverlay(left); }
+  private toggleMaximize(): void { this.layout.toggleMaximize(); }
+  private backPanel(): void { this.layout.back(); }
   private renderMessages(): void { this.renderCtrl.renderMessages(); }
   private renderTokenUsage(): void { this.renderCtrl.renderTokenUsage(); }
   private buildHistoryForLLM(): LLMMessage[] { return this.contextWindow.buildHistoryForLLM(); }
@@ -564,6 +566,8 @@ export class AiDrawer {
     const src = 'ai-drawer/AiDrawer.ts';
     this.unbinders.push(bindGuarded(this.dom.sendBtn, 'click', () => { void this.sendMessage(); }, src));
     this.unbinders.push(bindGuarded(this.dom.detachBtn, 'click', () => this.layout.detach(), src));
+    this.unbinders.push(bindGuarded(this.dom.expandBtn, 'click', () => this.toggleMaximize(), src));
+    this.unbinders.push(bindGuarded(this.dom.backBtn, 'click', () => this.backPanel(), src));
     this.unbinders.push(bindGuarded(this.dom.el.querySelector('.ai-drawer-close-btn')!, 'click', () => this.layout.close(), src));
     this.unbinders.push(bindGuarded(this.dom.inputEl, 'input', () => this.handleInput(), src));
     this.unbinders.push(bindGuarded(this.dom.inputEl, 'keydown', (e: KeyboardEvent) => {
