@@ -109,10 +109,10 @@ Main-process APIs cross to the renderer exclusively via `window.electronAPI` (pr
 
 ## Testing conventions
 
-- 68 test files / 1618 tests: 1614 pass, 4 skip (the opt-in spec-corpus checks — see *Spec System*). Global mocks in `src/test/setup.ts` (IPC, Canvas, xterm, DOM, ResizeObserver) — most tests need no extra mocking. `.md` files are imported as text via the `md-text` vitest window.
+- 73 test files / 1756 tests: 1752 pass, 4 skip (the opt-in spec-corpus checks — see *Spec System*). Global mocks in `src/test/setup.ts` (IPC, Canvas, xterm, DOM, ResizeObserver) — most tests need no extra mocking. `.md` files are imported as text via the `md-text` vitest window.
 - Unit tests live next to each source file; `src/test/` holds cross-cutting suites: `edge-cases.test.ts`, `workflows.test.ts`, `e2e-advanced.test.ts`, plus the headless `specs-reconcile.test.ts` harness.
 - Integration tests that touch the main process use `main._testTrustPath(...)` (test-only export) to bypass the workspace-path trust gate.
-- Full suite is green (2026-11-13): 1614/1614 runnable tests pass; the only skips are corpus checks that need a generated `src/specs/`.
+- Full suite is green (2026-11-13): 1752/1752 runnable tests pass; the only skips are corpus checks that need a generated `src/specs/`.
 - `src/test/README.md` carries the suite inventory — keep its numbers in step with this file.
 
 ## Gotchas

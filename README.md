@@ -89,7 +89,7 @@ npm run pack        # build Windows NSIS installer
 **File watching:** chokidar 5  
 **IDE server:** ws 8 (local WebSocket, JSON-RPC-ish envelope)  
 **Validation:** zod 4  
-**Testing:** vitest 4 + jsdom (68 test files, 1,614 passing + 4 skipped spec-corpus checks)
+**Testing:** vitest 4 + jsdom (73 test files, 1,752 passing + 4 skipped spec-corpus checks)
 
 ## Security posture
 

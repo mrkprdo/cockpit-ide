@@ -2,7 +2,7 @@
 
 Vitest + jsdom + lightweight mocks.
 
-**Suite size (2026-11-13): 68 test files / 1,618 tests — 1,614 pass, 4 skip.**
+**Suite size (2026-11-13): 73 test files / 1,756 tests — 1,752 pass, 4 skip.**
 The four skips are the opt-in SPECGEN corpus checks (`src/renderer/specs/format.test.ts`,
 `src/test/specs-reconcile.test.ts`): the corpus is generated per workspace and this repo does not
 carry one, so those suites are declared `describe.skipIf(!HAS_SPECS)` and report their absence
