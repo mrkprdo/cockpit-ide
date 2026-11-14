@@ -7,6 +7,8 @@ import type {
   LLMStreamEvent,
   LLMToolCall,
 } from './types';
+import { LLMConfigError, parseHttpError } from './llm-errors';
+import { completionUrl, resolveProtocol, type LLMProtocol } from './llm-protocol';
 
 type FetchLike = typeof fetch;
 
@@ -31,11 +33,14 @@ interface StreamToolCallChunk {
 }
 
 /**
- * Thin OpenAI-compatible chat completions client.
+ * Thin LLM client speaking the OpenAI Chat Completions and OpenAI Responses
+ * protocols (the two families OpenCode serves behind its OpenAI-compatible
+ * base), with an explicit, actionable refusal for Anthropic Messages.
  *
  * - Injectable `fetch` implementation for tests.
  * - Normalizes the endpoint URL (strips trailing slashes).
- * - Throws descriptive errors for non-OK responses.
+ * - Throws typed `LLMHttpError`s (status + provider code/message) for non-OK
+ *   responses, so the UI can say "your key expired" instead of printing JSON.
  * - Supports Server-Sent Events (SSE) streaming with tool-call accumulation.
  */
 export class LLMClient {
@@ -64,6 +69,24 @@ export class LLMClient {
     }
   }
 
+  /** Wire protocol this (endpoint, model) pair speaks. */
+  get protocol(): LLMProtocol {
+    return resolveProtocol(this.config.endpoint, this.config.model);
+  }
+
+  /** The URL this client will actually call (shown in the settings panel). */
+  get requestUrl(): string {
+    return completionUrl(this.config.endpoint, this.protocol);
+  }
+
+  private unsupportedMessagesError(): LLMConfigError {
+    return new LLMConfigError(
+      `The endpoint ${this.config.endpoint} uses the Anthropic Messages API, which this panel does not speak yet. ` +
+      `Point the endpoint at an OpenAI-compatible base (e.g. https://opencode.ai/inference/openai/v1) and pick a Chat Completions or GPT model.`,
+      'unsupported',
+    );
+  }
+
   private buildBody(options: LLMCompletionOptions): Record<string, unknown> {
     const body: Record<string, unknown> = {
       model: this.config.model,
@@ -84,8 +107,11 @@ export class LLMClient {
   }
 
   async chatCompletion(options: LLMCompletionOptions): Promise<LLMResponse> {
-    const url = `${this.config.endpoint.replace(/\/+$/, '')}/chat/completions`;
-    const res = await this.fetchImpl(url, {
+    const protocol = this.protocol;
+    if (protocol === 'messages') throw this.unsupportedMessagesError();
+    if (protocol === 'responses') return this.responsesCompletion(options);
+
+    const res = await this.fetchImpl(this.requestUrl, {
       method: 'POST',
       signal: options.signal,
       headers: {
@@ -96,8 +122,7 @@ export class LLMClient {
     });
 
     if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`API error ${res.status}: ${errBody}`);
+      throw parseHttpError(res.status, await res.text().catch(() => ''), res.headers?.get?.('retry-after'));
     }
 
     return res.json();
@@ -109,8 +134,11 @@ export class LLMClient {
    * `tool_calls` event at the end of the stream.
    */
   async *streamChatCompletion(options: LLMCompletionOptions): AsyncGenerator<LLMStreamEvent> {
-    const url = `${this.config.endpoint.replace(/\/+$/, '')}/chat/completions`;
-    const res = await this.fetchImpl(url, {
+    const protocol = this.protocol;
+    if (protocol === 'messages') throw this.unsupportedMessagesError();
+    if (protocol === 'responses') { yield* this.streamResponses(options); return; }
+
+    const res = await this.fetchImpl(this.requestUrl, {
       method: 'POST',
       signal: options.signal,
       headers: {
@@ -122,8 +150,7 @@ export class LLMClient {
     });
 
     if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`API error ${res.status}: ${errBody}`);
+      throw parseHttpError(res.status, await res.text().catch(() => ''), res.headers?.get?.('retry-after'));
     }
 
     // If the server returns a plain JSON response (e.g. proxies that ignore stream: true),
@@ -207,6 +234,114 @@ export class LLMClient {
     }
   }
 
+  // ── OpenAI Responses protocol ───────────────────────────────────────────
+  // GPT models on OpenCode are Responses-only. That API takes a different body
+  // (`input` items instead of `messages`, flat tool definitions) and emits a
+  // different stream (`response.output_text.delta`,
+  // `response.output_item.done`), so both directions are mapped here and the
+  // rest of the app keeps seeing Chat-Completions-shaped messages.
+
+  private buildResponsesBody(options: LLMCompletionOptions, stream: boolean): Record<string, unknown> {
+    const { instructions, input } = toResponsesInput(options.messages);
+    const body: Record<string, unknown> = {
+      model: this.config.model,
+      input,
+      max_output_tokens: options.max_tokens ?? 65536,
+    };
+    if (instructions) body.instructions = instructions;
+    if (stream) body.stream = true;
+    if (options.tools && options.tools.length > 0) {
+      body.tools = options.tools.map(t => ({
+        type: 'function',
+        name: t.function.name,
+        description: t.function.description,
+        parameters: t.function.parameters,
+      }));
+      body.tool_choice = options.tool_choice ?? 'auto';
+    }
+    return body;
+  }
+
+  private async responsesCompletion(options: LLMCompletionOptions): Promise<LLMResponse> {
+    const res = await this.fetchImpl(this.requestUrl, {
+      method: 'POST',
+      signal: options.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+      },
+      body: JSON.stringify(this.buildResponsesBody(options, false)),
+    });
+    if (!res.ok) {
+      throw parseHttpError(res.status, await res.text().catch(() => ''), res.headers?.get?.('retry-after'));
+    }
+    return fromResponsesPayload(await res.json());
+  }
+
+  private async *streamResponses(options: LLMCompletionOptions): AsyncGenerator<LLMStreamEvent> {
+    const res = await this.fetchImpl(this.requestUrl, {
+      method: 'POST',
+      signal: options.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+      },
+      body: JSON.stringify(this.buildResponsesBody(options, true)),
+    });
+    if (!res.ok) {
+      throw parseHttpError(res.status, await res.text().catch(() => ''), res.headers?.get?.('retry-after'));
+    }
+
+    // Proxies that ignore stream:true still return one JSON document.
+    if (!res.body) {
+      const payload = fromResponsesPayload(await res.json());
+      const msg = payload.choices[0]?.message;
+      if (msg?.content) yield { type: 'content', delta: msg.content };
+      if (msg?.tool_calls?.length) yield { type: 'tool_calls', tool_calls: msg.tool_calls };
+      return;
+    }
+
+    const calls: LLMToolCall[] = [];
+    for await (const line of this.readSSELines(res.body)) {
+      if (!line.startsWith('data: ')) continue;
+      const raw = line.slice(6);
+      if (raw === '[DONE]') break;
+
+      let ev: Record<string, any>;
+      try { ev = JSON.parse(raw) as Record<string, any>; } catch { continue; }
+
+      switch (ev.type) {
+        case 'response.output_text.delta':
+        case 'response.reasoning_summary_text.delta':
+          if (typeof ev.delta === 'string' && ev.delta) yield { type: 'content', delta: ev.delta };
+          break;
+        case 'response.output_item.done': {
+          const item = ev.item;
+          if (item?.type === 'function_call' && item.name) {
+            calls.push({
+              id: item.call_id || item.id || `call_${calls.length}`,
+              type: 'function',
+              function: { name: item.name, arguments: item.arguments || '{}' },
+            });
+          }
+          break;
+        }
+        case 'response.failed':
+        case 'error': {
+          const e = ev.response?.error ?? ev.error ?? {};
+          throw new Error(`API error 502: ${e.message || e.code || 'stream failed'}`);
+        }
+        case 'response.completed':
+          if (calls.length > 0) yield { type: 'tool_calls', tool_calls: calls };
+          return;
+        default:
+          break;
+      }
+    }
+    if (calls.length > 0) yield { type: 'tool_calls', tool_calls: calls };
+  }
+
   private async *readSSELines(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
@@ -243,3 +378,60 @@ export class LLMClient {
 }
 
 export type { OpenAIFunctionSchema, LLMMessage, LLMResponse };
+
+/**
+ * Map Chat-Completions messages onto Responses `input` items.
+ * System turns become `instructions`; tool results become function_call_output.
+ */
+export function toResponsesInput(messages: LLMMessage[]): { instructions: string; input: any[] } {
+  const system: string[] = [];
+  const input: any[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') {
+      if (m.content) system.push(m.content);
+      continue;
+    }
+    if (m.role === 'tool') {
+      input.push({ type: 'function_call_output', call_id: m.tool_call_id ?? '', output: m.content ?? '' });
+      continue;
+    }
+    if (m.role === 'assistant') {
+      if (m.content) {
+        input.push({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: m.content }] });
+      }
+      for (const tc of m.tool_calls ?? []) {
+        input.push({
+          type: 'function_call',
+          call_id: tc.id,
+          name: tc.function.name,
+          arguments: tc.function.arguments || '{}',
+        });
+      }
+      continue;
+    }
+    input.push({ type: 'message', role: 'user', content: [{ type: 'input_text', text: m.content ?? '' }] });
+  }
+  return { instructions: system.join('\n\n'), input };
+}
+
+/** Map a Responses payload (or completed stream) back to a Chat-Completions shape. */
+export function fromResponsesPayload(data: any): LLMResponse {
+  let content = '';
+  const tool_calls: LLMToolCall[] = [];
+  for (const item of (data?.output ?? []) as any[]) {
+    if (item?.type === 'message') {
+      for (const part of (item.content ?? []) as any[]) {
+        if (part?.type === 'output_text' && typeof part.text === 'string') content += part.text;
+      }
+    } else if (item?.type === 'function_call' && item.name) {
+      tool_calls.push({
+        id: item.call_id || item.id || `call_${tool_calls.length}`,
+        type: 'function',
+        function: { name: item.name, arguments: item.arguments || '{}' },
+      });
+    }
+  }
+  const message: LLMMessage = { role: 'assistant', content };
+  if (tool_calls.length > 0) message.tool_calls = tool_calls;
+  return { choices: [{ message, finish_reason: tool_calls.length > 0 ? 'tool_calls' : 'stop' }] };
+}

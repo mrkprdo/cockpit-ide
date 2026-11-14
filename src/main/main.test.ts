@@ -1041,12 +1041,16 @@ describe('main.ts IPC handlers', () => {
     it('returns false when spawn throws', async () => {
       const nodePty = await import('node-pty');
       const spawnMock = vi.mocked(nodePty.spawn);
-      spawnMock.mockImplementationOnce(() => { throw new Error('spawn failed'); });
+      // Both attempts must fail: the handler retries once without the bundled
+      // ConPTY DLL (see terminal.ts), then reports failure.
+      spawnMock.mockClear();
+      spawnMock.mockImplementation(() => { throw new Error('spawn failed'); });
 
       const handler = handleMap.get('terminal:create')!;
       const sender = { isDestroyed: () => false, send: vi.fn() };
       const result = await handler({ sender }, 'test-uuid-3');
       expect(result).toBe(false);
+      expect(spawnMock).toHaveBeenCalledTimes(2);
 
       spawnMock.mockReset();
       (spawnMock as any).mockReturnValue({ onData: vi.fn(), onExit: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn() });

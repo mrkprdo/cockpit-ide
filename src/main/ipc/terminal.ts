@@ -61,15 +61,24 @@ export function registerTerminalHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
       } catch { resolvedCwd = home; }
     }
     let pty: any;
+    const spawnOpts = {
+      name: 'xterm-color',
+      cols: 80,
+      rows: 24,
+      cwd: resolvedCwd,
+      env: security.filterEnv(),
+    };
     try {
-      pty = nodePty.spawn(shell, [], {
-        name: 'xterm-color',
-        cols: 80,
-        rows: 24,
-        cwd: resolvedCwd,
-        env: security.filterEnv(),
-      });
-    } catch { return false; }
+      // Prefer the bundled ConPTY. The legacy path forks
+      // `conpty_console_list_agent` when killing a terminal to enumerate the
+      // console's processes; once the shell has already exited that helper dies
+      // with "Error: AttachConsole failed" — an unhandled crash logged on every
+      // close. `useConptyDll` skips that helper entirely. Fall back if the
+      // bundled DLL is unavailable on this platform/arch.
+      pty = nodePty.spawn(shell, [], { ...spawnOpts, useConptyDll: true });
+    } catch {
+      try { pty = nodePty.spawn(shell, [], spawnOpts); } catch { return false; }
+    }
 
     const sender = event.sender;
     state.terminalSenders.set(uuid, sender);

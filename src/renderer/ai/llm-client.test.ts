@@ -216,6 +216,99 @@ describe('LLMClient', () => {
       ]);
     });
 
+    it('streams the OpenAI Responses protocol for GPT models', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        body: makeSSEStream([
+          'data: {"type":"response.output_text.delta","delta":"Hel"}',
+          'data: {"type":"response.output_text.delta","delta":"lo"}',
+          'data: {"type":"response.output_item.done","item":{"type":"function_call","call_id":"call_1","name":"read_file","arguments":"{\\"path\\":\\"a.ts\\"}"}}',
+          'data: {"type":"response.completed"}',
+        ]),
+      });
+
+      const client = new LLMClient(
+        { apiKey: 'k', endpoint: 'https://opencode.ai/inference/openai/v1', model: 'gpt-6.1-sol' },
+        fetchMock as unknown as typeof fetch
+      );
+
+      const events = await collectStream(client.streamChatCompletion({
+        messages: [
+          { role: 'system', content: 'be brief' },
+          { role: 'user', content: 'hi' },
+        ],
+        tools: [{ type: 'function', function: { name: 'read_file', description: 'read', parameters: { type: 'object' } } }],
+      }));
+
+      expect(events[0]).toEqual({ type: 'content', delta: 'Hel' });
+      expect(events[1]).toEqual({ type: 'content', delta: 'lo' });
+      expect(events[2]).toEqual({ type: 'tool_calls', tool_calls: [
+        { id: 'call_1', type: 'function', function: { name: 'read_file', arguments: '{"path":"a.ts"}' } },
+      ] });
+
+      // The request must go to /responses with flat tool definitions and the
+      // system turn lifted into `instructions`.
+      expect(fetchMock.mock.calls[0][0]).toBe('https://opencode.ai/inference/openai/v1/responses');
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.stream).toBe(true);
+      expect(body.instructions).toBe('be brief');
+      expect(body.input).toEqual([{ type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] }]);
+      expect(body.tools).toEqual([{
+        type: 'function', name: 'read_file', description: 'read', parameters: { type: 'object' },
+      }]);
+    });
+
+    it('maps a non-streamed Responses payload into a chat-shaped response', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          output: [
+            { type: 'message', content: [{ type: 'output_text', text: 'done' }] },
+            { type: 'function_call', call_id: 'c1', name: 'git_status', arguments: '{}' },
+          ],
+        }),
+      });
+
+      const client = new LLMClient(
+        { apiKey: 'k', endpoint: 'https://opencode.ai/inference/openai/v1', model: 'gpt-6.1-sol' },
+        fetchMock as unknown as typeof fetch
+      );
+
+      const res = await client.chatCompletion({ messages: [{ role: 'user', content: 'x' }] });
+      expect(res.choices[0].message.content).toBe('done');
+      expect(res.choices[0].message.tool_calls?.[0].function.name).toBe('git_status');
+      expect(res.choices[0].finish_reason).toBe('tool_calls');
+    });
+
+    it('reports an expired key as a typed auth error, not a JSON blob', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        headers: { get: () => null },
+        text: async () => JSON.stringify({ error: { code: 'api_key_expired', message: 'This API key has expired.' } }),
+      });
+
+      const client = new LLMClient(
+        { apiKey: 'k', endpoint: 'https://opencode.ai/zen/go/v1', model: 'm' },
+        fetchMock as unknown as typeof fetch
+      );
+
+      await expect(client.chatCompletion({ messages: [{ role: 'user', content: 'x' }] }))
+        .rejects.toMatchObject({ name: 'LLMHttpError', status: 401, code: 'api_key_expired' });
+    });
+
+    it('refuses the Anthropic Messages family with an actionable error', async () => {
+      const fetchMock = vi.fn();
+      const client = new LLMClient(
+        { apiKey: 'k', endpoint: 'https://opencode.ai/inference/anthropic/v1', model: 'claude-sonnet-5-5' },
+        fetchMock as unknown as typeof fetch
+      );
+
+      await expect(client.chatCompletion({ messages: [{ role: 'user', content: 'x' }] }))
+        .rejects.toThrow(/Anthropic Messages API/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('falls back to a single JSON response when no body is provided', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,

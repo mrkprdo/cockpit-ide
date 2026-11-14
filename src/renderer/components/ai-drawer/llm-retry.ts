@@ -7,31 +7,27 @@
 // The cooldown wait is abortable so the user can always stop a run mid-retry.
 
 import { reportFailure } from '../../health/monitor';
+import { classifyLLMError } from '../../ai/llm-errors';
 import type { ChatMessage } from './types';
 
 /** Retry cooldown for transient LLM failures — exponential backoff, capped. */
 export const RETRY_BASE_DELAY_MS = 1_000;
 export const RETRY_MAX_DELAY_MS = 30_000;
 
-/** HTTP statuses worth retrying: rate limits and server-side hiccups. */
-const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+/**
+ * Kinds worth retrying: rate limits, server-side hiccups, and network faults.
+ * `unknown` stays retryable to preserve the "never give up on a transient blip"
+ * behaviour for unclassified failures.
+ */
+const RETRYABLE_KINDS = new Set(['rate-limit', 'server', 'network', 'unknown']);
 
 /**
  * Is an LLM error transient (worth an indefinite retry) or permanent (surface
- * it immediately)? Auth/bad-request 4xx are config problems a retry won't fix;
- * network failures, rate limits, and 5xx are the cases that used to kill a run.
+ * it immediately)? Auth/model/bad-request are configuration problems a retry
+ * cannot fix — retrying an expired key forever is the worst possible UX.
  */
 export function isRetryableError(err: unknown): boolean {
-  const e = err as { name?: string; message?: string };
-  if (e?.name === 'AbortError') return false;
-  const msg = String(e?.message ?? err ?? '');
-  const status = /API error (\d{3})/.exec(msg);
-  if (status) return RETRYABLE_STATUS.has(Number(status[1]));
-  if (e instanceof TypeError || /fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|network|temporary failure/i.test(msg)) {
-    return true;
-  }
-  // Unknown errors are treated as transient — indefinite retry is the ask.
-  return true;
+  return RETRYABLE_KINDS.has(classifyLLMError(err));
 }
 
 export interface RetryControllerDeps {

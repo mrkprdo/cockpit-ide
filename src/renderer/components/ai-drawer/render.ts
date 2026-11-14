@@ -270,7 +270,11 @@ export class RenderController {
             Context limit (tokens)
             <input class="ai-settings-input" type="number" min="1024" step="1024" value="${snap.contextTokenLimit}" data-key="contextLimit" placeholder="8192">
           </label>
-          <button class="ai-settings-save">Save</button>
+          <div class="ai-settings-actions">
+            <button class="ai-settings-test">Test connection</button>
+            <button class="ai-settings-save">Save</button>
+          </div>
+          <div class="ai-settings-result" role="status" aria-live="polite"></div>
         </div>
       </div>
       <div class="ai-sessions-panel">

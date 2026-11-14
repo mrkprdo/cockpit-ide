@@ -24,6 +24,7 @@ import { DESTRUCTIVE_TOOL_NAMES } from '../../ai/tool-definitions';
 import type { LLMMessage, LLMToolCall, ToolContext } from '../../ai/types';
 import { reportFailure } from '../../health/monitor';
 import { RetryController } from './llm-retry';
+import { buildErrorBubble } from './error-bubble';
 import { escapeHtml } from './render';
 import type { ContextWindow } from './context-window';
 import type { RenderController } from './render';
@@ -128,11 +129,7 @@ export class LlmLoop {
     } catch (err: any) {
       // User aborted mid-cooldown — no error bubble, just stop.
       if (err?.name === 'AbortError') return;
-      this.render.messages.push({
-        role: 'assistant',
-        content: `**Error:** ${escapeHtml(err.message || 'Unknown error')}`,
-        timestamp: Date.now(),
-      });
+      this.render.messages.push({ role: 'assistant', content: buildErrorBubble(err), timestamp: Date.now() });
     }
     this.host.setLoading(false);
     this.render.renderMessages();

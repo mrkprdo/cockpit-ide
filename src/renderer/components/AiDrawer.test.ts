@@ -1065,7 +1065,11 @@ describe('AiDrawer', () => {
       (q('.ai-chat-input') as HTMLTextAreaElement).value = 'Test';
       q('.ai-chat-send-btn').click();
       await flush();
-      expect(q('.ai-chat-messages').textContent).toContain('Error:');
+      // An auth failure is explained, not dumped: the user is told the key was
+      // rejected and where to get a new one.
+      const text = q('.ai-chat-messages').textContent ?? '';
+      expect(text).toContain('API key rejected');
+      expect(text).toContain('Create a new key');
     });
   });
 
@@ -2347,7 +2351,7 @@ describe('AiDrawer', () => {
       (q('.ai-chat-input') as HTMLTextAreaElement).value = 'hello';
       q('.ai-chat-send-btn').click();
       await vi.waitFor(
-        () => expect(drawer['messages'].some((m: any) => (m.content || '').includes('**Error:**'))).toBe(true),
+        () => expect(drawer['messages'].some((m: any) => (m.content || '').includes('API key rejected'))).toBe(true),
         { timeout: 2000, interval: 10 },
       );
       expect(calls).toBe(1); // no retry — retrying a bad key never helps

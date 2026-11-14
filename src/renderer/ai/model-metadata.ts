@@ -75,8 +75,11 @@ export async function loadModelsDev(): Promise<ProviderData> {
 
 /** Map an endpoint to a models.dev provider id (null for unknown gateways). */
 export function providerForEndpoint(endpoint: string): string | null {
-  if (endpoint.includes('/zen/go/')) return 'opencode-go';
-  if (endpoint.includes('/zen/')) return 'opencode';
+  const ep = (endpoint || '').toLowerCase();
+  if (ep.includes('/zen/go/')) return 'opencode-go';
+  // Current Console inference base — same catalogue as Zen.
+  if (ep.includes('/inference/')) return 'opencode';
+  if (ep.includes('/zen/')) return 'opencode';
   return null;
 }
 

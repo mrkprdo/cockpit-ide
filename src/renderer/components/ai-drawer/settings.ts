@@ -4,6 +4,8 @@
 
 import { getAgentExecutor } from '../../agents/executor';
 import { LLMClient } from '../../ai/llm-client';
+import { describeLLMError } from '../../ai/llm-errors';
+import { protocolLabel } from '../../ai/llm-protocol';
 import { resolveModelLimit } from '../../ai/model-metadata';
 import { viewPrefs } from '../../ai/view-prefs';
 import type { AiDrawerDom } from './types';
@@ -16,20 +18,27 @@ export interface ZenModel {
   maxOutput: number;
 }
 
-/** Preset models — context/output limits from models.dev. */
+/** Preset models — context/output limits from models.dev (refreshed on selection). */
 export const ZEN_MODELS: ZenModel[] = [
-  // Free (Zen endpoint) — context/output from models.dev
-  { id: 'deepseek-v4-flash-free', label: 'DeepSeek V4 Flash (Free)', group: 'free', maxContext: 200000, maxOutput: 128000 },
-  { id: 'north-mini-code-free', label: 'North Mini Code (Free)', group: 'free', maxContext: 256000, maxOutput: 64000 },
-  { id: 'nemotron-3-ultra-free', label: 'Nemotron 3 Ultra (Free)', group: 'free', maxContext: 1000000, maxOutput: 128000 },
-  { id: 'mimo-v2.5-free', label: 'MiMo V2.5 (Free)', group: 'free', maxContext: 200000, maxOutput: 32000 },
-  { id: 'big-pickle', label: 'Big Pickle (Free)', group: 'free', maxContext: 200000, maxOutput: 32000 },
-  // Paid (Go endpoint)
+  // Free (Zen endpoint) — OpenCode restricts these to its own app: other
+  // clients receive HTTP 403 even with a valid key (console/api/inference docs).
+  { id: 'deepseek-v4-flash-free', label: 'DeepSeek V4 Flash (Free · app only)', group: 'free', maxContext: 200000, maxOutput: 128000 },
+  { id: 'north-mini-code-free', label: 'North Mini Code (Free · app only)', group: 'free', maxContext: 256000, maxOutput: 64000 },
+  { id: 'nemotron-3-ultra-free', label: 'Nemotron 3 Ultra (Free · app only)', group: 'free', maxContext: 1000000, maxOutput: 128000 },
+  { id: 'mimo-v2.5-free', label: 'MiMo V2.5 (Free · app only)', group: 'free', maxContext: 200000, maxOutput: 32000 },
+  { id: 'big-pickle', label: 'Big Pickle (Free · app only)', group: 'free', maxContext: 200000, maxOutput: 32000 },
+  // Paid (Go endpoint / Console inference) — Chat Completions family
   { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', group: 'paid', maxContext: 1000000, maxOutput: 384000 },
   { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', group: 'paid', maxContext: 1000000, maxOutput: 384000 },
+  { id: 'kimi-k3', label: 'Kimi K3', group: 'paid', maxContext: 262144, maxOutput: 65536 },
+  { id: 'glm-5.3', label: 'GLM 5.3', group: 'paid', maxContext: 200000, maxOutput: 65536 },
+  { id: 'minimax-m3', label: 'MiniMax M3', group: 'paid', maxContext: 204800, maxOutput: 131072 },
   { id: 'minimax-m2.7', label: 'MiniMax M2.7', group: 'paid', maxContext: 204800, maxOutput: 131072 },
   { id: 'grok-build-0.1', label: 'Grok Build 0.1', group: 'paid', maxContext: 256000, maxOutput: 256000 },
   { id: 'kimi-k2.5', label: 'Kimi K2.5', group: 'paid', maxContext: 262144, maxOutput: 65536 },
+  // GPT models are served by the Responses API — the client switches protocols
+  // automatically for gpt-/o-series ids on the Console inference base.
+  { id: 'gpt-6.1-sol', label: 'GPT 6.1 Sol (Responses)', group: 'paid', maxContext: 400000, maxOutput: 128000 },
 ];
 
 export interface SettingsSnapshot {
@@ -150,6 +159,50 @@ export class SettingsStore {
     return new LLMClient({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model });
   }
 
+  /**
+   * Prove the endpoint + key + model actually work, and report the provider's
+   * own reason when they don't.
+   *
+   * Reads the CURRENT input values (not the saved ones) so you can test before
+   * saving. This is the difference between "my key expired" and a wall of JSON
+   * discovered only after sending a real prompt.
+   */
+  async testConnection(resultEl?: HTMLElement | null): Promise<boolean> {
+    const settingsEl = this.dom.settingsEl;
+    const readInput = (key: string): string | undefined =>
+      settingsEl?.querySelector<HTMLInputElement>(`.ai-settings-input[data-key="${key}"]`)?.value;
+
+    const endpoint = (readInput('endpoint') ?? this.endpoint).trim();
+    const apiKey = (readInput('apiKey') ?? this.apiKey).trim();
+    const select = settingsEl?.querySelector<HTMLSelectElement>('.ai-settings-select[data-key="model-select"]');
+    const model = select && select.value !== '__custom__' ? select.value : (readInput('model-custom') || this.model);
+
+    const report = (text: string, ok: boolean): void => {
+      if (!resultEl) return;
+      resultEl.textContent = text;
+      resultEl.classList.toggle('is-ok', ok);
+      resultEl.classList.toggle('is-error', !ok);
+    };
+
+    if (!apiKey) { report('No API key set — paste one above.', false); return false; }
+
+    const client = new LLMClient({ endpoint, apiKey, model });
+    report(`Testing ${client.requestUrl} …`, true);
+    try {
+      const res = await client.chatCompletion({
+        messages: [{ role: 'user', content: 'Reply with the single word: ok' }],
+        max_tokens: 16,
+      });
+      const reply = (res.choices?.[0]?.message?.content ?? '').trim().slice(0, 60);
+      report(`Connected · ${protocolLabel(client.protocol)} · ${model}${reply ? ` — "${reply}"` : ''}`, true);
+      return true;
+    } catch (err) {
+      const info = describeLLMError(err);
+      report(`${info.title}: ${info.message}`, false);
+      return false;
+    }
+  }
+
   /** Wire settings-panel interactions (model select + save). Called once by the facade after the skeleton is built. */
   bindPanel(): void {
     const settingsEl = this.dom.settingsEl;
@@ -162,11 +215,16 @@ export class SettingsStore {
       modelCustomInput.style.display = isCustom ? 'block' : 'none';
       if (!isCustom) {
         const entry = ZEN_MODELS.find(m => m.id === modelSelect.value);
-        this.endpoint = entry?.group === 'free'
-          ? 'https://opencode.ai/zen/v1'
-          : 'https://opencode.ai/zen/go/v1';
-        const epInput = settingsEl.querySelector<HTMLInputElement>('.ai-settings-input[data-key="endpoint"]');
-        if (epInput) epInput.value = this.endpoint;
+        // Only rewrite the endpoint when it is one of the known bases. A user
+        // who pointed at the Console inference base keeps that path (GPT models
+        // are Responses-only there); flipping it back to /zen would break them.
+        if (!this.endpoint.includes('/inference/')) {
+          this.endpoint = entry?.group === 'free'
+            ? 'https://opencode.ai/zen/v1'
+            : 'https://opencode.ai/zen/go/v1';
+          const epInput = settingsEl.querySelector<HTMLInputElement>('.ai-settings-input[data-key="endpoint"]');
+          if (epInput) epInput.value = this.endpoint;
+        }
         this.model = modelSelect.value;
         this.seedMaxOutput();
         this.refreshModelMetadata();
@@ -181,8 +239,13 @@ export class SettingsStore {
       }
     });
 
-    const saveBtn = settingsEl.querySelector('.ai-settings-save')!;
-    saveBtn.addEventListener('click', () => {
+    const testBtn = settingsEl.querySelector<HTMLButtonElement>('.ai-settings-test');
+    testBtn?.addEventListener('click', () => {
+      const resultEl = settingsEl.querySelector<HTMLDivElement>('.ai-settings-result');
+      void this.testConnection(resultEl);
+    });
+
+    const saveBtn = settingsEl.querySelector('.ai-settings-save')!;    saveBtn.addEventListener('click', () => {
       const modelSelect2 = settingsEl.querySelector<HTMLSelectElement>('.ai-settings-select[data-key="model-select"]');
       const modelCustomInput2 = settingsEl.querySelector<HTMLInputElement>('.ai-settings-input[data-key="model-custom"]');
       const inputs = settingsEl.querySelectorAll<HTMLInputElement>('.ai-settings-input');
