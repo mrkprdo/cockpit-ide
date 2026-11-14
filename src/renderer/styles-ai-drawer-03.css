@@ -87,6 +87,8 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 16px;
+  /* Keep the wheel inside the preview instead of scrolling the page/canvas. */
+  overscroll-behavior: contain;
 }
 .ai-float-preview-close {
   position: absolute;

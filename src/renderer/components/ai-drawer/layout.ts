@@ -3,7 +3,7 @@
 // drawer occupies. Owns detached state, the float-preview DOM, and the drawer
 // chrome refs it moves around.
 
-import { formatBody, scrollToBottomIfNearBottom } from './render';
+import { formatBody } from './render';
 import type { AiDrawerDom, ChatMessage, FloatPreviewState } from './types';
 
 export interface DrawerLayoutDeps {
@@ -57,6 +57,9 @@ export class DrawerLayout {
     this.floatPreviewEl = document.createElement('div');
     this.floatPreviewEl.className = 'ai-float-preview';
     this.floatPreviewEl.style.display = 'none';
+    // The preview scrolls; without this, a wheel over the float also zooms the
+    // canvas (Ctrl+wheel is handled document-wide in CanvasArea).
+    this.floatPreviewEl.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
     // Delegated so the close button survives innerHTML rewrites
     this.floatPreviewEl.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -108,6 +111,11 @@ export class DrawerLayout {
     this.deps.onDetachChange(false);
   }
 
+  /** 24px of slack before we consider the reader "at the bottom". */
+  private static readonly PIN_SLACK = 24;
+  /** True while the preview follows the stream; false once the user scrolls up. */
+  private floatPreviewPinned = true;
+
   updateFloatPreview(state: FloatPreviewState, text?: string): void {
     const el = this.floatPreviewEl;
     if (!el) return;
@@ -115,20 +123,43 @@ export class DrawerLayout {
       el.style.display = 'none';
       el.className = 'ai-float-preview';
       el.textContent = '';
+      this.floatPreviewPinned = true;
       return;
     }
     el.style.display = '';
+
     if (state === 'loading') {
       el.className = 'ai-float-preview is-loading';
       el.innerHTML = '<span class="ai-chat-loading-dot"></span><span class="ai-chat-loading-dot"></span><span class="ai-chat-loading-dot"></span>';
-    } else {
-      el.className = state === 'stream' ? 'ai-float-preview is-stream' : 'ai-float-preview is-done';
-      el.innerHTML = `<button class="ai-float-preview-close" aria-label="Clear response" title="Clear response">&#215;</button><div class="ai-float-preview-body">${formatBody(text || '')}</div>`;
-      if (state === 'stream') {
-        const body = el.querySelector('.ai-float-preview-body') as HTMLElement | null;
-        if (body) scrollToBottomIfNearBottom(body);
-      }
+      this.floatPreviewPinned = true;
+      return;
     }
+
+    // Keep the body node STABLE across chunks. Rebuilding innerHTML replaced the
+    // scroll container, which reset scrollTop to 0 on every token: the preview
+    // never followed the stream AND any manual scroll was undone immediately.
+    let body = el.querySelector<HTMLElement>('.ai-float-preview-body');
+    if (!body) {
+      el.className = state === 'stream' ? 'ai-float-preview is-stream' : 'ai-float-preview is-done';
+      el.innerHTML =
+        '<button class="ai-float-preview-close" aria-label="Clear response" title="Clear response">&#215;</button>' +
+        '<div class="ai-float-preview-body"></div>';
+      body = el.querySelector<HTMLElement>('.ai-float-preview-body')!;
+      // A brand-new response always starts pinned to the bottom.
+      this.floatPreviewPinned = true;
+      body.addEventListener('scroll', () => {
+        const distance = body!.scrollHeight - body!.scrollTop - body!.clientHeight;
+        this.floatPreviewPinned = distance <= DrawerLayout.PIN_SLACK;
+      }, { passive: true });
+    } else {
+      const cls = state === 'stream' ? 'ai-float-preview is-stream' : 'ai-float-preview is-done';
+      if (el.className !== cls) el.className = cls;
+    }
+
+    const previousTop = body.scrollTop;
+    body.innerHTML = formatBody(text || '');
+    if (this.floatPreviewPinned) body.scrollTop = body.scrollHeight;
+    else body.scrollTop = previousTop;   // keep the reader's place while text grows
   }
 
   /** Keep detached float card in sync with the active session transcript. */

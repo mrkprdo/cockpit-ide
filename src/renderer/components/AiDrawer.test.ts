@@ -756,6 +756,65 @@ describe('AiDrawer', () => {
       expect(drawer['sessions'][0].id).toBe(drawer['currentSessionId']);
     });
 
+    it('follows the stream, then stops following once the reader scrolls up', async () => {
+      drawer = await createDrawer();
+      drawer.detach();
+      const layout = drawer['layout'];
+
+      layout.updateFloatPreview('stream', 'first chunk');
+      const body = document.querySelector('.ai-float-preview-body') as HTMLElement;
+      expect(body).toBeTruthy();
+
+      // Deterministic geometry + an observable scrollTop (jsdom has no layout).
+      let top = 0;
+      Object.defineProperty(body, 'scrollHeight', { configurable: true, get: () => 600 });
+      Object.defineProperty(body, 'clientHeight', { configurable: true, get: () => 200 });
+      Object.defineProperty(body, 'scrollTop', {
+        configurable: true,
+        get: () => top,
+        set: (v: number) => { top = v; },
+      });
+
+      layout.updateFloatPreview('stream', 'first chunk second chunk');
+      // The scroll container itself must survive the update…
+      expect(document.querySelector('.ai-float-preview-body')).toBe(body);
+      // …and stay pinned to the bottom.
+      expect(top).toBe(600);
+
+      // Reader scrolls up: further chunks must not yank them back down.
+      top = 100;
+      body.dispatchEvent(new Event('scroll'));
+      layout.updateFloatPreview('stream', 'first chunk second chunk third');
+      expect(top).toBe(100);
+
+      // Back at the bottom: following resumes.
+      top = 600;
+      body.dispatchEvent(new Event('scroll'));
+      layout.updateFloatPreview('stream', 'first chunk second chunk third fourth');
+      expect(top).toBe(600);
+    });
+
+    it('re-pins when a new response starts after the preview was cleared', async () => {
+      drawer = await createDrawer();
+      drawer.detach();
+      const layout = drawer['layout'];
+
+      layout.updateFloatPreview('stream', 'old');
+      const oldBody = document.querySelector('.ai-float-preview-body') as HTMLElement;
+      let top = 500;
+      Object.defineProperty(oldBody, 'scrollHeight', { configurable: true, get: () => 500 });
+      Object.defineProperty(oldBody, 'clientHeight', { configurable: true, get: () => 100 });
+      Object.defineProperty(oldBody, 'scrollTop', { configurable: true, get: () => top, set: (v: number) => { top = v; } });
+      oldBody.dispatchEvent(new Event('scroll')); // scrolled up → unpinned
+
+      layout.updateFloatPreview('hidden');
+      layout.updateFloatPreview('stream', 'brand new answer');
+      const body = document.querySelector('.ai-float-preview-body') as HTMLElement;
+      expect(body).not.toBe(oldBody);
+      // A fresh response starts pinned again (no geometry needed: it assigns scrollHeight, i.e. 0 here).
+      expect(body.scrollTop).toBe(0);
+    });
+
     it('newSession clears detached float preview response', async () => {
       drawer = await createDrawer();
       await drawer['loadSessions']();
