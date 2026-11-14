@@ -1015,6 +1015,23 @@ describe('AiDrawer', () => {
       expect(drawer['settingsEl'].classList.contains('is-visible')).toBe(false);
     });
 
+    it('persists the AUTO destructive-tools toggle', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      q('.ai-drawer-settings-btn').click();
+
+      const toggle = drawer['el'].querySelector<HTMLInputElement>('.ai-settings-input[data-key="autoApproveDestructive"]')!;
+      expect(toggle).toBeTruthy();
+      expect(toggle.checked).toBe(true); // AUTO means auto by default
+      toggle.checked = false;
+      q('.ai-settings-save').click();
+      await flush();
+
+      expect(drawer['settingsStore'].autoApproveDestructive).toBe(false);
+      const prefs = (mockElectronAPI.prefs.save as any).mock.calls.at(-1)?.[0];
+      expect(prefs?.aiAutoApproveDestructive).toBe(false);
+    });
+
     it('toggles keep-view-still and persists aiSuppressViewMove', async () => {
       const { viewPrefs } = await import('../ai/view-prefs');
       drawer = await createDrawer();
@@ -1248,7 +1265,7 @@ describe('AiDrawer', () => {
       expect(combined).toContain('focus on the config file instead');
     });
 
-    it('gates a destructive tool call behind one confirmation in auto mode', async () => {
+    it('runs a destructive tool call without asking in auto mode (default)', async () => {
       let callCount = 0;
       globalThis.fetch = vi.fn().mockImplementation(() => {
         callCount++;
@@ -1274,8 +1291,38 @@ describe('AiDrawer', () => {
       await flush();
       await flush();
 
-      // Auto mode still stops for a mutating call: nothing is deleted yet, and
-      // the prompt names the tool AND its argument (names alone hid the target).
+      // AUTO means auto: no confirmation pause for a mutating call.
+      expect((window as any).electronAPI.fs.delete).toHaveBeenCalledWith('/ws/foo.ts');
+      expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(false);
+    });
+
+    it('gates a destructive call in auto mode when the user turns the setting off', async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(makeToolResponse('delete_file', JSON.stringify({ path: '/ws/foo.ts' })));
+        return Promise.resolve(makeTextResponse('Done.'));
+      });
+
+      (window as any).__cockpit = {
+        getWorkspacePath: () => '/ws',
+        getCanvasState: () => ({ panX: 0, panY: 0, zoom: 1, cards: [] }),
+        setView: vi.fn(),
+        setCanvasOverlay: vi.fn(),
+        revealFile: vi.fn().mockResolvedValue(undefined),
+      };
+
+      drawer = await createDrawer();
+      drawer['sessionsLoaded'] = true;
+      await drawer.toggle();
+      drawer['settingsStore'].autoApproveDestructive = false;
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'Delete foo.ts';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      // Nothing deleted yet, and the prompt names the tool AND its argument.
       expect((window as any).electronAPI.fs.delete).not.toHaveBeenCalled();
       expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(true);
       const label = q('.ai-step-label')?.textContent ?? '';

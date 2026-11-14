@@ -39,10 +39,9 @@ export * from './memory';
 export * from './misc';
 
 // Tools that mutate the filesystem, run a shell command, or change git/branch
-// state. ENFORCED: `llm-loop.callLLMWithTools` requires an explicit user
-// confirmation for any batch containing one of these while the drawer is in
-// `auto` mode (step mode already pauses on every batch; plan mode is approved
-// upstream). Keep this list in sync with the mutating tool definitions.
+// state. Auto mode runs them without asking unless the user turns off
+// "AUTO runs destructive tools without asking" (settings.autoApproveDestructive);
+// step mode pauses on every batch, and plan mode is approved upstream.
 export const DESTRUCTIVE_TOOL_NAMES = new Set<string>([
   'write_file',
   'delete_file',

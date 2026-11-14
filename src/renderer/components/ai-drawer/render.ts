@@ -269,6 +269,11 @@ export class RenderController {
             <input class="ai-settings-input" type="checkbox" ${snap.suppressViewMove ? 'checked' : ''} data-key="suppressViewMove">
             Keep view still on tool calls
           </label>
+          <label class="ai-settings-label ai-settings-checkbox">
+            <input class="ai-settings-input" type="checkbox" ${snap.autoApproveDestructive ? 'checked' : ''} data-key="autoApproveDestructive">
+            AUTO runs destructive tools without asking
+          </label>
+          <div class="ai-settings-hint">Turn this off to confirm writes, deletes, shell commands and git pushes even in AUTO.</div>
           <label class="ai-settings-label">
             Context limit (tokens)
             <input class="ai-settings-input" type="number" min="1024" step="1024" value="${snap.contextTokenLimit}" data-key="contextLimit" placeholder="8192">

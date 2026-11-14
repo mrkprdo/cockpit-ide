@@ -541,7 +541,7 @@ export class LlmLoop {
       const destructive = toolCalls.filter(tc => DESTRUCTIVE_TOOL_NAMES.has(tc.function.name));
 
       if (mode === 'step' && !(await gate(`Step ${++stepCount}: run ${describe(toolCalls)}?`))) return 'Aborted.';
-      if (mode === 'auto' && destructive.length > 0 &&
+      if (mode === 'auto' && destructive.length > 0 && !this.settings.autoApproveDestructive &&
         !(await gate(`Approve ${destructive.length} destructive call(s): ${describe(destructive)}?`))) return 'Aborted.';
 
       // Add assistant turn with tool_calls. Omit `content` (not `null`) when

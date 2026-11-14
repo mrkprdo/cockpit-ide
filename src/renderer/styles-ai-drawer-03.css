@@ -340,6 +340,12 @@
 .ai-settings-result.is-ok { color: var(--success, var(--green)); }
 .ai-settings-result.is-error { color: var(--danger, var(--red)); }
 .ai-settings-result:empty { display: none; }
+.ai-settings-hint {
+  font-size: var(--text-2xs);
+  line-height: var(--lh-ui);
+  color: var(--tertiary);
+  margin-top: calc(-1 * var(--space-1));
+}
 .ai-settings-checkbox {
   flex-direction: row;
   align-items: center;

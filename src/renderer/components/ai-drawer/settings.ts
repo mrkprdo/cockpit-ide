@@ -50,6 +50,7 @@ export interface SettingsSnapshot {
   streamResponses: boolean;
   contextTokenLimit: number;
   suppressViewMove: boolean;
+  autoApproveDestructive: boolean;
 }
 
 export class SettingsStore {
@@ -60,6 +61,13 @@ export class SettingsStore {
   contextTokenLimit = 8192;
   /** Keep the camera still when tool calls open/reveal files or specs. */
   suppressViewMove = false;
+  /**
+   * AUTO mode runs mutating/exec tools (write, delete, run_command, git push…)
+   * without the confirmation prompt. On by default — AUTO means auto — but it is
+   * a setting because it is the one thing standing between a prompt injection and
+   * a shell command, so it must be a deliberate, reversible choice.
+   */
+  autoApproveDestructive = true;
   /** Official max output tokens for the active model — seeded from presets, refreshed from models.dev. */
   modelMaxOutput = 65536;
   /** Model ids reported by the endpoint. Empty = fall back to the built-in presets. */
@@ -77,6 +85,7 @@ export class SettingsStore {
       streamResponses: this.streamResponses,
       contextTokenLimit: this.contextTokenLimit,
       suppressViewMove: this.suppressViewMove,
+      autoApproveDestructive: this.autoApproveDestructive,
     };
   }
 
@@ -100,6 +109,9 @@ export class SettingsStore {
         if (typeof prefs.aiSuppressViewMove === 'boolean') {
           this.suppressViewMove = prefs.aiSuppressViewMove;
           viewPrefs.suppressViewMove = this.suppressViewMove;
+        }
+        if (typeof prefs.aiAutoApproveDestructive === 'boolean') {
+          this.autoApproveDestructive = prefs.aiAutoApproveDestructive;
         }
       }
       getAgentExecutor().setConfigProvider(() => ({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model }));
@@ -146,6 +158,7 @@ export class SettingsStore {
       prefs.aiStreamResponses = this.streamResponses;
       prefs.aiContextLimit = this.contextTokenLimit;
       prefs.aiSuppressViewMove = this.suppressViewMove;
+      prefs.aiAutoApproveDestructive = this.autoApproveDestructive;
       window.electronAPI?.prefs.save(prefs);
     } catch {}
   }
@@ -331,6 +344,7 @@ export class SettingsStore {
         else if (key === 'apiKey') this.apiKey = input.value;
         else if (key === 'stream') this.streamResponses = input.checked;
         else if (key === 'suppressViewMove') this.suppressViewMove = input.checked;
+        else if (key === 'autoApproveDestructive') this.autoApproveDestructive = input.checked;
         else if (key === 'contextLimit') {
           const parsed = parseInt(input.value, 10);
           let limit = isNaN(parsed) || parsed < 1024 ? 8192 : parsed;
