@@ -1,8 +1,8 @@
-import { app, BrowserWindow, Menu, ipcMain, session } from 'electron';
+import { app, BrowserWindow, Menu, crashReporter, ipcMain, session } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ideServer } from './ide-server';
-import { logFatal, logMain } from './ipc/logging';
+import { logFatal, logMain, formatError } from './ipc/logging';
 import { state } from './ipc/state';
 import * as security from './ipc/security';
 import * as store from './ipc/workspace-store';
@@ -28,6 +28,21 @@ const isDev = process.argv.includes('--dev') && !app.isPackaged;
 
 process.on('uncaughtException', (err) => logFatal('uncaughtException', err));
 process.on('unhandledRejection', (err) => logFatal('unhandledRejection', err));
+
+// Local-only minidumps. A native crash (we saw a 0xC0000005 on exit) otherwise
+// leaves nothing behind: no stack, no dump, no way to tell whether it was the
+// GPU process, a native module or Chromium teardown. uploadToServer is false —
+// dumps stay in userData/Crashpad for the developer to inspect.
+try {
+  crashReporter.start({ uploadToServer: false, compress: true });
+} catch { /* not available in tests / some environments */ }
+
+// GPU/utility/native child crashes were invisible: only the renderer had a
+// handler. Log them so the next native crash is attributable.
+app.on('child-process-gone', (_event, details) => {
+  logMain('error', 'main', 'child process gone',
+    `type=${details.type} reason=${details.reason} exitCode=${details.exitCode}`);
+});
 
 // A renderer crash (OOM, GPU fault, etc.) otherwise leaves a permanently
 // blank/frozen window with no log and no recovery. Log it and reload so the
@@ -251,8 +266,17 @@ app.whenReady().then(async () => {
   app.on('window-all-closed', () => {
     ideServer.stop();
     stopWatching().then(() => {
-      for (const pty of state.ptyProcesses.values()) pty.kill();
+      // Kill every PTY before quitting. A native kill on a half-torn-down
+      // process is the one place an exit-time access violation could originate
+      // in our own code, so each kill is isolated: one bad handle must not stop
+      // the rest of the shutdown or skip app.quit().
+      for (const [uuid, pty] of state.ptyProcesses) {
+        try { pty.kill(); } catch (err) { logFatal('pty.kill-on-quit', `${uuid}: ${formatError(err)}`); }
+      }
       state.ptyProcesses.clear();
+      if (process.platform !== 'darwin') app.quit();
+    }).catch((err) => {
+      logFatal('shutdown', err);
       if (process.platform !== 'darwin') app.quit();
     });
   });
