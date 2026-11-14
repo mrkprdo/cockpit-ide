@@ -2,6 +2,7 @@ import { TopBar } from './TopBar';
 import { CanvasArea, SaveState } from './CanvasArea';
 import { WelcomeModal } from './WelcomeModal';
 import { AboutModal } from './AboutModal';
+import { ShortcutsModal } from './ShortcutsModal';
 import { ThemeModal } from './ThemeModal';
 import { AiDrawer } from './AiDrawer';
 import { Tutorial } from './Tutorial';
@@ -32,6 +33,7 @@ export class App {
   private canvas: CanvasArea;
   private topBar: TopBar;
   private about: AboutModal;
+  private shortcuts: ShortcutsModal;
   private themeModal: ThemeModal;
   private aiDrawer: AiDrawer;
   private tutorial: Tutorial;
@@ -121,6 +123,11 @@ export class App {
         log.debug('toggle dev console');
         this.canvas.addDevConsole(this.wsPath);
       }
+      // ? — keyboard cheat sheet (Shift+/ on most layouts).
+      if (!typing && e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        this.openShortcuts();
+      }
     });
 
     this.canvas = new CanvasArea(document.getElementById('canvas')!);
@@ -144,6 +151,7 @@ export class App {
     };
 
     this.about = new AboutModal();
+    this.shortcuts = new ShortcutsModal();
     this.themeModal = new ThemeModal();
     this.aiDrawer = new AiDrawer();
     this.aiDrawer.onDetachChange = () => this.trySave();
@@ -181,6 +189,7 @@ export class App {
         this.canvas.locked = true;
         this.about.open(() => { this.canvas.locked = false; });
       },
+      onShortcuts: () => this.openShortcuts(),
       onTheme: () => {
         this.canvas.locked = true;
         this.themeModal.open(async () => {
@@ -216,8 +225,13 @@ export class App {
     this.promptWorkspace();
   }
 
-  private trySave(): void {
-    if (!this.wsPath) return;
+  /** Cheat sheet entry point shared by the Help menu and the `?` key. */
+  private openShortcuts(): void {
+    this.canvas.locked = true;
+    this.shortcuts.open(() => { this.canvas.locked = false; });
+  }
+
+  private trySave(): void {    if (!this.wsPath) return;
     if (this.saveTimer) clearTimeout(this.saveTimer);
     // Debounce, then wait for a genuinely idle frame: the full getSaveState()
     // serialize + IPC + fs write must not land inside the next pan/drag gesture.

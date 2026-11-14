@@ -20,6 +20,7 @@ interface TopBarCallbacks {
   onReopenSpecsmap?: (uuid: string) => void;
   onNewDevConsole?: () => void;
   onAbout?: () => void;
+  onShortcuts?: () => void;
   onTheme?: () => void;
   onAi?: () => void;
   onTutorial?: () => void;
@@ -209,7 +210,7 @@ export class TopBar {
           <div class="menu-dropdown-separator" role="separator"></div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-new-dev-console">Dev Console&nbsp;<span class="menu-shortcut">\`</span></div>
           <div class="menu-dropdown-separator" role="separator"></div>
-          <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-ai">Cockpit Agent&nbsp;<span class="menu-shortcut">Ctrl+Space</span></div>
+          <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-ai">Cockpit Agent&nbsp;<span class="menu-shortcut">Ctrl+Shift+A</span></div>
           <div class="menu-dropdown-separator" role="separator"></div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-theme">Theme</div>
         </div>
@@ -217,6 +218,8 @@ export class TopBar {
       <div class="menu-item" role="menuitem" tabindex="0" aria-haspopup="true" aria-expanded="false">
         Help
         <div class="menu-dropdown" role="menu">
+          <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-shortcuts">Keyboard Shortcuts&nbsp;<span class="menu-shortcut">?</span></div>
+          <div class="menu-dropdown-separator" role="separator"></div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-tutorial">Tutorial</div>
           <div class="menu-dropdown-separator" role="separator"></div>
           <div class="menu-dropdown-item" role="menuitem" tabindex="-1" id="menu-about">About Cockpit IDE</div>
@@ -384,6 +387,11 @@ export class TopBar {
     document.getElementById('menu-tutorial')?.addEventListener('click', () => {
       closeAllMenus();
       this.callbacks.onTutorial?.();
+    });
+
+    document.getElementById('menu-shortcuts')?.addEventListener('click', () => {
+      closeAllMenus();
+      this.callbacks.onShortcuts?.();
     });
 
     document.getElementById('menu-about')?.addEventListener('click', () => {

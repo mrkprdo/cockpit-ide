@@ -46,7 +46,20 @@ export class LLMClient {
     try {
       const proto = new URL(config.endpoint).protocol;
       if (proto !== 'http:' && proto !== 'https:') throw new Error('bad protocol');
-    } catch {
+      // The CSP only permits cleartext http to loopback, so a remote http
+      // endpoint fails at fetch with an opaque error. Refuse it here instead:
+      // the real problem is that the API key would cross the wire unencrypted.
+      if (proto === 'http:') {
+        const host = new URL(config.endpoint).hostname;
+        const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+        if (!isLoopback) {
+          throw new Error(
+            `LLMClient: refusing cleartext http://${host} — the API key would be sent unencrypted. Use https:// (plain http is only allowed for a local server).`,
+          );
+        }
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('LLMClient:')) throw err;
       throw new Error(`LLMClient: invalid endpoint "${config.endpoint}" — must be http or https`);
     }
   }

@@ -3,11 +3,10 @@ setlocal
 
 set "APP=%~dp0..\CockpitIDE.exe"
 if exist "%APP%" (
-  if "%*"=="" (
-    powershell -NoProfile -Command "Start-Process '%APP%' -WindowStyle Normal"
-  ) else (
-    powershell -NoProfile -Command "Start-Process '%APP%' -ArgumentList '%*' -WindowStyle Normal"
-  )
+  rem Plain `start` — no PowerShell string interpolation. The old
+  rem `-Command "Start-Process '%APP%' -ArgumentList '%*'"` executed any
+  rem argument containing a single quote as PowerShell code.
+  start "" "%APP%" %*
   goto :end
 )
 

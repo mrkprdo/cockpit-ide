@@ -1,4 +1,3 @@
-const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -28,19 +27,16 @@ if (fs.existsSync(localExe)) {
 
 const cwd = usingElectron ? path.join(__dirname, '..') : path.dirname(target);
 
-if (process.platform === 'win32') {
-  const argStr = args.join(' ');
-  const quotedTarget = target.replace(/'/g, "''");
-  const quotedArgs = argStr.replace(/'/g, "''");
-  const quotedCwd = cwd.replace(/'/g, "''");
-  const psCmd = `Start-Process '${quotedTarget}' -ArgumentList '${quotedArgs}' -WindowStyle Normal -WorkingDirectory '${quotedCwd}'`;
-  execFile('powershell.exe', ['-NoProfile', '-Command', psCmd], () => {});
-} else {
+// Spawn the binary directly (detached) on every platform. The previous Windows
+// path built a PowerShell -Command string; it escaped single quotes, but there
+// is no reason for a launcher to route its argv through a shell at all.
+{
   const { spawn } = require('child_process');
   spawn(target, args, {
     detached: true,
     stdio: 'ignore',
     cwd,
+    windowsHide: true,
     env: { ...process.env, NODE_ENV: isDev ? 'development' : 'production' },
   }).unref();
 }
