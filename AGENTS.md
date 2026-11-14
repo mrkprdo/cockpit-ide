@@ -105,7 +105,7 @@ src/
 └── test/                 # cross-component suites (edge-cases, workflows, e2e-advanced)
 ```
 
-Main-process APIs cross to the renderer exclusively via `window.electronAPI` (preload bridge); the AI drawer talks to `ide-server.ts` over a WebSocket (port picked in main). `preload.ts` also exposes a one-way `notice:on` / `notice:off` bridge for user-facing notices from main; it has no renderer consumer yet (the `health:*` channels are its developer-facing sibling). Third-party UI is AMD-loaded (Monaco) or lazy DOM-mounted; renderer code itself is plain IIFE-style TS with global namespace access — no imports at runtime.
+Main-process APIs cross to the renderer exclusively via `window.electronAPI` (preload bridge); the AI drawer talks to `ide-server.ts` over a WebSocket (port picked in main). `preload.ts` also exposes `notice.on(cb)`, the app's user-facing message channel: main pushes `app:notice`, and `components/toast.ts` (`showToast(message, level)`) renders it — use it for any failure a user asked to happen (failed save, restored layout, rejected operation), and keep `health:*` for developer signals. Third-party UI is AMD-loaded (Monaco) or lazy DOM-mounted; renderer code itself is plain IIFE-style TS with global namespace access — no imports at runtime.
 
 ## Testing conventions
 
