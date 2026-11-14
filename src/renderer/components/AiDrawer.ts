@@ -69,9 +69,11 @@ export class AiDrawer {
     wrapper.id = 'app-main';
     const el = document.createElement('div');
     el.className = 'ai-drawer';
-    el.setAttribute('role', 'dialog');
-    el.setAttribute('aria-modal', 'true');
-    el.setAttribute('aria-label', 'AI Panel');
+    // Docked side panel, not a modal: role=dialog + aria-modal=true told screen
+    // readers a modal was open (and that everything outside it was inert) while
+    // the canvas stayed fully interactive. `complementary` is the correct role.
+    el.setAttribute('role', 'complementary');
+    el.setAttribute('aria-label', 'Cockpit Agent');
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'ai-drawer-resize';
     const notch = document.createElement('button');
