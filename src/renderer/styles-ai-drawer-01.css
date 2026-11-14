@@ -139,32 +139,41 @@
   align-items: center;
   gap: 4px;
 }
-/* Active model, always visible in the header. Click opens Settings. */
-.ai-model-chip {
-  flex: 1 1 auto;
+/* Title + active model sit together on the left; the actions keep the right. */
+.ai-drawer-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
-  max-width: 16ch;
+  flex: 1 1 auto;
+}
+/* Active model, always visible in the header. Plain text (no pill): it is a
+   label that happens to be clickable, so it stays quieter than the title. */
+.ai-model-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 32ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: color-mix(in srgb, var(--panel) 70%, transparent);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  color: var(--secondary);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: var(--tertiary);
   font-family: var(--font);
   font-size: var(--text-2xs);
   letter-spacing: var(--tracking-label);
-  padding: 2px var(--space-2);
   cursor: pointer;
-  transition: color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+  transition: color var(--dur-2) var(--ease-out);
 }
 .ai-model-chip:hover {
   color: var(--primary);
-  border-color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .ai-model-chip.is-unconfigured {
   color: var(--warning);
-  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
 }
 .ai-drawer-back-btn,
 .ai-drawer-expand-btn {
