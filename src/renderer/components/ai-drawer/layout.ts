@@ -230,20 +230,20 @@ export class DrawerLayout {
   }
 
   /**
-   * Ghost the panel so the card the agent just focused is readable. Called by
-   * every cockpit action allowed to move the camera (App.ts). Skipped when the
-   * panel is closed or detached (a floating card of its own).
+   * Ghost the FLOATING input card so the card the agent just focused is readable.
+   *
+   * Only the detached float is ghosted — the docked left panel is meant to stay
+   * put, and it is not covering the canvas the same way. Called by every cockpit
+   * action allowed to move the camera (App.ts).
    */
   peek(): void {
-    if (this.isDetached) return;
-    const el = this.deps.dom.el;
-    if (!el.classList.contains('is-open')) return;
-    el.classList.add('is-peeking');
+    if (!this.isDetached || !this.floatEl) return;
+    this.floatEl.classList.add('is-peeking');
   }
 
-  /** Restore the panel: user focus (CSS), a streamed token, or the run ending. */
+  /** Restore the float: user focus (CSS), a streamed token, or the run ending. */
   unpeek(): void {
-    this.deps.dom.el.classList.remove('is-peeking');
+    this.floatEl?.classList.remove('is-peeking');
   }
 
   close(): void {

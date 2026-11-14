@@ -44,16 +44,6 @@
   border-radius: 0;
   box-shadow: none;
 }
-/* The agent moved the camera/focus to a card: get out of the way so the user can
-   read the target. Hovering or focusing the panel restores it immediately, as
-   does the first streamed token (JS) or the run ending. */
-.ai-drawer.is-peeking {
-  opacity: 0.18;
-}
-.ai-drawer.is-peeking:hover,
-.ai-drawer.is-peeking:focus-within {
-  opacity: 1;
-}
 
 /* Content wrapper — fades in after the width animation starts */
 .ai-drawer-content {

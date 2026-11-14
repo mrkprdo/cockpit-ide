@@ -919,34 +919,46 @@ describe('AiDrawer', () => {
   // ─── SETTINGS PANEL ──────────────────────────────────────────────────────────
 
   describe('peek transparency', () => {
-    it('ghosts an open panel so the agent’s target is readable', async () => {
+    it('ghosts the detached float, never the docked left panel', async () => {
       drawer = await createDrawer();
       await drawer.toggle();
+
+      // Docked: the left panel is a fixture — no transparency.
       drawer.peek();
-      expect(drawer['el'].classList.contains('is-peeking')).toBe(true);
+      expect(drawer['el'].classList.contains('is-peeking')).toBe(false);
+
+      drawer.detach();
+      drawer.peek();
+      const float = document.querySelector('.ai-float-input')!;
+      expect(float.classList.contains('is-peeking')).toBe(true);
       drawer.unpeek();
-      expect(drawer['el'].classList.contains('is-peeking')).toBe(false);
+      expect(float.classList.contains('is-peeking')).toBe(false);
     });
 
-    it('does not ghost a closed panel', async () => {
+    it('does not ghost before the panel is detached', async () => {
       drawer = await createDrawer();
       drawer.peek();
       expect(drawer['el'].classList.contains('is-peeking')).toBe(false);
+      expect(document.querySelector('.ai-float-input')).toBeNull();
     });
 
-    it('restores the panel when a response starts streaming', async () => {
+    it('restores the float when a response starts streaming', async () => {
       drawer = await createDrawer();
       await drawer.toggle();
+      drawer.detach();
       globalThis.fetch = vi.fn().mockResolvedValue(makeTextResponse('hello back'));
+
+      const float = document.querySelector('.ai-float-input')!;
       drawer.peek();
-      expect(drawer['el'].classList.contains('is-peeking')).toBe(true);
+      expect(float.classList.contains('is-peeking')).toBe(true);
 
-      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'hi';
-      q('.ai-chat-send-btn').click();
+      // The composer moved into the float, so query the document, not the drawer.
+      (document.querySelector('.ai-chat-input') as HTMLTextAreaElement).value = 'hi';
+      (document.querySelector('.ai-chat-send-btn') as HTMLElement).click();
       await flush();
       await flush();
 
-      expect(drawer['el'].classList.contains('is-peeking')).toBe(false);
+      expect(float.classList.contains('is-peeking')).toBe(false);
     });
   });
 
