@@ -402,7 +402,7 @@ describe('Theme persistence workflow', () => {
     expect(root.style.getPropertyValue('--panel')).toBe('#383830');
     expect(root.style.getPropertyValue('--primary')).toBe('#f8f8f2');
     expect(root.style.getPropertyValue('--secondary')).toBe('#a09f8c');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#75715e');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#9B957F');
     expect(root.style.getPropertyValue('--border')).toBe('#49483e');
   });
 
@@ -413,8 +413,8 @@ describe('Theme persistence workflow', () => {
     expect(root.style.getPropertyValue('--surface')).toBe('#d6d3c4');
     expect(root.style.getPropertyValue('--panel')).toBe('#cbc8b8');
     expect(root.style.getPropertyValue('--primary')).toBe('#272822');
-    expect(root.style.getPropertyValue('--secondary')).toBe('#5e5c50');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#8c8878');
+    expect(root.style.getPropertyValue('--secondary')).toBe('#4E4C42');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#5E5B49');
     expect(root.style.getPropertyValue('--border')).toBe('#9c9988');
   });
 
