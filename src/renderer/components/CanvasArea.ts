@@ -509,9 +509,12 @@ export class CanvasArea {
   // ── input wiring ────────────────────────────────────────────────
 
   private initZoomPan(): void {
-    // Canvas wheel zoom (only when over empty canvas area, not over cards)
+    // Canvas wheel zoom — only over empty canvas, never over a card. Card
+    // bodies own their wheel (scrollback, tree, diff, markdown preview); before
+    // this guard, scrolling a long markdown preview zoomed the whole canvas.
     this.unbinders.push(bindGuarded(this.el, 'wheel', (e: WheelEvent) => {
       if (this.locked || e.ctrlKey) return;
+      if ((e.target as Element | null)?.closest?.('.card')) return;
       const rect = this.el.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;

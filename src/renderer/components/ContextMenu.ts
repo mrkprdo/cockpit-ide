@@ -48,13 +48,36 @@ export class ContextMenu {
 
     document.body.appendChild(this.el);
     ContextMenu.openMenus.push(this);
+    // Keep the menu inside the viewport. A right-click near the right or bottom
+    // edge used to render it partly off-screen, with no way to reach the
+    // clipped items.
+    const box = this.el.getBoundingClientRect();
+    const pad = 4;
+    if (box.right > window.innerWidth - pad) {
+      this.el.style.left = Math.max(pad, window.innerWidth - box.width - pad) + 'px';
+    }
+    if (box.bottom > window.innerHeight - pad) {
+      this.el.style.top = Math.max(pad, window.innerHeight - box.height - pad) + 'px';
+    }
     firstItem?.focus();
     document.addEventListener('keydown', this.onKeydown);
     setTimeout(() => document.addEventListener('click', this.outsideClick), 0);
   }
 
   private outsideClick = (): void => { this.remove(); };
-  private onKeydown = (e: KeyboardEvent): void => { if (e.key === 'Escape') this.remove(); };
+  private onKeydown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') { this.remove(); return; }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    const items = Array.from(this.el.querySelectorAll<HTMLElement>('.ctx-item:not(.ctx-disabled)'));
+    if (items.length === 0) return;
+    const idx = items.indexOf(document.activeElement as HTMLElement);
+    let next = 0;
+    if (e.key === 'ArrowDown') next = idx < 0 ? 0 : (idx + 1) % items.length;
+    else if (e.key === 'ArrowUp') next = idx <= 0 ? items.length - 1 : idx - 1;
+    else if (e.key === 'End') next = items.length - 1;
+    items[next].focus();
+  };
 
   onClose: (() => void) | null = null;
 

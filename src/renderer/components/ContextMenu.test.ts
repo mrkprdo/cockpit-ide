@@ -26,6 +26,29 @@ describe('ContextMenu', () => {
     expect(menu.style.top).toBe('300px');
   });
 
+  it('moves focus between enabled items with the arrow keys', () => {
+    const menu = new ContextMenu([
+      { label: 'One', action: vi.fn() },
+      { label: 'Skipped', disabled: true },
+      { label: 'Two', action: vi.fn() },
+      { label: 'Three', action: vi.fn() },
+    ], 10, 10);
+    const items = Array.from(menu['el'].querySelectorAll<HTMLElement>('.ctx-item'))
+      .filter(el => !el.classList.contains('ctx-disabled'));
+
+    items[0].focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    expect(document.activeElement).toBe(items[1]); // disabled item skipped
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    expect(document.activeElement).toBe(items[2]);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    expect(document.activeElement).toBe(items[0]); // wraps
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+    expect(document.activeElement).toBe(items[2]); // wraps backwards
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home' }));
+    expect(document.activeElement).toBe(items[0]);
+  });
+
   it('fires action on item click and removes menu', () => {
     const action = vi.fn();
     new ContextMenu([{ label: 'Run', action }], 0, 0);
