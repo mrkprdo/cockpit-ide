@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CanvasArea } from '../renderer/components/CanvasArea';
 import { ExplorerWindow } from '../renderer/components/ExplorerWindow';
-import { MarkdownWindow } from '../renderer/components/MarkdownWindow';
 import { WindowCard } from '../renderer/components/WindowCard';
 import { ConfirmModal } from '../renderer/components/ConfirmModal';
 import { FileExplorerWindow } from '../renderer/components/FileExplorerWindow';
@@ -586,113 +585,6 @@ describe('E2E Advanced: Window Lifecycle Full Cycle', () => {
     await flushRaf();
 
     expect(canvas.getSaveState().windows.length).toBe(0);
-  });
-});
-
-// ═══════════════════════════════════════════════
-// E2E ADVANCED: MARKDOWN WINDOW MULTI-TAB
-// ═══════════════════════════════════════════════
-
-describe('E2E Advanced: MarkdownWindow Multi-Tab', () => {
-  let container: HTMLElement;
-
-  beforeEach(() => {
-    document.body.innerHTML = '';
-    setupFsMocks();
-    container = document.createElement('div');
-    container.style.cssText = 'width:700px;height:500px';
-    document.body.appendChild(container);
-  });
-
-  it('loads multiple .md files as separate tabs', async () => {
-    const ctx = new MarkdownWindow(container);
-    ctx.title = 'Markdown T1';
-
-    (mockElectronAPI.fs.readFile as any)
-      .mockResolvedValueOnce('# One')
-      .mockResolvedValueOnce('# Two');
-
-    await ctx.loadFile('/test/one.md');
-    await ctx.loadFile('/test/two.md');
-    await flushRaf();
-
-    const state = ctx.getState();
-    expect(state).toBeTruthy();
-    expect(state!.openFiles.length).toBe(2);
-    expect(state!.openFiles).toContain('/test/one.md');
-    expect(state!.openFiles).toContain('/test/two.md');
-    expect(state!.activeFile).toBe('/test/two.md');
-  });
-
-  it('does not duplicate when loading same file twice', async () => {
-    const ctx = new MarkdownWindow(container);
-    ctx.title = 'Markdown T2';
-
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Dup');
-    await ctx.loadFile('/test/dup.md');
-    await ctx.loadFile('/test/dup.md');
-    await flushRaf();
-
-    expect(ctx.getState()!.openFiles.length).toBe(1);
-  });
-
-  it('serializes and restores multi-tab state', async () => {
-    const ctx = new MarkdownWindow(container);
-    ctx.title = 'Markdown T3';
-
-    (mockElectronAPI.fs.readFile as any)
-      .mockResolvedValueOnce('# A').mockResolvedValueOnce('# B').mockResolvedValueOnce('# C');
-
-    await ctx.loadFile('/test/a.md');
-    await ctx.loadFile('/test/b.md');
-    await ctx.loadFile('/test/c.md');
-    await flushRaf();
-
-    const state = ctx.getState();
-    state!.scrollTops = { '/test/a.md': 100, '/test/b.md': 200, '/test/c.md': 300 };
-    state!.activeFile = '/test/b.md';
-
-    const container2 = document.createElement('div');
-    container2.style.cssText = 'width:700px;height:500px';
-    document.body.appendChild(container2);
-
-    const ctx2 = new MarkdownWindow(container2);
-    ctx2.title = 'Markdown T3';
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Restored');
-
-    await ctx2.restoreState(state);
-    await flushRaf();
-
-    const state2 = ctx2.getState();
-    expect(state2!.openFiles.length).toBe(3);
-    expect(state2!.activeFile).toBe('/test/b.md');
-  });
-
-  it('handles legacy single-file state format', async () => {
-    const ctx = new MarkdownWindow(container);
-    ctx.title = 'Markdown Legacy';
-
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Legacy');
-
-    await ctx.restoreState({ loadedFile: '/test/legacy.md', scrollTop: 42 } as any);
-    await flushRaf();
-
-    const state = ctx.getState();
-    expect(state!.openFiles).toContain('/test/legacy.md');
-    expect(state!.activeFile).toBe('/test/legacy.md');
-  });
-
-  it('getState returns null when no files loaded', () => {
-    const ctx = new MarkdownWindow(container);
-    ctx.title = 'Empty Markdown';
-    expect(ctx.getState()).toBeNull();
-  });
-
-  it('double destroy does not throw', async () => {
-    const ctx = new MarkdownWindow(container);
-    ctx.title = 'Destroyable';
-    ctx.destroy();
-    expect(() => ctx.destroy()).not.toThrow();
   });
 });
 

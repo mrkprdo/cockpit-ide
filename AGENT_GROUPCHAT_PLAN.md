@@ -5,7 +5,10 @@ sub-agents designed and invoked by the main Cockpit agent, each with its own ide
 shared room, with a **PoV switcher** to jump between the room and any single agent's own reasoning
 stream — and each agent's PoV persisted as its own session file, linked from the main session.
 
-Status: plan only, nothing implemented. **No open questions — every decision below is settled.**
+Status: **implemented** in `src/renderer/agents/` (executor, session, bus, pipeline, skills,
+permissions, hooks, definitions, memory-scopes, agent-tools; PoV strip in
+`styles-ai-drawer-05.css`) and consumed by the AI drawer's agent feed/session controllers. The plan
+below is kept as the design record, not as a to-do list. **No open questions — every decision below is settled.**
 
 ---
 

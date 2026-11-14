@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FileExplorerWindow } from '../renderer/components/FileExplorerWindow';
-import { MarkdownWindow } from '../renderer/components/MarkdownWindow';
 import { MonacoEditorWindow } from '../renderer/components/MonacoEditorWindow';
 import { ExplorerWindow } from '../renderer/components/ExplorerWindow';
 import { ConfirmModal } from '../renderer/components/ConfirmModal';
@@ -274,113 +273,6 @@ describe('Editor Tab CRUD workflows', () => {
 });
 
 // ─────────────────────────────────────────────
-// MARKDOWN TAB CRUD WORKFLOWS  
-// ─────────────────────────────────────────────
-
-describe('Markdown Tab CRUD workflows', () => {
-  let container: HTMLElement;
-
-  beforeEach(() => {
-    document.body.innerHTML = '';
-    container = makeContainer(600, 400);
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Header\n\nSome content.');
-    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
-  });
-
-  it('CREATE: loadFile opens a tab and renders markdown', async () => {
-    const ctx = new MarkdownWindow(container);
-    await ctx.loadFile('/test/doc.md');
-
-    expect(container.textContent).toContain('doc.md');
-    expect(container.textContent).toContain('Header');
-    expect(container.textContent).toContain('Some content');
-  });
-
-  it('READ: same file loaded twice does not duplicate tab', async () => {
-    const ctx = new MarkdownWindow(container);
-    await ctx.loadFile('/test/doc.md');
-    await ctx.loadFile('/test/doc.md');
-
-    const state = ctx.getState();
-    expect(state).not.toBeNull();
-    expect(state!.openFiles.length).toBe(1);
-  });
-
-  it('UPDATE: file change listener triggers reload', async () => {
-    let changeCallback: ((path: string) => void) | null = null;
-    (mockElectronAPI.fs.onChanged as any).mockImplementation((cb: any) => {
-      changeCallback = cb;
-      return vi.fn();
-    });
-
-    const ctx = new MarkdownWindow(container);
-    await ctx.loadFile('/test/doc.md');
-
-    // Verify initial content
-    expect(container.textContent).toContain('Header');
-
-    // Simulate external file change - update mock response
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Updated Header\n\nNew content.');
-
-    await (changeCallback as any)('/test/doc.md');
-    await new Promise(r => setTimeout(r, 50));
-
-    // Content should now show updated version
-    expect(container.textContent).toContain('Updated Header');
-    expect(container.textContent).toContain('New content');
-  });
-
-  it('DELETE: closing the last tab shows "No file loaded"', async () => {
-    const ctx = new MarkdownWindow(container);
-    await ctx.loadFile('/test/doc.md');
-
-    expect(container.textContent).toContain('doc.md');
-
-    // The close button is a span with text '✕' inside the active tab element
-    const activeTab = container.querySelector('.editor-tab.is-active');
-    const closeBtn = activeTab?.querySelector('span.editor-tab-close');
-    expect(closeBtn).toBeTruthy();
-
-    (closeBtn as HTMLElement).click();
-    await new Promise(r => setTimeout(r, 50));
-
-    expect(container.textContent).toContain('No file loaded');
-  });
-
-  it('SERIALIZE: getState preserves tab order and active file', async () => {
-    const ctx = new MarkdownWindow(container);
-    await ctx.loadFile('/test/a.md');
-    await ctx.loadFile('/test/b.md');
-
-    const state = ctx.getState();
-    expect(state).not.toBeNull();
-    expect(state!.openFiles).toHaveLength(2);
-    expect(state!.activeFile).toContain('b.md');
-    expect(state!.scrollTops).toBeDefined();
-  });
-
-  it('RESTORE: restoreState recreates tabs from serialized state', async () => {
-    const ctx = new MarkdownWindow(container);
-    await ctx.restoreState({
-      openFiles: ['/test/x.md', '/test/y.md'],
-      activeFile: '/test/x.md',
-      scrollTops: { '/test/x.md': 42, '/test/y.md': 0 },
-    });
-
-    expect(container.textContent).toContain('x.md');
-    expect(container.textContent).toContain('y.md');
-  });
-
-  it('SHOW EMPTY: empty file content displays "Empty file"', async () => {
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue('   ');
-    const ctx = new MarkdownWindow(container);
-    await ctx.loadFile('/test/empty.md');
-
-    expect(container.textContent).toContain('Empty file');
-  });
-});
-
-// ─────────────────────────────────────────────
 // DEV WINDOW (EXPLORER + EDITOR) WORKFLOWS
 // ─────────────────────────────────────────────
 
@@ -645,34 +537,6 @@ describe('End-to-end: File → Editor → Markdown', () => {
     expect(menuText).toContain('Paste');
     expect(menuText).toContain('Rename');
     expect(menuText).toContain('Delete');
-  });
-
-  it('MarkdownWindow: full CRUD cycle — load, verify state, close tab reduces count', async () => {
-    const ctx = new MarkdownWindow(container);
-
-    // CREATE: load three files
-    await ctx.loadFile('/test/a.md');
-    await ctx.loadFile('/test/b.md');
-    await ctx.loadFile('/test/c.md');
-
-    let state = ctx.getState();
-    expect(state!.openFiles).toHaveLength(3);
-    expect(state!.activeFile).toContain('c.md');
-
-    // DELETE: close the active tab by clicking its close button
-    const activeTab = container.querySelector('.editor-tab.is-active');
-    const activeCloseBtn = activeTab?.querySelector('span.editor-tab-close');
-    if (activeCloseBtn) {
-      (activeCloseBtn as HTMLElement).click();
-      await new Promise(r => setTimeout(r, 50));
-    }
-
-    state = ctx.getState();
-    // After close, the tab count should decrease
-    expect(state!.openFiles.length).toBeLessThan(3);
-
-    // DESTROY: cleanup
-    ctx.destroy();
   });
 
   it('verify file explorer directory-first sort order', async () => {
@@ -982,102 +846,7 @@ describe('FileExplorer — error recovery', () => {
 });
 
 // ─────────────────────────────────────────────
-// MARKDOWN — MULTI-TAB NAVIGATION
-// ─────────────────────────────────────────────
-
-describe('MarkdownWindow — multi-tab navigation', () => {
-  let container: HTMLElement;
-
-  beforeEach(() => {
-    document.body.innerHTML = '';
-    container = makeContainer(700, 500);
-    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
-    // Per-path content: each file read returns its own content
-    (mockElectronAPI.fs.readFile as any).mockImplementation(async (filePath: string) => {
-      if (filePath.includes('a.md')) return '# File A\n\nContent A.';
-      if (filePath.includes('b.md')) return '# File B\n\nContent B.';
-      if (filePath.includes('c.md')) return '# File C\n\nContent C.';
-      return '# Tab Content';
-    });
-  });
-
-  it('switch between tabs shows correct content', async () => {
-    const ctx = new MarkdownWindow(container);
-
-    await ctx.loadFile('/test/a.md');
-    expect(container.textContent).toContain('File A');
-    expect(container.textContent).toContain('Content A');
-
-    await ctx.loadFile('/test/b.md');
-    expect(container.textContent).toContain('File B');
-    expect(container.textContent).toContain('Content B');
-
-    // Switch back to A via loadFile (dedup: returns early, switches tab)
-    // loadFile re-reads the file, mock returns per-path content
-    await ctx.loadFile('/test/a.md');
-    await new Promise(r => setTimeout(r, 50));
-
-    expect(container.textContent).toContain('File A');
-    expect(container.textContent).toContain('Content A');
-  });
-
-  it('close middle tab shifts active correctly', async () => {
-    const ctx = new MarkdownWindow(container);
-
-    await ctx.loadFile('/test/a.md');
-    await ctx.loadFile('/test/b.md');
-    await ctx.loadFile('/test/c.md');
-
-    let state = ctx.getState();
-    expect(state!.openFiles).toHaveLength(3);
-
-    // Close b.md by finding its tab element and clicking ✕
-    // Tabs have name span + ✕ close span. Find tab containing '[MD] b.md' and '✕'
-    const tabs = Array.from(container.querySelectorAll('div'))
-      .filter(d => d.children.length === 2 && d.querySelector('span'));
-    const tabB = tabs.find(t => {
-      const nameEl = t.children[0] as HTMLElement;
-      return nameEl?.tagName === 'SPAN' && nameEl.textContent === '[MD] b.md';
-    });
-    expect(tabB).toBeTruthy();
-
-    // Click ✕ close button (second child)
-    const closeBtn = (tabB as HTMLElement).children[1] as HTMLElement;
-    expect(closeBtn?.textContent).toBe('✕');
-    closeBtn.click();
-    await new Promise(r => setTimeout(r, 150));
-
-    state = ctx.getState();
-    // Either 2 files remain or tab count is correct after close + switch chain
-    if (state) {
-      expect(state.openFiles.length).toBe(2);
-      expect(state.openFiles.some((f: string) => f.includes('b.md'))).toBe(false);
-    }
-  });
-
-  it('close all tabs returns to "No file loaded"', async () => {
-    const ctx = new MarkdownWindow(container);
-
-    await ctx.loadFile('/test/one.md');
-
-    // Find the tab with ✕ and click its close button
-    const allTabs = Array.from(container.querySelectorAll('div'))
-      .filter(d => d.querySelector('span') && d.textContent?.includes('✕'));
-    const activeTab = allTabs[0];
-    expect(activeTab).toBeTruthy();
-
-    const closeBtn = Array.from((activeTab as HTMLElement).querySelectorAll('span'))
-      .find(s => s.textContent === '✕');
-    closeBtn?.click();
-    await new Promise(r => setTimeout(r, 50));
-
-    expect(container.textContent).toContain('No file loaded');
-    expect(ctx.getState()).toBeNull();
-  });
-});
-
-// ─────────────────────────────────────────────
-// CROSS-COMPONENT: FILE → EDITOR, FILE → MARKDOWN
+// CROSS-COMPONENT: FILE → EDITOR / MARKDOWN TAB FLOWS
 // ─────────────────────────────────────────────
 
 describe('Cross-component — file open flows', () => {

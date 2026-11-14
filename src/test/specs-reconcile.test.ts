@@ -11,6 +11,11 @@
 //   # Dependencies / Referenced By / IPC / Features (refactor.md §D step 2)
 //   set SPECS_RECONCILE=structural && npx vitest run src/test/specs-reconcile.test.ts
 //
+// The corpus is generated per workspace and this repo does not carry one, so
+// the report/validation cases are skipped (with the reason in the suite name)
+// unless `src/specs/` exists — or unless STRUCTURAL mode is requested, which is
+// also the generation path for a fresh workspace.
+//
 // This file is intentionally NOT part of the normal `npm test` flow's writes —
 // without the env flag it only reports and never touches the corpus.
 
@@ -25,9 +30,14 @@ import type { SpecsFs } from '../renderer/specs/types';
 
 const REPO = process.cwd().replace(/\\/g, '/');
 const SPECS_DIR = `${REPO}/src/specs`;
+const HAS_SPECS = nodefs.existsSync(SPECS_DIR.replace(/\//g, path.sep));
 // eslint-disable-next-line no-console
 console.log('[specs-reconcile] env SPECS_RECONCILE =', JSON.stringify(process.env.SPECS_RECONCILE));
 const STRUCTURAL = (process.env.SPECS_RECONCILE ?? '').trim() === 'structural';
+
+const CORPUS_STATE = HAS_SPECS
+  ? 'headless specs reconcile'
+  : 'SKIPPED: no spec corpus in this workspace — SPECGEN generation is opt-in (SpecsMap → Apply structural)';
 
 const fsAdapter: SpecsFs = {
   async readDir(dirPath) {
@@ -56,7 +66,7 @@ const fsAdapter: SpecsFs = {
   },
 };
 
-describe('headless specs reconcile', () => {
+describe.skipIf(!HAS_SPECS && !STRUCTURAL)(CORPUS_STATE, () => {
   it(STRUCTURAL
     ? 'structural mode — writes skeleton specs + structural patches'
     : 'report mode — computes structural patches without writing',

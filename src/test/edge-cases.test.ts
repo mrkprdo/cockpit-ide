@@ -8,7 +8,6 @@ import { WindowCard } from '../renderer/components/WindowCard';
 import { CanvasArea } from '../renderer/components/CanvasArea';
 import { TopBar } from '../renderer/components/TopBar';
 import { FileExplorerWindow } from '../renderer/components/FileExplorerWindow';
-import { MarkdownWindow } from '../renderer/components/MarkdownWindow';
 import { MonacoEditorWindow } from '../renderer/components/MonacoEditorWindow';
 import { ExplorerWindow } from '../renderer/components/ExplorerWindow';
 import { TerminalWindow } from '../renderer/components/TerminalWindow';
@@ -731,89 +730,6 @@ describe('FileExplorerWindow edge cases', () => {
 });
 
 // ─────────────────────────────────────────────
-// MARKDOWN WINDOW EDGE CASES
-// ─────────────────────────────────────────────
-
-describe('MarkdownWindow edge cases', () => {
-  let container: HTMLElement;
-
-  beforeEach(() => {
-    document.body.innerHTML = '';
-    container = makeContainer(600, 400);
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Test');
-    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
-  });
-
-  it('handles file with no content gracefully', async () => {
-    (mockElectronAPI.fs.readFile as any).mockResolvedValue(null);
-    const ctx = new MarkdownWindow(container);
-    await ctx.loadFile('/test/empty.md');
-    expect(container.textContent).toContain('No file loaded');
-  });
-
-  it('handles legacy single-file state format', async () => {
-    const ctx = new MarkdownWindow(container);
-    const legacyState: any = {
-      loadedFile: '/test/old.md',
-      scrollTop: 150,
-    };
-    await ctx.restoreState(legacyState);
-
-    expect(container.textContent).toContain('old.md');
-    const state = ctx.getState();
-    expect(state!.scrollTops['/test/old.md']).toBe(150);
-  });
-
-  it('destroy called twice does not throw', () => {
-    const ctx = new MarkdownWindow(container);
-    ctx.destroy();
-    expect(() => ctx.destroy()).not.toThrow();
-  });
-
-  it('restoreState with file paths using backslashes normalizes them', async () => {
-    const ctx = new MarkdownWindow(container);
-    await ctx.restoreState({
-      openFiles: ['C:\\Users\\test\\file.md'],
-      activeFile: 'C:\\Users\\test\\file.md',
-      scrollTops: {},
-    });
-
-    const state = ctx.getState();
-    expect(state!.openFiles[0]).toBe('c:/users/test/file.md');
-  });
-
-  it('switch tab preserves scroll positions', async () => {
-    const ctx = new MarkdownWindow(container);
-    await ctx.loadFile('/test/a.md');
-    await ctx.loadFile('/test/b.md');
-
-    // Switch back to a.md — scroll position should be preserved
-    await ctx.loadFile('/test/a.md');
-    const state = ctx.getState();
-    expect(state!.activeFile).toContain('a.md');
-    expect(state!.scrollTops).toBeDefined();
-  });
-
-  it('three tabs then close middle tab shifts active correctly', async () => {
-    const ctx = new MarkdownWindow(container);
-    await ctx.loadFile('/test/1.md');
-    await ctx.loadFile('/test/2.md');
-    await ctx.loadFile('/test/3.md');
-
-    // Active is 3.md. Switch to 2.md and close it.
-    await ctx.loadFile('/test/2.md');
-    const activeTab = container.querySelector('.editor-tab.is-active');
-    const activeClose = activeTab?.querySelector('span.editor-tab-close');
-    (activeClose as HTMLElement)?.click();
-    await new Promise(r => setTimeout(r, 50));
-
-    const state = ctx.getState();
-    expect(state!.openFiles.length).toBe(2);
-    expect(state!.activeFile).toBeTruthy();
-  });
-});
-
-// ─────────────────────────────────────────────
 // MONACO EDITOR EDGE CASES
 // ─────────────────────────────────────────────
 
@@ -1014,16 +930,5 @@ describe('Cross-component edge cases', () => {
     // The file explorer uses a 500ms debounce timer
     // No crash expected
     expect(changeCallback).toBeTruthy();
-  });
-
-  it('Markdown window destroy cleans up file watcher before second instance', () => {
-    const container1 = makeContainer(600, 400);
-    const ctx1 = new MarkdownWindow(container1);
-    ctx1.destroy();
-
-    // Second instance should work fine
-    const container2 = makeContainer(600, 400);
-    const ctx2 = new MarkdownWindow(container2);
-    expect(container2.textContent).toContain('No file loaded');
   });
 });
