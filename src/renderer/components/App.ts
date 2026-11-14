@@ -5,6 +5,8 @@ import { AboutModal } from './AboutModal';
 import { ThemeModal } from './ThemeModal';
 import { AiDrawer } from './AiDrawer';
 import { Tutorial } from './Tutorial';
+import { ConfirmModal } from './ConfirmModal';
+import { showToast } from './toast';
 import { theme } from '../theme';
 import { memoryStore } from '../ai/memory-store';
 import { getAgentExecutor } from '../agents/executor';
@@ -13,6 +15,18 @@ import { createLogger } from '../logging/logger';
 import { viewPrefs } from '../ai/view-prefs';
 
 const log = createLogger('app');
+
+/**
+ * True when the keystroke belongs to a text field (Monaco, xterm, an <input>,
+ * a textarea, or any contenteditable). Global shortcuts must not steal these:
+ * before this guard existed, bare ` could not be typed in the AI chat, Ctrl+J
+ * spawned a card instead of sending a line-feed to a shell, and Ctrl+Space
+ * opened the drawer instead of Monaco's suggestion popup.
+ */
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return !!target.closest('.monaco-editor, .xterm, input, textarea, select, [contenteditable="true"]');
+}
 
 export class App {
   private canvas: CanvasArea;
@@ -33,8 +47,24 @@ export class App {
     // Global agent memory (userData) — workspace memory loads with loadWorkspace
     void memoryStore.loadGlobal();
 
+    // User-facing notices from main (layout restored from backup, failed write,
+    // rejected operation). Before this, they went nowhere the user could see.
+    window.electronAPI?.notice?.on((n) => showToast(n.message, n.level));
+
+    // The brand font is fetched non-blocking (index.html sets media="print");
+    // promote it once the first frame has painted, so a slow/absent network can
+    // never delay first paint or trigger a second synchronous layout pass.
+    const fontLink = document.getElementById('font-space-mono') as HTMLLinkElement | null;
+    if (fontLink) {
+      const enableFont = (): void => { fontLink.media = 'all'; };
+      if (window.requestIdleCallback) window.requestIdleCallback(enableFont, { timeout: 3000 });
+      else window.setTimeout(enableFont, 0);
+    }
+
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
+      const typing = isTextEntryTarget(e.target);
+
       // Ctrl+Shift+N / Cmd+Shift+N — new window
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
@@ -49,18 +79,21 @@ export class App {
         e.preventDefault();
         this.canvas.cycleCard(e.shiftKey ? -1 : 1);
       }
-      // Ctrl+P / Cmd+P — open file search palette
+      // Ctrl+P / Cmd+P — open file search palette (works with no Explorer card open)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
-        this.canvas.getActiveExplorerWindow()?.openFileSearch();
+        const active = this.canvas.getActiveExplorerWindow();
+        if (active) active.openFileSearch();
+        else void this.canvas.ensureExplorer().then(exp => exp.openFileSearch());
       }
       // Ctrl+Shift+F / Cmd+Shift+F — search across files
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         this.canvas.ensureExplorer().then(exp => exp.openSearch(() => this.canvas.ensureExplorer()));
       }
-      // Ctrl+J / Cmd+J — new terminal
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
+      // Ctrl+J / Cmd+J — new terminal. Skipped inside a terminal: Ctrl+J is a
+      // line-feed there, and spawning a card instead is actively wrong.
+      if (!typing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
         e.preventDefault();
         this.canvas.addTerminal(this.wsPath);
       }
@@ -69,14 +102,21 @@ export class App {
         e.preventDefault();
         this.openWorkspace();
       }
-      // Ctrl+Space — toggle AI agent in detached mode
-      if ((e.ctrlKey || e.metaKey) && e.key === ' ') {
+      // Ctrl+Shift+A — toggle the AI agent. Ctrl+Space is kept as a legacy alias
+      // but ONLY outside text fields, where it belongs to Monaco's Trigger Suggest.
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         if (!this.aiDrawer.isDetached) this.aiDrawer.detach();
         this.aiDrawer.toggle();
       }
-      // Backtick — toggle dev console
-      if (e.key === '`' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (!typing && (e.ctrlKey || e.metaKey) && e.key === ' ') {
+        e.preventDefault();
+        if (!this.aiDrawer.isDetached) this.aiDrawer.detach();
+        this.aiDrawer.toggle();
+      }
+      // Bare backtick — toggle dev console. Never while typing: it must be
+      // possible to type a backtick in the chat or an editor.
+      if (!typing && e.key === '`' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         log.debug('toggle dev console');
         this.canvas.addDevConsole(this.wsPath);
@@ -355,8 +395,22 @@ export class App {
     await memoryStore.loadWorkspace(path);
 
     // Load custom subagent definitions from .cockpit/agents/*.json.
+    //
+    // Hooks are arbitrary shell commands shipped INSIDE the repository. They are
+    // loaded disabled, and only enabled after an explicit confirmation in this
+    // session: opening a cloned project must never execute its shell commands.
     try {
-      const res = await loadDefinitionsFromWorkspace(path);
+      let res = await loadDefinitionsFromWorkspace(path, undefined, { allowHooks: false });
+      if (res.hooks.length > 0) {
+        const list = res.hooks.map(h => `${h.name} (${h.commands.length})`).join(', ');
+        const ok = await new ConfirmModal(
+          `This workspace defines shell hooks for sub-agents: ${list}. ` +
+          'Hooks run commands on this machine. Only allow this if you trust this repository.',
+          'Run hooks',
+        ).open();
+        if (ok) res = await loadDefinitionsFromWorkspace(path, undefined, { allowHooks: true });
+        else showToast(`Workspace agent hooks skipped (${res.hooks.length} definition(s)).`, 'warn');
+      }
       const errors = res.errors.length > 0 ? ` (${res.errors.length} definition errors)` : '';
       const loaded = res.loaded.length > 0 ? ` · ${res.loaded.map(d => d.name).join(', ')}` : '';
       console.debug(`[agents] definitions loaded${loaded}${errors}`);

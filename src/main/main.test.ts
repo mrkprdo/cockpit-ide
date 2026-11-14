@@ -70,8 +70,11 @@ vi.mock('electron', () => ({
   session: {
     defaultSession: {
       setPermissionRequestHandler: vi.fn(),
+      setPermissionCheckHandler: vi.fn(),
+      setDevicePermissionHandler: vi.fn(),
     },
   },
+  Menu: { setApplicationMenu: vi.fn() },
 }));
 
 vi.mock('fs', () => ({
@@ -83,9 +86,11 @@ vi.mock('fs', () => ({
   rmSync: vi.fn(),
   cpSync: vi.fn(),
   renameSync: vi.fn(),
+  copyFileSync: vi.fn(),
+  unlinkSync: vi.fn(),
   existsSync: vi.fn(() => false),
   mkdirSync: vi.fn(),
-  statSync: vi.fn(() => ({ isDirectory: () => false })),
+  statSync: vi.fn(() => ({ isDirectory: () => false, size: 0 })),
 }));
 
 vi.mock('path', async (importOriginal) => {

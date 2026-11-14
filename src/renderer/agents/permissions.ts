@@ -25,7 +25,10 @@ export const TOOL_FAMILIES: Record<string, string[]> = {
   Read: ['read_file', 'list_directory', 'read_editor', 'get_editor_state', 'get_selected_text', 'read_terminal', 'get_canvas_state', 'git_diff', 'git_log', 'git_status', 'git_branches', 'specs_explore', 'specs_validate', 'specs_reload', 'memory_list', 'memory_get', 'memory_search'],
   Write: ['write_file', 'create_directory', 'rename_file', 'copy_file', 'set_editor_content', 'insert_text_in_editor', 'git_stage', 'git_unstage', 'git_commit', 'git_checkout', 'git_push', 'specs_reconcile', 'memory_set', 'memory_delete'],
   Edit: ['write_file', 'set_editor_content', 'insert_text_in_editor', 'delete_file', 'rename_file', 'copy_file', 'create_directory'],
-  Bash: ['write_to_terminal', 'send_key_to_terminal', 'kill_terminal'],
+  // `run_command` is the tool that actually executes arbitrary shell commands,
+  // so it belongs to Bash: without it, plan mode (read-only) and per-agent
+  // deny rules like "Bash(rm *)" silently did not cover it.
+  Bash: ['run_command', 'write_to_terminal', 'send_key_to_terminal', 'kill_terminal'],
   Grep: ['grep_workspace'],
   WebFetch: ['open_external'],
   Agent: ['agent_spawn', 'agent_dispatch', 'agent_kill', 'agent_wait', 'agent_status', 'agent_broadcast', 'agent_approve', 'pipeline_confirm', 'pipeline_status', 'pipeline_reset', 'definitions_list'],

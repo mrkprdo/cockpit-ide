@@ -20,6 +20,7 @@ import { memoryStore } from '../../ai/memory-store';
 import { AGENT_SYSTEM_PROMPT, ROUTING_POLICY, buildPlatformPrompt, detectHostPlatform } from '../../ai/prompts';
 import { ToolRegistry } from '../../ai/tool-registry';
 import { executeToolCall } from '../../ai/tool-executor';
+import { DESTRUCTIVE_TOOL_NAMES } from '../../ai/tool-definitions';
 import type { LLMMessage, LLMToolCall, ToolContext } from '../../ai/types';
 import { reportFailure } from '../../health/monitor';
 import { RetryController } from './llm-retry';
@@ -187,6 +188,15 @@ export class LlmLoop {
       })
       .join(' ');
     return argStr;
+  }
+
+  /** One-line description of a pending call for the approval prompt. */
+  private formatPendingCall(tc: LLMToolCall): string {
+    let args: Record<string, unknown> = {};
+    try { args = JSON.parse(tc.function.arguments || '{}'); } catch { /* show name only */ }
+    const argStr = this.formatToolChip(tc.function.name, args);
+    const shown = argStr.length > 160 ? argStr.slice(0, 160) + '…' : argStr;
+    return shown ? `${tc.function.name} ${shown}` : tc.function.name;
   }
 
   private waitForAction(label: string): Promise<boolean> {
@@ -520,15 +530,19 @@ export class LlmLoop {
         if (!tc.id) tc.id = `tc-${Date.now().toString(36)}-${idx}`;
       });
 
-      // STEP mode pauses before every batch. auto and plan already run without
-      // per-call confirmation (plan gates upfront on the approved plan), so a
-      // destructive tool batch proceeds immediately in those modes.
-      if (this.host.getAgentMode() === 'step') {
-        stepCount++;
-        const toolNames = toolCalls.map(tc => tc.function.name).join(', ');
-        const proceed = await this.waitForAction(`Step ${stepCount}: run ${toolNames}?`);
-        if (!proceed || this.host.getAbortRequested()) return 'Aborted.';
-      }
+      // Approval gate. step: pause on every batch, showing the calls WITH their
+      // arguments. auto: one confirmation for any mutating/exec batch — prompt
+      // injection must not reach run_command/write_file/git_push unseen.
+      // plan: gated upstream by "Approve plan to execute?".
+      const mode = this.host.getAgentMode();
+      const describe = (calls: LLMToolCall[]): string => calls.map(tc => this.formatPendingCall(tc)).join('; ');
+      const gate = async (label: string): Promise<boolean> =>
+        (await this.waitForAction(label)) && !this.host.getAbortRequested();
+      const destructive = toolCalls.filter(tc => DESTRUCTIVE_TOOL_NAMES.has(tc.function.name));
+
+      if (mode === 'step' && !(await gate(`Step ${++stepCount}: run ${describe(toolCalls)}?`))) return 'Aborted.';
+      if (mode === 'auto' && destructive.length > 0 &&
+        !(await gate(`Approve ${destructive.length} destructive call(s): ${describe(destructive)}?`))) return 'Aborted.';
 
       // Add assistant turn with tool_calls. Omit `content` (not `null`) when
       // there is no text — strict gateways reject null content on this shape.

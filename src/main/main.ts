@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, session } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ideServer } from './ide-server';
@@ -21,6 +21,10 @@ import { registerWindowHandlers } from './ipc/window';
 import { registerWorkspaceHandlers } from './ipc/workspace';
 
 process.noDeprecation = true;
+
+// Dev affordances (DevTools, the .dev-reload watcher) are for unpackaged runs
+// only — a packaged binary must not honour `--dev`.
+const isDev = process.argv.includes('--dev') && !app.isPackaged;
 
 process.on('uncaughtException', (err) => logFatal('uncaughtException', err));
 process.on('unhandledRejection', (err) => logFatal('unhandledRejection', err));
@@ -93,7 +97,7 @@ function createWindow(): void {
   installZoomControls(win.webContents);
   wireCrashRecovery(win);
 
-  if (process.argv.includes('--dev')) {
+  if (isDev) {
     win.webContents.openDevTools();
   }
 
@@ -149,7 +153,7 @@ function createNewWindow(): void {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   installZoomControls(win.webContents);
   wireCrashRecovery(win);
-  if (process.argv.includes('--dev')) {
+  if (isDev) {
     win.webContents.openDevTools();
   }
   win.on('close', () => cleanupWindowTerminals(win));
@@ -157,10 +161,20 @@ function createNewWindow(): void {
 
 app.whenReady().then(async () => {
   logMain('info', 'main', 'app ready', `packaged=${app.isPackaged}`);
+
+  // No application menu: the window is frameless and every accelerator the app
+  // wants is handled in the renderer. Leaving Electron's default menu alive
+  // registered invisible accelerators (Ctrl+R reload orphaned every PTY,
+  // Ctrl+W closed the window instead of the editor tab, Ctrl+Shift+I in prod).
+  Menu.setApplicationMenu(null);
+
   // No remote content is ever loaded, so there's never a legitimate reason to
   // grant a permission request (camera, notifications, etc.) — deny by default
-  // instead of relying on Electron's own default.
+  // instead of relying on Electron's own default. The *check* handler covers
+  // synchronous permission queries, which the request handler alone does not.
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setDevicePermissionHandler(() => false);
 
   // Initialize userData-backed stores (recent/last workspace, zoom)
   store.initWorkspaceStore();
@@ -215,7 +229,7 @@ app.whenReady().then(async () => {
   }
 
   // Hot reload: dev.js writes this sentinel after renderer-only rebuilds
-  if (process.argv.includes('--dev')) {
+  if (isDev) {
     const distDir = path.join(app.getAppPath(), 'dist');
     const sentinelName = '.dev-reload';
     let lastReloadTime = 0;

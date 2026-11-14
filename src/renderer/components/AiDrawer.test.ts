@@ -1184,7 +1184,7 @@ describe('AiDrawer', () => {
       expect(combined).toContain('focus on the config file instead');
     });
 
-    it('runs a destructive tool call immediately in auto mode (no confirmation)', async () => {
+    it('gates a destructive tool call behind one confirmation in auto mode', async () => {
       let callCount = 0;
       globalThis.fetch = vi.fn().mockImplementation(() => {
         callCount++;
@@ -1210,9 +1210,19 @@ describe('AiDrawer', () => {
       await flush();
       await flush();
 
-      // No confirmation pause — the destructive tool runs immediately.
+      // Auto mode still stops for a mutating call: nothing is deleted yet, and
+      // the prompt names the tool AND its argument (names alone hid the target).
+      expect((window as any).electronAPI.fs.delete).not.toHaveBeenCalled();
+      expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(true);
+      const label = q('.ai-step-label')?.textContent ?? '';
+      expect(label).toContain('delete_file');
+      expect(label).toContain('/ws/foo.ts');
+
+      q('.ai-step-continue-btn').click();
+      await flush();
+      await flush();
+
       expect((window as any).electronAPI.fs.delete).toHaveBeenCalledWith('/ws/foo.ts');
-      expect(drawer['stepControlsEl'].classList.contains('is-visible')).toBe(false);
     });
 
     it('does not pause for a non-destructive tool call in auto mode', async () => {

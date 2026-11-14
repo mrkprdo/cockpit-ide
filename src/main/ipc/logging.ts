@@ -21,13 +21,20 @@ export function formatError(err: unknown): string {
   return err instanceof Error ? (err.stack || err.message) : String(err);
 }
 
+/** crash.log is truncated at this size (renderer errors can repeat at frame rate). */
+const CRASH_LOG_MAX = 1024 * 1024;
+
 /** crash.log writer — kept here (not duplicated per namespace) so uncaught
  *  exceptions and IPC handler errors share one vocabulary. */
 export function logFatal(kind: string, err: unknown): void {
   console.error(kind, err);
   try {
+    const file = path.join(app.getPath('userData'), 'crash.log');
     const line = `${new Date().toISOString()} [${kind}] ${formatError(err)}\n`;
-    fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'), line);
+    // Renderer-driven errors can repeat at frame rate; without a cap this file
+    // grows until the disk complains.
+    try { if (fs.statSync(file).size > CRASH_LOG_MAX) fs.writeFileSync(file, ''); } catch { /* no log yet */ }
+    fs.appendFileSync(file, line);
   } catch { /* best effort */ }
 }
 

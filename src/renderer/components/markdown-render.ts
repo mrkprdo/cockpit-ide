@@ -4,6 +4,21 @@
 
 import { marked, Renderer } from 'marked';
 
+/**
+ * Escape inline markdown text for HTML output.
+ *
+ * marked gives a custom renderer the RAW token text (not the escaped form the
+ * default renderers use), so anything interpolated from `text` — link labels,
+ * image alt text — must be escaped here or it becomes live HTML in the preview.
+ */
+function escapeInline(text: string): string {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 /** Render markdown to a safe `.md-content` HTML string (or a status message). */
 export function renderMarkdownToHtml(text: string): string {
   if (!text.trim()) {
@@ -16,10 +31,13 @@ export function renderMarkdownToHtml(text: string): string {
     };
     renderer.link = ({ href, text: linkText }: { href: string; text: string }) => {
       if (href && /^javascript:/i.test(href)) {
-        return `<span>${linkText}</span>`;
+        return `<span>${escapeInline(linkText)}</span>`;
       }
       const safeHref = (href ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-      return `<a href="${safeHref}">${linkText}</a>`;
+      // The label is raw token text, NOT pre-escaped: marked hands the renderer
+      // the unescaped source, so `[<img src=x onerror=…>](url)` used to emit live
+      // HTML into the preview pane. Escape it here.
+      return `<a href="${safeHref}">${escapeInline(linkText)}</a>`;
     };
     const html = marked.parse(text, { breaks: true, renderer }) as string;
     return `<div class="md-content">${html}</div>`;

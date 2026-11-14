@@ -39,8 +39,10 @@ export * from './memory';
 export * from './misc';
 
 // Tools that mutate the filesystem, run a shell command, or change git/branch
-// state. Catalog of mutating tools — informational only, not used for
-// auto/plan gating (the AI Drawer only pauses for confirmation in step mode).
+// state. ENFORCED: `llm-loop.callLLMWithTools` requires an explicit user
+// confirmation for any batch containing one of these while the drawer is in
+// `auto` mode (step mode already pauses on every batch; plan mode is approved
+// upstream). Keep this list in sync with the mutating tool definitions.
 export const DESTRUCTIVE_TOOL_NAMES = new Set<string>([
   'write_file',
   'delete_file',

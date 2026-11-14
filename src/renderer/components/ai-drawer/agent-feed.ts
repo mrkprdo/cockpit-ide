@@ -22,6 +22,27 @@ import type { AgentLink, ChatMessage, PanelView } from './types';
 /** Cap per agent transcript; oldest evicted. */
 const TRANSCRIPT_CAP = 200;
 
+const PERSONA_ID_RE = /^agent:[a-z0-9-]{1,40}$/;
+
+/**
+ * Coerce a persona loaded from a session file into a safe shape.
+ *
+ * Session files live under the workspace (`.cockpit/sessions/agents/*.json`), so
+ * a cloned repository can ship one with an arbitrary `id`/`name`/`icon`/`color`.
+ * `id` is interpolated into `data-*` attributes by the renderer, so an
+ * unrestricted value is an HTML-injection primitive; the rest are display text
+ * and a CSS value. Never trust any of it.
+ */
+function sanitizePersona(raw: unknown, fallbackId: AgentId): AgentPersona {
+  const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<AgentPersona>;
+  const id = typeof p.id === 'string' && PERSONA_ID_RE.test(p.id) ? p.id : fallbackId;
+  const name = (typeof p.name === 'string' ? p.name : 'Agent').slice(0, 40);
+  const icon = (typeof p.icon === 'string' ? p.icon : 'AG').slice(0, 4);
+  const color = (typeof p.color === 'string' ? p.color : '').slice(0, 32);
+  const definition = (typeof p.definition === 'string' ? p.definition : '').slice(0, 64);
+  return { id, name, icon, color, definition };
+}
+
 export interface AgentTranscript {
   persona: AgentPersona;
   state: AgentState;
@@ -144,7 +165,11 @@ export class AgentFeed {
       const file = await this.readSessionFile(link);
       if (!file) continue;
       const t: AgentTranscript = {
-        persona: file.persona,
+        // Persona comes off disk, i.e. out of the repository — a cloned project
+        // controls it. Coerce every field the UI interpolates rather than
+        // trusting the file: `id` feeds data-* attributes, `name`/`icon` are
+        // rendered as text, `color` feeds a CSS variable.
+        persona: sanitizePersona(file.persona, link.agentId),
         state: file.state,
         steps: file.messages ?? [],
         unread: 0,

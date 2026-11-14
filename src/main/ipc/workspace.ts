@@ -9,9 +9,14 @@ import type { IpcMain } from 'electron';
 import { dialog, BrowserWindow } from 'electron';
 import type { IpcCtx } from './context';
 import { withHandlerLogging } from './logging';
-import { logMain } from './logging';
+import { logMain, notifyUser } from './logging';
 import * as store from './workspace-store';
 import { ideServer } from '../ide-server';
+
+/** Parse a JSON file, returning null when it is missing or corrupt. */
+function readJsonFile(file: string): unknown | null {
+  try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch { return null; }
+}
 
 export function registerWorkspaceHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
   const { security, state, startWatching } = ctx;
@@ -64,24 +69,51 @@ export function registerWorkspaceHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
     const targetPath = wsPath || state.defaultWorkspacePath;
     if (!targetPath) return null;
     if (wsPath && !security.isPathSafe(wsPath, event)) return null;
-    const f = path.join(targetPath, '.cockpit', 'window.json');
-    try {
-      const parsed = JSON.parse(fs.readFileSync(f, 'utf-8'));
+    const dir = path.join(targetPath, '.cockpit');
+    const f = path.join(dir, 'window.json');
+    const live = readJsonFile(f);
+    if (live !== null) {
       logMain('debug', 'main', 'workspace loaded', targetPath);
-      return parsed;
-    } catch { return null; }
+      return live;
+    }
+    // Unreadable or missing. Try the previous good copy: before this existed, a
+    // single bad byte reset the whole layout to defaults AND overwrote the file,
+    // destroying the evidence with no signal to the user.
+    const backup = readJsonFile(`${f}.bak`);
+    if (backup !== null) {
+      try { fs.copyFileSync(`${f}.bak`, f); } catch { /* serve the in-memory copy regardless */ }
+      logMain('warn', 'main', 'window.json unreadable — restored from backup', targetPath);
+      notifyUser('warn', 'Your saved layout could not be read — restored the previous backup.', event);
+      return backup;
+    }
+    if (fs.existsSync(f)) {
+      logMain('warn', 'main', 'window.json unreadable — no backup available', targetPath);
+      notifyUser('error', 'Your saved layout could not be read and no backup exists. A default layout was created.', event);
+    }
+    return null;
   }, null);
 
   withHandlerLogging('workspace:save', (event, stateArg: any, wsPath?: string) => {
     const targetPath = wsPath || state.defaultWorkspacePath;
-    if (!targetPath) { console.error('workspace:save — no workspacePath'); return false; }
+    if (!targetPath) { notifyUser('error', 'Could not save the layout: no workspace is open.', event); return false; }
     if (wsPath && !security.isPathSafe(wsPath, event)) return false;
     const dir = path.join(targetPath, '.cockpit');
+    const f = path.join(dir, 'window.json');
+    const tmp = `${f}.tmp`;
     try {
       security.cockpitDir(dir);
-      fs.writeFileSync(path.join(dir, 'window.json'), JSON.stringify(stateArg, null, 2));
+      fs.writeFileSync(tmp, JSON.stringify(stateArg, null, 2));
+      // Keep the last good copy, then swap in one rename: a crash mid-write can
+      // never leave a truncated window.json behind.
+      try { if (fs.existsSync(f)) fs.copyFileSync(f, `${f}.bak`); } catch { /* backup is best-effort */ }
+      fs.renameSync(tmp, f);
       return true;
-    } catch (e) { console.error('workspace:save error', e); return false; }
+    } catch (e) {
+      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { /* ignore */ }
+      logMain('error', 'main', 'workspace:save failed', e);
+      notifyUser('error', 'Could not save the window layout to disk.', event);
+      return false;
+    }
   }, false);
 
   withHandlerLogging('workspace:getRecent', () => store.getRecentWorkspaces(), []);

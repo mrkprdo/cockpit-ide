@@ -52,6 +52,33 @@ export interface LoadResult {
   loaded: SubAgentDefinition[];
   errors: Array<{ file: string; error: string }>;
   skipped: Array<{ file: string; reason: string }>;
+  /**
+   * Shell hooks declared by workspace files. They are reported here whether or
+   * not they were registered, so the caller can ask the user for consent.
+   */
+  hooks: Array<{ file: string; name: string; commands: string[] }>;
+}
+
+export interface LoadOptions {
+  /** Register workspace-declared hooks. Default false — see loadDefinitionsFromWorkspace. */
+  allowHooks?: boolean;
+}
+
+const HOOK_EVENTS = ['PreToolUse', 'PostToolUse', 'SubagentStart', 'SubagentStop'] as const;
+
+/** Flatten every hook command a definition declares, as "Event: command". */
+function collectHookCommands(defn: SubAgentDefinition): string[] {
+  const hooks = (defn as { hooks?: Record<string, Array<{ command?: string }>> }).hooks;
+  if (!hooks || typeof hooks !== 'object') return [];
+  const out: string[] = [];
+  for (const event of HOOK_EVENTS) {
+    const list = hooks[event];
+    if (!Array.isArray(list)) continue;
+    for (const spec of list) {
+      if (spec && typeof spec.command === 'string') out.push(`${event}: ${spec.command}`);
+    }
+  }
+  return out;
 }
 
 /** Parse + validate one definition file's raw text. */
@@ -77,9 +104,18 @@ export const DEFINITIONS_DIR = '.cockpit/agents';
  * Load all `.cockpit/agents/*.json` definitions for a workspace via the fs IPC.
  * Clears prior custom definitions, then registers each valid one. Returns a
  * report for the UI / definitions tool.
+ *
+ * SECURITY: `hooks` in these files are arbitrary shell commands that ship
+ * inside the repository, and `SubagentStart` fires before an agent's first tool
+ * call. They are therefore stripped unless the caller passes `allowHooks: true`,
+ * which must only happen after the user explicitly confirms in this session.
  */
-export async function loadDefinitionsFromWorkspace(wsPath: string, fsApi = window.electronAPI?.fs): Promise<LoadResult> {
-  const result: LoadResult = { loaded: [], errors: [], skipped: [] };
+export async function loadDefinitionsFromWorkspace(
+  wsPath: string,
+  fsApi = window.electronAPI?.fs,
+  opts: LoadOptions = {},
+): Promise<LoadResult> {
+  const result: LoadResult = { loaded: [], errors: [], skipped: [], hooks: [] };
   if (!wsPath || !fsApi) return result;
 
   clearCustomDefinitions();
@@ -117,6 +153,13 @@ export async function loadDefinitionsFromWorkspace(wsPath: string, fsApi = windo
       continue;
     }
     const defn = parsed.defn;
+    const commands = collectHookCommands(defn);
+    if (commands.length > 0) {
+      result.hooks.push({ file: fileName, name: defn.name, commands });
+      if (!opts.allowHooks) {
+        delete (defn as { hooks?: unknown }).hooks;
+      }
+    }
     const registered = registerDefinition(defn);
     if (!registered) {
       result.skipped.push({ file: fileName, reason: `built-in name "${defn.name}" collides` });

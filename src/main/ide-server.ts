@@ -48,7 +48,17 @@ export class IdeServer {
     this.authToken = crypto.randomUUID();
     this.server = http.createServer();
 
-    this.wss = new WebSocketServer({ server: this.server });
+    // maxPayload: a local client (or a hostile local process that found the port)
+    // must not be able to push a 100 MB frame into the renderer. verifyClient
+    // rejects anything with an Origin header: browsers always send one, the CLI
+    // clients that consume the lock files never do, so this structurally
+    // excludes web pages from scanning loopback and talking to the IDE.
+    this.wss = new WebSocketServer({
+      server: this.server,
+      maxPayload: 64 * 1024,
+      verifyClient: (info: { req: { headers: Record<string, string | string[] | undefined> } }) =>
+        !info.req.headers.origin,
+    });
 
     this.wss.on('connection', (ws: WebSocket) => {
       this.clients.add(ws);
@@ -80,7 +90,9 @@ export class IdeServer {
               }));
             }
           } else if (initialized && msg.method === 'openFile' && msg.params?.filePath) {
-            this.onOpenFile?.(msg.params.filePath);
+            if (this.isInsideWorkspace(msg.params.filePath)) {
+              this.onOpenFile?.(msg.params.filePath);
+            }
           }
         } catch { /* ignore malformed messages */ }
       });
@@ -168,6 +180,21 @@ export class IdeServer {
   }
 
   getPort(): number { return this.port; }
+
+  /**
+   * `openFile` arrives from a local client over the WebSocket — treat it as
+   * untrusted and refuse anything outside the open workspace. Without this the
+   * channel could drive the renderer to open arbitrary files
+   * (`C:\Windows\...`, `../../.ssh/id_rsa`) which are then rendered.
+   */
+  private isInsideWorkspace(target: string): boolean {
+    if (!this.workspacePath) return false;
+    try {
+      const ws = path.resolve(this.workspacePath);
+      const rel = path.relative(ws, path.resolve(target));
+      return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+    } catch { return false; }
+  }
   getLockPaths(): string[] { return [...this.lockPaths]; }
 
   private writeLockFiles(): void {
