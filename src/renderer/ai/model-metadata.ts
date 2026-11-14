@@ -5,8 +5,8 @@
  *
  * - Caches in memory + localStorage for a week; never blocks the UI.
  * - Prefers the provider matching the endpoint (opencode-go for /zen/go,
- *   opencode for /zen), then falls back to searching every provider by id so
- *   custom models (openai/gpt-4o, anthropic/…, local models, …) resolve too.
+ *   opencode for /zen and /inference), then falls back to searching every
+ *   provider by id so custom model ids resolve too.
  * - Returns null on any failure — callers keep their hardcoded fallback.
  */
 

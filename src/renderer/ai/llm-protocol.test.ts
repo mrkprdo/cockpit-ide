@@ -11,10 +11,6 @@ describe('resolveProtocol', () => {
     expect(resolveProtocol('https://opencode.ai/inference/openai/v1', 'o4-mini')).toBe('responses');
   });
 
-  it('detects the Anthropic family from the endpoint path', () => {
-    expect(resolveProtocol('https://opencode.ai/inference/anthropic/v1', 'claude-sonnet-5-5')).toBe('messages');
-  });
-
   it('honours an endpoint that already names the operation', () => {
     expect(resolveProtocol('https://x/v1/chat/completions', 'gpt-4')).toBe('chat');
     expect(resolveProtocol('https://x/v1/responses', 'anything')).toBe('responses');
@@ -35,8 +31,6 @@ describe('completionUrl', () => {
       .toBe('https://opencode.ai/inference/openai/v1/chat/completions');
     expect(completionUrl('https://opencode.ai/inference/openai/v1', 'responses'))
       .toBe('https://opencode.ai/inference/openai/v1/responses');
-    expect(completionUrl('https://opencode.ai/inference/anthropic/v1', 'messages'))
-      .toBe('https://opencode.ai/inference/anthropic/v1/messages');
   });
 
   it('never double-appends when the endpoint is already complete', () => {

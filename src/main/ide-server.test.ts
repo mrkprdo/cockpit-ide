@@ -49,23 +49,6 @@ describe('IdeServer', () => {
       expect(fs.existsSync(lockPath)).toBe(false);
     });
 
-    it('writes ~/.claude/ide/{port}.lock lock file', async () => {
-      const origUserProfile = process.env.USERPROFILE;
-      process.env.USERPROFILE = tmpDir;
-      try {
-        await server.start(tmpDir);
-        const lockDir = path.join(tmpDir, '.claude', 'ide');
-        const files = fs.readdirSync(lockDir);
-        const lockFiles = files.filter(f => f.endsWith('.lock'));
-        expect(lockFiles.length).toBeGreaterThan(0);
-        const lockContent = JSON.parse(fs.readFileSync(path.join(lockDir, lockFiles[0]), 'utf-8'));
-        expect(lockContent.transport).toBe('ws');
-        expect(lockContent.workspaceFolders).toEqual([tmpDir.replace(/\\/g, '/')]);
-      } finally {
-        process.env.USERPROFILE = origUserProfile;
-      }
-    });
-
     it('writes lock file with correct transport field', async () => {
       await server.start(tmpDir);
       const lockPath = path.join(tmpDir, '.cockpit', 'ide.lock');

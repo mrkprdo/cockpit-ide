@@ -297,18 +297,6 @@ describe('LLMClient', () => {
         .rejects.toMatchObject({ name: 'LLMHttpError', status: 401, code: 'api_key_expired' });
     });
 
-    it('refuses the Anthropic Messages family with an actionable error', async () => {
-      const fetchMock = vi.fn();
-      const client = new LLMClient(
-        { apiKey: 'k', endpoint: 'https://opencode.ai/inference/anthropic/v1', model: 'claude-sonnet-5-5' },
-        fetchMock as unknown as typeof fetch
-      );
-
-      await expect(client.chatCompletion({ messages: [{ role: 'user', content: 'x' }] }))
-        .rejects.toThrow(/Anthropic Messages API/);
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
     it('falls back to a single JSON response when no body is provided', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,

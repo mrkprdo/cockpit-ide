@@ -19,7 +19,7 @@ const DEFAULT_TIMEOUT = 30_000;
 /**
  * Run a shell command and capture stdout/stderr + exit code.
  *
- * This is the hook command runner (Claude-Code-style). Unlike the git helpers
+ * This is the hook command runner. Unlike the git helpers
  * (which use execFile and never touch a shell), hooks need real shell semantics:
  * `cmd.exe /C` on Windows, `/bin/bash -c` on POSIX.
  *

@@ -2,7 +2,7 @@ import type { AgentId, HookEventName, HookSpec, SubAgentDefinition } from './typ
 import { familyForTool } from './permissions';
 
 /**
- * Hook runner — Claude-Code-style lifecycle hooks.
+ * Hook runner — lifecycle hooks.
  *
  * Hooks are shell commands declared on a definition's `hooks` map:
  *   PreToolUse / PostToolUse / SubagentStart / SubagentStop.

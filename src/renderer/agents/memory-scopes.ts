@@ -1,7 +1,7 @@
 import type { SubAgentDefinition } from './types';
 
 /**
- * Agent-scoped persistent memory — maps the Claude-Code user/project/local
+ * Agent-scoped persistent memory — maps the user/project/local
  * scopes onto Cockpit's existing memory system.
  *
  *  user    → global agent memory (shared across workspaces)

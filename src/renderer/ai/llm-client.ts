@@ -7,7 +7,7 @@ import type {
   LLMStreamEvent,
   LLMToolCall,
 } from './types';
-import { LLMConfigError, parseHttpError } from './llm-errors';
+import { parseHttpError } from './llm-errors';
 import { completionUrl, resolveProtocol, type LLMProtocol } from './llm-protocol';
 
 type FetchLike = typeof fetch;
@@ -35,7 +35,7 @@ interface StreamToolCallChunk {
 /**
  * Thin LLM client speaking the OpenAI Chat Completions and OpenAI Responses
  * protocols (the two families OpenCode serves behind its OpenAI-compatible
- * base), with an explicit, actionable refusal for Anthropic Messages.
+ * base).
  *
  * - Injectable `fetch` implementation for tests.
  * - Normalizes the endpoint URL (strips trailing slashes).
@@ -79,14 +79,6 @@ export class LLMClient {
     return completionUrl(this.config.endpoint, this.protocol);
   }
 
-  private unsupportedMessagesError(): LLMConfigError {
-    return new LLMConfigError(
-      `The endpoint ${this.config.endpoint} uses the Anthropic Messages API, which this panel does not speak yet. ` +
-      `Point the endpoint at an OpenAI-compatible base (e.g. https://opencode.ai/inference/openai/v1) and pick a Chat Completions or GPT model.`,
-      'unsupported',
-    );
-  }
-
   private buildBody(options: LLMCompletionOptions): Record<string, unknown> {
     const body: Record<string, unknown> = {
       model: this.config.model,
@@ -108,7 +100,6 @@ export class LLMClient {
 
   async chatCompletion(options: LLMCompletionOptions): Promise<LLMResponse> {
     const protocol = this.protocol;
-    if (protocol === 'messages') throw this.unsupportedMessagesError();
     if (protocol === 'responses') return this.responsesCompletion(options);
 
     const res = await this.fetchImpl(this.requestUrl, {
@@ -135,7 +126,6 @@ export class LLMClient {
    */
   async *streamChatCompletion(options: LLMCompletionOptions): AsyncGenerator<LLMStreamEvent> {
     const protocol = this.protocol;
-    if (protocol === 'messages') throw this.unsupportedMessagesError();
     if (protocol === 'responses') { yield* this.streamResponses(options); return; }
 
     const res = await this.fetchImpl(this.requestUrl, {

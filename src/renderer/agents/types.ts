@@ -128,7 +128,7 @@ export interface SpawnResult {
   correlationId: string;
 }
 
-/** Session-level permission gate (Claude Code §L1). */
+/** Session-level permission gate (§L1). */
 export type PermissionMode = 'default' | 'acceptEdits' | 'auto' | 'plan' | 'dontAsk';
 
 /** Pattern-based permission matchers: `Tool(glob)` entries, e.g. 'Bash(npm run test *)'. */
@@ -155,7 +155,7 @@ export interface HooksSpec {
 }
 
 /**
- * Declarative subagent definition — the Claude-Code-style harness contract.
+ * Declarative subagent definition - the harness contract.
  * Built-ins (the ten SDLC skills) are data of this shape; users can add more
  * via `.cockpit/agents/<name>.json`.
  */

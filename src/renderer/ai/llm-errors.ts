@@ -19,7 +19,7 @@ export type LLMErrorKind =
   | 'server'
   | 'network'
   | 'aborted'
-  | 'unsupported' // protocol we cannot speak (e.g. Anthropic Messages)
+  | 'unsupported' // a configuration we refuse to send (bad protocol/base)
   | 'unknown';
 
 export class LLMHttpError extends Error {

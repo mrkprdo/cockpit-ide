@@ -67,7 +67,7 @@ export async function showEmptyState(emptyState: HTMLDivElement, wsPath: string)
   const sub = document.createElement('div');
   sub.style.cssText = 'font-size:var(--text-xs);color:var(--tertiary);margin-bottom:18px;line-height:1.6;max-width:340px';
   sub.textContent = hasSrc
-    ? (specgenExists ? 'SPECGEN.md found. Copy the generation prompt and paste it into Claude.' : 'Write SPECGEN.md to this workspace and copy a 3-pass generation prompt.')
+    ? (specgenExists ? 'SPECGEN.md found. Copy the generation prompt and paste it into Cockpit Agent.' : 'Write SPECGEN.md to this workspace and copy a 3-pass generation prompt.')
     : 'src/ not found. Choose the entry point for spec generation.';
 
   // Entry point section (always shown, always editable)
@@ -142,7 +142,7 @@ export async function showEmptyState(emptyState: HTMLDivElement, wsPath: string)
   hint.style.cssText = 'font-size:var(--text-xs);color:var(--tertiary);margin-top:12px;opacity:0.7;max-width:340px;line-height:1.5';
   hint.textContent = agentsExists
     ? 'Agents.md detected — prompt will include update instructions.'
-    : 'Paste prompt into Claude or your AI assistant.';
+    : 'Paste the prompt into Cockpit Agent or your AI assistant.';
 
   btn.addEventListener('click', () =>
     generateAndCopyPrompt(btn, wsRoot, specgenExists, entryInput.value.trim() || 'src/', specgenIntegrity)

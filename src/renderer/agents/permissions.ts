@@ -1,7 +1,7 @@
 import type { PermissionMode, SubAgentDefinition } from './types';
 
 /**
- * Permission layer — Claude-Code-style `Tool(pattern)` allow/deny/ask matchers.
+ * Permission layer — `Tool(pattern)` allow/deny/ask matchers.
  *
  * Grammar: `Tool(glob)` where Tool ∈ Read | Write | Edit | Bash | Grep |
  * WebFetch | Agent | * and glob is a minimatch-style pattern over the tool's

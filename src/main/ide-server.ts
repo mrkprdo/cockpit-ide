@@ -214,17 +214,8 @@ export class IdeServer {
       this.lockPaths.push(wsLock);
     }
 
-    // 2. %USERPROFILE%/.claude/ide/ (Claude Code / Cursor / opencode protocol)
+    // 2. {xdgData}/opencode/ide/ (opencode XDG data path)
     const userProfile = process.env.USERPROFILE;
-    if (userProfile) {
-      const claudeDir = path.join(userProfile, '.claude', 'ide');
-      try { fs.mkdirSync(claudeDir, { recursive: true }); } catch (e) { console.error('ide: mkdir .claude/ide failed', e); }
-      const claudeLock = path.join(claudeDir, `${this.port}.lock`);
-      try { fs.writeFileSync(claudeLock, raw, 'utf-8'); } catch (e) { console.error('ide: writeLock failed', claudeLock, e); }
-      this.lockPaths.push(claudeLock);
-    }
-
-    // 3. {xdgData}/opencode/ide/ (opencode XDG data path)
     const xdgData = process.env.XDG_DATA_HOME || (userProfile ? path.join(userProfile, '.local', 'share') : null);
     if (xdgData) {
       const opencodeDir = path.join(xdgData, 'opencode', 'ide');
