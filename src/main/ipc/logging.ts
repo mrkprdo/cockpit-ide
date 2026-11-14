@@ -60,6 +60,47 @@ export function logMain(level: LogLevel, source: string, ...args: unknown[]): vo
   } catch { /* best effort */ }
 }
 
+/**
+ * Trusted-sender gate. Every channel in the app is registered through one of
+ * the three wrappers below, so this is the single place the check belongs —
+ * without it, anything that achieves script execution in *any* webContents
+ * (a markdown-injected document, a future second window pointed elsewhere)
+ * inherits the whole bridge: fs:writeFile, shell:exec, terminal:create and the
+ * stored API key.
+ *
+ * Real Electron always supplies `senderFrame` on invoke/on events. Unit tests
+ * drive the wrappers with plain objects, so a missing frame falls back to
+ * `sender.getURL()`, and only when both are absent do we allow — that path is
+ * unreachable in a packaged app.
+ */
+export function isTrustedIpcSender(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
+  let url: string | undefined;
+  try { url = event.senderFrame?.url || undefined; } catch { /* frame destroyed */ }
+  if (!url) {
+    try { url = (event.sender as any)?.getURL?.() || undefined; } catch { /* sender destroyed */ }
+  }
+  if (!url) return true;
+  // Only the bundled renderer document — not any file:// URL in the workspace.
+  return url.startsWith('file://') && /\/renderer\/index\.html$/.test(url);
+}
+
+/**
+ * User-facing notice (main → renderer). Unlike pushMainFailure — a developer
+ * signal for the dev console — this is something the user must actually see.
+ * Pass `event` to target one window, omit it to broadcast.
+ */
+export function notifyUser(level: 'info' | 'warn' | 'error', message: string, event?: IpcMainEvent | IpcMainInvokeEvent): void {
+  const notice = { level, message };
+  try {
+    const targets = event
+      ? [BrowserWindow.fromWebContents(event.sender)]
+      : BrowserWindow.getAllWindows();
+    for (const win of targets) {
+      if (win && !win.isDestroyed()) win.webContents.send('app:notice', notice);
+    }
+  } catch { /* best effort */ }
+}
+
 // ipcMain.handle (promise-returning) — preserves the exact fallback the
 // original handler used; never rethrows, never changes what the renderer sees.
 export function withHandlerLogging<T>(
@@ -68,6 +109,10 @@ export function withHandlerLogging<T>(
   fallback: T,
 ): void {
   ipcMain.handle(channel, async (event, ...args) => {
+    if (!isTrustedIpcSender(event)) {
+      logMain('warn', 'ipc', `rejected ${channel} from untrusted sender`);
+      return fallback;
+    }
     try { return await fn(event, ...args); }
     catch (err) { pushMainFailure(event, 'ipc.handler-error', err); return fallback; }
   });
@@ -79,6 +124,7 @@ export function withListenerLogging(
   fn: (event: IpcMainEvent, ...args: any[]) => void,
 ): void {
   ipcMain.on(channel, (event, ...args) => {
+    if (!isTrustedIpcSender(event)) return;
     try { fn(event, ...args); }
     catch (err) { pushMainFailure(event, 'ipc.handler-error', err); }
   });
@@ -93,6 +139,7 @@ export function withSyncListenerLogging<T>(
   fallback: T,
 ): void {
   ipcMain.on(channel, (event, ...args) => {
+    if (!isTrustedIpcSender(event)) { event.returnValue = fallback; return; }
     try { event.returnValue = fn(event, ...args); }
     catch (err) { pushMainFailure(event, 'ipc.handler-error', err); event.returnValue = fallback; }
   });

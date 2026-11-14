@@ -49,6 +49,10 @@ export function registerTerminalHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
     }
     const home = process.env.USERPROFILE || process.env.HOME || '/tmp';
     let resolvedCwd = cwd || home;
+    // A renderer-supplied cwd must stay inside the window's workspace, exactly
+    // like shell:exec and every fs:* handler. Without this a compromised
+    // renderer can start a shell in C:\Windows or the user's home.
+    if (cwd && !security.isPathSafe(cwd, event)) resolvedCwd = home;
     if (resolvedCwd) {
       try {
         if (!fs.existsSync(resolvedCwd) || !fs.statSync(resolvedCwd).isDirectory()) {

@@ -140,6 +140,9 @@ interface Window {
     health: {
       onMainFailure: (callback: (signal: { kind: string; message: string }) => void) => () => void;
     };
+    notice: {
+      on: (callback: (notice: { level: 'info' | 'warn' | 'error'; message: string }) => void) => () => void;
+    };
     log: {
       onPush: (callback: (signal: { source: string; level: 'debug' | 'info' | 'log' | 'warn' | 'error'; message: string; at: number }) => void) => () => void;
     };

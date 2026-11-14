@@ -30,7 +30,15 @@ function pushTrace(entry: TraceEntry): void {
 }
 
 function payloadSize(args: unknown[]): number {
-  try { return JSON.stringify(args).length; } catch { return 0; }
+  // Runs on every invoke/send, so it must stay O(1) per argument: a string is
+  // measured by length, never re-serialised (a 1 MB autosave used to be
+  // JSON.stringify'd a second time just to count bytes).
+  let total = 0;
+  for (const a of args) {
+    if (typeof a === 'string') { total += a.length; continue; }
+    try { total += JSON.stringify(a)?.length ?? 0; } catch { /* ignore */ }
+  }
+  return total;
 }
 
 function tracedInvoke<T = unknown>(channel: string): (...args: unknown[]) => Promise<T> {
@@ -176,6 +184,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       const handler = (_event: any, signal: { kind: string; message: string }) => callback(signal);
       ipcRenderer.on('health:mainFailure', handler);
       return () => ipcRenderer.removeListener('health:mainFailure', handler);
+    },
+  },
+  // User-facing notices (main → renderer). Distinct from health:*Failure, which
+  // is a developer signal for the dev console: these are things the user has to
+  // see — a restored layout, a failed save, a rejected operation.
+  notice: {
+    on: (callback: (notice: { level: 'info' | 'warn' | 'error'; message: string }) => void) => {
+      const handler = (_event: any, notice: { level: 'info' | 'warn' | 'error'; message: string }) => callback(notice);
+      ipcRenderer.on('app:notice', handler);
+      return () => ipcRenderer.removeListener('app:notice', handler);
     },
   },
   log: {

@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { filterEnv } from './ipc/security';
 
 export interface ExecOptions {
   cwd?: string;
@@ -39,7 +40,9 @@ export function runShellCommand(command: string, opts: ExecOptions = {}): Promis
       child = spawn(shell.file, [shell.arg, command], {
         cwd: opts.cwd,
         windowsHide: true,
-        env: { ...process.env },
+        // Same whitelist the PTY uses — a hook must not inherit the app's
+        // full environment (tokens, proxy creds, API keys in env vars).
+        env: filterEnv(),
       });
     } catch (err: any) {
       resolve({ exitCode: -1, stdout: '', stderr: `failed to spawn shell: ${err?.message || String(err)}` });

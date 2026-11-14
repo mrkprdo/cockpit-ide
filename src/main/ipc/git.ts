@@ -165,8 +165,13 @@ export function registerGitHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
         // Empty diff — file may be untracked (new). Check and show full content as addition.
         execFile('git', ['ls-files', '--error-unmatch', filePath], { cwd: repoPath }, (lsErr) => {
           if (lsErr) {
-            // File is untracked — read it and build a new-file diff
-            const fullPath = path.resolve(repoPath, filePath);
+            // File is untracked — read it and build a new-file diff.
+            // `filePath` comes from the renderer/agent and is NOT gated by the
+            // isPathSafe check on repoPath above, so it must be resolved
+            // against the workspace sandbox before any read: without this,
+            // "../../../Users/<u>/.ssh/id_rsa" reads straight out of the box.
+            const fullPath = security.resolvePathInsideWorkspace(path.resolve(repoPath, filePath), event);
+            if (!fullPath) { resolve(''); return; }
             try {
               const content = fs.readFileSync(fullPath, 'utf-8');
               const lines = content.split('\n');
