@@ -926,6 +926,34 @@ describe('AiDrawer', () => {
       expect(drawer['settingsEl'].classList.contains('is-visible')).toBe(true);
     });
 
+    it('shows the active model in the header chip, with its protocol', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      const chip = q('.ai-model-chip');
+      expect(chip.textContent).toBe('gpt-4o-mini');
+      expect(chip.getAttribute('title') ?? '').toContain('Chat Completions');
+    });
+
+    it('fetches the endpoint catalogue when the model UI opens', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: [{ id: 'kimi-k3' }, { id: 'glm-5.3' }] }),
+      });
+
+      q('.ai-drawer-settings-btn').click();
+      await flush();
+      await flush();
+
+      const select = drawer['el'].querySelector<HTMLSelectElement>('.ai-settings-select[data-key="model-select"]')!;
+      const ids = Array.from(select.options).map(o => o.value);
+      expect(ids).toContain('kimi-k3');
+      expect(ids).toContain('glm-5.3');
+      // A model that is no longer advertised stays selectable and selected.
+      expect(select.value).toBe('gpt-4o-mini');
+    });
+
     it('closes on close button', async () => {
       drawer = await createDrawer();
       await drawer.toggle();

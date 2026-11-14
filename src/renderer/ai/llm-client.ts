@@ -8,7 +8,7 @@ import type {
   LLMToolCall,
 } from './types';
 import { parseHttpError } from './llm-errors';
-import { completionUrl, resolveProtocol, type LLMProtocol } from './llm-protocol';
+import { completionUrl, modelsUrl, resolveProtocol, type LLMProtocol } from './llm-protocol';
 
 type FetchLike = typeof fetch;
 
@@ -391,6 +391,22 @@ export class LLMClient {
   }
 
   /**
+   * List the models this endpoint offers, using the same auth + session headers.
+   * Providers disagree on the envelope (`{data:[…]}`, `{models:[…]}`, a bare
+   * array, an id-keyed object), so `parseModelList` accepts all of them.
+   */
+  async listModels(): Promise<string[]> {
+    const res = await this.fetchImpl(modelsUrl(this.config.endpoint), {
+      method: 'GET',
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      throw parseHttpError(res.status, await res.text().catch(() => ''), res.headers?.get?.('retry-after'));
+    }
+    return parseModelList(await res.json());
+  }
+
+  /**
    * Convenience helper for a plain text completion with no tools.
    */
   async complete(messages: LLMMessage[], signal?: AbortSignal): Promise<string> {
@@ -400,6 +416,43 @@ export class LLMClient {
 }
 
 export type { OpenAIFunctionSchema, LLMMessage, LLMResponse };
+
+/**
+ * Normalise a provider's model catalogue into a sorted id list.
+ *
+ * Accepts the shapes seen in the wild: `{data:[{id}]}`, `{models:[{id}|string]}`,
+ * `{items:[…]}`, an array of either, and an id-keyed object (`{models:{id:{…}}}`).
+ */
+export function parseModelList(data: unknown): string[] {
+  const out = new Set<string>();
+
+  const push = (value: unknown): void => {
+    if (typeof value === 'string') {
+      const id = value.trim();
+      if (id) out.add(id);
+      return;
+    }
+    if (value && typeof value === 'object') {
+      const o = value as Record<string, unknown>;
+      const id = o.id ?? o.name ?? o.model ?? o.slug;
+      if (typeof id === 'string' && id.trim()) out.add(id.trim());
+    }
+  };
+
+  if (Array.isArray(data)) {
+    data.forEach(push);
+  } else if (data && typeof data === 'object') {
+    const d = data as Record<string, unknown>;
+    const list = d.data ?? d.models ?? d.items ?? d.list;
+    if (Array.isArray(list)) {
+      list.forEach(push);
+    } else if (list && typeof list === 'object') {
+      for (const key of Object.keys(list)) out.add(key);
+    }
+  }
+
+  return Array.from(out).sort((a, b) => a.localeCompare(b));
+}
 
 /**
  * Map Chat-Completions messages onto Responses `input` items.

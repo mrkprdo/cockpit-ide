@@ -219,6 +219,11 @@ export class DrawerLayout {
     this.setOpenWidth(this.drawerWidth);
     this.deps.dom.el.classList.add('is-open');
     this.deps.dom.notch.classList.add('is-open');
+    // The drawer exists to be typed into: focus the composer so Ctrl+Shift+A
+    // then typing works without an extra click.
+    requestAnimationFrame(() => {
+      try { this.deps.dom.inputEl.focus(); } catch { /* detached/tearing down */ }
+    });
     if (this.isDetached) this.updateFloatPosition();
     this.escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.close(); };
     document.addEventListener('keydown', this.escHandler);

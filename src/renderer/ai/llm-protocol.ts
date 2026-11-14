@@ -44,6 +44,16 @@ export function completionUrl(endpoint: string, protocol: LLMProtocol): string {
 }
 
 /**
+ * URL of the model catalogue for an endpoint. Derived from the completion
+ * endpoint so a custom base works without extra configuration.
+ */
+export function modelsUrl(endpoint: string): string {
+  const base = (endpoint || '').trim().replace(/\/+$/, '');
+  const stripped = base.replace(/\/(chat\/completions|responses|messages)$/, '');
+  return /\/models$/.test(stripped) ? stripped : `${stripped}/models`;
+}
+
+/**
  * Human label for the settings panel, so "why does my model not work" has a
  * visible answer instead of a hidden branch in the client.
  */

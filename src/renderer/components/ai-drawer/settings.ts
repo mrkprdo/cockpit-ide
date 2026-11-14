@@ -62,6 +62,10 @@ export class SettingsStore {
   suppressViewMove = false;
   /** Official max output tokens for the active model — seeded from presets, refreshed from models.dev. */
   modelMaxOutput = 65536;
+  /** Model ids reported by the endpoint. Empty = fall back to the built-in presets. */
+  availableModels: string[] = [];
+  /** Notifies the drawer chrome (header model chip) that the active model changed. */
+  onModelChange: (() => void) | null = null;
 
   constructor(private dom: AiDrawerDom) {}
 
@@ -126,6 +130,10 @@ export class SettingsStore {
       if (prefs && (prefs.aiModel !== this.model || prefs.aiEndpoint !== this.endpoint)) {
         this.saveSettings();
       }
+      // Tell the chrome what is selected. The live catalogue is fetched when the
+      // model UI is opened (see AiDrawer), not at boot: the chat path must not
+      // depend on a network round-trip that can fail offline.
+      this.onModelChange?.();
     } catch {}
   }
 
@@ -151,6 +159,66 @@ export class SettingsStore {
   async refreshModelMetadata(): Promise<void> {
     const info = await resolveModelLimit(this.model, this.endpoint);
     if (info) this.modelMaxOutput = info.maxOutput;
+  }
+
+  /**
+   * Ask the endpoint which models it actually offers and rebuild the picker.
+   *
+   * Hardcoded presets go stale the moment the provider adds or retires a model
+   * (and OpenCode rotates its catalogue often), so the live list is the source of
+   * truth; presets remain as labels/limits and as an offline fallback.
+   */
+  async refreshModels(): Promise<boolean> {
+    if (!this.apiKey) return false;
+    try {
+      const models = await this.createClient('ses_model_catalogue').listModels();
+      if (models.length === 0) return false;
+      this.availableModels = models;
+      this.renderModelOptions();
+      this.onModelChange?.();
+      return true;
+    } catch {
+      return false; // keep the presets; the failure is visible via Test connection
+    }
+  }
+
+  /** Rebuild the <select> from presets + whatever the endpoint reported. */
+  private renderModelOptions(): void {
+    const sel = this.dom.settingsEl?.querySelector<HTMLSelectElement>('.ai-settings-select[data-key="model-select"]');
+    if (!sel) return;
+
+    const group = (label: string, entries: Array<{ id: string; text: string }>): void => {
+      if (entries.length === 0) return;
+      const g = document.createElement('optgroup');
+      g.label = label;
+      for (const e of entries) {
+        const o = document.createElement('option');
+        o.value = e.id;
+        o.textContent = e.text;
+        g.appendChild(o);
+      }
+      sel.appendChild(g);
+    };
+
+    sel.innerHTML = '';
+    group('Free (OpenCode app only)', ZEN_MODELS.filter(m => m.group === 'free').map(m => ({ id: m.id, text: m.label })));
+    group('Go / Console', ZEN_MODELS.filter(m => m.group === 'paid').map(m => ({ id: m.id, text: m.label })));
+
+    const known = new Set(ZEN_MODELS.map(m => m.id));
+    const extras = this.availableModels.filter(id => !known.has(id));
+    group('Available on this endpoint', extras.map(id => ({ id, text: id })));
+
+    // Never lose the current selection (e.g. a custom id, or a model the provider
+    // stopped advertising but the user still has saved).
+    if (!Array.from(sel.options).some(o => o.value === this.model)) {
+      group('Current', [{ id: this.model, text: this.model }]);
+    }
+    const custom = document.createElement('option');
+    custom.value = '__custom__';
+    custom.textContent = 'Custom…';
+    sel.appendChild(custom);
+
+    sel.value = this.model;
   }
 
   getMaxOutputTokens(): number {
@@ -197,6 +265,8 @@ export class SettingsStore {
       });
       const reply = (res.choices?.[0]?.message?.content ?? '').trim().slice(0, 60);
       report(`Connected · ${protocolLabel(client.protocol)} · ${model}${reply ? ` — "${reply}"` : ''}`, true);
+      // A working key means we can also refresh the real model catalogue.
+      void this.refreshModels();
       return true;
     } catch (err) {
       const info = describeLLMError(err);
@@ -230,6 +300,10 @@ export class SettingsStore {
         this.model = modelSelect.value;
         this.seedMaxOutput();
         this.refreshModelMetadata();
+        // Selecting a model is a complete action: persist it and update the
+        // header chip immediately instead of waiting for Save.
+        void this.saveSettings();
+        this.onModelChange?.();
         if (entry) {
           const ctxInput = settingsEl.querySelector<HTMLInputElement>('.ai-settings-input[data-key="contextLimit"]');
           if (ctxInput) {
@@ -280,6 +354,7 @@ export class SettingsStore {
       this.seedMaxOutput();
       this.refreshModelMetadata();
       this.saveSettings();
+      this.onModelChange?.();
       viewPrefs.suppressViewMove = this.suppressViewMove;
       settingsEl.classList.remove('is-visible');
     });

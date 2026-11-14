@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { completionUrl, isResponsesModel, resolveProtocol } from './llm-protocol';
+import { completionUrl, isResponsesModel, modelsUrl, resolveProtocol } from './llm-protocol';
 
 describe('resolveProtocol', () => {
   it('uses Chat Completions for open models on the OpenAI base', () => {
@@ -41,6 +41,19 @@ describe('completionUrl', () => {
   it('never double-appends when the endpoint is already complete', () => {
     expect(completionUrl('https://x/chat/completions', 'chat')).toBe('https://x/chat/completions');
     expect(completionUrl('https://x/responses', 'responses')).toBe('https://x/responses');
+  });
+});
+
+describe('modelsUrl', () => {
+  it('derives the catalogue URL from the completion endpoint', () => {
+    expect(modelsUrl('https://opencode.ai/zen/go/v1')).toBe('https://opencode.ai/zen/go/v1/models');
+    expect(modelsUrl('https://opencode.ai/inference/openai/v1/chat/completions'))
+      .toBe('https://opencode.ai/inference/openai/v1/models');
+    expect(modelsUrl('https://api.example.com/v1/')).toBe('https://api.example.com/v1/models');
+  });
+
+  it('is idempotent', () => {
+    expect(modelsUrl('https://x/v1/models')).toBe('https://x/v1/models');
   });
 });
 

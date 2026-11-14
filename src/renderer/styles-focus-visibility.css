@@ -12,8 +12,18 @@
 .git-select:focus-visible,
 .palette-input:focus-visible,
 .ai-settings-input:focus-visible,
-.ai-settings-select:focus-visible,
+.ai-settings-select:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* The chat composer is a compound control: the textarea has no border of its
+   own inside a bordered box, so a ring on the textarea drew a second box inside
+   the first. Ring the box, and drop the shadow that used to double it. */
 .ai-chat-input:focus-visible {
+  outline: none;
+}
+.ai-input-box:has(.ai-chat-input:focus-visible) {
   outline: var(--focus-ring);
   outline-offset: 2px;
 }

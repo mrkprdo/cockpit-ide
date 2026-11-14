@@ -25,6 +25,7 @@ import { RenderController, escapeHtml, scrollToBottomIfNearBottom } from './ai-d
 import { SessionStore } from './ai-drawer/sessions';
 import { SettingsStore } from './ai-drawer/settings';
 import { SlashCommands } from './ai-drawer/slash-commands';
+import { paintModelChip } from './ai-drawer/model-chip';
 import type { AgentMode, AiDrawerDom, ChatMessage, PanelView, Session, SlashCommand } from './ai-drawer/types';
 
 export { MAX_CONSECUTIVE_EMPTIES } from './ai-drawer/llm-loop';
@@ -221,10 +222,12 @@ export class AiDrawer {
     this.layout.bindResize();
     this.slash.registerDefaults();
     this.bindEvents();
+    // Keep the header chip in sync whenever the model/endpoint changes.
+    this.settingsStore.onModelChange = () => this.updateModelChip();
     this.settingsStore.loadSettings();
 
     // Live sub-agents: attach to the executor's event channel. The main chat
-    // session IS the room — room-visible speech lands straight in `messages`.
+    // session IS the room - room-visible speech lands straight in `messages`.
     this.feed.attach(getAgentExecutor());
     this.feed.onChange = () => this.scheduleFeedRender();
     this.feed.onChatMessage = (msg) => {
@@ -360,6 +363,12 @@ export class AiDrawer {
     this.renderCtrl.buildSkeleton();
     this.renderCtrl.bindMessageActions();
     this.renderCtrl.renderMessages();
+    paintModelChip(this.dom.el, this.settingsStore);
+  }
+
+  /** Repaint the header's active-model chip (skeleton rebuilds wipe it). */
+  private updateModelChip(): void {
+    paintModelChip(this.dom.el, this.settingsStore);
   }
 
   private showWelcome(): void {
@@ -637,6 +646,20 @@ export class AiDrawer {
       if (this.isDetached) this.layout.ensureDrawerOpen();
       this.dom.sessionsPanelEl.classList.remove('is-visible');
       this.dom.settingsEl.classList.toggle('is-visible');
+      // Opening the model UI is the moment to ask the endpoint what it offers.
+      if (this.dom.settingsEl.classList.contains('is-visible')) void this.settingsStore.refreshModels();
+    }, src));
+
+    // The model chip in the header opens the same panel: the active model was
+    // previously only visible inside settings, so there was no way to see (or
+    // change) what the agent was about to use.
+    const modelChip = this.dom.el.querySelector('.ai-model-chip');
+    this.unbinders.push(bindGuarded(modelChip as Element, 'click', () => {
+      if (this.isDetached) this.layout.ensureDrawerOpen();
+      this.dom.sessionsPanelEl.classList.remove('is-visible');
+      this.dom.settingsEl.classList.add('is-visible');
+      void this.settingsStore.refreshModels();
+      this.dom.settingsEl.querySelector<HTMLSelectElement>('.ai-settings-select[data-key="model-select"]')?.focus();
     }, src));
 
     this.unbinders.push(bindGuarded(this.dom.el.querySelector('.ai-settings-close')!, 'click', () => {

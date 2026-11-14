@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { LLMClient } from './llm-client';
+import { LLMClient, parseModelList } from './llm-client';
 import type { LLMStreamEvent, OpenAIFunctionSchema } from './types';
 
 function makeSSEStream(lines: string[]): ReadableStream<Uint8Array> {
@@ -21,6 +21,48 @@ function collectStream(stream: AsyncGenerator<LLMStreamEvent>): Promise<LLMStrea
     return out;
   })();
 }
+
+describe('model catalogue', () => {
+  it('parses the common catalogue envelopes', () => {
+    expect(parseModelList({ data: [{ id: 'kimi-k3' }, { id: 'glm-5.3' }] })).toEqual(['glm-5.3', 'kimi-k3']);
+    expect(parseModelList({ models: ['b-model', 'a-model'] })).toEqual(['a-model', 'b-model']);
+    expect(parseModelList([{ name: 'x' }, { slug: 'y' }])).toEqual(['x', 'y']);
+    expect(parseModelList({ models: { z: {}, a: {} } })).toEqual(['a', 'z']);
+    expect(parseModelList({})).toEqual([]);
+    expect(parseModelList(null)).toEqual([]);
+  });
+
+  it('lists models with a GET and the conversation headers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ id: 'kimi-k3' }] }),
+    });
+    const client = new LLMClient(
+      { apiKey: 'k', endpoint: 'https://opencode.ai/zen/go/v1', model: 'm', sessionId: 'ses_l1' },
+      fetchMock as unknown as typeof fetch,
+    );
+
+    await expect(client.listModels()).resolves.toEqual(['kimi-k3']);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://opencode.ai/zen/go/v1/models');
+    expect(fetchMock.mock.calls[0][1].method).toBe('GET');
+    expect(fetchMock.mock.calls[0][1].headers['x-opencode-session']).toBe('ses_l1');
+    expect(fetchMock.mock.calls[0][1].headers['Authorization']).toBe('Bearer k');
+  });
+
+  it('raises a typed error when the catalogue request is rejected', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      headers: { get: () => null },
+      text: async () => JSON.stringify({ error: { code: 'api_key_expired', message: 'expired' } }),
+    });
+    const client = new LLMClient(
+      { apiKey: 'k', endpoint: 'https://opencode.ai/zen/go/v1', model: 'm' },
+      fetchMock as unknown as typeof fetch,
+    );
+    await expect(client.listModels()).rejects.toMatchObject({ name: 'LLMHttpError', status: 401 });
+  });
+});
 
 describe('LLMClient', () => {
   it('calls fetch with the correct endpoint and body', async () => {

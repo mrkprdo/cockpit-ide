@@ -176,6 +176,7 @@ export class RenderController {
         <div class="ai-drawer-header">
           <div class="ai-drawer-header-row">
             <span class="ai-drawer-title">COCKPIT AGENT</span>
+            <button class="ai-model-chip" type="button" title="Active model — click to change"></button>
             <div class="ai-drawer-header-actions">
               <button class="ai-drawer-back-btn" aria-label="Close AI panel" title="Close panel"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4l-4 4 4 4"/><path d="M6 4l-4 4 4 4"/></svg></button>
               <button class="ai-drawer-expand-btn" aria-label="Expand AI panel" title="Expand to full width"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4l4 4-4 4"/><path d="M10 4l4 4-4 4"/></svg></button>
