@@ -187,4 +187,27 @@ describe('ExplorerWindow', () => {
     expect(el).toBeTruthy();
     expect(el!.classList.contains('is-file-selected')).toBe(true);
   });
+
+  it('destroy() tears down the editor, explorer and document listeners', () => {
+    const remove = vi.spyOn(document, 'removeEventListener');
+    const dev = new ExplorerWindow(container, '/test/ws');
+
+    dev.destroy();
+
+    expect(container.firstElementChild).toBeNull();
+    expect(remove).toHaveBeenCalledWith('mousemove', expect.any(Function));
+    expect(remove).toHaveBeenCalledWith('mouseup', expect.any(Function));
+    expect(() => dev.destroy()).not.toThrow();
+    remove.mockRestore();
+  });
+
+  it('does not schedule a second full tree load after mount', async () => {
+    const readDir = mockElectronAPI.fs.readDir as any;
+    new ExplorerWindow(container, '/test/ws');
+    await new Promise(r => setTimeout(r, 100));
+    const callsAfterMount = readDir.mock.calls.length;
+
+    await new Promise(r => setTimeout(r, 1000));
+    expect(readDir.mock.calls.length).toBe(callsAfterMount);
+  });
 });

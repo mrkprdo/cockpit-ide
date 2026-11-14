@@ -140,6 +140,18 @@ describe('FileExplorerWindow', () => {
     treeEl.dispatchEvent(wheelEvent);
     expect(stopPropagationSpy).toHaveBeenCalled();
   });
+
+  it('destroy() unsubscribes the fs watcher and removes the tree', () => {
+    const unsub = vi.fn();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(unsub);
+    const explorer = new FileExplorerWindow(container, '/test', vi.fn());
+    expect(container.firstElementChild).toBeTruthy();
+
+    explorer.destroy();
+
+    expect(unsub).toHaveBeenCalledTimes(1);
+    expect(container.firstElementChild).toBeNull();
+  });
 });
 
 describe('FileExplorerWindow directory expand/collapse', () => {

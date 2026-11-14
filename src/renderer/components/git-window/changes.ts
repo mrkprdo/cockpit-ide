@@ -1,6 +1,7 @@
 import type { GitApi, GitFileChange } from './types';
 import type { GitUiRefs } from './ui-build';
 import { focusable } from './ui-build';
+import { reportFailure } from '../../health/monitor';
 
 export interface GitChangesCallbacks {
   onStateChange: () => void;
@@ -8,6 +9,8 @@ export interface GitChangesCallbacks {
   onFileOpen: (absolutePath: string) => void;
   onSelectFilePath: (path: string | null, diff?: string) => void;
   onRefreshChanges: () => Promise<void>;
+  /** Surface a failed git operation on the window's own status line. */
+  onOperationError?: (message: string) => void;
 }
 
 /** Staged / unstaged change lists, stage/unstage actions and expand/collapse state. */
@@ -122,6 +125,20 @@ export class ChangesPanel {
         e.stopPropagation();
         this.selectChangesFile(mode, file.path);
       });
+      // Selecting only shows the diff; opening the buffer is an explicit action.
+      el.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        this.openFile(file.path);
+      });
+      const openBtn = document.createElement('button');
+      openBtn.className = 'git-changes-action git-changes-open';
+      openBtn.textContent = '↗';
+      openBtn.title = 'Open file';
+      openBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openFile(file.path);
+      });
+      el.appendChild(openBtn);
       const actionBtn = document.createElement('button');
       actionBtn.className = 'git-changes-action';
       if (mode === 'unstaged') {
@@ -145,38 +162,56 @@ export class ChangesPanel {
     }
   }
 
+  /** Open the file in the editor — only ever from a deliberate user action. */
+  openFile(filePath: string): void {
+    this.callbacks.onFileOpen?.(this.wsPath + '/' + filePath);
+  }
+
+  private reportFailures(op: 'stage' | 'unstage', files: string[]): void {
+    if (files.length === 0) return;
+    const more = files.length > 1 ? ` (+${files.length - 1} more)` : '';
+    this.callbacks.onOperationError?.(`Failed to ${op} ${files[0]}${more}`);
+    reportFailure({
+      kind: 'ipc.handler-error',
+      source: 'git-window/changes.ts',
+      message: `git ${op} failed for: ${files.join(', ')}`,
+    });
+  }
+
   async stageFile(filePath: string): Promise<void> {
     const ok = await this.api.git.stage(this.wsPath, filePath);
-    if (ok) {
-      this.selectedFilePath = null;
-      this.callbacks.onSelectFilePath?.(null);
-      await this.callbacks.onRefreshChanges?.();
-    }
+    if (!ok) { this.reportFailures('stage', [filePath]); return; }
+    this.selectedFilePath = null;
+    this.callbacks.onSelectFilePath?.(null);
+    await this.callbacks.onRefreshChanges?.();
   }
 
   async unstageFile(filePath: string): Promise<void> {
     const ok = await this.api.git.unstage(this.wsPath, filePath);
-    if (ok) {
-      this.selectedFilePath = null;
-      this.callbacks.onSelectFilePath?.(null);
-      await this.callbacks.onRefreshChanges?.();
-    }
+    if (!ok) { this.reportFailures('unstage', [filePath]); return; }
+    this.selectedFilePath = null;
+    this.callbacks.onSelectFilePath?.(null);
+    await this.callbacks.onRefreshChanges?.();
   }
 
   async stageAll(): Promise<void> {
     // ponytail: loops per-file git add; single `git add -A` IPC if lists ever get huge
+    const failed: string[] = [];
     for (const f of this.unstagedFiles) {
-      await this.api.git.stage(this.wsPath, f.path);
+      if (!(await this.api.git.stage(this.wsPath, f.path))) failed.push(f.path);
     }
+    this.reportFailures('stage', failed);
     this.selectedFilePath = null;
     this.callbacks.onSelectFilePath?.(null);
     await this.callbacks.onRefreshChanges?.();
   }
 
   async unstageAll(): Promise<void> {
+    const failed: string[] = [];
     for (const f of this.stagedFiles) {
-      await this.api.git.unstage(this.wsPath, f.path);
+      if (!(await this.api.git.unstage(this.wsPath, f.path))) failed.push(f.path);
     }
+    this.reportFailures('unstage', failed);
     this.selectedFilePath = null;
     this.callbacks.onSelectFilePath?.(null);
     await this.callbacks.onRefreshChanges?.();
@@ -185,7 +220,6 @@ export class ChangesPanel {
   async selectChangesFile(mode: 'staged' | 'unstaged', filePath: string): Promise<void> {
     this.selectedFilePath = filePath;
     this.callbacks.onCommitStateChange?.();
-    this.callbacks.onFileOpen?.(this.wsPath + '/' + filePath);
     const diff = mode === 'staged'
       ? await this.api.git.stagedDiff(this.wsPath, filePath) || ''
       : await this.api.git.unstagedDiff(this.wsPath, filePath) || '';

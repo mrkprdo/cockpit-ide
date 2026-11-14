@@ -814,7 +814,7 @@ describe('GitWindow', () => {
   });
 
   describe('checkout', () => {
-    it('clicking a branch calls git:checkout', async () => {
+    it('clicking a branch with a dirty tree asks first, then checks out', async () => {
       new GitWindow(container, '/test/repo');
       await flush();
 
@@ -825,7 +825,133 @@ describe('GitWindow', () => {
       branchSelect.dispatchEvent(new Event('change'));
       await flush();
 
+      // Working tree has staged + unstaged files — the switch must be confirmed.
+      expect(mockElectronAPI.git.checkout).not.toHaveBeenCalled();
+      const prompt = document.querySelector('.confirm-modal-msg');
+      expect(prompt?.textContent).toContain('develop');
+
+      document.querySelector<HTMLButtonElement>('#confirm-ok')!.click();
+      await flush();
+
       expect(mockElectronAPI.git.checkout).toHaveBeenCalledWith('/test/repo', 'develop');
+    });
+
+    it('cancelling the dirty-tree prompt leaves the branch selection alone', async () => {
+      new GitWindow(container, '/test/repo');
+      await flush();
+
+      const branchSelect = container.querySelectorAll('.git-select')[0] as HTMLSelectElement;
+      branchSelect.value = 'develop';
+      branchSelect.dispatchEvent(new Event('change'));
+      await flush();
+
+      document.querySelector<HTMLButtonElement>('#confirm-cancel')!.click();
+      await flush();
+
+      expect(mockElectronAPI.git.checkout).not.toHaveBeenCalled();
+      expect(branchSelect.value).toBe('main');
+    });
+
+    it('checks out immediately when the tree is clean', async () => {
+      (mockElectronAPI.git.stagedFiles as any).mockResolvedValue([]);
+      (mockElectronAPI.git.unstagedFiles as any).mockResolvedValue([]);
+      new GitWindow(container, '/test/repo');
+      await flush();
+
+      const branchSelect = container.querySelectorAll('.git-select')[0] as HTMLSelectElement;
+      branchSelect.value = 'develop';
+      branchSelect.dispatchEvent(new Event('change'));
+      await flush();
+
+      expect(document.querySelector('.confirm-modal-msg')).toBeNull();
+      expect(mockElectronAPI.git.checkout).toHaveBeenCalledWith('/test/repo', 'develop');
+    });
+  });
+
+  describe('open-file affordance', () => {
+    it('selecting a changes file only shows the diff (no tab opens)', async () => {
+      const git = new GitWindow(container, '/test/repo');
+      const opened: string[] = [];
+      git.onFileOpen = (p) => opened.push(p);
+      await flush();
+
+      (container.querySelector('.git-changes-file') as HTMLElement).click();
+      await flush();
+
+      expect(opened).toEqual([]);
+      expect(container.querySelectorAll('.git-diff-line').length).toBeGreaterThan(0);
+    });
+
+    it('double-clicking a changes file opens it', async () => {
+      const git = new GitWindow(container, '/test/repo');
+      const opened: string[] = [];
+      git.onFileOpen = (p) => opened.push(p);
+      await flush();
+
+      (container.querySelector('.git-changes-file') as HTMLElement)
+        .dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await flush();
+
+      expect(opened).toEqual(['/test/repo/src/staged.ts']);
+    });
+
+    it('the open-file icon opens the file', async () => {
+      const git = new GitWindow(container, '/test/repo');
+      const opened: string[] = [];
+      git.onFileOpen = (p) => opened.push(p);
+      await flush();
+
+      (container.querySelector('.git-changes-open') as HTMLElement).click();
+      await flush();
+
+      expect(opened).toEqual(['/test/repo/src/staged.ts']);
+    });
+
+    it('selecting a commit file only shows the diff, double-click opens it', async () => {
+      const git = new GitWindow(container, '/test/repo');
+      const opened: string[] = [];
+      git.onFileOpen = (p) => opened.push(p);
+      await flush();
+
+      (container.querySelectorAll('.git-commit-item')[0] as HTMLElement).click();
+      await flush();
+
+      const fileItem = container.querySelector('.git-file-item') as HTMLElement;
+      fileItem.click();
+      await flush();
+      expect(opened).toEqual([]);
+
+      fileItem.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await flush();
+      expect(opened).toEqual(['/test/repo/src/index.ts']);
+    });
+  });
+
+  describe('stage failures', () => {
+    it('reports a failed stage on the status line instead of swallowing it', async () => {
+      (mockElectronAPI.git.stage as any).mockResolvedValue(false);
+      new GitWindow(container, '/test/repo');
+      await flush();
+
+      (container.querySelector('.git-changes-action[title="Stage file"]') as HTMLElement).click();
+      await flush();
+
+      const status = container.querySelector('.git-op-status') as HTMLElement;
+      expect(status.style.display).not.toBe('none');
+      expect(status.textContent).toContain('src/unstaged.ts');
+      expect(mockElectronAPI.git.stagedFiles).toHaveBeenCalledTimes(1); // no refresh after failure
+    });
+
+    it('reports a failed unstage on the status line', async () => {
+      (mockElectronAPI.git.unstage as any).mockResolvedValue(false);
+      new GitWindow(container, '/test/repo');
+      await flush();
+
+      (container.querySelector('.git-changes-action[title="Unstage file"]') as HTMLElement).click();
+      await flush();
+
+      const status = container.querySelector('.git-op-status') as HTMLElement;
+      expect(status.textContent).toContain('src/staged.ts');
     });
   });
 

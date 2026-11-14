@@ -3,6 +3,8 @@
 // LOC cap). Bootstraps Monaco globals (CSS, loader.js, themes) exactly once.
 
 import { theme } from '../theme';
+import { reportFailure } from '../health/monitor';
+import { showToast } from './toast';
 
 let monacoReady: Promise<any> | null = null;
 
@@ -11,7 +13,22 @@ export interface MonacoEditorHooks {
   isDirtySuppressed(): boolean;
   onDirty(activeTab: string): void;
   onCursorSelection(): void;
-  saveFile(): void;
+  /** Resolves once the write finished; resolves false / rejects when the save failed. */
+  saveFile(): void | Promise<unknown>;
+}
+
+/** Fire a save without letting a rejection escape (saveFile reports its own failures). */
+function runSave(hooks: MonacoEditorHooks): void {
+  try {
+    const r = hooks.saveFile();
+    if (r && typeof (r as Promise<unknown>).catch === 'function') {
+      (r as Promise<unknown>).catch(err => {
+        reportFailure({ kind: 'ipc.handler-error', source: 'monaco-bootstrap.ts', message: `autosave failed: ${String(err)}` });
+      });
+    }
+  } catch (err) {
+    reportFailure({ kind: 'ipc.handler-error', source: 'monaco-bootstrap.ts', message: `autosave threw: ${String(err)}` });
+  }
 }
 
 export function createEditorInstance(m: any, el: HTMLElement, hooks: MonacoEditorHooks): any {
@@ -36,7 +53,7 @@ export function createEditorInstance(m: any, el: HTMLElement, hooks: MonacoEdito
     id: 'save-file',
     label: 'Save File',
     keybindings: [m.KeyMod.CtrlCmd | m.KeyCode.KeyS],
-    run: () => hooks.saveFile(),
+    run: () => runSave(hooks),
   });
 
   let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -44,8 +61,19 @@ export function createEditorInstance(m: any, el: HTMLElement, hooks: MonacoEdito
     const active = hooks.getActiveTab();
     if (active && !hooks.isDirtySuppressed()) hooks.onDirty(active);
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(() => hooks.saveFile(), 1500);
+    autoSaveTimer = setTimeout(() => {
+      autoSaveTimer = null;
+      runSave(hooks);
+    }, 1500);
   });
+
+  // The idle timer outlives the editor unless it is cleared on dispose.
+  if (typeof editor.onDidDispose === 'function') {
+    editor.onDidDispose(() => {
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      autoSaveTimer = null;
+    });
+  }
 
   editor.onDidChangeCursorSelection(() => hooks.onCursorSelection());
 
@@ -133,7 +161,9 @@ async function bootstrapMonaco(): Promise<any> {
 
       resolve(m);
     }, (err: any) => {
-      console.error('Monaco failed to load:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      reportFailure({ kind: 'window.crash', source: 'monaco-bootstrap.ts', message: `Monaco failed to load: ${message}` });
+      showToast('Editor engine failed to load — code editing is unavailable', 'error');
       resolve(null);
     });
   });

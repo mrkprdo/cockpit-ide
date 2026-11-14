@@ -649,8 +649,9 @@ describe('FileExplorerWindow edge cases', () => {
     expect(onFileOpen).toHaveBeenCalled();
   });
 
-  it('delete shows alert and refreshes when fs.delete returns false', async () => {
+  it('delete reports a failure via diagnostics and still refreshes when fs.delete returns false', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    (mockElectronAPI.diagnostics.reportError as any).mockClear();
     (mockElectronAPI.fs.delete as any).mockResolvedValue(false);
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([
       { name: 'file.ts', isDirectory: false },
@@ -679,19 +680,18 @@ describe('FileExplorerWindow edge cases', () => {
     confirmBtn.click();
     await new Promise(r => setTimeout(r, 50));
 
-    // Should show failure alert and still refresh (tree gets rebuilt)
-    expect(alertSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Failed to delete'),
+    // Failure is surfaced as a health signal (toast + diagnostics), not a blocking alert.
+    expect(mockElectronAPI.diagnostics.reportError).toHaveBeenCalledWith(
+      'ipc.handler-error',
+      expect.stringContaining('fs.delete failed'),
     );
-    expect(alertSpy).toHaveBeenCalledWith(
-      expect.stringContaining('in use'),
-    );
+    expect(alertSpy).not.toHaveBeenCalled();
     alertSpy.mockRestore();
   });
 
-  it('delete shows error alert and refreshes when fs.delete throws', async () => {
+  it('delete reports a thrown failure via diagnostics instead of alerting', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    (mockElectronAPI.diagnostics.reportError as any).mockClear();
     (mockElectronAPI.fs.delete as any).mockRejectedValue(new Error('IPC failed'));
     (mockElectronAPI.fs.readDir as any).mockResolvedValue([
       { name: 'file.ts', isDirectory: false },
@@ -714,19 +714,18 @@ describe('FileExplorerWindow edge cases', () => {
     (deleteItem as HTMLElement)?.click();
     await new Promise(r => setTimeout(r, 10));
 
-    // Confirm — should throw and be caught
+    // Confirm — the rejection is caught and reported
     const confirmBtn = document.querySelector('#confirm-ok') as HTMLElement;
     expect(confirmBtn).toBeTruthy();
     confirmBtn.click();
     await new Promise(r => setTimeout(r, 50));
 
-    // Should log error and show alert
-    expect(consoleSpy).toHaveBeenCalledWith('deletePath error:', expect.any(Error));
-    expect(alertSpy).toHaveBeenCalledWith(
-      expect.stringContaining('unexpected error'),
+    expect(mockElectronAPI.diagnostics.reportError).toHaveBeenCalledWith(
+      'ipc.handler-error',
+      expect.stringContaining('fs.delete threw'),
     );
+    expect(alertSpy).not.toHaveBeenCalled();
     alertSpy.mockRestore();
-    consoleSpy.mockRestore();
   });
 });
 
