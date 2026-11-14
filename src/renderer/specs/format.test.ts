@@ -13,12 +13,15 @@ const SPECS_DIR = join(process.cwd(), 'src', 'specs');
 const HAS_SPECS = existsSync(SPECS_DIR);
 const files = HAS_SPECS ? readdirSync(SPECS_DIR).filter(f => f.endsWith('.spec.md')) : [];
 
-describe('format round-trip', () => {
-  it('finds the repo spec corpus', () => {
-    if (!HAS_SPECS) return; // skip when specs dir is absent (CI)
-    expect(files.length).toBeGreaterThan(30);
-  });
+// The spec corpus is generated per workspace (SpecsMap → Apply structural, or
+// the agent tool `specs_reconcile`) and this repo does not carry one. Corpus
+// checks are therefore skipped with the state spelled out in the suite name,
+// rather than passing silently against a missing directory.
+const CORPUS_STATE = HAS_SPECS
+  ? `spec corpus present (${files.length} files)`
+  : 'SKIPPED: no spec corpus in this workspace — SPECGEN generation is opt-in (SpecsMap → Apply structural)';
 
+describe('format round-trip', () => {
   for (const f of files) {
     it(`round-trips ${f} byte-for-byte`, () => {
       const raw = readFileSync(join(SPECS_DIR, f), 'utf-8');
@@ -140,20 +143,6 @@ describe('structured reads', () => {
 });
 
 describe('main.spec.md features tables', () => {
-  it('parses the real repo main.spec.md', () => {
-    if (!HAS_SPECS) return;
-    // The corpus is generated (gitignored) — assert structure, not exact ids.
-    const raw = readFileSync(join(SPECS_DIR, 'main.spec.md'), 'utf-8');
-    const doc = parseSpecDoc(raw);
-    const features = parseFeaturesTables(doc);
-    expect(Object.keys(features)).toContain('foundation');
-    const allRows = Object.values(features).flat();
-    expect(allRows.length).toBeGreaterThan(10);
-    const specsmap = allRows.find(r => r.file === 'src/renderer/components/SpecsMapWindow.ts');
-    expect(specsmap).toBeTruthy();
-    expect(specsmap!.spec).toMatch(/\.spec\.md$/);
-  });
-
   it('format → parse is stable', () => {
     const features = {
       core: [{ id: 'app', name: 'App', file: 'src/app.ts', spec: 'app.spec.md', ui: '' }],
@@ -167,5 +156,24 @@ describe('main.spec.md features tables', () => {
     // layer order respected
     const out = serializeSpecDoc(doc);
     expect(out.indexOf('### foundation')).toBeLessThan(out.indexOf('### core'));
+  });
+});
+
+describe.skipIf(!HAS_SPECS)(CORPUS_STATE, () => {
+  it('finds the generated spec corpus', () => {
+    expect(files.length).toBeGreaterThan(30);
+  });
+
+  it('parses the real repo main.spec.md', () => {
+    // The corpus is generated per workspace — assert structure, not exact ids.
+    const raw = readFileSync(join(SPECS_DIR, 'main.spec.md'), 'utf-8');
+    const doc = parseSpecDoc(raw);
+    const features = parseFeaturesTables(doc);
+    expect(Object.keys(features)).toContain('foundation');
+    const allRows = Object.values(features).flat();
+    expect(allRows.length).toBeGreaterThan(10);
+    const specsmap = allRows.find(r => r.file === 'src/renderer/components/SpecsMapWindow.ts');
+    expect(specsmap).toBeTruthy();
+    expect(specsmap!.spec).toMatch(/\.spec\.md$/);
   });
 });

@@ -2,6 +2,12 @@
 
 Vitest + jsdom + lightweight mocks.
 
+**Suite size (2026-11-13): 68 test files / 1,618 tests — 1,614 pass, 4 skip.**
+The four skips are the opt-in SPECGEN corpus checks (`src/renderer/specs/format.test.ts`,
+`src/test/specs-reconcile.test.ts`): the corpus is generated per workspace and this repo does not
+carry one, so those suites are declared `describe.skipIf(!HAS_SPECS)` and report their absence
+instead of passing silently.
+
 ## Quick start
 
 ```bash
@@ -10,6 +16,9 @@ npm test               # Same
 npm run test:watch     # Watch mode (re-run on change)
 npm run test:coverage  # With V8 coverage report
 ```
+
+Coverage thresholds are enforced (statements 70 / branches 60 / functions 65 / lines 70), so a green
+test run can still fail `npm run test:coverage`.
 
 ## Architecture
 
@@ -20,35 +29,40 @@ vitest.config.ts    ← jsdom env, setup file, test include pattern, coverage co
 
 Every test file gets:
 - jsdom `window` + `document` (headless DOM)
-- `window.electronAPI` — mock of all IPC channels (terminal, workspace, fs, prefs, shell, window, git, clipboard)
+- `window.electronAPI` — mock of all IPC channels (terminal, workspace, fs, prefs, shell, window, git, clipboard, diagnostics, health)
 - `@xterm/xterm` → lightweight mock class (open, write, resize, dispose, onData, onExit, attachCustomKeyEventHandler)
 - `@chenglou/pretext` → returns text as single-line (renders identically, skips layout)
 - `HTMLCanvasElement.getContext('2d')` → plain JS object with all Canvas2D methods as `vi.fn()`
 - `crypto.randomUUID()` → deterministic counter-based UUIDs
 - `requestAnimationFrame` → `setTimeout(..., 0)`
 - `devicePixelRatio` → `1`
-- CSS custom properties preset (dark theme: `#0A0E14` bg, etc.)
+- CSS custom properties preset from the default dark palette (`--bg: #161C24`, `--surface: #1C2538`, `--panel: #243248`, …)
 
 ## File inventory
 
-| File | Type | What's tested |
-|------|------|---------------|
-| `theme.test.ts` | unit | dark/light toggle, color palette, CSS var propagation |
-| `ConfirmModal.test.ts` | unit | OK/Cancel resolution, overlay dismiss, custom labels, DOM cleanup |
-| `ContextMenu.test.ts` | unit | item creation, positioning, separators, disabled items, outside-click close, singleton |
-| `WelcomeModal.test.ts` | unit | open/close, recent workspaces, workspace selection, null close |
-| `AboutModal.test.ts` | unit | open/close, overlay dismiss, design.md link |
-| `WindowCard.test.ts` | unit | card structure, positioning, UUID, close/focus/destroy callbacks, canvas title, setContent |
-| `CanvasArea.test.ts` | unit | grid styles, zoom bounds, reset view, save state structure, state change callbacks |
-| `TopBar.test.ts` | unit | menu rendering, all button callbacks, Terminal/Dev/Context item lists, focus vs reopen |
-| `FileExplorerWindow.test.ts` | unit | tree rendering, .gitkeep filter, directory sort, file click, refresh, error state, wheel stop |
-| `MarkdownWindow.test.ts` | unit | tab CRUD, duplicate prevention, markdown render, getState/restoreState, file watcher cleanup |
-| `MonacoEditorWindow.test.ts` | unit | editor structure, initial state, getState/getContent/getCurrentFile (empty), reloadIfOpen, file listener |
-| `DevWindow.test.ts` | unit | split pane, explorer/editor columns, state delegation, updateTheme, restoreEditorState |
-| `TerminalWindow.test.ts` | unit | container, UUID, terminal.create with/without cwd, onData/onExit, destroy, exit callback |
-| `App.test.ts` | unit | title, CanvasArea/TopBar creation, window controls, Ctrl+W prevention |
-| `workflows.test.ts` | integration | file CRUD (create/read/delete/copy-paste), editor tab lifecycle, context tab lifecycle, Dev window operations, theme persistence, ConfirmModal paths, end-to-end browse→open→render |
-| `edge-cases.test.ts` | edge | null/undefined/empty inputs, bounds (zoom 0.1–5), rapid calls, double-remove/destroy, special chars in filenames, long strings, missing electronAPI, legacy state formats, UUID filtering, idempotency |
+68 files total. Unit tests sit next to the module they cover; `src/test/` holds the cross-cutting suites.
+
+| Area | Files | Tests | What's covered |
+|---|---|---|---|
+| `src/main/` | 2 | 137 | Electron main: window lifecycle, IPC handlers, workspace trust gate, ide-server |
+| `src/preload/` | 1 | 60 | every exposed `electronAPI` channel + unsubscribe wiring |
+| `src/renderer/components/` | 23 | 816 | window cards, canvas, editor, terminal, explorer, git, SpecsMap, modals, palette, tutorial, top bar |
+| `src/renderer/components/ai-drawer/` | 4 | 22 | agent feed, agent sessions, LLM loop, render helpers |
+| `src/renderer/components/dev-console/` | 2 | 18 | diagnostics window, console capture |
+| `src/renderer/agents/` | 11 | 140 | executor, session, bus, permissions, hooks, pipeline, skills, definitions, agent tools, memory scopes |
+| `src/renderer/ai/` | 10 | 110 | LLM client, prompts, tool definitions/registry/executor, memory store, token counter, zod→OpenAI |
+| `src/renderer/specs/` | 7 | 90 | format round-trip, graph, validate, reconcile, layout, snapshot, TS extraction (2 corpus cases skipped) |
+| `src/renderer/` (misc) | 4 | 61 | theme palettes, specgen hash, logger, health monitor |
+| `src/test/` | 4 | 164 | `workflows`, `edge-cases`, `e2e-advanced`, headless `specs-reconcile` (2 corpus cases skipped) |
+
+Largest suites: `AiDrawer` 150, `CanvasArea` 128, `main` 124, `edge-cases` 64, `GitWindow` 63,
+`SpecsMapWindow` 60, `preload` 60.
+
+Counts were regenerated with:
+
+```bash
+node node_modules/vitest/vitest.mjs run --reporter=json --outputFile=vitest.json
+```
 
 ## Test patterns
 
@@ -107,6 +121,16 @@ describe('NewComponent', () => {
     expect(comp.value).toBe(42);
   });
 });
+```
+
+## Spec-corpus tests
+
+Specs are opt-in per workspace. When `src/specs/` does not exist, the corpus suites skip (and say so
+in the suite name). To run them for real:
+
+```bash
+# generate the corpus first (SpecsMap → Apply structural equivalent)
+set SPECS_RECONCILE=structural && npx vitest run src/test/specs-reconcile.test.ts
 ```
 
 ## Known limitations

@@ -4,8 +4,9 @@
   "description": "The IDE for developers who thinks spatially",
   "main": "dist/main/main.js",
   "scripts": {
-    "build": "node scripts/build-renderer.js && tsc -p tsconfig.main.json && copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && copy node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ ",
-    "build:prod": "node scripts/build-renderer.js && tsc -p tsconfig.main.prod.json && copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && copy node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ ",
+    "clean:renderer-css": "if exist dist\\renderer\\*.css del /q dist\\renderer\\*.css & if exist dist\\renderer\\index.js.map del /q dist\\renderer\\index.js.map",
+    "build": "npm run clean:renderer-css && node scripts/build-renderer.js && tsc -p tsconfig.main.json && copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && copy node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ ",
+    "build:prod": "npm run clean:renderer-css && set NODE_ENV=production&& node scripts/build-renderer.js && tsc -p tsconfig.main.prod.json && copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && copy node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ ",
     "start": "node -e \"require('./scripts/version').stamp()\" && npm run build && node scripts/launch.js",
     "dev": "node -e \"require('./scripts/version').stamp()\" && node scripts/launch.js --dev",
     "dev:watch": "node scripts/gen-specgen-hash.js && concurrently -k \"tsc -p tsconfig.main.json --watch\" \"esbuild src/renderer/index.ts --bundle --outfile=dist/renderer/index.js --format=iife --loader:.md=text --watch\" \"copy src\\renderer\\*.html dist\\renderer\\ && copy src\\renderer\\*.css dist\\renderer\\ && npx wait-on dist/main/main.js && copyfiles -u 1 node_modules\\@xterm\\xterm\\css\\xterm.css dist\\renderer\\ \"",

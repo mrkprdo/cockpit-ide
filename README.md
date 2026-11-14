@@ -16,11 +16,11 @@
 
 Cockpit is a spatial IDE built on Electron. Drag your Explorer, Terminal, and Git anywhere on the canvas — stack them, zoom out to see everything at once, open as many instances as you need. Layouts persist and restore exactly as you left them.
 
-Edit with a Monaco editor, run commands in a full PTY terminal, browse files in a split-pane explorer, and preview Markdown — all on a bounded canvas that bends to your workflow, not the other way around.
+Edit with a Monaco editor, run commands in a full PTY terminal, browse files in a split-pane explorer, and read Markdown as a rendered tab in the editor — all on a bounded canvas that bends to your workflow, not the other way around.
 
 **Cockpit Agent** is a built-in AI assistant with a full agentic tool loop. Ask it to open files, write code, run terminal commands, stage commits, or rearrange your canvas — all in natural language. It sees your workspace state and acts on it directly.
 
-Generate your project's code graph with SPECGEN and visualize it in SpecsMap. Use the spec documents to let AI traverse your codebase and fix your app efficiently.
+Generate your project's spec graph with SPECGEN (opt-in per workspace) and visualize it in SpecsMap. Use the spec documents to let AI traverse your codebase and fix your app efficiently.
 
 <p align="center" width="100%">
 <video src="https://github.com/user-attachments/assets/6c921410-5c9a-4df5-b0e1-c2cf3da64271" width="80%" controls></video>
@@ -30,7 +30,7 @@ Generate your project's code graph with SPECGEN and visualize it in SpecsMap. Us
 
 **Explorer** — Monaco editor + resizable file explorer in one card  
 **Terminal** — Full PTY terminal via node-pty + xterm.js, multiple instances  
-**Markdown** — Tabbed markdown viewer with live file watching  
+**Markdown** — Rendered Markdown as a tab in the shared editor, sharing the tab bar and file watcher  
 **Git** — Branch visualization, staging, diffs, and commit tooling  
 **SpecsMap** — Living architecture graph: SPECGEN feature specs rendered as an interactive map, continuously validated (edge/cycle/drift rules) and structurally reconciled against the source tree; agents query it for dense feature context  
 **Cockpit Agent** — Built-in AI with canvas, file, editor, terminal, and git control  
@@ -73,8 +73,8 @@ npm run test:ui        # vitest UI dashboard
 ### Build & Package
 
 ```bash
-npm run build       # compile TypeScript + bundle renderer
-npm run build:prod  # production build (separate tsconfig)
+npm run build       # compile TypeScript + bundle renderer (cleans stale dist CSS first)
+npm run build:prod  # production bundle: minified, no sourcemap, prod tsconfig
 npm run pack        # build Windows NSIS installer
 ```
 
@@ -87,13 +87,29 @@ npm run pack        # build Windows NSIS installer
 **Terminal:** @xterm/xterm 6 + @xterm/addon-fit + node-pty  
 **Rendering:** marked 18 (markdown)  
 **File watching:** chokidar 5  
-**MCP:** @modelcontextprotocol/sdk + ws (WebSocket IDE server)  
+**IDE server:** ws 8 (local WebSocket, JSON-RPC-ish envelope)  
 **Validation:** zod 4  
-**Testing:** vitest 4 + jsdom (51 test files, 1490+ tests)
+**Testing:** vitest 4 + jsdom (68 test files, 1,614 passing + 4 skipped spec-corpus checks)
+
+## Security posture
+
+The renderer runs with `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false` and
+`webSecurity: true`; everything it can reach comes through the `contextBridge` API in
+`src/preload/preload.ts`. All HTML/JS/CSS is loaded from disk (`loadFile`), in-app navigation and
+new-window requests are denied, and a CSP pins `default-src 'self'` (`'unsafe-eval'` is allowed only
+because Monaco's AMD loader needs it). Filesystem IPC is confined to the trusted workspace root
+(`isPathSafe` / `resolvePathInsideWorkspace`, re-resolved against the real path at mutation time),
+and spawned processes get a filtered environment. The only network traffic is the Space Mono webfont
+(`fonts.googleapis.com` / `fonts.gstatic.com`, allowlisted in the CSP), the AI provider you configure,
+and the loopback WebSocket to the bundled IDE server — no remote application content is ever rendered.
 
 ## Design
 
-Noir x Art Nouveau x Floating — dark/light theme with Space Mono typography, dashed borders, and 8px radius. By <a src="https://www.usedesign.md/?mash=1&p=noir&c=Art+Nouveau&s=Floating&b=dashed+border&r=8px&f=%27Space+Mono%27%2C+%27Courier+New%27%2C+monospace&sh=rgba%2858%2C106%2C232%2C0.08%29+0+4px+12px%2C+rgba%280%2C0%2C0%2C0.04%29+0+2px+4px&shs=noir&mode=dark" target="_blank">UseDesign.md</a>
+Noir x Art Nouveau x Floating — deep navy dark mode and a flat light mode (plus `monokai`, `idol`,
+`carbon` and `alien` palette variants), Space Mono typography, solid hairline borders, and an 8px
+default radius. Implementation details — every token, the type scale, elevation, and the
+floating-card model — are in [DESIGN.md](DESIGN.md). The original visual direction was seeded with
+<a href="https://www.usedesign.md/?mash=1&p=noir&c=Art+Nouveau&s=Floating&b=dashed+border&r=8px&f=%27Space+Mono%27%2C+%27Courier+New%27%2C+monospace&sh=rgba%2858%2C106%2C232%2C0.08%29+0+4px+12px%2C+rgba%280%2C0%2C0%2C0.04%29+0+2px+4px&shs=noir&mode=dark" target="_blank">UseDesign.md</a>; the shipped system diverges from that seed where the code does.
 
 ---
 

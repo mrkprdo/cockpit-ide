@@ -1,128 +1,218 @@
----
-version: alpha
-name: "Mashup: Art Nouveau × Floating"
-description: Generated mashup combining "Art Nouveau" concept with "Floating" styling and Noir palette with Monospace typography.
-colors:
-  primary: "#1a1a1a"
-  secondary: "#2a2a2a"
-  tertiary: "#6a6a6a"
-  neutral: "#f8f8f8"
-  surface: "#eeeeee"
-  on-surface: "#0a0a0a"
-  border: "#1a1a1a"
-  accent-bg: "rgba(26,26,26,0.08)"
-typography:
-  heading:
-    fontFamily: 'Space Mono', 'Courier New', monospace
-    fontSize: 22px
-    fontWeight: 700
-    lineHeight: 1.2
-    fontFamily: 'Space Mono', 'Courier New', monospace
-    fontSize: 13px
-    fontWeight: 400
-    lineHeight: 1.5
-  label:
-    fontFamily: 'Space Mono', 'Courier New', monospace
-    fontSize: 11px
-    fontWeight: 700
-    lineHeight: 1
-    letterSpacing: 0.1em
-rounded:
-  2xs: 3px
-  xs: 4px
-  s: 6px
-  sm: 8px
-  md: calc(8px + 4px)
-  lg: calc(8px + 8px)
-  full: 9999px
-spacing:
-  xs: 4px
-  sm: 8px
-  md: 16px
-  lg: 24px
-  xl: 32px
-  xxl: 64px
-components:
-  button-primary:
-    backgroundColor: "#1a1a1a"
-    textColor: "#ffffff"
-    rounded: "8px"
-  card:
-    backgroundColor: "#f8f8f8"
-    borderColor: "#1a1a1a"
-    rounded: calc(8px + 4px)
-    shadow: "rgba(0,0,0,0.06) 0 2px 8px, rgba(0,0,0,0.04) 0 4px 16px"
----
+# Cockpit IDE — Design System
 
-## Overview
+Implementation reference for the shipped UI. Everything below is read from the
+running code — `src/renderer/styles-base.css` (token declarations) and
+`src/renderer/theme.ts` (runtime palette overrides). If a value here disagrees
+with those two files, those files win; this document is descriptive, not
+normative.
 
-Generated mashup combining "Art Nouveau" concept with "Floating" styling and Noir palette with Monospace typography.
+## Identity
 
-**Best for:** Art Nouveau × Floating combinations, experimental UIs, Noir palette-inspired designs
+**Noir × Art Nouveau × Floating.**
 
-## Colors
+- **Noir** — deep, low-chroma navy surfaces; light type on dark by default; a
+  single muted teal accent, never saturated blocks of color.
+- **Art Nouveau** — curves are reserved for the canvas layer (grid, node
+  connections, agent bubble graph) and for ornament-free hairline separators.
+  UI chrome is rectilinear.
+- **Floating** — the unit of layout is a *card hovering over a canvas*, not a
+  tab in a dock. Depth, offset and stacking carry hierarchy; there is no
+  document frame, no window chrome inside the app.
+- **Type** — a single monospace stack: `'Space Mono', 'Courier New', monospace`,
+  declared once as `--font`.
+- **Radius** — 8px is the default (`--radius` → `--radius-sm`). Cards sit one
+  step above it at 12px; small controls at 3–4px. See *Shape*.
 
-**Palette source:** Noir palette
+Dashes are **not** a global motif. `border-style: dashed` ships in exactly two
+places: the agent PoV strip (waiting/replay states in `styles-ai-drawer-05.css`)
+and the dev-console header/inputs (`DevConsoleWindow.ts`), plus the SpecsMap
+search bar. Card, panel and modal borders are solid `1px var(--border)`.
 
-- **Primary (#1a1a1a):** Interactive accent from Noir palette.
-- **Secondary (#2a2a2a):** Body text.
-- **Tertiary (#6a6a6a):** Muted text.
-- **Neutral (#f8f8f8):** Background.
-- **Surface (#eeeeee):** Secondary surface.
-- **Border (#1a1a1a):** Separators.
+## Tokens
 
-## Typography
+Tokens live in `:root` in `styles-base.css`. `theme.ts` re-writes the fourteen
+color tokens inline on `document.documentElement` whenever the theme changes, so
+a palette swap is a token swap — no component knows the palette.
 
-**Font:** Monospace — `'Space Mono', 'Courier New', monospace`
+### Color
 
-## Layout & Spacing
+| Token | Dark (default) | Light (default) | Role |
+|---|---|---|---|
+| `--bg` | `#161C24` | `#f8f8f8` | app background, canvas void |
+| `--surface` | `#1C2538` | `#eeeeee` | cards, top bar, modals, menus |
+| `--panel` | `#243248` | `#e0e0e0` | raised controls, hover fills, inputs |
+| `--primary` | `#C8D6E5` | `#1a1a1a` | body and title text |
+| `--secondary` | `#78909C` | `#3a3a3a` | secondary labels |
+| `--tertiary` | `#7894A3` | `#6a6a6a` | muted text, icons, hints (4.79:1 on `--surface` in dark — WCAG AA) |
+| `--border` | `#2A3A4A` | `#bbbbbb` | every 1px hairline |
+| `--accent` | `#4B9EB5` | `#2A7A8C` | primary accent: focus rings, active tab, links, selection |
+| `--accent2` | `#7B6FA0` | `#5A4F7A` | second accent: agent/structural highlights |
+| `--green` | `#4C9A6E` | `#3A7A56` | success, additions, live state |
+| `--amber` | `#C68B00` | `#9A6B00` | warning, minimize hover |
+| `--red` | `#D44F4F` | `#C04040` | destructive, errors, close hover |
+| `--onAccent` | `oklch(97% 0.006 20)` | `#ffffff` | text on accent/danger fills |
+| `--scrim` | `rgba(8,14,22,0.72)` | `rgba(0,0,0,0.35)` | modal backdrop |
 
-Spacing follows an 8px/4px scale: xs (4px), sm (8px), md (16px), lg (24px), xl (32px), xxl (64px).
+Palettes are selectable per base × mode in `theme.ts`:
 
-## Elevation & Depth
+| Base | Character |
+|---|---|
+| `default` | noir navy (the values above) |
+| `monokai` | warm charcoal, lime/magenta accents |
+| `idol` | near-black with coral/pink accents |
+| `carbon` | pure black with orange accent |
+| `alien` | olive-green surfaces, sage/ochre accents |
 
-**Shadow:** rgba(0,0,0,0.06) 0 2px 8px, rgba(0,0,0,0.04) 0 4px 16px
-**Visual Weight:** Medium
+Each base ships a dark and a light variant. Light mode is a real palette, not an
+inversion — surfaces stay flat (`#f8f8f8` → `#eeeeee` → `#e0e0e0`) and the
+accents are darkened for contrast.
 
-## Shapes
+### Type
 
-**Border Radius:** 8px — full scale: 2xs (3px, chips/badges), xs (4px, inputs &
-small controls), s (6px, popovers/panels/code blocks), sm (8px, default), md
-(12px, cards), lg (16px, modals), full (9999px, pills).
-**Border Style:** dashed border
+`--font` is the whole type system: one family, one weight (700) for anything
+that is a label, title, badge or button; 400 for body text. Italic is reserved
+for empty/pending copy (`.git-changes-empty`, `.ai-tool-result-pending`) — it
+never marks emphasis.
 
-## Components
+`html, body` sets `font-size: 16px` as the rem anchor, so every `rem` token is
+exact. Body text carries `letter-spacing: 0.01em` — the light-on-dark
+compensation — while tiny all-caps labels add their own tracking (most commonly
+`0.05em`, up to `0.2em` for eyebrow badges).
 
-### Buttons
+| Token | Size | Used for |
+|---|---|---|
+| `--text-2xs` | 0.5625rem (9px) | eyebrow labels, spec keys, agent badges |
+| `--text-xs` | 0.6875rem (11px) | all UI chrome: menus, tabs, status bar, buttons |
+| `--text-sm` | 0.8125rem (13px) | card titles, primary UI text |
+| `--text-base` | 0.875rem (14px) | readable body text |
+| `--text-md` | 0.9375rem (15px) | compact titles |
+| `--text-lg` | 1.0625rem (17px) | step headers, display moments |
+| `--text-xl` | 1.125rem (18px) | largest heading in the app (markdown `h1`) |
 
-Primary: #1a1a1a fill, white text. Secondary: #eeeeee surface. Ghost: transparent.
+**Nothing in the UI is larger than 18px.** Hierarchy comes from weight, color
+(`primary` → `secondary` → `tertiary`), spacing and casing — not from display
+type.
 
-### Cards
+Line heights: `--lh-tight` 1.2 (single-line chrome), `--lh-ui` 1.45 (default,
+set on `body`), `--lh-loose` 1.6, `--lh-read` 1.7 (markdown prose).
 
-#f8f8f8 background, #1a1a1a border, calc(8px + 4px) radius.
+### Shape
 
-**Interactions:** Standard hover
+| Token | Value | Applied to |
+|---|---|---|
+| `--radius-2xs` | 3px | chips, badges |
+| `--radius-xs` | 4px | buttons, menu items, inputs, small controls |
+| `--radius-s` | 6px | popovers, floating panels, code blocks |
+| `--radius-sm` / `--radius` | 8px | default radius (`--radius` aliases it); used sparingly — drawer inputs, PoV tabs |
+| `--radius-md` | 12px | window cards, modals |
+| `--radius-lg` | 16px | large surfaces |
+| `--radius-full` | 9999px | pills, capsules, status dots |
 
-## Do's and Don'ts
+Distinct small radii dominate by count (`--radius-xs` 28 uses, literal `4px` 18,
+`3px` 8) because the UI is made of dense controls; the 12px card radius is what
+the eye reads as "the Cockpit shape". Border radius is never used to fake depth.
 
-- Do use this as a starting point for custom theme exploration
-- Do tweak individual CSS variables to fine-tune the combination
-- Don't rely on generated mashups for production without refinement
-- Don't mix more than one strong concept — keep it cohesive
+### Elevation
 
-## UI Design Principles
+One shadow token, used sparsely:
 
-- **Hierarchy** — use size, spacing, contrast, and alignment to show what's primary vs secondary vs interactive
-- **Spacing** — stick to a consistent scale (4/8/12/16/24/32). Avoid random padding
-- **States** — define default, hover, pressed, focused, disabled, loading, error, and empty for every component
-- **Affordance** — interactive elements should look interactive. Use depth, contrast, and hover feedback
-- **One system** — pick one strong visual direction (typography + spacing + radius + shadows) and commit
-- **Motion** — animate functionally: expand/collapse, state transitions, loading skeletons. Avoid decorative motion
-- **Scanning** — group content, use concise labels, whitespace, and progressive disclosure. Left-align forms and data
-- **Restraint** — use 1 primary + 1 accent + neutrals. Prefer spacing over borders for separation
+```
+--shadow: rgba(0,0,0,0.30) 0 6px 20px, rgba(0,0,0,0.20) 0 3px 10px;
+```
 
----
+- **Resting card** — no shadow. Cards are separated from the canvas by their
+  `--surface` fill and a 1px `--border`.
+- **Hovered card** — `var(--shadow)` plus `border-color: var(--tertiary)`.
+- **Dragging / panning** — `box-shadow: none`. Suppressing the blur during a
+  gesture is a deliberate paint optimization (`styles-window-card.css`,
+  `.canvas-world.is-navigating`), not a state change.
+- **Floating overlays** (context menu, resize tooltip, git popover) — `var(--shadow)`.
+- **Modals** — a deeper, hand-written stack (`0 16px 48px rgba(0,0,0,0.45),
+  0 4px 12px rgba(0,0,0,0.25)`) because they sit above the scrim, not above the canvas.
 
-_Generated from [https://www.usedesign.md/?mash=1&p=noir&c=Art+Nouveau&s=Floating&b=dashed+border&r=8px&f=%27Space+Mono%27%2C+%27Courier+New%27%2C+monospace&sh=rgba%2858%2C106%2C232%2C0.08%29+0+4px+12px%2C+rgba%280%2C0%2C0%2C0.04%29+0+2px+4px&shs=noir&mode=dark](https://www.usedesign.md/?mash=1&p=noir&c=Art+Nouveau&s=Floating&b=dashed+border&r=8px&f=%27Space+Mono%27%2C+%27Courier+New%27%2C+monospace&sh=rgba%2858%2C106%2C232%2C0.08%29+0+4px+12px%2C+rgba%280%2C0%2C0%2C0.04%29+0+2px+4px&shs=noir&mode=dark)_
+### Spacing
 
-[![design.md](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNzEiIGhlaWdodD0iMjAiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0iREVTSUdOLk1EIEFydCBOb3V2ZWF1IMOXIEZsb2F0aW5nIj4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYnM2IiB4Mj0iMCIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmZmYiIHN0b3Atb3BhY2l0eT0iLjciLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIuMSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIuMSIvPgogICAgICA8c3RvcCBvZmZzZXQ9Ii45IiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9IjAiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii4xIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGNsaXBQYXRoIGlkPSJicjYiPgogICAgICA8cmVjdCB3aWR0aD0iMjcxIiBoZWlnaHQ9IjIwIiByeD0iMyIgZmlsbD0iI2ZmZiIvPgogICAgPC9jbGlwUGF0aD4KICAgIDxnIGNsaXAtcGF0aD0idXJsKCNicjYpIj4KICAgICAgPHJlY3Qgd2lkdGg9Ijc5IiBoZWlnaHQ9IjIwIiBmaWxsPSIjNTU1Ii8+CiAgICAgIDxyZWN0IHg9Ijc5IiB3aWR0aD0iMTkyIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMWExYTFhIi8+CiAgICAgIDxyZWN0IHdpZHRoPSIyNzEiIGhlaWdodD0iMjAiIGZpbGw9InVybCgjYnM2KSIvPgogICAgPC9nPgogICAgPGcgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InN5c3RlbS11aSxzYW5zLXNlcmlmIiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iNjAwIj4KICAgICAgPHRleHQgeD0iMzkuNSIgeT0iMTQiPkRFU0lHTi5NRDwvdGV4dD4KICAgICAgPHRleHQgeD0iMTc1IiB5PSIxNCI+QXJ0IE5vdXZlYXUgw5cgRmxvYXRpbmc8L3RleHQ+CiAgICA8L2c+CiAgPC9zdmc+)](/?mash=1&p=noir&c=Art+Nouveau&s=Floating&b=dashed+border&r=8px&f=%27Space+Mono%27%2C+%27Courier+New%27%2C+monospace&sh=rgba%280%2C0%2C0%2C0.06%29+0+2px+8px%2C+rgba%280%2C0%2C0%2C0.04%29+0+4px+16px&shs=noir&mode=light)
+There is **no enforced spacing scale**. Padding is authored per component: the
+authored values include `0`, `4px`, `6px 8px`, `6px 12px`, `4px 10px`,
+`16px 20px`, `20px` and a long tail of one-offs. The distribution is dominated by
+a 4px rhythm — `0` (25 uses), `6px 12px` (8), `4px` (6), `6px 8px` (6),
+`16px 20px` (5), `4px 10px` (5), `4px 8px` (5), `12px` (4) — so new work should
+land on 2/4/6/8/12/16/20/24 and reuse an existing pattern rather than invent a
+new step. Do not claim a 4/8/16/24/32/64 scale in review: it does not exist in
+the code.
+
+Fixed layout constants that behave like tokens:
+
+| Constant | Value | Where |
+|---|---|---|
+| top bar height | 30px | `styles-topbar.css` |
+| card header height | 30px | `.card-header` |
+| card control button | 28×28px | `.card-btn` |
+| card body padding | 20px | `.card-body` |
+| resize handle thickness | 6px edges, 16px corner | `.card-edge-*` |
+| icon sizes | `--icon-sm` 16px, `--icon-md` 20px | global |
+| status bar height | `var(--icon-md)` = 20px | `styles-statusbar.css` |
+| scrollbars | 8px, thumb `--border` → `--tertiary` on hover | `styles-base.css` |
+
+## The floating-card model
+
+```
+#app
+├── topbar (30px, --surface, 1px bottom border)
+├── #canvas                     ← viewport; overflow hidden
+│   └── .canvas-world           ← pan/zoom transform; single compositor layer
+│       ├── .canvas-grid-layer  ← background grid (pointer-events: none)
+│       └── .card × N           ← absolutely positioned in world coordinates
+│           ├── .card-header    ← 30px: title text + controls (grab cursor)
+│           └── .card-body      ← fills the rest; hosts xterm / Monaco / lists
+└── statusbar (20px)
+```
+
+- **Cards are absolute children of the world, not of a grid.** Position and size
+  live in world coordinates and persist verbatim (`.cockpit/window.json`).
+- **One transform moves everything.** `zoom`/`pan` set a single transform on
+  `.canvas-world`; during navigation it gets `will-change: transform` and
+  `pointer-events: none`. Cards keep `will-change: transform` for themselves so
+  content churn (xterm, Monaco, agent streams) dirties only that card.
+- **Hover reveals chrome.** `.card-btn` is `opacity: 0` at rest, `1` on
+  `:hover` or `:focus-within` — the card title is the only persistent chrome.
+- **Resize affordances are invisible until touched.** Edge strips are
+  transparent; the SE corner paints a 6px `border-right`/`border-bottom` chevron
+  at `opacity: 0.4`, `0.65` on hover.
+- **Modals, context menus, palettes, the AI drawer and the tutorial do not live
+  in the world** — they are `position: fixed` at the root stacking context and
+  are ordered by the semantic `--z-*` scale: canvas 1 → AI drawer 10 → titlebar
+  100 → modal 200 → confirm 300 → context menu 400 → palette 500 → tutorial
+  600–620 → corner zone/panel 1000–1001 → dropdown 1100–1101 → layout overlay 9999.
+- **Glass is local, not global.** `backdrop-filter` appears on the AI drawer and
+  floating input only, and is dropped to a flat `--panel` fill while
+  `body.canvas-busy` (pan/zoom/drag) to avoid re-blurring every frame.
+
+## Interaction & accessibility
+
+- **Focus** — every interactive element paints `outline: 2px solid var(--accent)`
+  with `outline-offset: 2px` (0 for text inputs), collected in
+  `styles-focus-visibility.css` (WCAG AA). Hover is never the only affordance.
+- **Motion** — transitions are functional and short: `0.1s` for background/color
+  on hover, `0.15s ease-out` for shadow/border and opacity, `0.25s` for
+  card arrange glides (FLIP via `transform`), and `0.15–0.28s` for panel reveals
+  (the corner zones use `cubic-bezier(0.16, 1, 0.3, 1)`).
+  `prefers-reduced-motion: reduce` disables the arrange glide.
+- **Selection** — the app chrome is `user-select: none` (so `Ctrl+A` doesn't
+  highlight the shell); content surfaces opt back in: markdown prose, terminal,
+  Monaco, chat messages, diffs, inputs.
+- **Color is never the only signal** — states pair a color with a label, glyph,
+  dashed border or opacity change.
+
+## Adding UI
+
+1. Use an existing token. No literal hex, no literal font size, no literal
+   radius in component CSS.
+2. Reach for an existing pattern before a new value: `--text-xs` + 700 for
+   chrome, `--text-sm` for card titles, `--radius-xs` for controls,
+   `--radius-md` for cards, `--shadow` only on overlays/hover.
+3. New component → new `styles-<component>.css`, linked in `index.html` in
+   cascade order (see `AGENTS.md`).
+4. If a component genuinely needs a new token, declare it in `styles-base.css`
+   `:root` next to its siblings, and — if it is a color — add it to
+   `ThemeColors` in `theme.ts` so every palette stays complete.
