@@ -92,6 +92,79 @@ describe('TerminalWindow', () => {
     exitCallback('different-uuid');
     expect(onExit).not.toHaveBeenCalled();
   });
+
+  it('sets an explicit scrollback cap', () => {
+    const term = new TerminalWindow(container, 'test-uuid');
+    const xterm = (term as any).xterm;
+    expect(xterm.options.scrollback).toBe(2000);
+  });
+
+  it('coalesces a resize storm into one fit', async () => {
+    vi.useFakeTimers();
+    try {
+      const term = new TerminalWindow(container, 'test-uuid');
+      const fitAddon = (term as any).fitAddon;
+      // Let the constructor's one-shot fit settle before measuring.
+      await vi.advanceTimersByTimeAsync(200);
+      const baseline = fitAddon.fit.mock.calls.length;
+
+      // 10 ResizeObserver callbacks in one drag = 10 scheduleFit() calls.
+      for (let i = 0; i < 10; i++) (term as any).scheduleFit();
+      expect(fitAddon.fit.mock.calls.length).toBe(baseline);
+
+      await vi.advanceTimersByTimeAsync(150);
+      expect(fitAddon.fit.mock.calls.length).toBe(baseline + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows an in-card exit banner and keeps the scrollback', () => {
+    const term = new TerminalWindow(container, 'test-uuid');
+    const exitCallback = (mockElectronAPI.terminal.onExit as any).mock.calls[0][0];
+    exitCallback('test-uuid');
+
+    const banner = term.element.querySelector('.terminal-exit-banner') as HTMLElement;
+    expect(banner).toBeTruthy();
+    expect(banner.textContent).toContain('process exited');
+    // The xterm surface is still mounted (no dead terminal).
+    expect((term as any).xterm).toBeTruthy();
+    expect(term.element.isConnected).toBe(true);
+  });
+
+  it('Restart re-creates the PTY for the same uuid and clears the banner', async () => {
+    (mockElectronAPI.terminal.create as any).mockClear();
+    const term = new TerminalWindow(container, 'test-uuid', '/cwd');
+    const exitCallback = (mockElectronAPI.terminal.onExit as any).mock.calls[0][0];
+    exitCallback('test-uuid');
+    (mockElectronAPI.terminal.create as any).mockClear();
+
+    await term.restart();
+
+    expect(mockElectronAPI.terminal.create).toHaveBeenCalledWith('test-uuid', '/cwd');
+    expect(term.element.querySelector('.terminal-exit-banner')).toBeNull();
+  });
+
+  it('Restart keeps the banner when the PTY cannot be re-created', async () => {
+    const term = new TerminalWindow(container, 'test-uuid');
+    const exitCallback = (mockElectronAPI.terminal.onExit as any).mock.calls[0][0];
+    exitCallback('test-uuid');
+    (mockElectronAPI.terminal.create as any).mockResolvedValueOnce(false);
+
+    const ok = await term.restart();
+
+    expect(ok).toBe(false);
+    expect(term.element.querySelector('.terminal-exit-banner')).toBeTruthy();
+  });
+
+  it('destroy() after exit still disposes and removes the card surface', () => {
+    const term = new TerminalWindow(container, 'test-uuid');
+    const exitCallback = (mockElectronAPI.terminal.onExit as any).mock.calls[0][0];
+    exitCallback('test-uuid');
+    term.destroy();
+    expect(container.children.length).toBe(0);
+    expect(term.element.querySelector('.terminal-exit-banner')).toBeNull();
+  });
 });
 
 describe('TerminalWindow — theme support', () => {

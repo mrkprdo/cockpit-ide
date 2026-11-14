@@ -53,6 +53,56 @@ function scopeFor(event?: IpcMainInvokeEvent | IpcMainEvent): string | null {
   return (win && state.windowWorkspaces.has(win.id)) ? state.windowWorkspaces.get(win.id)! : state.defaultWorkspacePath;
 }
 
+// ─── Canonical workspace path memo ───────────────────────────────────────────
+// resolvePathInsideWorkspace runs on every tree expand, spec read, diff, save
+// and terminal spawn. Its `realpathSync(wsPath)` is the same answer every time
+// for a given workspace, and realpath is a comparatively expensive syscall on
+// Windows (junction/handle resolution). Cache it per resolved workspace path.
+//
+// Only the *workspace root* is memoised — the leaf / nearest-ancestor realpath
+// stays per-call so a symlink swapped in between check and use is still
+// resolved against on-disk reality (TOCTOU hardening). The final containment
+// check keeps running on canonical paths exactly as before.
+//
+// TTL bounds staleness after a workspace directory is deleted and recreated at
+// the same path; a workspace switch can also clear it eagerly through
+// invalidateWorkspaceRealpath().
+const WORKSPACE_REALPATH_TTL_MS = 5_000;
+const workspaceRealpathCache = new Map<string, { real: string; at: number }>();
+
+function workspaceRealpathKey(wsPath: string): string {
+  const resolved = path.resolve(wsPath);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+/**
+ * Drop the memoised canonical workspace path — all workspaces when called with
+ * no argument, one entry (case-aware) otherwise. Call on a workspace switch.
+ */
+export function invalidateWorkspaceRealpath(wsPath?: string): void {
+  if (wsPath === undefined) { workspaceRealpathCache.clear(); return; }
+  workspaceRealpathCache.delete(workspaceRealpathKey(wsPath));
+}
+
+/**
+ * Canonical (symlink-free) form of a workspace root, memoised; null when the
+ * workspace is not materialized on disk (or realpath is unavailable).
+ */
+function workspaceRealpath(wsPath: string): string | null {
+  const key = workspaceRealpathKey(wsPath);
+  const hit = workspaceRealpathCache.get(key);
+  if (hit && Date.now() - hit.at < WORKSPACE_REALPATH_TTL_MS) return hit.real;
+  try {
+    const real = fs.realpathSync(wsPath);
+    if (typeof real !== 'string' || real.length === 0) return null;
+    workspaceRealpathCache.set(key, { real, at: Date.now() });
+    return real;
+  } catch {
+    workspaceRealpathCache.delete(key);
+    return null;
+  }
+}
+
 /** Case-aware containment: is `p` (resolved) inside the (resolved) workspace `ws`? */
 function isWithin(ws: string, p: string): boolean {
   const sep = path.sep;
@@ -106,8 +156,8 @@ export function resolvePathInsideWorkspace(targetPath: string, event?: IpcMainIn
   }
   // Workspace not materialized yet → string-containment only; pass the caller's
   // original string through (old isPathSafe semantics).
-  let wsReal: string;
-  try { wsReal = fs.realpathSync(wsPath); } catch {
+  const wsReal = workspaceRealpath(wsPath);
+  if (wsReal === null) {
     return isWithin(wsPath, resolved) ? targetPath : null;
   }
   // Workspace exists on disk: walk up to the nearest existing ancestor so a
