@@ -41,7 +41,7 @@
   gap: 4px 8px;
   padding: 5px 12px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: var(--text-xs);
   font-family: var(--font);
   color: var(--primary);

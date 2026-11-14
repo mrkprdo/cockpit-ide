@@ -49,13 +49,15 @@
 }
 .ai-pov-tab.is-agent.is-selected {
   border-color: var(--agent-color, var(--accent));
-  color: var(--agent-color, var(--primary));
+  color: color-mix(in oklab, var(--agent-color, var(--primary)) 45%, var(--primary));
 }
 
-/* Text icon (initials) in a tab or run header — coloured by the persona */
+/* Text icon (initials) in a tab or run header — coloured by the persona.
+   Persona hues come from agents/definitions.ts (Tailwind-300 range); the 45%
+   primary mix keeps them ≥4.79:1 on light surfaces and ≥7.2:1 on dark ones. */
 .ai-pov-icon {
   flex: 0 0 auto;
-  color: var(--agent-color, var(--accent));
+  color: color-mix(in oklab, var(--agent-color, var(--accent)) 45%, var(--primary));
   font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -236,7 +238,7 @@
   letter-spacing: 0.06em;
 }
 .ai-room-join-icon {
-  color: var(--agent-color, var(--secondary));
+  color: color-mix(in oklab, var(--agent-color, var(--secondary)) 45%, var(--primary));
   font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -245,7 +247,7 @@
 }
 .ai-room-join-label {
   flex: 1 1 auto;
-  color: var(--agent-color, var(--secondary));
+  color: color-mix(in oklab, var(--agent-color, var(--secondary)) 45%, var(--primary));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -275,7 +277,7 @@
   margin-bottom: 4px;
 }
 .ai-agent-icon {
-  color: var(--agent-color, var(--accent));
+  color: color-mix(in oklab, var(--agent-color, var(--accent)) 45%, var(--primary));
   font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -284,7 +286,7 @@
 .ai-agent-name {
   font-size: var(--text-xs);
   font-weight: 700;
-  color: var(--agent-color, var(--primary));
+  color: color-mix(in oklab, var(--agent-color, var(--primary)) 45%, var(--primary));
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }

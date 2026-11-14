@@ -1,5 +1,36 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { theme, defaultDarkTheme, defaultLightTheme, monokaiDarkTheme, monokaiLightTheme, idolDarkTheme, idolLightTheme, carbonDarkTheme, carbonLightTheme, alienDarkTheme, alienLightTheme } from './theme';
+import type { ThemeColors } from './theme';
+
+/** WCAG 2.x relative luminance for a #rrggbb colour. */
+function relativeLuminance(hex: string): number {
+  const value = hex.replace('#', '');
+  const channels = [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16) / 255);
+  const [r, g, b] = channels.map((c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG 2.x contrast ratio between two #rrggbb colours. */
+function contrastRatio(a: string, b: string): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+const PALETTES: Array<[string, ThemeColors]> = [
+  ['default-dark', defaultDarkTheme],
+  ['default-light', defaultLightTheme],
+  ['monokai-dark', monokaiDarkTheme],
+  ['monokai-light', monokaiLightTheme],
+  ['idol-dark', idolDarkTheme],
+  ['idol-light', idolLightTheme],
+  ['carbon-dark', carbonDarkTheme],
+  ['carbon-light', carbonLightTheme],
+  ['alien-dark', alienDarkTheme],
+  ['alien-light', alienLightTheme],
+];
 
 describe('theme', () => {
   beforeEach(() => {
@@ -89,6 +120,18 @@ describe('theme', () => {
     expect(root.style.getPropertyValue('--primary')).toBe('#C8D6E5');
     expect(root.style.getPropertyValue('--border')).toBe('#2A3A4A');
     expect(root.style.getPropertyValue('--accent')).toBe('#4B9EB5');
+    expect(root.style.getPropertyValue('--accent2')).toBe('#9A8CC4');
+    expect(root.style.getPropertyValue('--onAccent')).toBe('#0B1118');
+  });
+
+  it('apply marks the document mode and color-scheme for native chrome', () => {
+    theme.setDark(true);
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('color-scheme')).toBe('dark');
+    expect(root.dataset.themeMode).toBe('dark');
+    theme.toggle();
+    expect(root.style.getPropertyValue('color-scheme')).toBe('light');
+    expect(root.dataset.themeMode).toBe('light');
   });
 
   it('apply sets light CSS properties on toggle', () => {
@@ -104,10 +147,10 @@ describe('theme', () => {
     expect(root.style.getPropertyValue('--bg')).toBe('#272822');
     expect(root.style.getPropertyValue('--primary')).toBe('#f8f8f2');
     expect(root.style.getPropertyValue('--secondary')).toBe('#a09f8c');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#75715e');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#9B957F');
     expect(root.style.getPropertyValue('--border')).toBe('#49483e');
     expect(root.style.getPropertyValue('--accent')).toBe('#A6E22E');
-    expect(root.style.getPropertyValue('--accent2')).toBe('#F92672');
+    expect(root.style.getPropertyValue('--accent2')).toBe('#FF6D9C');
   });
 
   it('apply sets monokai-light CSS properties', () => {
@@ -115,8 +158,8 @@ describe('theme', () => {
     const root = document.documentElement;
     expect(root.style.getPropertyValue('--bg')).toBe('#e2dfd0');
     expect(root.style.getPropertyValue('--primary')).toBe('#272822');
-    expect(root.style.getPropertyValue('--secondary')).toBe('#5e5c50');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#8c8878');
+    expect(root.style.getPropertyValue('--secondary')).toBe('#4E4C42');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#5E5B49');
     expect(root.style.getPropertyValue('--border')).toBe('#9c9988');
   });
 
@@ -168,10 +211,11 @@ describe('theme', () => {
     expect(root.style.getPropertyValue('--bg')).toBe('#040408');
     expect(root.style.getPropertyValue('--primary')).toBe('#d0d0d0');
     expect(root.style.getPropertyValue('--secondary')).toBe('#a0a0b8');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#5A6A6A');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#8A9A9A');
     expect(root.style.getPropertyValue('--border')).toBe('#5a4a3a');
     expect(root.style.getPropertyValue('--accent')).toBe('#e86a6a');
     expect(root.style.getPropertyValue('--accent2')).toBe('#e870b0');
+    expect(root.style.getPropertyValue('--onAccent')).toBe('#0B1118');
   });
 
   it('apply sets idol-light CSS properties', () => {
@@ -180,10 +224,10 @@ describe('theme', () => {
     expect(root.style.getPropertyValue('--bg')).toBe('#f0fcfc');
     expect(root.style.getPropertyValue('--primary')).toBe('#2a2a2a');
     expect(root.style.getPropertyValue('--secondary')).toBe('#3a3a4a');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#6A8A7A');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#4E6B5C');
     expect(root.style.getPropertyValue('--border')).toBe('#b8a088');
-    expect(root.style.getPropertyValue('--accent')).toBe('#e85a5a');
-    expect(root.style.getPropertyValue('--accent2')).toBe('#e060a0');
+    expect(root.style.getPropertyValue('--accent')).toBe('#C42B2B');
+    expect(root.style.getPropertyValue('--accent2')).toBe('#B02A6E');
   });
 
   it('setTheme idol+dark switches correctly', () => {
@@ -277,7 +321,7 @@ describe('theme', () => {
     const root = document.documentElement;
     expect(root.style.getPropertyValue('--bg')).toBe('#d5d7da');
     expect(root.style.getPropertyValue('--primary')).toBe('#1c1f24');
-    expect(root.style.getPropertyValue('--accent')).toBe('#E86A00');
+    expect(root.style.getPropertyValue('--accent')).toBe('#8B4100');
   });
 
   it('apply sets alien-dark CSS properties', () => {
@@ -287,14 +331,14 @@ describe('theme', () => {
     expect(root.style.getPropertyValue('--surface')).toBe('#45523A');
     expect(root.style.getPropertyValue('--panel')).toBe('#406059');
     expect(root.style.getPropertyValue('--primary')).toBe('#EDF2E6');
-    expect(root.style.getPropertyValue('--secondary')).toBe('#A9BD9E');
-    expect(root.style.getPropertyValue('--tertiary')).toBe('#7E8F76');
+    expect(root.style.getPropertyValue('--secondary')).toBe('#C6D4BC');
+    expect(root.style.getPropertyValue('--tertiary')).toBe('#B6C3AF');
     expect(root.style.getPropertyValue('--border')).toBe('#54684B');
-    expect(root.style.getPropertyValue('--accent')).toBe('#A1C27F');
-    expect(root.style.getPropertyValue('--accent2')).toBe('#D7894E');
-    expect(root.style.getPropertyValue('--green')).toBe('#A1C27F');
-    expect(root.style.getPropertyValue('--amber')).toBe('#C9843C');
-    expect(root.style.getPropertyValue('--red')).toBe('#D96A5A');
+    expect(root.style.getPropertyValue('--accent')).toBe('#AFCE8D');
+    expect(root.style.getPropertyValue('--accent2')).toBe('#F2C9A8');
+    expect(root.style.getPropertyValue('--green')).toBe('#AFCE8D');
+    expect(root.style.getPropertyValue('--amber')).toBe('#D9974E');
+    expect(root.style.getPropertyValue('--red')).toBe('#E08A7B');
   });
 
   it('apply sets alien-light CSS properties', () => {
@@ -302,8 +346,8 @@ describe('theme', () => {
     const root = document.documentElement;
     expect(root.style.getPropertyValue('--bg')).toBe('#F4F7EF');
     expect(root.style.getPropertyValue('--primary')).toBe('#2E3A2A');
-    expect(root.style.getPropertyValue('--accent')).toBe('#5E8540');
-    expect(root.style.getPropertyValue('--accent2')).toBe('#B06A2E');
+    expect(root.style.getPropertyValue('--accent')).toBe('#44632E');
+    expect(root.style.getPropertyValue('--accent2')).toBe('#8F5220');
   });
 
   it('apply sets green, amber, red, onAccent, scrim CSS custom properties', () => {
@@ -321,15 +365,15 @@ describe('theme', () => {
   });
 
   it('idol-dark tertiary is a muted neutral, not saturated green', () => {
-    expect(idolDarkTheme.tertiary).toBe('#5A6A6A');
+    expect(idolDarkTheme.tertiary).toBe('#8A9A9A');
   });
 
   it('alien-dark palette anchors match the core five-color palette', () => {
     expect(alienDarkTheme.bg).toBe('#394330');
     expect(alienDarkTheme.panel).toBe('#406059');
-    expect(alienDarkTheme.accent).toBe('#A1C27F');
-    expect(alienDarkTheme.accent2).toBe('#D7894E');
-    expect(alienLightTheme.tertiary).toBe('#74886D');
+    expect(alienDarkTheme.accent).toBe('#AFCE8D');
+    expect(alienDarkTheme.accent2).toBe('#F2C9A8');
+    expect(alienLightTheme.tertiary).toBe('#5A6B54');
   });
 
   it('all ten palettes are distinct', () => {
@@ -342,5 +386,36 @@ describe('theme', () => {
     ];
     const unique = new Set(bgs);
     expect(unique.size).toBe(10);
+  });
+});
+
+describe('palette contrast (WCAG AA regression guard)', () => {
+  it('computes the WCAG contrast extremes correctly', () => {
+    expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 1);
+    expect(contrastRatio('#ffffff', '#ffffff')).toBeCloseTo(1, 5);
+  });
+
+  it.each(PALETTES)('%s clears 4.5:1 for every text/boundary pair', (_name, palette) => {
+    const pairs: Array<[string, string, string]> = [
+      ['primary on bg', palette.primary, palette.bg],
+      ['primary on surface', palette.primary, palette.surface],
+      ['secondary on bg', palette.secondary, palette.bg],
+      ['secondary on surface', palette.secondary, palette.surface],
+      ['tertiary on bg', palette.tertiary, palette.bg],
+      ['tertiary on surface', palette.tertiary, palette.surface],
+      ['accent/onAccent', palette.accent, palette.onAccent],
+      ['accent2 on bg', palette.accent2, palette.bg],
+    ];
+    for (const [label, fg, bg] of pairs) {
+      const ratio = contrastRatio(fg, bg);
+      expect(ratio, `${label} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it.each(PALETTES)('%s keeps --onAccent legible on accent, amber and red fills', (_name, palette) => {
+    for (const fill of [palette.accent, palette.amber, palette.red]) {
+      const ratio = contrastRatio(palette.onAccent, fill);
+      expect(ratio, `onAccent on ${fill} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });
