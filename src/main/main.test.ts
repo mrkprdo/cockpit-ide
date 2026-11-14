@@ -74,8 +74,21 @@ vi.mock('electron', () => ({
   },
 }));
 
+// Promise API surface used by the fs:* handlers (they never block the main
+// event loop); the *Sync entries stay for the code paths that still use them.
+const fsPromisesMock = {
+  readdir: vi.fn(async () => []),
+  readFile: vi.fn(async () => ''),
+  writeFile: vi.fn(async () => undefined),
+  mkdir: vi.fn(async () => undefined),
+  rm: vi.fn(async () => undefined),
+  cp: vi.fn(async () => undefined),
+  rename: vi.fn(async () => undefined),
+};
+
 vi.mock('fs', () => ({
   default: {},
+  promises: fsPromisesMock,
   readdirSync: vi.fn(() => []),
   readFileSync: vi.fn(() => ''),
   writeFileSync: vi.fn(),
@@ -151,7 +164,7 @@ describe('main.ts IPC handlers', () => {
         isFile: () => !isDir,
         isSymbolicLink: () => false,
       });
-      vi.mocked(fs.readdirSync).mockReturnValue([
+      vi.mocked(fs.promises.readdir).mockResolvedValue([
         mockDirent('src', true),
         mockDirent('README.md', false),
       ] as any);
@@ -161,15 +174,19 @@ describe('main.ts IPC handlers', () => {
         { name: 'src', isDirectory: true },
         { name: 'README.md', isDirectory: false },
       ]);
+      // Reads go through the promise API — the sync one would block main's loop.
+      expect(fs.promises.readdir).toHaveBeenCalledWith('/test', { withFileTypes: true });
+      expect(fs.readdirSync).not.toHaveBeenCalled();
     });
 
     it('returns null on ENOENT', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:readDir')!;
-      vi.mocked(fs.readdirSync).mockImplementation(() => { throw new Error('ENOENT'); });
+      vi.mocked(fs.promises.readdir).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       const result = await handler({}, '/nonexistent');
       expect(result).toBeNull();
+      vi.mocked(fs.promises.readdir).mockResolvedValue([]);
     });
 
     it('returns null on ENOTDIR (path is a file, not a directory)', async () => {
@@ -177,10 +194,11 @@ describe('main.ts IPC handlers', () => {
       main._testTrustPath('/test');
       const fs = await import('fs');
       const handler = handleMap.get('fs:readDir')!;
-      vi.mocked(fs.readdirSync).mockImplementation(() => { throw new Error('ENOTDIR'); });
+      vi.mocked(fs.promises.readdir).mockRejectedValue(Object.assign(new Error('ENOTDIR'), { code: 'ENOTDIR' }));
 
       const result = await handler({}, '/test/file.txt');
       expect(result).toBeNull();
+      vi.mocked(fs.promises.readdir).mockResolvedValue([]);
     });
   });
 
@@ -190,20 +208,26 @@ describe('main.ts IPC handlers', () => {
       main._testTrustPath('/test/file.txt');
       const fs = await import('fs');
       const handler = handleMap.get('fs:readFile')!;
-      vi.mocked(fs.readFileSync).mockReturnValue('hello world');
+      vi.mocked(fs.promises.readFile).mockResolvedValue('hello world');
+      vi.mocked(fs.readFileSync).mockClear();
 
       const result = await handler({}, '/test/file.txt');
       expect(result).toBe('hello world');
-      expect(fs.readFileSync).toHaveBeenCalledWith('/test/file.txt', 'utf-8');
+      expect(fs.promises.readFile).toHaveBeenCalledWith('/test/file.txt', 'utf-8');
+      // The fs:* path must never block main's loop on a sync read.
+      expect(fs.readFileSync).not.toHaveBeenCalledWith('/test/file.txt', 'utf-8');
+      vi.mocked(fs.promises.readFile).mockResolvedValue('');
+
     });
 
     it('returns null on error', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:readFile')!;
-      vi.mocked(fs.readFileSync).mockImplementation(() => { throw new Error('ENOENT'); });
+      vi.mocked(fs.promises.readFile).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       const result = await handler({}, '/missing.txt');
       expect(result).toBeNull();
+      vi.mocked(fs.promises.readFile).mockResolvedValue('');
     });
   });
 
@@ -211,20 +235,21 @@ describe('main.ts IPC handlers', () => {
     it('writes and returns true', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:writeFile')!;
-      vi.mocked(fs.writeFileSync).mockReturnValue(undefined);
+      vi.mocked(fs.promises.writeFile).mockResolvedValue(undefined);
 
       const result = await handler({}, '/test/file.txt', 'content');
       expect(result).toBe(true);
-      expect(fs.writeFileSync).toHaveBeenCalledWith('/test/file.txt', 'content', 'utf-8');
+      expect(fs.promises.writeFile).toHaveBeenCalledWith('/test/file.txt', 'content', 'utf-8');
     });
 
     it('returns false on error', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:writeFile')!;
-      vi.mocked(fs.writeFileSync).mockImplementation(() => { throw new Error('EACCES'); });
+      vi.mocked(fs.promises.writeFile).mockRejectedValue(Object.assign(new Error('EACCES'), { code: 'EACCES' }));
 
       const result = await handler({}, '/readonly/file.txt', 'content');
       expect(result).toBe(false);
+      vi.mocked(fs.promises.writeFile).mockResolvedValue(undefined);
     });
   });
 
@@ -237,7 +262,7 @@ describe('main.ts IPC handlers', () => {
 
       const result = await handler({}, '/test/dir');
       expect(result).toBe(true);
-      expect(fs.rmSync).toHaveBeenCalledWith('/test/dir', { recursive: true, force: true });
+      expect(fs.promises.rm).toHaveBeenCalledWith('/test/dir', { recursive: true, force: true });
     });
 
     it('retries after a transient failure instead of aborting the loop', async () => {
@@ -245,12 +270,13 @@ describe('main.ts IPC handlers', () => {
       main._testTrustPath('/test/locked-dir');
       const fs = await import('fs');
       const handler = handleMap.get('fs:delete')!;
-      const rm = vi.mocked(fs.rmSync);
+      const rm = vi.mocked(fs.promises.rm);
       rm.mockReset();
       let calls = 0;
-      rm.mockImplementation(() => {
+      rm.mockImplementation(async () => {
         calls++;
         if (calls < 3) throw new Error('EBUSY');
+        return undefined;
       });
 
       const result = await handler({}, '/test/locked-dir');
@@ -258,7 +284,7 @@ describe('main.ts IPC handlers', () => {
       expect(calls).toBe(3);
 
       rm.mockReset();
-      rm.mockImplementation(() => {});
+      rm.mockImplementation(async () => undefined);
     });
 
     it('returns false after exhausting all retries', async () => {
@@ -266,15 +292,15 @@ describe('main.ts IPC handlers', () => {
       main._testTrustPath('/test/stuck-dir');
       const fs = await import('fs');
       const handler = handleMap.get('fs:delete')!;
-      const rm = vi.mocked(fs.rmSync);
+      const rm = vi.mocked(fs.promises.rm);
       rm.mockReset();
-      rm.mockImplementation(() => { throw new Error('EBUSY'); });
+      rm.mockImplementation(async () => { throw new Error('EBUSY'); });
 
       const result = await handler({}, '/test/stuck-dir');
       expect(result).toBe(false);
 
       rm.mockReset();
-      rm.mockImplementation(() => {});
+      rm.mockImplementation(async () => undefined);
     });
   });
 
@@ -493,7 +519,7 @@ describe('main.ts IPC handlers', () => {
     it('fs:readDir allows path inside workspace', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:readDir')!;
-      vi.mocked(fs.readdirSync).mockReturnValue([]);
+      vi.mocked(fs.promises.readdir).mockResolvedValue([]);
       const result = await handler({}, '/safe/workspace/src');
       expect(result).toEqual([]);
     });
@@ -503,9 +529,10 @@ describe('main.ts IPC handlers', () => {
       main._testTrustPath('/other/workspace');
       const fs = await import('fs');
       const handler = handleMap.get('fs:readDir')!;
-      vi.mocked(fs.readdirSync).mockReturnValue([{ name: 'a', isDirectory: () => false }] as any);
+      vi.mocked(fs.promises.readdir).mockResolvedValue([{ name: 'a', isDirectory: () => false }] as any);
       const result = await handler({}, '/other/workspace');
       expect(result).toHaveLength(1);
+      vi.mocked(fs.promises.readdir).mockResolvedValue([]);
     });
 
     it('fs:readFile rejects path outside workspace', async () => {
@@ -517,9 +544,10 @@ describe('main.ts IPC handlers', () => {
     it('fs:readFile allows path inside workspace', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:readFile')!;
-      vi.mocked(fs.readFileSync).mockReturnValue('safe content');
+      vi.mocked(fs.promises.readFile).mockResolvedValue('safe content');
       const result = await handler({}, '/safe/workspace/file.txt');
       expect(result).toBe('safe content');
+      vi.mocked(fs.promises.readFile).mockResolvedValue('');
     });
 
     it('fs:writeFile rejects path outside workspace', async () => {
@@ -581,58 +609,61 @@ describe('main.ts IPC handlers', () => {
     it('fs:mkdir creates directory inside workspace', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:mkdir')!;
-      vi.mocked(fs.mkdirSync).mockReturnValue(undefined);
+      vi.mocked(fs.promises.mkdir).mockResolvedValue(undefined);
 
       const result = await handler({}, '/safe/workspace/newdir');
       expect(result).toBe(true);
-      expect(fs.mkdirSync).toHaveBeenCalledWith('/safe/workspace/newdir', { recursive: true });
+      expect(fs.promises.mkdir).toHaveBeenCalledWith('/safe/workspace/newdir', { recursive: true });
     });
 
     it('fs:mkdir returns false on error', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:mkdir')!;
-      vi.mocked(fs.mkdirSync).mockImplementation(() => { throw new Error('EACCES'); });
+      vi.mocked(fs.promises.mkdir).mockRejectedValue(Object.assign(new Error('EACCES'), { code: 'EACCES' }));
 
       const result = await handler({}, '/safe/workspace/blocked');
       expect(result).toBe(false);
+      vi.mocked(fs.promises.mkdir).mockResolvedValue(undefined);
     });
 
     it('fs:copy copies file inside workspace', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:copy')!;
-      vi.mocked(fs.cpSync).mockReturnValue(undefined);
+      vi.mocked(fs.promises.cp).mockResolvedValue(undefined);
 
       const result = await handler({}, '/safe/workspace/src', '/safe/workspace/dest');
       expect(result).toBe(true);
-      expect(fs.cpSync).toHaveBeenCalledWith('/safe/workspace/src', '/safe/workspace/dest', { recursive: true });
+      expect(fs.promises.cp).toHaveBeenCalledWith('/safe/workspace/src', '/safe/workspace/dest', { recursive: true });
     });
 
     it('fs:copy returns false on error', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:copy')!;
-      vi.mocked(fs.cpSync).mockImplementation(() => { throw new Error('ENOENT'); });
+      vi.mocked(fs.promises.cp).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       const result = await handler({}, '/safe/workspace/src', '/safe/workspace/dest');
       expect(result).toBe(false);
+      vi.mocked(fs.promises.cp).mockResolvedValue(undefined);
     });
 
     it('fs:rename renames file inside workspace', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:rename')!;
-      vi.mocked(fs.renameSync).mockReturnValue(undefined);
+      vi.mocked(fs.promises.rename).mockResolvedValue(undefined);
 
       const result = await handler({}, '/safe/workspace/old', '/safe/workspace/new');
       expect(result).toBe(true);
-      expect(fs.renameSync).toHaveBeenCalledWith('/safe/workspace/old', '/safe/workspace/new');
+      expect(fs.promises.rename).toHaveBeenCalledWith('/safe/workspace/old', '/safe/workspace/new');
     });
 
     it('fs:rename returns false on error', async () => {
       const fs = await import('fs');
       const handler = handleMap.get('fs:rename')!;
-      vi.mocked(fs.renameSync).mockImplementation(() => { throw new Error('ENOENT'); });
+      vi.mocked(fs.promises.rename).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       const result = await handler({}, '/safe/workspace/old', '/safe/workspace/new');
       expect(result).toBe(false);
+      vi.mocked(fs.promises.rename).mockResolvedValue(undefined);
     });
 
     it('file:watch starts watching and returns true', async () => {

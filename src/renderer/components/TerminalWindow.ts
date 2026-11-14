@@ -3,6 +3,11 @@ import { FitAddon } from '@xterm/addon-fit';
 import { createLogger } from '../logging/logger';
 
 const BASE_FONT_SIZE = 13;
+/** Explicit scrollback cap: the default (1000) is small for agent runs, but
+ *  unbounded is a memory leak across long-lived cards. */
+const SCROLLBACK_LINES = 2000;
+/** Trailing debounce for the resize → fit → PTY-resize path. */
+const FIT_DEBOUNCE_MS = 120;
 const log = createLogger('terminal');
 
 export class TerminalWindow {
@@ -18,11 +23,16 @@ export class TerminalWindow {
   private unlistenExit: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private destroyed = false;
+  private fitTimer: ReturnType<typeof setTimeout> | null = null;
+  private exitBanner: HTMLDivElement | null = null;
+  private readonly cwd: string | undefined;
 
   constructor(container: HTMLElement, uuid: string, cwd?: string) {
     this.uuid = uuid;
+    this.cwd = cwd;
     this.element = document.createElement('div');
-    this.element.style.cssText = 'width:100%;height:100%;overflow:hidden';
+    // position:relative anchors the exit banner over the terminal surface.
+    this.element.style.cssText = 'position:relative;width:100%;height:100%;overflow:hidden';
     container.appendChild(this.element);
 
     const api = (window as any).electronAPI;
@@ -38,6 +48,7 @@ export class TerminalWindow {
       theme: termTheme,
       cursorBlink: true,
       allowProposedApi: true,
+      scrollback: SCROLLBACK_LINES,
     });
 
     term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
@@ -85,14 +96,19 @@ export class TerminalWindow {
     this.unlistenExit = api.terminal.onExit((id: string) => {
       if (id === uuid) {
         log.info('terminal exited', uuid);
+        // The card is NOT destroyed on exit any more — keep the scrollback and
+        // offer a restart in place (contract with the canvas slice).
+        this.showExitState();
         this.onExit?.();
       }
     }) ?? null;
 
     // Adapt cols/rows only when physical container dimensions change (card resize).
     // Canvas zoom is handled by CSS transform on WindowCard — no PTY resize needed.
+    // A drag fires this at ~60 Hz; fitting per callback reflowed the whole buffer
+    // and forwarded a PTY resize per frame. Trailing-debounce to one fit per gesture.
     const ro = new ResizeObserver(() => {
-      if (!this.destroyed) fitAddon.fit();
+      this.scheduleFit();
     });
     ro.observe(this.element);
     this.resizeObserver = ro;
@@ -104,9 +120,86 @@ export class TerminalWindow {
     this.ready = api.terminal.create(uuid, cwd)
       .then((ok: boolean) => {
         log.info('terminal created', uuid, ok ? '' : '(failed)');
+        this.syncPtySize();
         return uuid;
       })
       .catch(() => uuid);
+  }
+
+  /**
+   * Push the current grid size to the PTY once it exists. The first fit runs a
+   * frame after `open()`, often before `terminal:create` has registered a pty —
+   * that resize would be dropped and the shell would stay at 80×24.
+   */
+  private syncPtySize(): void {
+    const api = (window as any).electronAPI;
+    const cols = (this.xterm as any)?.cols;
+    const rows = (this.xterm as any)?.rows;
+    if (!api || !cols || !rows) return;
+    api.terminal.resize(this.uuid, cols, rows);
+  }
+
+  /** Trailing debounce: one fit once the resize gesture settles. */
+  private scheduleFit(): void {
+    if (this.destroyed) return;
+    if (this.fitTimer) clearTimeout(this.fitTimer);
+    this.fitTimer = setTimeout(() => {
+      this.fitTimer = null;
+      if (!this.destroyed) this.fitAddon?.fit();
+    }, FIT_DEBOUNCE_MS);
+  }
+
+  /**
+   * In-card exit state: a banner over the (still readable) scrollback with a
+   * Restart control that re-creates the PTY under the same uuid.
+   */
+  private showExitState(code?: number): void {
+    if (this.destroyed || this.exitBanner) return;
+    const banner = document.createElement('div');
+    banner.className = 'terminal-exit-banner';
+    banner.style.cssText = 'position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;'
+      + 'gap:8px;padding:6px 8px;background:var(--surface);border-top:1px dashed var(--border);'
+      + 'font-family:var(--font);font-size:12px;color:var(--secondary);z-index:2';
+
+    const label = document.createElement('span');
+    // `terminal:exit` currently carries the uuid only; the code renders when the
+    // main-process payload grows one (this stays the single place to wire it).
+    label.textContent = typeof code === 'number' ? `process exited (code ${code})` : 'process exited';
+    banner.appendChild(label);
+
+    const restart = document.createElement('button');
+    restart.className = 'terminal-restart-btn';
+    restart.textContent = 'Restart';
+    restart.style.cssText = 'margin-left:auto;padding:2px 10px;background:transparent;color:var(--accent);'
+      + 'border:1px dashed var(--border);border-radius:8px;font:inherit;cursor:pointer';
+    restart.addEventListener('click', () => this.restart());
+    banner.appendChild(restart);
+
+    this.element.appendChild(banner);
+    this.exitBanner = banner;
+  }
+
+  /**
+   * Re-create the PTY for the same uuid and keep the existing scrollback. The
+   * main-process handler re-registers the pty under the uuid, and the data/exit
+   * listeners bound in the constructor keep working.
+   */
+  async restart(): Promise<boolean> {
+    const api = (window as any).electronAPI;
+    if (!api || this.destroyed) return false;
+    this.exitBanner?.remove();
+    this.exitBanner = null;
+    this.xterm?.write('\r\n\x1b[90m—— process restarted ——\x1b[0m\r\n');
+    try {
+      const ok: boolean = await api.terminal.create(this.uuid, this.cwd);
+      if (!ok) this.showExitState();
+      else this.syncPtySize();
+      this.scheduleFit();
+      return ok;
+    } catch {
+      this.showExitState();
+      return false;
+    }
   }
 
   static readTheme(): { background: string; foreground: string; cursor: string; selectionBackground: string } {
@@ -153,6 +246,10 @@ export class TerminalWindow {
     this.unlistenExit?.();
     this.unlistenData = null;
     this.unlistenExit = null;
+
+    if (this.fitTimer) { clearTimeout(this.fitTimer); this.fitTimer = null; }
+    this.exitBanner?.remove();
+    this.exitBanner = null;
 
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;

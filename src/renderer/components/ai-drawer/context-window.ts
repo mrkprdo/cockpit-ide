@@ -38,25 +38,75 @@ export interface ContextWindowHost {
 }
 
 export class ContextWindow {
+  /**
+   * `renderTokenUsage()` runs on every render (several times per tool call) and
+   * the panel re-renders the transcript on every chip/stream tick. Both the
+   * 13–20 KB system prompt build and the whole-transcript token scan were redone
+   * each time; memoise them.
+   */
+  private estimateMemo: { sig: string; tokens: number } | null = null;
+  /** Base prompt token count, keyed by workspace path (the prompt's only input). */
+  private basePromptMemo: { wsPath: string; tokens: number } | null = null;
+
   constructor(private host: ContextWindowHost) {}
 
   estimateContextTokens(): number {
     const messages = this.host.getMessages();
-    const hasUserMessages = messages.some(m => m.role === 'user');
-    if (!hasUserMessages) return 0;
     const session = this.host.getActiveSession();
     const ctx = getToolContext();
     const wsPath = ctx?.cockpit.getWorkspacePath() || '';
-    const base = [
-      { role: 'system', content: this.host.buildSystemPrompt(wsPath) },
-    ];
-    if (session?.context && session.context.length > 0) {
-      return estimateMessagesTokens([...base, ...session.context]);
+    const sig = this.estimateSignature(messages, session?.context?.length ?? 0, wsPath);
+    if (this.estimateMemo?.sig === sig) return this.estimateMemo.tokens;
+    const tokens = this.computeContextTokens(messages, session?.context, wsPath);
+    this.estimateMemo = { sig, tokens };
+    return tokens;
+  }
+
+  /**
+   * Cheap fingerprint covering everything the estimate reads: the exact
+   * per-message token sum (content + toolResult, the two fields the counter
+   * counts on a ChatMessage), the history-eligible count, the compacted-context
+   * length, the configured limit and the workspace path.
+   */
+  private estimateSignature(messages: ChatMessage[], contextLen: number, wsPath: string): string {
+    let sum = 0;
+    let history = 0;
+    for (const m of messages) {
+      if (m.content) sum += Math.max(1, Math.ceil(m.content.length / 4));
+      if (m.toolResult) sum += Math.max(1, Math.ceil(m.toolResult.length / 4));
+      if (m.role === 'user' || m.role === 'assistant' || m.role === 'tool') history++;
+    }
+    return `${messages.length}|${history}|${sum}|${contextLen}|${this.host.getContextTokenLimit()}|${wsPath}`;
+  }
+
+  private computeContextTokens(
+    messages: ChatMessage[],
+    context: LLMMessage[] | undefined,
+    wsPath: string,
+  ): number {
+    if (!messages.some(m => m.role === 'user')) return 0;
+    const base = this.basePromptTokens(wsPath);
+    if (context && context.length > 0) {
+      return base + estimateMessagesTokens(context);
     }
     const history = messages.filter(m =>
       m.role === 'user' || m.role === 'assistant' || m.role === 'tool'
     );
-    return estimateMessagesTokens([...base, ...history]);
+    return base + estimateMessagesTokens(history);
+  }
+
+  /**
+   * Token count of the system prompt for a workspace. The prompt is derived from
+   * the workspace path (and the memory/context it embeds), so it is built and
+   * measured once per path rather than once per render.
+   */
+  private basePromptTokens(wsPath: string): number {
+    if (this.basePromptMemo?.wsPath === wsPath) return this.basePromptMemo.tokens;
+    const prompt = this.host.buildSystemPrompt(wsPath);
+    // Mirrors estimateMessagesTokens([{ role: 'system', content: prompt }]).
+    const tokens = 4 + (/\S/.test(prompt) ? Math.max(1, Math.ceil(prompt.length / 4)) : 1);
+    this.basePromptMemo = { wsPath, tokens };
+    return tokens;
   }
 
   formatTokenCount(n: number): string {

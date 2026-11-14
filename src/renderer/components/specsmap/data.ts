@@ -3,6 +3,10 @@
 // projection, and the v2 layout snapshot cache. DOM side effects are
 // delegated to the DataHost so this stays free of console.* logging
 // (failures go through reportFailure, §B.3).
+//
+// Discovery/read I/O is concurrent and bounded: a repo with a dozen collections
+// and 68 spec files used to cost one awaited IPC round-trip per directory and
+// per spec file (hundreds of serial round-trips before the map could draw).
 
 import { parseSpecDoc, type SpecDoc } from '../../specs/format';
 import { buildGraph, buildMainIndex } from '../../specs/graph';
@@ -13,6 +17,49 @@ import { computeLayout, NODE_H, NODE_UI_H, NODE_UI_W, NODE_W, type SpecNode } fr
 import { SPECGEN_VERSION } from '../../specgen-hash';
 import { parseMainSpecMd, parseSpecMd, type SpecCollection, type SpecData } from './parse';
 import { reportFailure } from '../../health/monitor';
+
+/** Max concurrent fs IPC calls (reads/readDirs) per phase. */
+const IO_CONCURRENCY = 8;
+
+/** Directories never worth walking into (build output, deps, VCS, scratch). */
+const SKIP_DIRS = new Set([
+  '.git', 'node_modules', '.cockpit', '.codegraph', 'coverage', 'dist',
+  'out', 'release', '.worktrees',
+]);
+
+/** Bounded-concurrency map; results keep the input order. */
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+/** Shared gate so a recursive walk never fans out past IO_CONCURRENCY calls. */
+export class Limiter {
+  private active = 0;
+  private waiting: Array<() => void> = [];
+  constructor(private readonly max: number) {}
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.active >= this.max) await new Promise<void>(r => this.waiting.push(r));
+    this.active++;
+    try { return await fn(); } finally {
+      this.active--;
+      this.waiting.shift()?.();
+    }
+  }
+}
 
 interface SnapNode {
   id: string;
@@ -201,8 +248,11 @@ export class SpecsData {
     this.specRawMap.clear();
     this.specDocs.clear();
     const rawTexts: Array<{ path: string; content: string }> = [];
-    for (const filename of specFiles) {
-      const raw = await this.api?.fs.readFile(base + '/' + filename);
+    // Read the corpus concurrently (8 in flight) but keep file order — the
+    // corpus hash fed to the snapshot cache is order-sensitive.
+    const reads = await mapLimit(specFiles, IO_CONCURRENCY, async (filename) =>
+      ({ filename, raw: await this.api?.fs.readFile(base + '/' + filename) }));
+    for (const { filename, raw } of reads) {
       if (raw) {
         rawTexts.push({ path: filename, content: raw });
         try {
@@ -296,28 +346,47 @@ export class SpecsData {
   async findAllCollections(): Promise<SpecCollection[]> {
     const wsRoot = this.wsPath.replace(/\\/g, '/').replace(/\/?$/, '');
     const foundPaths: string[] = [];
+    const rawCache = new Map<string, string | null>();
 
-    // Fast path: check common locations
+    // Fast path: probe the common locations concurrently (was one awaited
+    // round-trip each).
     const quickPaths = [
       wsRoot + '/src/specs/main.spec.md',
       wsRoot + '/specs/main.spec.md',
       wsRoot + '/.specs/main.spec.md',
     ];
-    for (const p of quickPaths) {
-      const raw = await this.api?.fs.readFile(p);
-      if (raw && !foundPaths.includes(p)) foundPaths.push(p);
-    }
+    const quickRaws = await Promise.all(quickPaths.map(p => this.probeRead(p)));
+    quickPaths.forEach((p, i) => {
+      const raw = quickRaws[i];
+      if (!raw) return;
+      rawCache.set(p, raw);
+      if (!foundPaths.includes(p)) foundPaths.push(p);
+    });
 
-    // Recursive walk for more collections
+    // Bounded concurrent walk for more collections.
     await this.walkFindAll(wsRoot, 0, 4, foundPaths);
 
-    const collections: SpecCollection[] = [];
+    const dirs: string[] = [];
     const seenDirs = new Set<string>();
     for (const p of foundPaths) {
       const dir = p.replace(/\/main\.spec\.md$/, '');
       if (seenDirs.has(dir)) continue;
       seenDirs.add(dir);
-      const raw = await this.api?.fs.readFile(p);
+      dirs.push(dir);
+    }
+
+    // One main.spec.md read per collection, 8 at a time, reusing the bytes the
+    // probes already fetched.
+    const mains = await mapLimit(dirs, IO_CONCURRENCY, (dir) => {
+      const cached = rawCache.get(dir + '/main.spec.md');
+      return cached !== undefined
+        ? Promise.resolve(cached)
+        : this.probeRead(dir + '/main.spec.md');
+    });
+
+    const collections: SpecCollection[] = [];
+    dirs.forEach((dir, i) => {
+      const raw = mains[i];
       let mainData: Record<string, unknown> | null = null;
       let title = '';
       if (raw) {
@@ -328,7 +397,7 @@ export class SpecsData {
       }
       if (!title) title = dir.split('/').pop() || 'Specs';
       collections.push({ title, specsDir: dir, mainData });
-    }
+    });
 
     // Sort by depth (shallower first), then alphabetically
     collections.sort((a, b) => {
@@ -341,24 +410,29 @@ export class SpecsData {
     return collections;
   }
 
-  async walkFindAll(dir: string, depth: number, maxDepth: number, out: string[]): Promise<void> {
+  /** readFile that treats any failure as "not there" (discovery probe only). */
+  private async probeRead(p: string): Promise<string | null> {
+    try { return (await this.api?.fs.readFile(p)) ?? null; } catch { return null; }
+  }
+
+  /**
+   * Breadth-first-ish collection discovery. One readDir per directory — the
+   * old version also issued a readFile per directory just to test for
+   * main.spec.md, and awaited every child directory in series.
+   */
+  async walkFindAll(dir: string, depth: number, maxDepth: number, out: string[], gate?: Limiter): Promise<void> {
     if (depth > maxDepth) return;
-    const entries = await this.api?.fs.readDir(dir);
+    const limiter = gate ?? new Limiter(IO_CONCURRENCY);
+    const entries = await limiter.run(async () => (await this.api?.fs.readDir(dir)) ?? null);
     if (!entries) return;
 
-    // Check current dir
-    const mainRaw = await this.api?.fs.readFile(dir + '/main.spec.md');
-    if (mainRaw) {
+    // main.spec.md presence is already visible in the directory listing.
+    if (entries.some(e => !e.isDirectory && e.name === 'main.spec.md')) {
       const p = dir + '/main.spec.md';
       if (!out.includes(p)) out.push(p);
     }
 
-    // Recurse into subdirectories (skip junk dirs)
-    for (const e of entries) {
-      if (!e.isDirectory) continue;
-      if (e.name === '.git' || e.name === 'node_modules' || e.name === '.cockpit' ||
-          e.name === '.codegraph' || e.name === 'coverage' || e.name === 'dist') continue;
-      await this.walkFindAll(dir + '/' + e.name, depth + 1, maxDepth, out);
-    }
+    const subdirs = entries.filter(e => e.isDirectory && !SKIP_DIRS.has(e.name));
+    await Promise.all(subdirs.map(e => this.walkFindAll(dir + '/' + e.name, depth + 1, maxDepth, out, limiter)));
   }
 }
