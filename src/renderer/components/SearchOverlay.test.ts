@@ -211,4 +211,93 @@ describe('SearchOverlay', () => {
     expect(document.querySelectorAll('.search-result').length).toBe(1);
     s.destroy();
   });
+
+  it('skips build/output directories while walking the workspace', async () => {
+    const skip = ['out', 'release', 'dist', 'coverage', '.impeccable', '.worktrees'];
+    const readDir = mockElectronAPI.fs.readDir as any;
+    readDir.mockImplementation(async (dir: string) => {
+      if (dir === wsPath) return skip.map(name => ({ name, isDirectory: true }));
+      return [];
+    });
+    const s = new SearchOverlay(wsPath, onSelect);
+    const files: string[] = await (s as any).loadAllFiles();
+    expect(files).toEqual([]);
+    const walked = readDir.mock.calls.map((c: any[]) => c[0] as string);
+    for (const name of skip) {
+      expect(walked.some((d: string) => d.endsWith('/' + name))).toBe(false);
+    }
+    s.destroy();
+  });
+
+  it('exact match means whole-line equality, not substring', async () => {
+    const s = new SearchOverlay(wsPath, onSelect);
+    s.open();
+    const input = document.querySelector('.palette-input') as HTMLInputElement;
+    input.value = 'hello';
+    input.dispatchEvent(new Event('input'));
+    await new Promise(r => setTimeout(r, 400));
+    // substring search: "hello world", "hello again", "// hello"
+    expect(document.querySelectorAll('.search-result').length).toBe(3);
+
+    (document.querySelector('[data-mode="exactMatch"]') as HTMLButtonElement).click();
+    await new Promise(r => setTimeout(r, 400));
+    expect(document.querySelectorAll('.search-result').length).toBe(0);
+
+    // A whole line still matches exactly.
+    input.value = 'line two';
+    input.dispatchEvent(new Event('input'));
+    await new Promise(r => setTimeout(r, 400));
+    expect(document.querySelectorAll('.search-result').length).toBe(1);
+    s.destroy();
+  });
+
+  it('reports the 100-hit cap honestly', async () => {
+    (mockElectronAPI.fs.readDir as any).mockImplementation(async (dir: string) => {
+      if (dir === wsPath) return [{ name: 'big.txt', isDirectory: false }];
+      return [];
+    });
+    (mockElectronAPI.fs.readFile as any).mockImplementation(async () =>
+      Array.from({ length: 150 }, (_, i) => `needle ${i}`).join('\n'));
+
+    const s = new SearchOverlay(wsPath, onSelect);
+    s.open();
+    const input = document.querySelector('.palette-input') as HTMLInputElement;
+    input.value = 'needle';
+    input.dispatchEvent(new Event('input'));
+    await new Promise(r => setTimeout(r, 400));
+
+    expect(document.querySelectorAll('.search-result').length).toBe(100);
+    const note = document.querySelector('.search-capped');
+    expect(note).toBeTruthy();
+    expect(note!.textContent).toContain('100');
+    s.destroy();
+  });
+
+  it('close() invalidates an in-flight search so stale results never render', async () => {
+    const s = new SearchOverlay(wsPath, onSelect);
+    s.open();
+    const pending = (s as any).performSearch('hello');
+    s.close();
+    await pending;
+    expect(document.querySelectorAll('.search-result').length).toBe(0);
+    expect((s as any).results).toEqual([]);
+    s.destroy();
+  });
+
+  it('a newer search supersedes the in-flight one', async () => {
+    const s = new SearchOverlay(wsPath, onSelect);
+    s.open();
+    const input = document.querySelector('.palette-input') as HTMLInputElement;
+    input.value = 'const';
+    const first = (s as any).performSearch('hello');
+    const second = (s as any).performSearch('const');
+    await Promise.all([first, second]);
+
+    const lines = Array.from(document.querySelectorAll('.search-result-line'))
+      .map(el => el.textContent || '');
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.some(l => l.includes('hello'))).toBe(false);
+    expect(lines.some(l => l.includes('const'))).toBe(true);
+    s.destroy();
+  });
 });

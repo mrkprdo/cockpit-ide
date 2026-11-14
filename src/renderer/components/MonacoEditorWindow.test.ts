@@ -322,13 +322,27 @@ describe('MonacoEditorWindow — tab improvements', () => {
     expect(tabEl.classList.contains('is-dirty')).toBe(true);
   });
 
-  it('clears dirty state on closeAllTabs', () => {
+  it('clears dirty state on closeAllTabs', async () => {
     const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
     editor.activeTab = '/test/a.ts';
     (editor as any).dirtyFiles.add('/test/a.ts');
-    (editor as any).closeAllTabs();
+    const closing = (editor as any).closeAllTabs();
+    document.querySelector<HTMLButtonElement>('#confirm-ok')!.click();
+    await closing;
     expect((editor as any).dirtyFiles.size).toBe(0);
+  });
+
+  it('closeAllTabs keeps tabs when the user cancels the discard prompt', async () => {
+    const editor = new MonacoEditorWindow(container);
+    editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
+    editor.activeTab = '/test/a.ts';
+    (editor as any).dirtyFiles.add('/test/a.ts');
+    const closing = (editor as any).closeAllTabs();
+    document.querySelector<HTMLButtonElement>('#confirm-cancel')!.click();
+    await closing;
+    expect(editor.tabs).toHaveLength(1);
+    expect(editor.hasUnsavedChanges()).toBe(true);
   });
 
   it('copy file path action calls clipboard writeText', () => {
@@ -371,15 +385,39 @@ describe('MonacoEditorWindow — saveCurrentFile', () => {
     expect(mockElectronAPI.fs.writeFile).not.toHaveBeenCalled();
   });
 
-  it('writes file content and clears dirty flag', () => {
+  it('writes file content and clears dirty flag', async () => {
     const editor = new MonacoEditorWindow(container);
     editor.tabs.push({ filePath: '/a.ts', name: 'a.ts', originalPath: '/a.ts' });
     editor.activeTab = '/a.ts';
     (editor as any).dirtyFiles.add('/a.ts');
     (editor as any).editor = { getValue: vi.fn().mockReturnValue('hello world') };
-    editor.saveCurrentFile();
+    await expect(editor.saveCurrentFile()).resolves.toBe(true);
     expect(mockElectronAPI.fs.writeFile).toHaveBeenCalledWith('/a.ts', 'hello world');
     expect((editor as any).dirtyFiles.has('/a.ts')).toBe(false);
+  });
+
+  it('keeps the dirty flag and reports a failed write (no silent data loss)', async () => {
+    (mockElectronAPI.fs.writeFile as any).mockResolvedValue(false);
+    const editor = new MonacoEditorWindow(container);
+    editor.tabs.push({ filePath: '/a.ts', name: 'a.ts', originalPath: '/a.ts' });
+    editor.activeTab = '/a.ts';
+    (editor as any).dirtyFiles.add('/a.ts');
+    (editor as any).editor = { getValue: vi.fn().mockReturnValue('hello world') };
+    await expect(editor.saveCurrentFile()).resolves.toBe(false);
+    expect((editor as any).dirtyFiles.has('/a.ts')).toBe(true);
+    expect(editor.hasUnsavedChanges()).toBe(true);
+    expect(mockElectronAPI.diagnostics.reportError).toHaveBeenCalled();
+  });
+
+  it('keeps the dirty flag when the write throws', async () => {
+    (mockElectronAPI.fs.writeFile as any).mockRejectedValue(new Error('EACCES'));
+    const editor = new MonacoEditorWindow(container);
+    editor.tabs.push({ filePath: '/a.ts', name: 'a.ts', originalPath: '/a.ts' });
+    editor.activeTab = '/a.ts';
+    (editor as any).dirtyFiles.add('/a.ts');
+    (editor as any).editor = { getValue: vi.fn().mockReturnValue('x') };
+    await expect(editor.saveCurrentFile()).resolves.toBe(false);
+    expect((editor as any).dirtyFiles.has('/a.ts')).toBe(true);
   });
 });
 
@@ -554,5 +592,170 @@ describe('MonacoEditorWindow — markdown preview tabs', () => {
     await editor2.restoreState(state!);
     expect(editor2.tabs.find(t => t.originalPath === '/test/readme.md')?.kind).toBe('markdown');
     expect((editor2 as any).activeTab).toBe('/test/readme.md');
+  });
+});
+
+describe('MonacoEditorWindow — dirty-buffer protection', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.fs.writeFile as any).mockResolvedValue(true);
+  });
+
+  it('reloadIfOpen prompts instead of clobbering a dirty buffer (Keep mine)', async () => {
+    const editor = new MonacoEditorWindow(container);
+    editor.tabs.push({ filePath: '/test/file.ts', name: 'file.ts', originalPath: '/test/file.ts' });
+    editor.activeTab = '/test/file.ts';
+    (editor as any).fileContents.set('/test/file.ts', 'mine');
+    (editor as any).dirtyFiles.add('/test/file.ts');
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('theirs');
+
+    const reloading = editor.reloadIfOpen('/test/file.ts');
+    await new Promise(r => setTimeout(r, 0));
+    expect(document.querySelector('.confirm-modal-msg')).toBeTruthy();
+    document.querySelector<HTMLButtonElement>('#confirm-cancel')!.click();
+    await reloading;
+
+    expect((editor as any).fileContents.get('/test/file.ts')).toBe('mine');
+    expect(editor.hasUnsavedChanges()).toBe(true);
+  });
+
+  it('reloadIfOpen reloads a dirty buffer when the user picks Reload', async () => {
+    const editor = new MonacoEditorWindow(container);
+    editor.tabs.push({ filePath: '/test/file.ts', name: 'file.ts', originalPath: '/test/file.ts' });
+    editor.activeTab = '/test/file.ts';
+    (editor as any).fileContents.set('/test/file.ts', 'mine');
+    (editor as any).dirtyFiles.add('/test/file.ts');
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('theirs');
+
+    const reloading = editor.reloadIfOpen('/test/file.ts');
+    await new Promise(r => setTimeout(r, 0));
+    document.querySelector<HTMLButtonElement>('#confirm-ok')!.click();
+    await reloading;
+
+    expect((editor as any).fileContents.get('/test/file.ts')).toBe('theirs');
+    expect(editor.hasUnsavedChanges()).toBe(false);
+  });
+
+  it('reloadIfOpen does not prompt when the disk content is unchanged', async () => {
+    const editor = new MonacoEditorWindow(container);
+    editor.tabs.push({ filePath: '/test/file.ts', name: 'file.ts', originalPath: '/test/file.ts' });
+    editor.activeTab = '/test/file.ts';
+    (editor as any).fileContents.set('/test/file.ts', 'same');
+    (editor as any).dirtyFiles.add('/test/file.ts');
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('same');
+
+    await editor.reloadIfOpen('/test/file.ts');
+    expect(document.querySelector('.confirm-modal-msg')).toBeNull();
+    expect(editor.hasUnsavedChanges()).toBe(true);
+  });
+
+  it('keeps a dirty buffer when the file disappears from disk', async () => {
+    const editor = new MonacoEditorWindow(container);
+    editor.tabs.push({ filePath: '/test/file.ts', name: 'file.ts', originalPath: '/test/file.ts' });
+    editor.activeTab = '/test/file.ts';
+    (editor as any).dirtyFiles.add('/test/file.ts');
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue(null);
+
+    await editor.reloadIfOpen('/test/file.ts');
+    expect(editor.tabs).toHaveLength(1);
+    expect(editor.hasUnsavedChanges()).toBe(true);
+  });
+
+  it('closeTab asks before discarding a dirty tab (Cancel keeps it)', async () => {
+    const editor = new MonacoEditorWindow(container);
+    editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
+    editor.activeTab = '/test/a.ts';
+    (editor as any).dirtyFiles.add('/test/a.ts');
+
+    const closing = (editor as any).closeTab('/test/a.ts');
+    document.querySelector<HTMLButtonElement>('#confirm-cancel')!.click();
+    await closing;
+    expect(editor.tabs).toHaveLength(1);
+
+    const closing2 = (editor as any).closeTab('/test/a.ts');
+    document.querySelector<HTMLButtonElement>('#confirm-ok')!.click();
+    await closing2;
+    expect(editor.tabs).toHaveLength(0);
+  });
+
+  it('closeTab stays synchronous for a clean tab', () => {
+    const editor = new MonacoEditorWindow(container);
+    editor.tabs.push({ filePath: '/test/a.ts', name: 'a.ts', originalPath: '/test/a.ts' });
+    editor.activeTab = '/test/a.ts';
+    (editor as any).closeTab('/test/a.ts');
+    expect(editor.tabs).toHaveLength(0);
+    expect(document.querySelector('.confirm-modal-msg')).toBeNull();
+  });
+});
+
+describe('MonacoEditorWindow — lazy Monaco bootstrap + destroy', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.fs.readFile as any).mockResolvedValue('content');
+    (mockElectronAPI.fs.writeFile as any).mockResolvedValue(true);
+    (window as any).monaco = undefined;
+  });
+
+  afterEach(() => { (window as any).monaco = undefined; });
+
+  it('does not boot Monaco in the constructor', () => {
+    const editor = new MonacoEditorWindow(container);
+    expect((editor as any).editor).toBeNull();
+    expect(container.textContent).toContain('Open a file to start editing');
+  });
+
+  it('boots Monaco on the first openFile', async () => {
+    const create = vi.fn(() => ({
+      getValue: vi.fn(() => 'content'),
+      setValue: vi.fn(),
+      getPosition: vi.fn(() => null),
+      getScrollTop: vi.fn(() => 0),
+      setPosition: vi.fn(),
+      setScrollTop: vi.fn(),
+      getSelection: vi.fn(() => null),
+      getModel: vi.fn(() => ({})),
+      addAction: vi.fn(),
+      onDidChangeModelContent: vi.fn(() => ({ dispose: vi.fn() })),
+      onDidChangeCursorSelection: vi.fn(() => ({ dispose: vi.fn() })),
+      dispose: vi.fn(),
+    }));
+    (window as any).monaco = {
+      editor: { create, setModelLanguage: vi.fn(), defineTheme: vi.fn(), setTheme: vi.fn() },
+      KeyMod: { CtrlCmd: 0 },
+      KeyCode: { KeyS: 0 },
+    };
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/test/a.ts');
+    expect(create).toHaveBeenCalledTimes(1);
+    expect((editor as any).editor).toBeTruthy();
+    expect(container.textContent).not.toContain('Open a file to start editing');
+  });
+
+  it('destroy() unsubscribes the file watcher and disposes the editor', () => {
+    const unsub = vi.fn();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(unsub);
+    const editor = new MonacoEditorWindow(container);
+    const dispose = vi.fn();
+    (editor as any).editor = { dispose, getModel: () => null };
+    editor.destroy();
+    expect(unsub).toHaveBeenCalledTimes(1);
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('.editor-wrap')).toBeNull();
+  });
+
+  it('destroy() removes the document dragend listener', () => {
+    const editor = new MonacoEditorWindow(container);
+    const remove = vi.spyOn(document, 'removeEventListener');
+    editor.destroy();
+    expect(remove).toHaveBeenCalledWith('dragend', expect.any(Function));
+    remove.mockRestore();
   });
 });

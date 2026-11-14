@@ -1,12 +1,20 @@
 const BINARY_EXTS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg',
   '.woff', '.woff2', '.ttf', '.eot',
-  '.exe', '.dll', '.so', '.dylib', '.o', '.obj', '.pyc', '.class',
-  '.zip', '.tar', '.gz', '.bz2', '.7z', '.rar',
+  '.exe', '.dll', '.so', '.dylib', '.o', '.obj', '.pyc', '.class', '.node',
+  '.zip', '.tar', '.gz', '.bz2', '.7z', '.rar', '.pak', '.asar', '.dat', '.bin',
   '.pdf', '.doc', '.docx', '.xls', '.xlsx',
   '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv',
-  '.wasm',
+  '.wasm', '.map',
 ]);
+
+/** Directories that are never worth walking (build output, caches, installers). */
+const SKIP_DIRS = new Set([
+  '.git', 'node_modules', '.cockpit',
+  'out', 'release', 'dist', 'coverage', '.impeccable', '.worktrees',
+]);
+
+const MAX_RESULTS = 100;
 
 interface SearchMatch {
   filePath: string;
@@ -30,6 +38,9 @@ export class SearchOverlay {
   private loading = false;
   private filesLoaded = false;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Monotonic run token: a newer search invalidates the in-flight one. */
+  private runToken = 0;
+  private capped = false;
 
   private matchCase = false;
   private exactMatch = false;
@@ -118,6 +129,8 @@ export class SearchOverlay {
     this.matchCase = false;
     this.exactMatch = false;
     this.useRegex = false;
+    this.capped = false;
+    this.runToken++;
     this.toggleBtns.forEach(b => b.classList.remove('is-active'));
     this.renderResults();
     setTimeout(() => this.input.focus(), 50);
@@ -126,6 +139,7 @@ export class SearchOverlay {
   close(): void {
     this.isOpen = false;
     this.overlay.classList.remove('open');
+    this.runToken++;
     if (this.searchTimer) clearTimeout(this.searchTimer);
   }
 
@@ -133,8 +147,10 @@ export class SearchOverlay {
     if (this.searchTimer) clearTimeout(this.searchTimer);
     const val = this.input.value.trim();
     if (!val) {
+      this.runToken++;
       this.results = [];
       this.selectedIndex = -1;
+      this.capped = false;
       this.renderResults();
       return;
     }
@@ -148,6 +164,7 @@ export class SearchOverlay {
 
   private async performSearch(pattern: string): Promise<void> {
     if (!pattern) { this.results = []; this.renderResults(); return; }
+    const token = ++this.runToken;
 
     if (this.useRegex) {
       try { new RegExp(pattern); } catch {
@@ -164,44 +181,52 @@ export class SearchOverlay {
       this.loading = true;
       this.progressEl.style.display = '';
       this.renderResults();
-      this.allFiles = await this.loadAllFiles();
+      const files = await this.loadAllFiles();
+      if (token !== this.runToken) return;
+      this.allFiles = files;
       this.filesLoaded = true;
       this.loading = false;
       this.progressEl.style.display = 'none';
     }
 
     const flags = this.matchCase ? '' : 'i';
+    const needle = this.matchCase ? pattern.trim() : pattern.trim().toLowerCase();
     const testLine = (line: string): boolean => {
       if (this.useRegex) {
         try { return new RegExp(pattern, flags).test(line); } catch { return false; }
       }
       const haystack = this.matchCase ? line : line.toLowerCase();
-      if (this.exactMatch) {
-        const needle = this.matchCase ? pattern.trim() : pattern.trim().toLowerCase();
-        return haystack === needle || haystack.includes(needle);
-      }
-      const needle = pattern.toLowerCase();
+      // "Exact match" means whole-line equality; otherwise plain substring.
+      if (this.exactMatch) return haystack === needle;
       return haystack.includes(needle);
     };
 
     this.results = [];
+    this.capped = false;
+    const lastFile = this.allFiles[this.allFiles.length - 1];
     for (const fp of this.allFiles) {
+      if (token !== this.runToken) return;
       const ext = fp.slice(fp.lastIndexOf('.')).toLowerCase();
       if (BINARY_EXTS.has(ext)) continue;
       try {
         const content = await window.electronAPI?.fs.readFile(fp);
+        if (token !== this.runToken) return;
         if (!content) continue;
         const lines = content.split('\n');
         for (let i = 0; i < lines.length; i++) {
-          if (this.results.length >= 100) break;
+          if (this.results.length >= MAX_RESULTS) { this.capped = true; break; }
           if (testLine(lines[i])) {
             this.results.push({ filePath: fp, lineNumber: i + 1, lineContent: lines[i] });
           }
         }
       } catch { continue; }
-      if (this.results.length >= 100) break;
+      if (this.results.length >= MAX_RESULTS) {
+        if (fp !== lastFile) this.capped = true;
+        break;
+      }
     }
 
+    if (token !== this.runToken) return;
     this.selectedIndex = this.results.length > 0 ? 0 : -1;
     this.renderResults();
   }
@@ -212,7 +237,7 @@ export class SearchOverlay {
       const entries = await window.electronAPI?.fs.readDir(dir);
       if (!entries) return;
       for (const e of entries) {
-        if (e.name === '.git' || e.name === 'node_modules' || e.name === '.cockpit') continue;
+        if (SKIP_DIRS.has(e.name)) continue;
         const full = (dir.endsWith('/') ? dir : dir + '/') + e.name;
         if (e.isDirectory) await walk(full);
         else files.push(full);
@@ -280,6 +305,13 @@ export class SearchOverlay {
 
     for (let i = 0; i < this.results.length; i++) {
       this.resultsEl.appendChild(this.createResultItem(this.results[i], i === this.selectedIndex));
+    }
+
+    if (this.capped) {
+      const note = document.createElement('div');
+      note.className = 'palette-empty search-capped';
+      note.textContent = `Showing the first ${MAX_RESULTS} matches — refine your search to see more`;
+      this.resultsEl.appendChild(note);
     }
 
     if (this.selectedIndex >= 0) {

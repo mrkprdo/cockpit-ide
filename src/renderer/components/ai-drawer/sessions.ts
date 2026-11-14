@@ -5,6 +5,8 @@
 
 import { escapeHtml, formatAge } from './render';
 import type { AiDrawerDom, ChatMessage, Session } from './types';
+import { ConfirmModal } from '../ConfirmModal';
+import { reportFailure } from '../../health/monitor';
 
 export interface SessionsHost {
   getMessages(): ChatMessage[];
@@ -26,6 +28,8 @@ export class SessionStore {
   sessionsLoaded = false;
   sessionsDirEnsured = false;
   saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Live filter over the rendered session list (title match, case-insensitive). */
+  sessionFilter = '';
 
   constructor(private dom: AiDrawerDom, private host: SessionsHost) {}
 
@@ -162,7 +166,11 @@ export class SessionStore {
 
   deleteSession(id: string): void {
     const dir = this.getSessionsDir();
-    if (dir) window.electronAPI?.fs.delete(`${dir}/${id}.json`).catch(() => {});
+    if (dir) {
+      window.electronAPI?.fs.delete(`${dir}/${id}.json`).catch((err: unknown) => {
+        reportFailure({ kind: 'ipc.handler-error', source: 'ai-drawer/sessions.ts', message: `session delete failed (${id}): ${String(err)}` });
+      });
+    }
     const session = this.sessions.find(s => s.id === id);
     if (session) this.host.onDeleteSession?.(session);
     this.sessions = this.sessions.filter(s => s.id !== id);
@@ -179,14 +187,54 @@ export class SessionStore {
     this.saveSessions();
   }
 
+  /** Deleting a session is one click away — always confirm it first. */
+  private async confirmDeleteSession(id: string): Promise<void> {
+    const session = this.sessions.find(s => s.id === id);
+    const title = session ? this.getSessionTitle(session) : 'this session';
+    const ok = await new ConfirmModal(`Delete session <b>${title}</b>?`, 'Delete').open();
+    if (!ok) return;
+    this.deleteSession(id);
+  }
+
+  private visibleSessions(): Session[] {
+    const needle = this.sessionFilter.trim().toLowerCase();
+    if (!needle) return this.sessions;
+    return this.sessions.filter(s => this.getSessionTitle(s).toLowerCase().includes(needle));
+  }
+
+  /** Filter box above the list; created once and reused on every re-render. */
+  private ensureFilterInput(): void {
+    const list = this.dom.sessionsListEl;
+    const parent = list?.parentElement;
+    if (!list || !parent) return;
+    if (parent.querySelector('.ai-session-filter')) return;
+    const input = document.createElement('input');
+    input.className = 'ai-session-filter';
+    input.placeholder = 'Filter sessions…';
+    input.setAttribute('aria-label', 'Filter sessions');
+    input.style.cssText = 'box-sizing:border-box;width:calc(100% - 12px);margin:6px;padding:3px 6px;font-family:var(--font);font-size:var(--text-xs);color:var(--primary);background:var(--panel);border:1px solid var(--border);border-radius:3px;outline:none';
+    input.value = this.sessionFilter;
+    input.addEventListener('input', () => {
+      this.sessionFilter = input.value;
+      this.renderSessionsList();
+    });
+    parent.insertBefore(input, list);
+  }
+
   renderSessionsList(): void {
     if (!this.dom.sessionsListEl) return;
+    this.ensureFilterInput();
     const now = Date.now();
     if (this.sessions.length === 0) {
       this.dom.sessionsListEl.innerHTML = '<div class="ai-sessions-empty">No sessions</div>';
       return;
     }
-    this.dom.sessionsListEl.innerHTML = this.sessions.map(s => {
+    const visible = this.visibleSessions();
+    if (visible.length === 0) {
+      this.dom.sessionsListEl.innerHTML = '<div class="ai-sessions-empty">No matching sessions</div>';
+      return;
+    }
+    this.dom.sessionsListEl.innerHTML = visible.map(s => {
       const title = this.getSessionTitle(s);
       const age = this.formatAge(s.updatedAt, now);
       const active = s.id === this.currentSessionId;
@@ -208,7 +256,7 @@ export class SessionStore {
     this.dom.sessionsListEl.querySelectorAll<HTMLButtonElement>('.ai-session-delete').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.deleteSession(btn.dataset.id!);
+        void this.confirmDeleteSession(btn.dataset.id!);
       });
     });
   }

@@ -1,5 +1,7 @@
 import { ContextMenu } from './ContextMenu';
 import { ConfirmModal } from './ConfirmModal';
+import { reportFailure } from '../health/monitor';
+import { showToast } from './toast';
 
 export class FileExplorerWindow {
   private el: HTMLDivElement;
@@ -54,6 +56,14 @@ export class FileExplorerWindow {
   }
 
   private normalize(p: string): string { return p.replace(/\\/g, '/'); }
+
+  /** Release the fs watcher + pending debounce (card-close teardown). */
+  destroy(): void {
+    this.unsubFiles?.();
+    this.unsubFiles = null;
+    if (this.refreshTimer) { clearTimeout(this.refreshTimer); this.refreshTimer = null; }
+    this.el.remove();
+  }
 
   private getFileColor(name: string): string {
     const ext = name.split('.').pop()?.toLowerCase() ?? '';
@@ -176,11 +186,12 @@ export class FileExplorerWindow {
     try {
       const result = await window.electronAPI?.fs.delete(targetPath);
       if (!result) {
-        window.alert(`Failed to delete ${name}. The item may be in use or you may lack permission.`);
+        reportFailure({ kind: 'ipc.handler-error', source: 'FileExplorerWindow.deletePath', message: `fs.delete failed for ${targetPath}` });
+        showToast(`Failed to delete ${name} — the item may be in use or you lack permission`, 'error');
       }
     } catch (e) {
-      console.error('deletePath error:', e);
-      window.alert(`Failed to delete ${name}. An unexpected error occurred.`);
+      reportFailure({ kind: 'ipc.handler-error', source: 'FileExplorerWindow.deletePath', message: `fs.delete threw for ${targetPath}: ${String(e)}` });
+      showToast(`Failed to delete ${name} — unexpected error`, 'error');
     }
     await this.refresh();
   }
@@ -219,14 +230,15 @@ export class FileExplorerWindow {
       try {
         const ok = await window.electronAPI?.fs.rename(fullPath, newPath);
         if (!ok) {
-          window.alert(`Failed to rename ${originalName}.`);
+          reportFailure({ kind: 'ipc.handler-error', source: 'FileExplorerWindow.renameItem', message: `fs.rename failed: ${fullPath} -> ${newPath}` });
+          showToast(`Failed to rename ${originalName}`, 'error');
           row.remove();
           item.style.display = originalDisplay;
           return;
         }
       } catch (e) {
-        console.error('renameItem error:', e);
-        window.alert(`Failed to rename ${originalName}. An unexpected error occurred.`);
+        reportFailure({ kind: 'ipc.handler-error', source: 'FileExplorerWindow.renameItem', message: `fs.rename threw for ${fullPath}: ${String(e)}` });
+        showToast(`Failed to rename ${originalName} — unexpected error`, 'error');
         row.remove();
         item.style.display = originalDisplay;
         return;

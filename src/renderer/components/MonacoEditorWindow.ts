@@ -1,9 +1,12 @@
 import { ContextMenu } from './ContextMenu';
+import { ConfirmModal } from './ConfirmModal';
 import { theme } from '../theme';
 import { initMonacoEditor } from './monaco-bootstrap';
 import { renderMarkdownToHtml } from './markdown-render';
-
-interface Tab { filePath: string; name: string; originalPath: string; kind?: 'markdown'; }
+import { reportFailure } from '../health/monitor';
+import { showToast } from './toast';
+import { buildIdeEditorState, IdeStatePusher, type EditorTab as Tab } from './monaco-editor/ide-state';
+import { languageForExtension } from './monaco-editor/languages';
 
 export class MonacoEditorWindow {
   onStateChange: (() => void) | null = null;
@@ -20,10 +23,16 @@ export class MonacoEditorWindow {
   private editor: any = null;
   private bar: HTMLDivElement;
   private tabContainer: HTMLDivElement;
-  private ready: Promise<void>;
+  /** Lazily created on the first open — Monaco is ~3.8 MB, don't load it at boot. */
+  private ready: Promise<void> | null = null;
+  private placeholderEl: HTMLDivElement | null = null;
+  private pendingCursor: { line: number; col: number } | null = null;
+  private destroyed = false;
 
   private unsubFileChanged: (() => void) | null = null;
-  private ideDebounce: ReturnType<typeof setTimeout> | null = null;
+  private statePusher = new IdeStatePusher(() => buildIdeEditorState(this.tabs, this.activeTab, this.editor));
+  private onDragEnd: (() => void) | null = null;
+  private promptingFor = new Set<string>();
 
   constructor(container: HTMLElement) {
     this.el = document.createElement('div');
@@ -43,11 +52,12 @@ export class MonacoEditorWindow {
     this.tabContainer.id = 'tab-container';
 
     // Clean up drag visual state when drag ends anywhere
-    document.addEventListener('dragend', () => {
+    this.onDragEnd = () => {
       this.tabContainer.querySelectorAll('.is-dragging, .is-dragover').forEach(el => {
         el.classList.remove('is-dragging', 'is-dragover');
       });
-    });
+    };
+    document.addEventListener('dragend', this.onDragEnd);
 
     this.bar.appendChild(this.tabContainer);
     this.el.appendChild(this.bar);
@@ -56,6 +66,12 @@ export class MonacoEditorWindow {
     this.editorEl.className = 'editor-area';
     this.editorEl.id = 'monaco-' + crypto.randomUUID();
     this.el.appendChild(this.editorEl);
+
+    this.placeholderEl = document.createElement('div');
+    this.placeholderEl.className = 'editor-placeholder';
+    this.placeholderEl.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--tertiary);font-size:var(--text-xs);pointer-events:none';
+    this.placeholderEl.textContent = 'Open a file to start editing';
+    this.editorEl.appendChild(this.placeholderEl);
 
     // Markdown preview — shown in place of the Monaco editor when a .md tab is
     // in markdown mode (View as Markdown). Shares the same tab bar as the editor.
@@ -66,7 +82,12 @@ export class MonacoEditorWindow {
 
     container.appendChild(this.el);
     this.initTabDummies();
-    this.ready = this.initEditor();
+  }
+
+  /** Boot Monaco on demand; every path that needs a live editor goes through here. */
+  private ensureReady(): Promise<void> {
+    if (!this.ready) this.ready = this.initEditor();
+    return this.ready;
   }
 
   private initTabDummies(): void {
@@ -182,43 +203,69 @@ export class MonacoEditorWindow {
   }
 
   private getLanguage(ext: string): string {
-    const map: Record<string, string> = {
-      ts: 'typescript', js: 'javascript', tsx: 'typescript', jsx: 'javascript',
-      json: 'json', html: 'html', css: 'css', md: 'markdown',
-      py: 'python', rs: 'rust', yaml: 'yaml', yml: 'yaml',
-      xml: 'xml', svg: 'xml', sh: 'shell', bat: 'bat', ps1: 'powershell',
-      cpp: 'cpp', c: 'c', cs: 'csharp', java: 'java',
-      go: 'go', rb: 'ruby', php: 'php', swift: 'swift', kt: 'kotlin',
-    };
-    return map[ext] || 'plaintext';
+    return languageForExtension(ext);
   }
 
-  /** Reload file content if this file is open in a tab */
+  /** Reload file content if this file is open in a tab. Never clobbers unsaved edits silently. */
   async reloadIfOpen(filePath: string): Promise<void> {
+    if (this.destroyed) return;
     const lcPath = filePath.toLowerCase();
     const tab = this.tabs.find(t => t.filePath === lcPath);
     if (!tab) return;
     const content = await window.electronAPI?.fs.readFile(tab.originalPath);
     if (content === null) {
-      this.closeTab(lcPath);
-    } else if (content !== undefined) {
-      this.fileContents.set(lcPath, content);
-      if (this.activeTab === lcPath) {
-        if (tab.kind === 'markdown') {
-          this.renderMarkdownPreview(content);
-        } else if (this.editor) {
-          if (this.editor.getValue() !== content) {
-            this.suppressDirty = true;
-            this.editor.setValue(content);
-            this.suppressDirty = false;
-          }
-        }
+      // Gone from disk — a dirty buffer is the only copy left, so keep it.
+      if (this.dirtyFiles.has(lcPath)) {
+        showToast(`${tab.name} was deleted on disk — your unsaved buffer is kept`, 'warn');
+        return;
       }
+      await this.closeTab(lcPath);
+      return;
+    }
+    if (content === undefined) return;
+
+    const dirty = this.dirtyFiles.has(lcPath);
+    // A watcher event for our own save carries the content we just wrote.
+    if (dirty && content !== this.fileContents.get(lcPath)) {
+      const reload = await this.confirmReload(tab);
+      if (!reload) return;
+      this.dirtyFiles.delete(lcPath);
+      this.updateDirtyState();
+    }
+    this.fileContents.set(lcPath, content);
+    this.applyDiskContent(tab, content);
+  }
+
+  /** Prompt before replacing a dirty buffer with the on-disk version. */
+  private async confirmReload(tab: Tab): Promise<boolean> {
+    if (this.promptingFor.has(tab.filePath)) return false;
+    this.promptingFor.add(tab.filePath);
+    try {
+      const modal = new ConfirmModal(
+        `<b>${tab.name}</b> changed on disk. Reload and discard your unsaved changes?`,
+        'Reload',
+      );
+      return await modal.open();
+    } finally {
+      this.promptingFor.delete(tab.filePath);
+    }
+  }
+
+  /** Paint freshly read disk content into the visible view for the given tab. */
+  private applyDiskContent(tab: Tab, content: string): void {
+    if (this.activeTab !== tab.filePath) return;
+    if (tab.kind === 'markdown') {
+      this.renderMarkdownPreview(content);
+    } else if (this.editor && this.editor.getValue() !== content) {
+      this.suppressDirty = true;
+      this.editor.setValue(content);
+      this.suppressDirty = false;
     }
   }
 
   async openFile(filePath: string): Promise<void> {
-    await this.ready;
+    if (this.destroyed) return;
+    await this.ensureReady();
     const normalized = filePath.replace(/\\/g, '/');
     const lcPath = normalized.toLowerCase();
     const name = normalized.split('/').pop() || normalized;
@@ -241,7 +288,8 @@ export class MonacoEditorWindow {
 
   /** Open a Markdown file as a rendered preview tab (mixed into the same tab bar). */
   async openMarkdown(filePath: string): Promise<void> {
-    await this.ready;
+    if (this.destroyed) return;
+    await this.ensureReady();
     const normalized = filePath.replace(/\\/g, '/');
     const lcPath = normalized.toLowerCase();
     const name = normalized.split('/').pop() || normalized;
@@ -330,11 +378,28 @@ export class MonacoEditorWindow {
   }
 
   closeActiveTab(): void {
-    if (this.activeTab) this.closeTab(this.activeTab);
+    if (this.activeTab) void this.closeTab(this.activeTab);
   }
 
-  private closeTab(filePath: string): void {
+  /**
+   * Ask before throwing away unsaved buffers. Returns true immediately (no
+   * microtask) when nothing is dirty, so clean closes stay synchronous.
+   */
+  private confirmDiscard(filePaths: string[]): boolean | Promise<boolean> {
+    const dirty = filePaths.filter(p => this.dirtyFiles.has(p));
+    if (dirty.length === 0) return true;
+    const names = dirty.map(p => this.tabs.find(t => t.filePath === p)?.name || p);
+    const subject = names.length === 1 ? `<b>${names[0]}</b> has` : `${names.length} files have`;
+    return new ConfirmModal(`${subject} unsaved changes. Close without saving?`, 'Discard').open();
+  }
+
+  private async closeTab(filePath: string): Promise<void> {
     const lcPath = filePath.replace(/\\/g, '/').toLowerCase();
+    if (!this.tabs.some(t => t.filePath === lcPath)) return;
+    if (this.dirtyFiles.has(lcPath)) {
+      const discard = await this.confirmDiscard([lcPath]);
+      if (!discard) return;
+    }
     const idx = this.tabs.findIndex(t => t.filePath === lcPath);
     if (idx === -1) return;
     this.tabs.splice(idx, 1);
@@ -359,10 +424,15 @@ export class MonacoEditorWindow {
     this.onStateChange?.();
   }
 
-  private closeOtherTabs(filePath: string): void {
+  private async closeOtherTabs(filePath: string): Promise<void> {
     const lcPath = filePath.replace(/\\/g, '/').toLowerCase();
     const keep = this.tabs.find(t => t.filePath === lcPath);
     if (!keep) return;
+    const closing = this.tabs.filter(t => t.filePath !== lcPath).map(t => t.filePath);
+    if (closing.some(p => this.dirtyFiles.has(p))) {
+      const discard = await this.confirmDiscard(closing);
+      if (!discard) return;
+    }
     this.tabs = [keep];
     const keptContent = this.fileContents.get(lcPath) || '';
     this.fileContents.clear();
@@ -376,7 +446,12 @@ export class MonacoEditorWindow {
     this.onStateChange?.();
   }
 
-  private closeAllTabs(): void {
+  private async closeAllTabs(): Promise<void> {
+    const all = this.tabs.map(t => t.filePath);
+    if (all.some(p => this.dirtyFiles.has(p))) {
+      const discard = await this.confirmDiscard(all);
+      if (!discard) return;
+    }
     this.tabs = [];
     this.fileContents.clear();
     this.dirtyFiles.clear();
@@ -418,13 +493,22 @@ export class MonacoEditorWindow {
   }
 
   setContent(content: string): void {
-    if (!this.editor) return;
+    if (!this.editor) {
+      // Monaco not booted yet — stage into the buffer so initEditor paints it.
+      if (this.activeTab) this.fileContents.set(this.activeTab, content);
+      void this.ensureReady();
+      return;
+    }
     this.editor.setValue(content);
     this.editor.focus();
   }
 
   goToLine(line: number, col = 1): void {
-    if (!this.editor) return;
+    if (!this.editor) {
+      this.pendingCursor = { line, col };
+      void this.ensureReady();
+      return;
+    }
     this.editor.setPosition({ lineNumber: line, column: col });
     this.editor.revealLineInCenter(line);
     this.editor.focus();
@@ -451,49 +535,7 @@ export class MonacoEditorWindow {
   }
 
   private sendEditorState(): void {
-    if (this.ideDebounce) clearTimeout(this.ideDebounce);
-    this.ideDebounce = setTimeout(() => {
-      const api = window.electronAPI;
-      if (!api?.ide) return;
-      const filePath = this.getActiveOriginalPath();
-      if (!filePath) {
-        api.ide.editorState({ filePath: null, text: null, selection: null });
-        return;
-      }
-      const activeTab = this.tabs.find(t => t.filePath === this.activeTab);
-      if (activeTab?.kind === 'markdown') {
-        api.ide.editorState({ filePath, text: null, selection: null });
-        return;
-      }
-      let selection: { startLine: number; startColumn: number; endLine: number; endColumn: number } | null = null;
-      let text: string | null = null;
-      if (this.editor) {
-        const sel = this.editor.getSelection();
-        if (sel) {
-          const isCollapsed =
-            sel.selectionStartLineNumber === sel.positionLineNumber &&
-            sel.selectionStartColumn === sel.positionColumn;
-          if (!isCollapsed) {
-            selection = {
-              startLine: sel.selectionStartLineNumber,
-              startColumn: sel.selectionStartColumn,
-              endLine: sel.positionLineNumber,
-              endColumn: sel.positionColumn,
-            };
-            const model = this.editor.getModel();
-            if (model) {
-              text = model.getValueInRange({
-                startLineNumber: sel.startLineNumber,
-                startColumn: sel.startColumn,
-                endLineNumber: sel.endLineNumber,
-                endColumn: sel.endColumn,
-              });
-            }
-          }
-        }
-      }
-      api.ide.editorState({ filePath, text, selection });
-    }, 150);
+    this.statePusher.push();
   }
 
   private isLight(): boolean {
@@ -512,24 +554,91 @@ export class MonacoEditorWindow {
   }
 
   private async initEditor(): Promise<void> {
-    this.editor = await initMonacoEditor(this.editorEl, {
-      getActiveTab: () => this.activeTab,
-      isDirtySuppressed: () => this.suppressDirty,
-      onDirty: (tab) => { this.dirtyFiles.add(tab); this.updateDirtyState(); },
-      onCursorSelection: () => this.sendEditorState(),
-      saveFile: () => this.saveCurrentFile(),
-    });
+    try {
+      this.editor = await initMonacoEditor(this.editorEl, {
+        getActiveTab: () => this.activeTab,
+        isDirtySuppressed: () => this.suppressDirty,
+        onDirty: (tab) => { this.dirtyFiles.add(tab); this.updateDirtyState(); },
+        onCursorSelection: () => this.sendEditorState(),
+        saveFile: () => this.saveCurrentFile(),
+      });
+    } catch (err) {
+      reportFailure({ kind: 'window.crash', source: 'MonacoEditorWindow.initEditor', message: String(err) });
+      this.editor = null;
+    }
+    this.placeholderEl?.remove();
+    this.placeholderEl = null;
+    if (this.destroyed) {
+      this.disposeEditor();
+      return;
+    }
+    // Paint whatever tab was opened while Monaco was still loading.
+    const tab = this.activeTab ? this.tabs.find(t => t.filePath === this.activeTab) : null;
+    if (tab) this.activateTabView(tab);
+    const cursor = this.pendingCursor;
+    this.pendingCursor = null;
+    if (cursor && this.editor) {
+      this.editor.setPosition({ lineNumber: cursor.line, column: cursor.col });
+    }
   }
 
-  saveCurrentFile(): void {
-    if (!this.activeTab || !this.editor) return;
+  /** Await the write before clearing the dirty flag — a silent failure is data loss. */
+  async saveCurrentFile(): Promise<boolean> {
+    if (!this.activeTab || !this.editor) return false;
     const tab = this.tabs.find(t => t.filePath === this.activeTab);
-    if (!tab || tab.kind === 'markdown') return;
+    if (!tab || tab.kind === 'markdown') return false;
     const content = this.editor.getValue();
-    if (content === undefined) return;
-    window.electronAPI?.fs.writeFile(tab.originalPath, content);
-    this.dirtyFiles.delete(this.activeTab);
+    if (content === undefined) return false;
+    const lcPath = this.activeTab;
+    let ok = false;
+    try {
+      ok = await window.electronAPI?.fs.writeFile(tab.originalPath, content) ?? false;
+    } catch (err) {
+      reportFailure({ kind: 'ipc.handler-error', source: 'MonacoEditorWindow.saveCurrentFile', message: `writeFile threw for ${tab.originalPath}: ${String(err)}` });
+    }
+    if (!ok) {
+      reportFailure({ kind: 'ipc.handler-error', source: 'MonacoEditorWindow.saveCurrentFile', message: `writeFile failed for ${tab.originalPath}` });
+      showToast(`Could not save ${tab.name} — your changes are still in the buffer`, 'error');
+      return false;
+    }
+    this.fileContents.set(lcPath, content);
+    // Only clear the flag if the buffer did not move while the write was in flight.
+    if (this.editor.getValue() === content) this.dirtyFiles.delete(lcPath);
     this.updateDirtyState();
+    return true;
+  }
+
+  /** True when at least one open tab holds unsaved edits. */
+  hasUnsavedChanges(): boolean { return this.dirtyFiles.size > 0; }
+
+  getDirtyFileNames(): string[] {
+    return [...this.dirtyFiles].map(p => this.tabs.find(t => t.filePath === p)?.name || p);
+  }
+
+  private disposeEditor(): void {
+    if (!this.editor) return;
+    const model = this.editor.getModel?.();
+    try { this.editor.dispose?.(); } catch { /* already disposed */ }
+    try { if (model && !model.isDisposed?.()) model.dispose?.(); } catch { /* already disposed */ }
+    this.editor = null;
+  }
+
+  destroy(): void {
+    this.destroyed = true;
+    this.unsubFileChanged?.();
+    this.unsubFileChanged = null;
+    if (this.onDragEnd) {
+      document.removeEventListener('dragend', this.onDragEnd);
+      this.onDragEnd = null;
+    }
+    this.statePusher.dispose();
+    this.disposeEditor();
+    this.tabs = [];
+    this.fileContents.clear();
+    this.dirtyFiles.clear();
+    this.savedCursors = {};
+    this.activeTab = null;
+    this.el.remove();
   }
 
   getState(): { openFiles: string[]; activeFile: string; explorerWidth: number; cursors: Record<string, { lineNumber: number; column: number; scrollTop: number }>; markdownFiles: string[] } | null {

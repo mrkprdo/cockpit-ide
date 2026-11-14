@@ -3,6 +3,7 @@ import { MonacoEditorWindow } from './MonacoEditorWindow';
 import { CommandPalette } from './CommandPalette';
 import { SearchOverlay } from './SearchOverlay';
 import { createLogger } from '../logging/logger';
+import { showToast } from './toast';
 
 const log = createLogger('explorer');
 
@@ -28,6 +29,9 @@ export class ExplorerWindow {
   private editorCol: HTMLDivElement;
   private wsPath: string;
   private explorer: FileExplorerWindow;
+  private onDocMouseMove: ((e: MouseEvent) => void) | null = null;
+  private onDocMouseUp: (() => void) | null = null;
+  private destroyed = false;
 
   constructor(container: HTMLElement, wsPath: string) {
     this.wsPath = wsPath;
@@ -57,20 +61,22 @@ export class ExplorerWindow {
       resizeHandle.style.background = 'var(--accent)';
       resizeHandle.style.opacity = '0.8';
     });
-    document.addEventListener('mousemove', (e) => {
+    this.onDocMouseMove = (e) => {
       if (!this.isDragging) return;
       const dx = e.clientX - startX;
       const newW = Math.max(120, Math.min(600, startW + dx));
       this.explorerCol.style.width = newW + 'px';
-    });
-    document.addEventListener('mouseup', () => {
+    };
+    this.onDocMouseUp = () => {
       if (this.isDragging) {
         this.isDragging = false;
         this.onStateChange?.();
         resizeHandle.style.background = 'var(--border)';
         resizeHandle.style.opacity = '';
       }
-    });
+    };
+    document.addEventListener('mousemove', this.onDocMouseMove);
+    document.addEventListener('mouseup', this.onDocMouseUp);
 
     this.editorCol = document.createElement('div');
     this.editorCol.style.cssText = 'flex:1;height:100%;overflow:hidden;min-width:200px;display:none';
@@ -97,7 +103,33 @@ export class ExplorerWindow {
       this.openFile(filePath);
     });
     this.explorer.onViewMarkdown = (filePath) => this.openInMarkdown(filePath);
-    setTimeout(() => this.explorer.refresh(), 1000);
+  }
+
+  /**
+   * Card-close teardown (wired by the canvas slice as `card.onDestroy`).
+   * Every listener/instance this window created is released here — the old
+   * code leaked a Monaco instance plus a tree-reload loop per close.
+   */
+  destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this.onDocMouseMove) document.removeEventListener('mousemove', this.onDocMouseMove);
+    if (this.onDocMouseUp) document.removeEventListener('mouseup', this.onDocMouseUp);
+    this.onDocMouseMove = null;
+    this.onDocMouseUp = null;
+    if (this.editor.hasUnsavedChanges()) {
+      const names = this.editor.getDirtyFileNames();
+      showToast(`Closed with unsaved changes: ${names.join(', ')}`, 'warn');
+    }
+    this.editor.onStateChange = null;
+    this.editor.onFileActivated = null;
+    this.editor.destroy();
+    this.explorer.destroy();
+    this.palette?.destroy?.();
+    this.palette = null;
+    this.searchOverlay?.destroy();
+    this.searchOverlay = null;
+    this.splitEl.remove();
   }
 
   private syncVisibility(): void {

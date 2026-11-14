@@ -5,6 +5,7 @@ import { ChangesPanel } from './git-window/changes';
 import { DiffView } from './git-window/diff-view';
 import { bindGuarded } from '../health/monitor';
 import { createLogger } from '../logging/logger';
+import { ConfirmModal } from './ConfirmModal';
 
 const log = createLogger('git');
 
@@ -89,6 +90,7 @@ export class GitWindow {
         }
       },
       onRefreshChanges: () => this.refreshChanges(),
+      onOperationError: (message) => this.showStatus(message, true),
     });
 
     this.history = new HistoryPanel(api, wsPath, refs, {
@@ -221,6 +223,21 @@ export class GitWindow {
     if (!this.branchSelect) return;
     const branch = this.branchSelect.value;
     if (!branch || branch === this.history.currentBranchName) return;
+
+    // Checking out with a dirty tree is destructive — make the user say yes.
+    const dirtyCount = this.changes.stagedFiles.length + this.changes.unstagedFiles.length;
+    if (dirtyCount > 0) {
+      const plural = dirtyCount === 1 ? 'change' : 'changes';
+      const ok = await new ConfirmModal(
+        `Switch to <b>${branch}</b> with ${dirtyCount} uncommitted ${plural} in the working tree?`,
+        'Switch branch',
+      ).open();
+      if (!ok) {
+        this.branchSelect.value = this.history.currentBranchName;
+        return;
+      }
+    }
+
     const res = this.opResult(await window.electronAPI?.git.checkout(this.wsPath, branch));
     if (res.ok) {
       log.info('git checkout', branch);
@@ -228,6 +245,7 @@ export class GitWindow {
       this.showStatus(`Switched to ${branch}`, false);
     } else {
       this.showStatus(res.error || 'Checkout failed', true);
+      this.branchSelect.value = this.history.currentBranchName;
     }
     this.refresh();
   }

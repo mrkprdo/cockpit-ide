@@ -52,16 +52,31 @@ export class DiffView {
       name.textContent = file.path;
       item.appendChild(status);
       item.appendChild(name);
+      const openBtn = document.createElement('button');
+      openBtn.className = 'git-changes-action git-file-open';
+      openBtn.textContent = '↗';
+      openBtn.title = 'Open file';
+      openBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openFile(file.path);
+      });
+      item.appendChild(openBtn);
       item.addEventListener('click', () => this.selectFile(file.path));
+      // Selecting only shows the diff; double-click is the explicit "open" gesture.
+      item.addEventListener('dblclick', () => this.openFile(file.path));
       focusable(item);
       this.fileTreeContainer.appendChild(item);
     }
   }
 
+  /** Open the file in the editor (explicit user action only — never from selection). */
+  openFile(filePath: string): void {
+    try { this.callbacks.onFileOpen?.(this.wsPath + '/' + filePath); } catch { /* user callback */ }
+  }
+
   async selectFile(filePath: string): Promise<void> {
     this.selectedFilePath = filePath;
     this.renderFileTree();
-    try { this.callbacks.onFileOpen?.(this.wsPath + '/' + filePath); } catch {}
     if (this.selectedCommitHash) {
       const diff = await this.api.git.diff(this.wsPath, this.selectedCommitHash, filePath) || '';
       this.diffContent = diff;
