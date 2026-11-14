@@ -57,6 +57,15 @@ describe('WindowCard', () => {
     expect(card.el.style.height).toBe('400px');
   });
 
+  it('reuses a provided uuid instead of minting one (restore path)', () => {
+    const parent = makeParent();
+    const card = new WindowCard(parent, {
+      title: 'Restored', uuid: 'persisted-uuid', x: 0, y: 0, width: 200, height: 200,
+    }, getTransform);
+
+    expect(card.uuid).toBe('persisted-uuid');
+  });
+
   it('generates a unique UUID', () => {
     const parent = makeParent();
     const card1 = new WindowCard(parent, { title: 'A', x: 0, y: 0, width: 200, height: 200 }, getTransform);
@@ -192,6 +201,23 @@ describe('WindowCard', () => {
     const header = card.el.querySelector('.card-header') as HTMLElement;
     header.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     expect(onFitViewport).toHaveBeenCalledOnce();
+  });
+
+  it('double-click on header prefers onHeaderDoubleClick over onFitViewport', () => {
+    const onFitViewport = vi.fn();
+    const onHeaderDoubleClick = vi.fn();
+    const parent = makeParent();
+    const card = new WindowCard(parent, {
+      title: 'DblClick Focus',
+      x: 0, y: 0, width: 200, height: 200,
+      onFitViewport,
+      onHeaderDoubleClick,
+    }, getTransform);
+
+    const header = card.el.querySelector('.card-header') as HTMLElement;
+    header.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    expect(onHeaderDoubleClick).toHaveBeenCalledOnce();
+    expect(onFitViewport).not.toHaveBeenCalled();
   });
 
   it('double-click on control button does not fire onFitViewport', () => {
@@ -380,6 +406,17 @@ describe('WindowCard — drag interaction', () => {
 
     expect((card as any).isDragging).toBe(false);
     expect(onDragEnd).toHaveBeenCalled();
+  });
+
+  it('onDragEnd reports moved=false for a click without movement', () => {
+    const onDragEnd = vi.fn();
+    const card = createCard({ onDragEnd });
+    const header = card.el.querySelector('.card-header')!;
+
+    header.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 150, clientY: 250 }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+    expect(onDragEnd).toHaveBeenCalledWith(100, 200, false);
   });
 
   it('mouseup without prior mousedown does nothing', () => {

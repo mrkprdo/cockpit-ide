@@ -1,6 +1,7 @@
 import type { Viewport } from './viewport';
 import type { CardLifecycle } from './card-lifecycle';
 import type { Notifier } from './notify';
+import type { CardState } from './types';
 import { MonacoEditorWindow } from '../MonacoEditorWindow';
 import { TerminalWindow } from '../TerminalWindow';
 import { ExplorerWindow } from '../ExplorerWindow';
@@ -58,6 +59,7 @@ export class WindowFactories {
         const dev = new ExplorerWindow(body, wsPath);
         dev.onStateChange = () => this.host.getOnStateChange()?.();
         existing.explorerWindow = dev;
+        this.wireExplorerDestroy(existing);
       }
       this.lifecycle.bringToFront(existing.card);
       this.viewport.panToCard(existing);
@@ -74,11 +76,18 @@ export class WindowFactories {
         const dev = new ExplorerWindow(body, wsPath);
         dev.onStateChange = () => this.host.getOnStateChange()?.();
         cs.explorerWindow = dev;
+        this.wireExplorerDestroy(cs);
         this.notifier.notifyExplorersChanged();
         this.lifecycle.bringToFront(cs.card);
         this.viewport.panToCard(cs);
       }
     });
+  }
+
+  /** ExplorerWindow.destroy() ships with the editor slice — call it when present. */
+  private wireExplorerDestroy(cs: CardState): void {
+    const explorer = cs.explorerWindow as { destroy?: () => void } | null;
+    cs.card.onDestroy = () => explorer?.destroy?.();
   }
 
   addGit(wsPath: string): void {
@@ -155,7 +164,9 @@ export class WindowFactories {
 
   addTerminal(cwd?: string): Promise<string> {
     const name = `Terminal ${this.lifecycle.nextTerminalNumber()}`;
-    const cs = this.lifecycle.addCard(name, '', -280, -210, 560, 420);
+    // Cascade each new terminal so they don't land exactly on top of one another.
+    const stacked = this.lifecycle.getCards().filter(c => c.savedTitle.startsWith('Terminal')).length;
+    const cs = this.lifecycle.addCard(name, '', -280 + stacked * 28, -210 + stacked * 28, 560, 420);
     log.info('add terminal card', name);
     return new Promise(resolve => {
       requestAnimationFrame(() => {
@@ -165,7 +176,8 @@ export class WindowFactories {
           (body as HTMLElement).style.alignItems = 'stretch';
           (body as HTMLElement).style.justifyContent = 'stretch';
           const term = new TerminalWindow(body as HTMLElement, cs.card.uuid, cwd);
-          term.onExit = () => this.lifecycle.terminateCard(cs);
+          // A dead shell keeps its card (and scrollback) — TerminalWindow shows the exited banner.
+          term.onExit = () => this.notifier.notifyTerminalsChanged();
           cs.card.onDestroy = () => term.destroy();
           cs.terminalWindow = term;
           cs.onCardResize = () => { term.setScale(this.viewport.scale); term.fit(); };

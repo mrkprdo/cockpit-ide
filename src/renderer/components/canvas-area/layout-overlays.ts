@@ -3,7 +3,6 @@ import type { CardState } from './types';
 
 export interface LayoutOverlaysHost {
   getCards(): CardState[];
-  getLocked(): boolean;
   getOverlayLeft(): number;
   getOnStateChange(): (() => void) | null;
   positionCard(cs: CardState): void;
@@ -171,7 +170,8 @@ export class LayoutOverlays {
   }
 
   showLayoutOverlays(): void {
-    if (!this.host.getLocked() || this.viewport.scale !== 1) return;
+    // Overlays live in screen space (children of the canvas element), so they are
+    // correct at any zoom — no need to gate on the zoom lock or scale.
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
     const M = 8;
@@ -221,31 +221,38 @@ export class LayoutOverlays {
   }
 
   applyDropZone(zone: string, cs: CardState): void {
+    const scale = this.viewport.scale || 1;
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
-    const W2 = Math.round(cw / 56) * 28;
-    const H2 = Math.round(ch / 56) * 28;
-    const W = Math.round(cw / 28) * 28;
-    const H = Math.round(ch / 28) * 28;
+    // Overlays are screen space; convert the visible rect into world units so a
+    // drop tiles the visible area at any zoom (scale 1 is the identity case).
+    const viewW = cw / scale;
+    const viewH = ch / scale;
+    const left = -this.viewport.panX / scale;
+    const top = -this.viewport.panY / scale;
+    const W2 = Math.round(viewW / 56) * 28;
+    const H2 = Math.round(viewH / 56) * 28;
+    const W = Math.round(viewW / 28) * 28;
+    const H = Math.round(viewH / 28) * 28;
     const snap = (v: number) => Math.round(v / 28) * 28;
     let worldX = 0, worldY = 0, w = 0, h = 0;
     switch (zone) {
       case 'top-left':
-        worldX = snap(-this.viewport.panX); worldY = snap(-this.viewport.panY); w = W2; h = H2; break;
+        worldX = snap(left); worldY = snap(top); w = W2; h = H2; break;
       case 'top':
-        worldX = snap(-this.viewport.panX); worldY = snap(-this.viewport.panY); w = W; h = H2; break;
+        worldX = snap(left); worldY = snap(top); w = W; h = H2; break;
       case 'top-right':
-        worldX = snap(-this.viewport.panX + W2); worldY = snap(-this.viewport.panY); w = W2; h = H2; break;
+        worldX = snap(left + W2); worldY = snap(top); w = W2; h = H2; break;
       case 'left':
-        worldX = snap(-this.viewport.panX); worldY = snap(-this.viewport.panY); w = W2; h = H; break;
+        worldX = snap(left); worldY = snap(top); w = W2; h = H; break;
       case 'right':
-        worldX = snap(-this.viewport.panX + W2); worldY = snap(-this.viewport.panY); w = W2; h = H; break;
+        worldX = snap(left + W2); worldY = snap(top); w = W2; h = H; break;
       case 'bottom-left':
-        worldX = snap(-this.viewport.panX); worldY = snap(-this.viewport.panY + H2); w = W2; h = H2; break;
+        worldX = snap(left); worldY = snap(top + H2); w = W2; h = H2; break;
       case 'bottom':
-        worldX = snap(-this.viewport.panX); worldY = snap(-this.viewport.panY + H2); w = W; h = H2; break;
+        worldX = snap(left); worldY = snap(top + H2); w = W; h = H2; break;
       case 'bottom-right':
-        worldX = snap(-this.viewport.panX + W2); worldY = snap(-this.viewport.panY + H2); w = W2; h = H2; break;
+        worldX = snap(left + W2); worldY = snap(top + H2); w = W2; h = H2; break;
     }
     w = Math.max(28 * 10, w);
     h = Math.max(28 * 10, h);

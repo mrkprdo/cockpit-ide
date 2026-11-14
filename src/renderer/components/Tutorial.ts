@@ -270,7 +270,7 @@ export class Tutorial {
       doneBtn.textContent = 'Done';
       doneBtn.addEventListener('click', () => {
         this.showOnLaunch = (extra.querySelector('input[type="checkbox"]') as HTMLInputElement | null)?.checked !== true;
-        this.close();
+        this.close(false);
       });
       btnRow.appendChild(doneBtn);
     } else {
@@ -377,7 +377,10 @@ export class Tutorial {
     }
   }
 
-  private close(): void {
+  private close(persistSkip = true): void {
+    // Any dismissal (Esc included) means "don't come back on launch" — otherwise the
+    // saved preference stays true and the tutorial reopens on every start.
+    if (persistSkip) this.showOnLaunch = false;
     if (this.prevOnLeave) this.prevOnLeave();
     this.prevOnLeave = null;
     this.clearHighlight();

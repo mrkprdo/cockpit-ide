@@ -2,6 +2,8 @@ export interface CardOptions {
   onDestroy?: () => void;
   title: string;
   subtitle?: string;
+  /** Persisted identity of a restored card — a fresh UUID is minted when absent. */
+  uuid?: string;
   x: number;
   y: number;
   width: number;
@@ -9,12 +11,15 @@ export interface CardOptions {
   content?: string;
   onDragStart?: (clientX: number, clientY: number) => void;
   onDragMove?: (clientX: number, clientY: number) => void;
-  onDragEnd?: (worldX: number, worldY: number) => void;
+  /** `moved` is false for mousedown/mouseup without a drag (a plain click). */
+  onDragEnd?: (worldX: number, worldY: number, moved?: boolean) => void;
   onResizeEnd?: (width: number, height: number) => void;
   onFocus?: () => void;
   onHeaderContextMenu?: (e: MouseEvent) => void;
   onMinimize?: () => void;
   onFitViewport?: () => void;
+  /** Safe focus gesture for a header double-click (falls back to onFitViewport). */
+  onHeaderDoubleClick?: () => void;
   onTerminate?: () => void;
 }
 
@@ -36,7 +41,7 @@ export class WindowCard {
 
   constructor(private parent: HTMLElement, opts: CardOptions, private getTransform: () => { scale: number; panX: number; panY: number }) {
     this.opts = opts;
-    this.uuid = crypto.randomUUID();
+    this.uuid = opts.uuid ?? crypto.randomUUID();
     this.el = document.createElement('div');
     this.el.className = 'card';
 
@@ -95,7 +100,9 @@ export class WindowCard {
       const target = e.target as HTMLElement;
       if (target.closest('.card-controls')) return;
       e.stopPropagation();
-      this.opts.onFitViewport?.();
+      // Focus/reveal only — fitViewport re-grids every card, which is destructive.
+      if (this.opts.onHeaderDoubleClick) this.opts.onHeaderDoubleClick();
+      else this.opts.onFitViewport?.();
     });
 
     for (const btn of ['.card-btn-minimize', '.card-btn-fitview', '.card-btn-terminate']) {
@@ -188,7 +195,8 @@ export class WindowCard {
         this.el.style.transform = '';
         this.el.style.left = `${this.dragEndWorldX}px`;
         this.el.style.top = `${this.dragEndWorldY}px`;
-        this.opts.onDragEnd?.(this.dragEndWorldX, this.dragEndWorldY);
+        const moved = this.dragEndWorldX !== this.startWorldX || this.dragEndWorldY !== this.startWorldY;
+        this.opts.onDragEnd?.(this.dragEndWorldX, this.dragEndWorldY, moved);
       }
     };
 

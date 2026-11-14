@@ -84,6 +84,7 @@ export class CardLifecycle {
         this.host.getOnStateChange()?.();
       },
       onFitViewport: () => this.host.fitViewport(cs),
+      onHeaderDoubleClick: () => this.focusCardInView(cs),
       onTerminate: () => this.host.terminateCard(cs),
       onDragStart: (clientX, clientY) => {
         this.layouts.setDragPos(clientX, clientY);
@@ -92,8 +93,8 @@ export class CardLifecycle {
       onDragMove: (clientX, clientY) => {
         this.layouts.setDragPos(clientX, clientY);
       },
-      onDragEnd: (worldX: number, worldY: number) => {
-        const zone = this.layouts.getDropZone(this.layouts.lastDragX, this.layouts.lastDragY);
+      onDragEnd: (worldX: number, worldY: number, moved?: boolean) => {
+        const zone = moved === false ? null : this.layouts.getDropZone(this.layouts.lastDragX, this.layouts.lastDragY);
         if (zone) {
           this.layouts.applyDropZone(zone, cs);
         } else {
@@ -134,9 +135,10 @@ export class CardLifecycle {
   createCardFromDef(p: { uuid?: string; title: string; x: number; y: number; width: number; height: number; isOpen: boolean }, callbacks: { onMinimize?: () => void; onFitViewport?: () => void; onTerminate?: () => void }): CardState {
     let cs: CardState;
     const card = new WindowCard(this.worldEl, {
-      title: p.title, subtitle: '', x: 0, y: 0, width: p.width, height: p.height,
+      title: p.title, subtitle: '', uuid: p.uuid, x: 0, y: 0, width: p.width, height: p.height,
       onMinimize: callbacks.onMinimize,
       onFitViewport: callbacks.onFitViewport,
+      onHeaderDoubleClick: () => this.focusCardInView(cs),
       onTerminate: callbacks.onTerminate,
       onDragStart: (clientX, clientY) => {
         this.layouts.setDragPos(clientX, clientY);
@@ -145,8 +147,8 @@ export class CardLifecycle {
       onDragMove: (clientX, clientY) => {
         this.layouts.setDragPos(clientX, clientY);
       },
-      onDragEnd: (worldX: number, worldY: number) => {
-        const zone = this.layouts.getDropZone(this.layouts.lastDragX, this.layouts.lastDragY);
+      onDragEnd: (worldX: number, worldY: number, moved?: boolean) => {
+        const zone = moved === false ? null : this.layouts.getDropZone(this.layouts.lastDragX, this.layouts.lastDragY);
         if (zone) {
           this.layouts.applyDropZone(zone, cs);
         } else {
@@ -192,6 +194,14 @@ export class CardLifecycle {
     if (this.nextZ >= 9998) this.rebalanceZ();
     this.nextZ++;
     card.el.style.zIndex = String(this.nextZ);
+    for (const cs of this.cards) cs.card.el.classList.remove('is-active');
+    card.el.classList.add('is-active');
+  }
+
+  /** Focus gesture: raise + frame the card, leaving every other card in place. */
+  focusCardInView(cs: CardState): void {
+    this.bringToFront(cs.card);
+    this.viewport.panToCard(cs);
   }
 
   rebalanceZ(): void {
@@ -283,7 +293,8 @@ export class CardLifecycle {
         body.style.alignItems = 'stretch';
         body.style.justifyContent = 'stretch';
         const term = new TerminalWindow(body, cs.card.uuid, wsPath);
-        term.onExit = () => this.host.terminateCard(cs);
+        // A dead shell keeps its card (and scrollback) — TerminalWindow shows the exited banner.
+        term.onExit = () => this.notifier.notifyTerminalsChanged();
         cs.card.onDestroy = () => term.destroy();
         cs.terminalWindow = term;
         cs.onCardResize = () => { term.setScale(this.viewport.scale); term.fit(); };
@@ -291,6 +302,12 @@ export class CardLifecycle {
       }
       this.notifier.notifyTerminalsChanged();
     });
+  }
+
+  /** A card restored while minimized has no PTY — mount one on reopen. */
+  mountTerminalIfMissing(cs: CardState): void {
+    if (cs.terminalWindow) return;
+    this.mountTerminal(cs, this.host.getWsPath());
   }
 
   mountExplorer(cs: CardState, wsPath: string): ExplorerWindow | null {
@@ -302,7 +319,14 @@ export class CardLifecycle {
     const dev = new ExplorerWindow(body, wsPath);
     dev.onStateChange = () => this.host.getOnStateChange()?.();
     cs.explorerWindow = dev;
+    this.wireExplorerDestroy(cs);
     return dev;
+  }
+
+  /** ExplorerWindow.destroy() ships with the editor slice — call it when present. */
+  private wireExplorerDestroy(cs: CardState): void {
+    const explorer = cs.explorerWindow as { destroy?: () => void } | null;
+    cs.card.onDestroy = () => explorer?.destroy?.();
   }
 
   mountGit(cs: CardState, wsPath: string): GitWindow | null {
@@ -339,6 +363,7 @@ export class CardLifecycle {
       cs.worldX = cs.savedWX;
       cs.worldY = cs.savedWY;
       this.positionCard(cs);
+      this.mountTerminalIfMissing(cs);
       this.notifier.notifyTerminalsChanged();
     } else if (cs.savedTitle === 'Explorer') {
       const body = cs.card.el.querySelector('.card-body') as HTMLElement;
@@ -349,6 +374,7 @@ export class CardLifecycle {
         const dev = new ExplorerWindow(body, this.host.getWsPath());
         dev.onStateChange = () => this.host.getOnStateChange()?.();
         cs.explorerWindow = dev;
+        this.wireExplorerDestroy(cs);
       }
       cs.isOpen = true;
       cs.card.el.style.display = '';
@@ -494,6 +520,7 @@ export class CardLifecycle {
         const dev = new ExplorerWindow(body, this.host.getWsPath());
         dev.onStateChange = () => this.host.getOnStateChange()?.();
         existing.explorerWindow = dev;
+        this.wireExplorerDestroy(existing);
       }
       this.bringToFront(existing.card);
       if (pan) this.viewport.panToCard(existing);
@@ -511,6 +538,7 @@ export class CardLifecycle {
           const dev = new ExplorerWindow(body, this.host.getWsPath());
           dev.onStateChange = () => this.host.getOnStateChange()?.();
           cs.explorerWindow = dev;
+          this.wireExplorerDestroy(cs);
           this.notifier.notifyExplorersChanged();
           this.bringToFront(cs.card);
           if (pan) this.viewport.panToCard(cs);

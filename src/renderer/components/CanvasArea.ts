@@ -165,7 +165,6 @@ export class CanvasArea {
     });
     this.layouts = new LayoutOverlays(this.el, this.viewport, {
       getCards: () => this.cards,
-      getLocked: () => this.locked,
       getOverlayLeft: () => this.overlayLeft,
       getOnStateChange: () => this.onStateChange,
       positionCard: (cs) => this.lifecycle.positionCard(cs),
