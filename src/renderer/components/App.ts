@@ -317,7 +317,7 @@ export class App {
   }
 
   private registerCockpitGlobal(): void {
-    (window as any).__cockpit = {
+    const cockpit: Record<string, any> = {
       getCanvasState: () => this.canvas.getSaveState(),
       getWorkspacePath: () => this.wsPath,
       // When "keep view still on tool calls" is on, tools that open/reveal
@@ -394,6 +394,30 @@ export class App {
         return sm.reloadSpecs();
       },
     };
+
+    // Any tool allowed to move the camera or steal focus also ghosts the agent
+    // panel, so the user can read the card the agent is pointing at. The panel
+    // comes back on hover/focus (CSS), on the first streamed token, or when the
+    // run ends. Suppressed when "keep view still" is on: nothing moved, so there
+    // is nothing to reveal.
+    const VIEW_MOVING = new Set([
+      'openFile', 'revealFile', 'openInMarkdown', 'insertInEditor', 'goToLine',
+      'setEditorContent', 'readEditor', 'getEditorState', 'getSelectionText',
+      'focusCard', 'panToCard', 'reopenCard', 'fitCardToViewport',
+      'setView', 'resetView', 'zoomIn', 'zoomOut', 'autoArrange',
+      'writeToTerminal', 'sendKeyToTerminal',
+      'exploreSpecsMap', 'validateSpecsMap', 'reconcileSpecsMap', 'reloadSpecsMap',
+    ]);
+    for (const key of VIEW_MOVING) {
+      const fn = cockpit[key];
+      if (typeof fn !== 'function') continue;
+      cockpit[key] = (...args: unknown[]) => {
+        if (!viewPrefs.suppressViewMove) this.aiDrawer.peek();
+        return fn(...args);
+      };
+    }
+
+    (window as any).__cockpit = cockpit;
   }
 
   private async loadWorkspace(path: string): Promise<void> {

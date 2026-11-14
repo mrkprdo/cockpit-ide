@@ -58,9 +58,7 @@ export class AiDrawer {
   onDetachChange?: (detached: boolean) => void;
 
   constructor() {
-    // Detect the host OS ONCE at boot. buildSystemPrompt injects the matching
-    // command guidance from this cached value — detection never re-runs per
-    // prompt build (see ai/prompts.ts detectHostPlatform).
+    // Platform is detected once at boot; buildSystemPrompt reuses the cached value.
     detectHostPlatform();
 
     const canvas = document.getElementById('canvas')!;
@@ -70,9 +68,8 @@ export class AiDrawer {
     wrapper.id = 'app-main';
     const el = document.createElement('div');
     el.className = 'ai-drawer';
-    // Docked side panel, not a modal: role=dialog + aria-modal=true told screen
-    // readers a modal was open (and that everything outside it was inert) while
-    // the canvas stayed fully interactive. `complementary` is the correct role.
+    // Docked side panel, not a modal: `complementary` is the correct role, and
+    // aria-modal would tell screen readers the canvas is inert while it isn't.
     el.setAttribute('role', 'complementary');
     el.setAttribute('aria-label', 'Cockpit Agent');
     const resizeHandle = document.createElement('div');
@@ -197,6 +194,7 @@ export class AiDrawer {
         getSteeringMessage: () => this.steeringMessage,
         setSteeringMessage: (message) => { this.steeringMessage = message; },
         setLoading: (loading) => this.setLoading(loading),
+        onStreamActivity: () => this.unpeek(),
         isDetached: () => this.layout.isDetached,
         updateFloatPreview: (state, text) => this.layout.updateFloatPreview(state, text),
         loadSettings: () => this.settingsStore.loadSettings(),
@@ -223,7 +221,7 @@ export class AiDrawer {
     this.slash.registerDefaults();
     this.bindEvents();
     // Keep the header chip in sync whenever the model/endpoint changes.
-    this.settingsStore.onModelChange = () => this.updateModelChip();
+    this.settingsStore.onModelChange = () => paintModelChip(this.dom.el, this.settingsStore);
     this.settingsStore.loadSettings();
 
     // Live sub-agents: attach to the executor's event channel. The main chat
@@ -309,6 +307,7 @@ export class AiDrawer {
     if (isOpen) {
       this.close();
     } else {
+      this.unpeek();
       await this.loadSessions();
       this.layout.open();
     }
@@ -323,8 +322,15 @@ export class AiDrawer {
   }
 
   close(): void {
+    this.unpeek();
     this.layout.close();
   }
+
+  /** Ghost the panel while the agent drives the canvas (see DrawerLayout.peek). */
+  peek(): void { this.layout.peek(); }
+
+  /** Restore the panel: user focus (CSS), a streamed token, or the run ending. */
+  unpeek(): void { this.layout.unpeek(); }
 
   registerSlashCommand(cmd: SlashCommand): void {
     this.slash.register(cmd);
@@ -363,11 +369,6 @@ export class AiDrawer {
     this.renderCtrl.buildSkeleton();
     this.renderCtrl.bindMessageActions();
     this.renderCtrl.renderMessages();
-    paintModelChip(this.dom.el, this.settingsStore);
-  }
-
-  /** Repaint the header's active-model chip (skeleton rebuilds wipe it). */
-  private updateModelChip(): void {
     paintModelChip(this.dom.el, this.settingsStore);
   }
 
@@ -433,6 +434,8 @@ export class AiDrawer {
 
   private setLoading(loading: boolean): void {
     this.isLoading = loading;
+    // Run ended: whatever it was pointing at has been shown, bring the panel back.
+    if (!loading) this.unpeek();
     this.dom.loadingEl.style.display = loading ? 'flex' : 'none';
     this.dom.sendBtn.style.display = loading ? 'none' : 'flex';
     this.dom.abortBtn.style.display = loading ? 'flex' : 'none';
@@ -482,10 +485,7 @@ export class AiDrawer {
     }
   }
 
-  /**
-   * Persist the main thread from paths that never enter the LLM loop (@mention
-   * lines, the agent-wave banner) — llm-loop's save is the only other one.
-   */
+  /** Persist the main thread from paths that never enter the LLM loop. */
   private persistChat(): void {
     const id = this.sessionStore.getActiveSession()?.id;
     if (id) this.sessionStore.saveSessionById(id, this.renderCtrl.messages);
@@ -497,6 +497,8 @@ export class AiDrawer {
     const text = this.dom.inputEl.value.trim();
     if (!text) return;
     log.info('ai send', { mode: this.agentMode, len: text.length });
+    // Typing is focus: stop ghosting the panel the moment the user acts.
+    this.unpeek();
     if (!text) return;
     this.historyIndex = -1;
 
@@ -650,9 +652,8 @@ export class AiDrawer {
       if (this.dom.settingsEl.classList.contains('is-visible')) void this.settingsStore.refreshModels();
     }, src));
 
-    // The model chip in the header opens the same panel: the active model was
-    // previously only visible inside settings, so there was no way to see (or
-    // change) what the agent was about to use.
+    // The model chip opens the same panel; the active model was previously only
+    // visible inside settings.
     const modelChip = this.dom.el.querySelector('.ai-model-chip');
     this.unbinders.push(bindGuarded(modelChip as Element, 'click', () => {
       if (this.isDetached) this.layout.ensureDrawerOpen();

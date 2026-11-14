@@ -62,6 +62,19 @@ describe('App', () => {
     expect(menuBar.querySelector('.menu-item')).toBeTruthy();
   });
 
+  it('ghosts the agent panel when a view-moving tool runs', async () => {
+    const app = new App();
+    // loadWorkspace registers the cockpit context (async).
+    await new Promise((r) => setTimeout(r, 0));
+
+    const cockpit = (window as any).__cockpit;
+    expect(typeof cockpit?.panToCard).toBe('function');
+
+    const peek = vi.spyOn(app['aiDrawer'] as any, 'peek');
+    cockpit.panToCard('Terminal 1');
+    expect(peek).toHaveBeenCalled();
+  });
+
   it('binds window control buttons', () => {
     new App();
 

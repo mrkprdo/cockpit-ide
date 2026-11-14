@@ -60,6 +60,8 @@ export interface LlmLoopHost {
   isDetached(): boolean;
   updateFloatPreview(state: FloatPreviewState, text?: string): void;
   loadSettings(): Promise<void>;
+  /** First streamed token — un-ghosts the panel. */
+  onStreamActivity?: () => void;
 }
 
 interface EmptyRecoveryState {
@@ -399,6 +401,7 @@ export class LlmLoop {
               })) {
                 if (this.host.getAbortRequested()) break;
                 if (event.type === 'content') {
+                  this.host.onStreamActivity?.();   // answer starting: un-ghost the panel
                   content += event.delta;
                   if (this.render.messages[idx]) {
                     this.render.messages[idx].content = content;

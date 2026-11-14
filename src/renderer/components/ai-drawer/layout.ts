@@ -229,6 +229,23 @@ export class DrawerLayout {
     document.addEventListener('keydown', this.escHandler);
   }
 
+  /**
+   * Ghost the panel so the card the agent just focused is readable. Called by
+   * every cockpit action allowed to move the camera (App.ts). Skipped when the
+   * panel is closed or detached (a floating card of its own).
+   */
+  peek(): void {
+    if (this.isDetached) return;
+    const el = this.deps.dom.el;
+    if (!el.classList.contains('is-open')) return;
+    el.classList.add('is-peeking');
+  }
+
+  /** Restore the panel: user focus (CSS), a streamed token, or the run ending. */
+  unpeek(): void {
+    this.deps.dom.el.classList.remove('is-peeking');
+  }
+
   close(): void {
     const occ = this.occupiedLeft(this.drawerWidth);
     this.shiftCanvasPan(-occ);

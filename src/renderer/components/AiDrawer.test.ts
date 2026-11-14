@@ -918,6 +918,38 @@ describe('AiDrawer', () => {
 
   // ─── SETTINGS PANEL ──────────────────────────────────────────────────────────
 
+  describe('peek transparency', () => {
+    it('ghosts an open panel so the agent’s target is readable', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      drawer.peek();
+      expect(drawer['el'].classList.contains('is-peeking')).toBe(true);
+      drawer.unpeek();
+      expect(drawer['el'].classList.contains('is-peeking')).toBe(false);
+    });
+
+    it('does not ghost a closed panel', async () => {
+      drawer = await createDrawer();
+      drawer.peek();
+      expect(drawer['el'].classList.contains('is-peeking')).toBe(false);
+    });
+
+    it('restores the panel when a response starts streaming', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      globalThis.fetch = vi.fn().mockResolvedValue(makeTextResponse('hello back'));
+      drawer.peek();
+      expect(drawer['el'].classList.contains('is-peeking')).toBe(true);
+
+      (q('.ai-chat-input') as HTMLTextAreaElement).value = 'hi';
+      q('.ai-chat-send-btn').click();
+      await flush();
+      await flush();
+
+      expect(drawer['el'].classList.contains('is-peeking')).toBe(false);
+    });
+  });
+
   describe('settings panel', () => {
     it('opens via gear button (class-based)', async () => {
       drawer = await createDrawer();
