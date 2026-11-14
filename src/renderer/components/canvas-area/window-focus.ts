@@ -11,7 +11,7 @@ export class WindowFocus {
 
   focusTerminal(uuid: string): void {
     const cs = this.lifecycle.getCards().find(c => c.card.uuid === uuid && c.isOpen);
-    if (cs) this.lifecycle.focusCard(cs.card.opts.title);
+    if (cs) { this.lifecycle.focusCard(cs.card.opts.title); this.viewport.panToCard(cs); }
   }
 
   focusExplorer(uuid: string): void {
@@ -37,6 +37,7 @@ export class WindowFocus {
     cs.worldX = cs.savedWX;
     cs.worldY = cs.savedWY;
     this.lifecycle.positionCard(cs);
+    this.lifecycle.mountTerminalIfMissing(cs);
     this.notifier.notifyTerminalsChanged();
   }
 

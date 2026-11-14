@@ -96,6 +96,35 @@ describe('Tutorial', () => {
     t.destroy();
   });
 
+  it('persists the skip when dismissed with Escape', () => {
+    const t = new Tutorial();
+    const onClose = vi.fn();
+    t.start(onClose);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(t.getShowOnLaunch()).toBe(false);
+    t.destroy();
+  });
+
+  it('keeps showOnLaunch true when Done is clicked with the checkbox unchecked', () => {
+    const t = new Tutorial();
+    t.start();
+    const tooltip = document.querySelector('.tutorial-tooltip') as HTMLElement;
+    for (let i = 0; i < 20; i++) {
+      const btn = tooltip.querySelector('.tutorial-btn-next');
+      if (!btn) break;
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+    const cb = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    cb.checked = false;
+    (tooltip.querySelector('.tutorial-btn-done') as HTMLElement)?.click();
+
+    expect(t.getShowOnLaunch()).toBe(true);
+    t.destroy();
+  });
+
   it('does not close on overlay click', () => {
     const t = new Tutorial();
     t.start();

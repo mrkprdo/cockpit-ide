@@ -1511,20 +1511,51 @@ describe('auto arrange', () => {
       }
     });
 
-    it('showLayoutOverlays does nothing when not locked', () => {
+    it('showLayoutOverlays shows every overlay even when the canvas is not locked (drag in progress)', () => {
+      canvas.locked = false;
       (canvas as any).showLayoutOverlays();
       for (const el of (canvas as any).layoutOverlays) {
-        expect(el.style.display).toBe('none');
+        expect(el.style.display).not.toBe('none');
+        expect(parseFloat(el.style.left)).not.toBeNaN();
+        expect(parseFloat(el.style.top)).not.toBeNaN();
       }
     });
 
-    it('showLayoutOverlays does nothing when scale !== 1', () => {
-      canvas.locked = true;
+    it('showLayoutOverlays keeps screen-space geometry at any zoom', () => {
+      (canvas as any).scale = 1;
+      (canvas as any).showLayoutOverlays();
+      const atOne = (canvas as any).layoutOverlays.map((el: HTMLElement) => `${el.style.left}|${el.style.top}`);
       (canvas as any).scale = 0.5;
       (canvas as any).showLayoutOverlays();
+      const atHalf = (canvas as any).layoutOverlays.map((el: HTMLElement) => `${el.style.left}|${el.style.top}`);
+      expect(atHalf).toEqual(atOne);
       for (const el of (canvas as any).layoutOverlays) {
-        expect(el.style.display).toBe('none');
+        expect(el.style.display).not.toBe('none');
       }
+    });
+
+    it('shows overlays while a card drag is in progress and hides them on release', () => {
+      const cs = (canvas as any).addCard('Drag', '', 0, 0, 400, 300);
+      const header = cs.card.el.querySelector('.card-header') as HTMLElement;
+
+      header.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 120, clientY: 160 }));
+      for (const el of (canvas as any).layoutOverlays) expect(el.style.display).not.toBe('none');
+
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      for (const el of (canvas as any).layoutOverlays) expect(el.style.display).toBe('none');
+    });
+
+    it('a header click without movement does not tile the card into a drop zone', () => {
+      const cs = (canvas as any).addCard('Click', '', 0, 0, 400, 300);
+      const width = cs.savedWidth;
+      const header = cs.card.el.querySelector('.card-header') as HTMLElement;
+
+      // Drop-zone rects are empty in jsdom, so every point hits a zone — the
+      // moved-guard is what keeps a plain click from tiling.
+      header.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 8, clientY: 8 }));
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+      expect(cs.savedWidth).toBe(width);
     });
 
     it('showLayoutOverlays shows all overlays when locked && scale===1', () => {
@@ -1604,6 +1635,23 @@ describe('auto arrange', () => {
       expect(cs.savedWidth).toBe(W);
       expect(cs.savedHeight).toBe(H2);
     });
+
+    it('applyDropZone tiles the visible area at any zoom, not just scale 1', () => {
+      canvas.locked = false;
+      (canvas as any).scale = 2;
+      (canvas as any).panX = -2000;
+      (canvas as any).panY = -1000;
+      const el = document.getElementById('canvas')!;
+      const cs = (canvas as any).addCard('Test', '', 0, 0, 400, 300);
+      (canvas as any).applyDropZone('top-left', cs);
+      const snap = (v: number) => Math.round(v / 28) * 28;
+      // Visible world origin = -pan / scale
+      expect(cs.worldX).toBe(snap(-(-2000) / 2));
+      expect(cs.worldY).toBe(snap(-(-1000) / 2));
+      // Visible world size = client size / scale
+      expect(cs.savedWidth).toBe(Math.round(el.clientWidth / 2 / 56) * 28);
+      expect(cs.savedHeight).toBe(Math.round(el.clientHeight / 2 / 56) * 28);
+    });
   });
 
   describe('restoreWindows edge cases', () => {
@@ -1616,6 +1664,147 @@ describe('auto arrange', () => {
       (canvas as any).restoreWindows(state, '/test');
       await new Promise(r => setTimeout(r, 50));
       expect(canvas.getSaveState().windows[0].title).toBe('Explorer');
+    });
+  });
+
+  describe('canvas UX fixes', () => {
+    const wait = (ms = 50) => new Promise(r => setTimeout(r, ms));
+
+    function state(windows: any[], zOrder: string[] = []): any {
+      return { zoom: 1, panX: 0, panY: 0, zOrder, windows };
+    }
+
+    it('header double-click focuses the card without re-gridding or resizing anything', () => {
+      const fitSpy = vi.fn();
+      (canvas as any).fitViewport = fitSpy;
+      const a = (canvas as any).addCard('Alpha', '', 56, 56, 400, 300);
+      const b = (canvas as any).addCard('Beta', '', 600, 56, 400, 300);
+      const before = {
+        ax: a.worldX, ay: a.worldY, aw: a.savedWidth,
+        bx: b.worldX, by: b.worldY, bw: b.savedWidth,
+      };
+
+      (a.card.el.querySelector('.card-header') as HTMLElement)
+        .dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+
+      expect(fitSpy).not.toHaveBeenCalled();
+      expect(a.worldX).toBe(before.ax);
+      expect(a.worldY).toBe(before.ay);
+      expect(a.savedWidth).toBe(before.aw);
+      expect(b.worldX).toBe(before.bx);
+      expect(b.worldY).toBe(before.by);
+      expect(b.savedWidth).toBe(before.bw);
+      expect(parseInt(a.card.el.style.zIndex) || 0).toBeGreaterThan(parseInt(b.card.el.style.zIndex) || 0);
+    });
+
+    it('restored cards reuse their persisted uuid so zOrder matches', async () => {
+      (canvas as any).restoreWindows(state([
+        { uuid: 'uuid-a', title: 'Terminal 1', x: 0, y: 0, width: 400, height: 300, isOpen: false },
+        { uuid: 'uuid-b', title: 'Terminal 2', x: 100, y: 100, width: 400, height: 300, isOpen: false },
+      ], ['uuid-a', 'uuid-b']), '/test');
+
+      const cards = (canvas as any).cards;
+      const a = cards.find((c: any) => c.card.uuid === 'uuid-a');
+      const b = cards.find((c: any) => c.card.uuid === 'uuid-b');
+      expect(a).toBeTruthy();
+      expect(b).toBeTruthy();
+      expect(parseInt(b.card.el.style.zIndex)).toBeGreaterThan(parseInt(a.card.el.style.zIndex));
+    });
+
+    it('reopening a minimized terminal from the View menu mounts a PTY', async () => {
+      (canvas as any).restoreWindows(state([
+        { uuid: 'term-min', title: 'Terminal 1', x: 0, y: 0, width: 560, height: 420, isOpen: false },
+      ]), '/test');
+      const cs = (canvas as any).cards[0];
+      expect(cs.terminalWindow).toBeNull();
+
+      canvas.reopenTerminal('term-min');
+      await wait();
+
+      expect(cs.isOpen).toBe(true);
+      expect(cs.terminalWindow).toBeTruthy();
+    });
+
+    it('reopenCard() by title also mounts the missing PTY', async () => {
+      (canvas as any).restoreWindows(state([
+        { uuid: 'term-min2', title: 'Terminal 1', x: 0, y: 0, width: 560, height: 420, isOpen: false },
+      ]), '/test');
+      const cs = (canvas as any).cards[0];
+
+      expect(canvas.reopenCardByTitle('Terminal 1')).toBe(true);
+      await wait();
+
+      expect(cs.terminalWindow).toBeTruthy();
+    });
+
+    it('selecting a terminal in the View menu pans the camera to it', async () => {
+      await canvas.addTerminal();
+      const cs = (canvas as any).cards[0];
+      const panSpy = vi.fn();
+      (canvas as any).animatePan = panSpy;
+
+      canvas.focusTerminal(cs.card.uuid);
+
+      expect(panSpy).toHaveBeenCalled();
+    });
+
+    it('new terminals cascade instead of stacking exactly', async () => {
+      await canvas.addTerminal();
+      await canvas.addTerminal();
+      await canvas.addTerminal();
+      const terms = (canvas as any).cards.filter((c: any) => c.savedTitle.startsWith('Terminal'));
+
+      expect(terms.length).toBe(3);
+      expect(terms[1].worldX - terms[0].worldX).toBe(28);
+      expect(terms[1].worldY - terms[0].worldY).toBe(28);
+      expect(terms[2].worldX - terms[1].worldX).toBe(28);
+      expect(new Set(terms.map((c: any) => `${c.worldX},${c.worldY}`)).size).toBe(3);
+    });
+
+    it('a PTY exit keeps the card open with its content', async () => {
+      await canvas.addTerminal();
+      const cs = (canvas as any).cards[0];
+      const exitHandler = (mockElectronAPI.terminal.onExit as any).mock.calls.at(-1)[0];
+
+      exitHandler(cs.card.uuid);
+
+      expect((canvas as any).cards).toContain(cs);
+      expect(cs.card.el.isConnected).toBe(true);
+      expect(cs.isOpen).toBe(true);
+    });
+
+    it('bringToFront marks exactly one card as is-active', () => {
+      const a = (canvas as any).addCard('A', '', 0, 0, 400, 300);
+      const b = (canvas as any).addCard('B', '', 600, 0, 400, 300);
+
+      canvas.focusCard('A');
+      expect(a.card.el.classList.contains('is-active')).toBe(true);
+      expect(b.card.el.classList.contains('is-active')).toBe(false);
+
+      canvas.focusCard('B');
+      expect(a.card.el.classList.contains('is-active')).toBe(false);
+      expect(b.card.el.classList.contains('is-active')).toBe(true);
+    });
+
+    it('closing an explorer card calls ExplorerWindow.destroy when present', async () => {
+      canvas.addExplorer('/test');
+      await wait();
+      const cs = (canvas as any).cards[0];
+      const destroy = vi.fn();
+      (cs.explorerWindow as any).destroy = destroy;
+
+      (canvas as any).terminateCard(cs);
+
+      expect(destroy).toHaveBeenCalledOnce();
+    });
+
+    it('closing an explorer card without destroy() does not throw', async () => {
+      canvas.addExplorer('/test');
+      await wait();
+      const cs = (canvas as any).cards[0];
+      delete (cs.explorerWindow as any).destroy;
+
+      expect(() => (canvas as any).terminateCard(cs)).not.toThrow();
     });
   });
 });
