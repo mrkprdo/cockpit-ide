@@ -15,8 +15,8 @@
   font-family: var(--font);
   color: var(--primary);
   cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.1s;
+  border-radius: var(--radius-xs);
+  transition: background var(--dur-1);
 }
 .ctx-item:hover { background: var(--panel); }
 .ctx-disabled { opacity: 0.35; cursor: default; }

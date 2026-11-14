@@ -15,9 +15,9 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 28px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
-  animation: modal-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: var(--space-6);
+  box-shadow: var(--elevation-3);
+  animation: modal-in var(--dur-2) var(--ease-out);
   z-index: var(--z-tutorial-tooltip);
 }
 .tutorial-step-header {
@@ -38,10 +38,10 @@
   white-space: pre-line;
 }
 .tutorial-nav {
-  margin-top: 20px;
+  margin-top: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-3);
 }
 .tutorial-dots {
   display: flex;
@@ -58,7 +58,7 @@
 .tutorial-dot.active {
   background: var(--accent);
   width: var(--icon-md);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 .tutorial-btn-row {
   display: flex;
@@ -67,13 +67,13 @@
   justify-content: space-between;
 }
 .tutorial-btn {
-  padding: 8px 18px;
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: var(--text-sm);
   font-family: var(--font);
   cursor: pointer;
-  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
   letter-spacing: 0.04em;
   background: transparent;
   color: var(--secondary);
@@ -99,7 +99,7 @@
   pointer-events: none;
   z-index: var(--z-tutorial-ring);
   border: 2px solid var(--accent);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   box-shadow: 0 0 24px color-mix(in oklab, var(--accent) 40%, transparent), inset 0 0 12px color-mix(in oklab, var(--accent) 15%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {

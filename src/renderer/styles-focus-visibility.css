@@ -1,28 +1,31 @@
 /* ===== Focus Visibility (WCAG AA) ===== */
-.tb-btn:focus-visible,
-.card-btn:focus-visible,
-.btn-primary:focus-visible,
-.welcome-btn:focus-visible,
-.btn-ghost:focus-visible,
-.welcome-btn-secondary:focus-visible,
-.about-close-btn:focus-visible,
-.tutorial-btn:focus-visible,
-.tutorial-btn-next:focus-visible,
-.tutorial-btn-done:focus-visible,
-.git-commit-btn:focus-visible,
-.git-push-btn:focus-visible,
-.welcome-recent-item-remove:focus-visible,
-.menu-dropdown-item:focus-visible,
-.palette-item:focus-visible {
-  outline: 2px solid var(--accent);
+/* One rule for every focusable control; --focus-ring owns the colour/width. */
+:focus-visible {
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
+
+/* Controls that reset `outline: none` in their own rule need a stronger
+   (class + pseudo-class) selector to win the cascade. */
 .arr-input:focus-visible,
 .git-commit-input:focus-visible,
+.git-select:focus-visible,
 .palette-input:focus-visible,
-.git-select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 0;
+.ai-settings-input:focus-visible,
+.ai-settings-select:focus-visible,
+.ai-chat-input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* SpecsMap search input resets outline/border inline (specsmap/search.ts),
+   so the ring and its control boundary need !important to land. */
+.sm-search-bar input {
+  border-color: var(--border-strong) !important;
+}
+.sm-search-bar input:focus-visible {
+  outline: var(--focus-ring) !important;
+  outline-offset: 2px;
 }
 
 #statusbar-center {
@@ -31,6 +34,3 @@
   justify-content: center;
   z-index: var(--z-statusbar-center);
 }
-
-
-

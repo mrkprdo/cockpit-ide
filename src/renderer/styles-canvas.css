@@ -83,7 +83,7 @@ body.canvas-busy .ai-float-input {
   font: inherit;
   color: inherit;
 }
-.pli-zone:hover, .pli-zone:focus-visible { opacity: 1; outline: 1px solid var(--accent); outline-offset: 2px; }
+.pli-zone:hover, .pli-zone:focus-visible { opacity: 1; }
 .pli-icon {
   font-size: var(--text-xl);
   color: var(--secondary);
@@ -113,7 +113,7 @@ body.canvas-busy .ai-float-input {
   color: var(--primary);
   cursor: pointer;
   border-radius: var(--radius-xs);
-  transition: background 0.1s;
+  transition: background var(--dur-1);
 }
 .pli-item:hover { background: var(--panel); }
 .pli-item:active { opacity: 0.7; }
@@ -142,7 +142,7 @@ body.canvas-busy .ai-float-input {
   font: inherit;
   color: inherit;
 }
-.prr-zone:hover, .prr-zone:focus-visible { opacity: 1; outline: 1px solid var(--accent); outline-offset: 2px; }
+.prr-zone:hover, .prr-zone:focus-visible { opacity: 1; }
 .prr-icon {
   font-size: var(--text-xl);
   color: var(--secondary);
@@ -170,22 +170,22 @@ body.canvas-busy .ai-float-input {
   color: var(--primary);
   cursor: pointer;
   border-radius: var(--radius-xs);
-  transition: background 0.1s;
+  transition: background var(--dur-1);
 }
 .arr-item:hover { background: var(--panel); }
 .arr-item:active { opacity: 0.7; }
 .arr-input {
   width: 100%;
-  margin-top: 4px;
-  padding: 4px 8px;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
   font-size: var(--text-xs);
   font-family: var(--font);
   color: var(--primary);
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-xs);
   outline: none;
-  transition: border-color 0.1s;
+  transition: border-color var(--dur-1);
 }
 .arr-input:focus { border-color: var(--accent); }
 .arr-input::placeholder { color: var(--tertiary); }
@@ -207,3 +207,11 @@ body.canvas-busy .ai-float-input {
   color: var(--tertiary);
 }
 
+
+/* Reduced motion: drop the corner-glyph spin, keep the colour change. */
+@media (prefers-reduced-motion: reduce) {
+  .pli-icon,
+  .prr-icon { transition: none; }
+  .pli-zone:hover .pli-icon,
+  .prr-zone:hover .prr-icon { transform: none; }
+}

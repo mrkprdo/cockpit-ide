@@ -1,5 +1,8 @@
 /* ===== Design System (Noir × Art Nouveau × Floating) ===== */
 :root {
+  /* Native form chrome (select popups, scrollbars) follows the palette. */
+  color-scheme: dark;
+
   --bg: #161C24;
   --surface: #1C2538;
   --panel: #243248;
@@ -7,15 +10,52 @@
   --secondary: #78909C;
   --tertiary: #7894A3;
   --border: #2A3A4A;
+  /* Control boundaries (inputs/selects/checkboxes) must clear WCAG 1.4.11 3:1. */
+  --border-strong: #5D7285;
   --accent: #4B9EB5;
-  --accent2: #7B6FA0;
+  --accent2: #9A8CC4;
   --green: #4C9A6E;
   --amber: #C68B00;
   --red: #D44F4F;
-  --onAccent: oklch(97% 0.006 20);
+  --onAccent: #0B1118;
   --scrim: rgba(8,14,22,0.72);
 
+  /* === Semantic aliases (prefer these in new code) === */
+  --success: var(--green);
+  --warning: var(--amber);
+  --danger: var(--red);
+  --info: var(--accent);
+
   --font: 'Space Mono', 'Courier New', monospace;
+
+  /* === Spacing scale (4px base) === */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+
+  /* === Motion scale === */
+  --dur-1: 100ms;
+  --dur-2: 150ms;
+  --dur-3: 220ms;
+  --dur-4: 300ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-io: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* === Tracking scale === */
+  --tracking-label: 0.1em;
+  --tracking-eyebrow: 0.15em;
+
+  /* === Focus ring (single rule, see styles-focus-visibility.css) === */
+  --focus-ring: 2px solid var(--accent);
+
+  /* === Elevation === */
+  --elevation-1: rgba(0,0,0,0.20) 0 1px 2px, rgba(0,0,0,0.14) 0 2px 6px;
+  --elevation-2: rgba(0,0,0,0.30) 0 6px 20px, rgba(0,0,0,0.20) 0 3px 10px;
+  --elevation-3: rgba(0,0,0,0.45) 0 16px 48px, rgba(0,0,0,0.25) 0 4px 12px;
 
   /* === Type Scale (rem; base 16px) === */
   --text-2xs:  0.5625rem;  /*  9px — eyebrow labels, spec keys   */
@@ -39,7 +79,7 @@
   --icon-sm: 16px;   /* inline w/ text, status glyphs, tab icons */
   --icon-md: 20px;   /* toolbar / card buttons, standalone controls */
 
-  --shadow: rgba(0,0,0,0.30) 0 6px 20px, rgba(0,0,0,0.20) 0 3px 10px;
+  --shadow: var(--elevation-2);
 
   /* === Border Radius micro-scale === */
   --radius-2xs: 3px;
@@ -73,10 +113,22 @@
   --z-ai-float:         15;
 }
 
+/* Light chrome: theme.apply() stamps data-theme-mode on <html>. */
+html[data-theme-mode="light"] {
+  color-scheme: light;
+  --border-strong: #7D7D7D;
+}
+
 *, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* Native checkbox/radio boundaries read the accent in both modes. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
 }
 
 html, body {

@@ -9,14 +9,26 @@
   cursor: default;
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.15s ease-out, border-color 0.15s ease-out;
-  /* Own compositor layer: content churn inside a card (xterm/Monaco/agents) then
-     dirties only that card, not the whole .canvas-world texture. */
-  will-change: transform;
+  /* Cheap resting elevation; the heavy hover shadow stays opt-in. */
+  box-shadow: var(--elevation-1);
+  transition: box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+  /* Layout/paint containment: content churn inside a card (xterm/Monaco/agents)
+     stays inside that card's box. */
+  contain: layout paint;
 }
 .card:hover {
-  box-shadow: var(--shadow);
+  box-shadow: var(--elevation-2);
   border-color: var(--tertiary);
+}
+/* Focused card: accent-tinted boundary + accent bar in the header. */
+.card.is-active {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+  box-shadow: var(--elevation-2), 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+/* Own compositor layer only while the card is actually moving. */
+.card.is-dragging,
+.card-arranging {
+  will-change: transform;
 }
 /* A 32px blurred shadow re-rasterized every drag frame is the single most
    expensive paint in the drag path — mirrors .canvas-world.is-navigating. */
@@ -28,21 +40,32 @@
 /* Arrange/tile glides via transform (FLIP) — animating left/top/width/height
    would relayout every card each frame. Size changes still snap. */
 .card-arranging {
-  transition: transform 0.25s ease;
+  transition: transform var(--dur-3) var(--ease-out);
 }
 @media (prefers-reduced-motion: reduce) {
   .card-arranging { transition: none !important; }
 }
 
 .card-header {
+  position: relative;
   height: 30px;
-  padding: 0 10px 0 14px;
+  padding: 0 var(--space-2) 0 var(--space-3);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   user-select: none;
   cursor: grab;
   border-bottom: 1px solid var(--border);
+}
+/* Active card: 2px accent bar down the header's leading edge. */
+.card.is-active .card-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
 }
 
 .card-title-area {
@@ -80,7 +103,7 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.15s, background 0.1s, color 0.1s;
+  transition: opacity var(--dur-2), background var(--dur-1), color var(--dur-1), transform var(--dur-1) var(--ease-out);
   padding: 0;
 }
 .card-btn svg, .card-btn svg * { pointer-events: none; }
@@ -88,13 +111,14 @@
 .card:hover .card-btn { opacity: 1; }
 .card:focus-within .card-btn,
 .card-btn:focus-visible { opacity: 1; }
+.card-btn:active { transform: scale(0.9); }
 .card-btn-minimize:hover { background: var(--amber); color: var(--onAccent); }
 .card-btn-fitview:hover   { background: var(--accent); color: var(--onAccent); }
 .card-btn-terminate:hover { background: var(--red); color: var(--onAccent); }
 
 .card-body {
   flex: 1;
-  padding: 20px;
+  padding: var(--space-5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -160,7 +184,7 @@
   border-right: 1.5px solid var(--tertiary);
   border-bottom: 1.5px solid var(--tertiary);
   opacity: 0.4;
-  transition: opacity 0.1s ease-out;
+  transition: opacity var(--dur-1) ease-out;
 }
 .card-edge-se:hover::after {
   opacity: 0.65;
