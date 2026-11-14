@@ -29,6 +29,7 @@ export const ZEN_MODELS: ZenModel[] = [
   { id: 'big-pickle', label: 'Big Pickle (Free · app only)', group: 'free', maxContext: 200000, maxOutput: 32000 },
   // Paid (Go endpoint / Console inference) — Chat Completions family
   { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', group: 'paid', maxContext: 1000000, maxOutput: 384000 },
+  { id: 'deepseek-v4.1-flash', label: 'DeepSeek V4.1 Flash', group: 'paid', maxContext: 1000000, maxOutput: 384000 },
   { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', group: 'paid', maxContext: 1000000, maxOutput: 384000 },
   { id: 'kimi-k3', label: 'Kimi K3', group: 'paid', maxContext: 262144, maxOutput: 65536 },
   { id: 'glm-5.3', label: 'GLM 5.3', group: 'paid', maxContext: 200000, maxOutput: 65536 },
@@ -39,6 +40,7 @@ export const ZEN_MODELS: ZenModel[] = [
   // GPT models are served by the Responses API — the client switches protocols
   // automatically for gpt-/o-series ids on the Console inference base.
   { id: 'gpt-6.1-sol', label: 'GPT 6.1 Sol (Responses)', group: 'paid', maxContext: 400000, maxOutput: 128000 },
+  { id: 'gpt-6-luna', label: 'GPT 6 Luna (Responses)', group: 'paid', maxContext: 400000, maxOutput: 128000 },
 ];
 
 export interface SettingsSnapshot {
@@ -155,8 +157,8 @@ export class SettingsStore {
     return this.modelMaxOutput;
   }
 
-  createClient(): LLMClient {
-    return new LLMClient({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model });
+  createClient(sessionId?: string): LLMClient {
+    return new LLMClient({ endpoint: this.endpoint, apiKey: this.apiKey, model: this.model, sessionId });
   }
 
   /**
@@ -186,7 +188,7 @@ export class SettingsStore {
 
     if (!apiKey) { report('No API key set — paste one above.', false); return false; }
 
-    const client = new LLMClient({ endpoint, apiKey, model });
+    const client = new LLMClient({ endpoint, apiKey, model, sessionId: 'ses_connection_test' });
     report(`Testing ${client.requestUrl} …`, true);
     try {
       const res = await client.chatCompletion({

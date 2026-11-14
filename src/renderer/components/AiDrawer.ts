@@ -173,7 +173,7 @@ export class AiDrawer {
       renderTokenUsage: () => this.renderCtrl.renderTokenUsage(),
       updateCurrentSession: () => this.sessionStore.updateCurrentSession(),
       buildSystemPrompt: (wsPath) => this.llmLoop.buildSystemPrompt(wsPath),
-      createClient: () => this.settingsStore.createClient(),
+      createClient: () => this.settingsStore.createClient(this.sessionStore.currentSessionId),
       getStreamResponses: () => this.settingsStore.streamResponses,
       getContextTokenLimit: () => this.settingsStore.contextTokenLimit,
       streamPlainText: (client, messages, maxTokens, keepAsRole) =>

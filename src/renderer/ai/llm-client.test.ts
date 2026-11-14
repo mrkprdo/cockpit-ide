@@ -58,6 +58,56 @@ describe('LLMClient', () => {
     expect(body.max_tokens).toBe(65536);
   });
 
+  it('sends a stable x-opencode-session header per conversation', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'hi', role: 'assistant' } }] }),
+    });
+    const client = new LLMClient(
+      { apiKey: 'k', endpoint: 'https://opencode.ai/zen/go/v1', model: 'm', sessionId: 'ses_abc123' },
+      fetchMock as unknown as typeof fetch,
+    );
+
+    await client.complete([{ role: 'user', content: 'one' }]);
+    await client.complete([{ role: 'user', content: 'two' }]);
+
+    const h1 = fetchMock.mock.calls[0][1].headers;
+    const h2 = fetchMock.mock.calls[1][1].headers;
+    // Same id on both requests: OpenCode requires it and uses it for caching.
+    expect(h1['x-opencode-session']).toBe('ses_abc123');
+    expect(h2['x-opencode-session']).toBe('ses_abc123');
+    expect(h1['x-cockpit-client']).toBe('cockpit-ide');
+  });
+
+  it('generates a ses_ id when the caller supplies none', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'hi', role: 'assistant' } }] }),
+    });
+    const client = new LLMClient(
+      { apiKey: 'k', endpoint: 'https://opencode.ai/zen/go/v1', model: 'm' },
+      fetchMock as unknown as typeof fetch,
+    );
+
+    await client.complete([{ role: 'user', content: 'hi' }]);
+    const sent = fetchMock.mock.calls[0][1].headers['x-opencode-session'];
+    expect(sent).toMatch(/^ses_[A-Za-z0-9]+$/);
+  });
+
+  it('sends the same session header on the Responses path', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'ok' }] }] }),
+    });
+    const client = new LLMClient(
+      { apiKey: 'k', endpoint: 'https://opencode.ai/inference/openai/v1', model: 'gpt-6.1-sol', sessionId: 'ses_r1' },
+      fetchMock as unknown as typeof fetch,
+    );
+
+    await client.chatCompletion({ messages: [{ role: 'user', content: 'hi' }] });
+    expect(fetchMock.mock.calls[0][1].headers['x-opencode-session']).toBe('ses_r1');
+  });
+
   it('includes tool schemas when tools are provided', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

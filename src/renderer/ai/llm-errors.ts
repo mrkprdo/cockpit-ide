@@ -14,6 +14,7 @@ export type LLMErrorKind =
   | 'auth'        // bad/expired key, unauthenticated
   | 'forbidden'   // key valid but this client/model is not allowed
   | 'model'       // model or endpoint path does not exist (deprecated / moved)
+  | 'routing'     // provider rejected the request before routing it (session header)
   | 'bad-request' // malformed request the user must fix
   | 'rate-limit'
   | 'server'
@@ -85,6 +86,10 @@ export function classifyLLMError(err: unknown): LLMErrorKind {
 
   if (err instanceof LLMHttpError) {
     const blob = `${err.code} ${err.type} ${err.detail}`.toLowerCase();
+    // OpenCode Go refuses requests it cannot attribute to a conversation:
+    // 400 MissingSessionID / "missing x-opencode-session". That is our header to
+    // send, not the model's fault — never tell the user to change models.
+    if (/missing x-opencode-session|missingsessionid|cannot be routed/.test(blob)) return 'routing';
     if (err.status === 401 || /api_key|authentication|unauthorized|expired|invalid.*key/.test(blob)) return 'auth';
     if (err.status === 403 || /forbidden|permission|not available|free tier|free-tier/.test(blob)) return 'forbidden';
     if (err.status === 404 || err.status === 410 || /deprecated|not found|no such model|unsupported model/.test(blob)) return 'model';
@@ -152,6 +157,13 @@ export function describeLLMError(err: unknown): LLMErrorDescription {
         title: 'Model or endpoint not found',
         message: `${detail} The model may have moved to a different API family (Chat Completions / Responses / Messages) or been retired. Check the endpoint and pick a model from the current list in Agent settings.`,
       };
+    case 'routing':
+      return {
+        kind,
+        title: 'Request could not be routed',
+        message: `${detail} This provider requires each conversation to identify itself (x-opencode-session); Cockpit IDE sends one automatically. If this persists, update Cockpit IDE.`,
+        action: { label: 'Routing requirements', url: 'https://opencode.ai/v2/docs/console/go/#where-can-i-use-it' },
+      };
     case 'unsupported':
       return { kind, title: 'Model needs a different API', message: detail };
     case 'rate-limit':
@@ -164,7 +176,10 @@ export function describeLLMError(err: unknown): LLMErrorDescription {
       return {
         kind,
         title: 'Request rejected',
-        message: `${detail} If this mentions tools or a parameter, the model or endpoint may not support it — try another model.`,
+        // Only name the likely cause when the provider's own text points at it.
+        message: /tool|parameter|param |schema/i.test(detail)
+          ? `${detail} The model or endpoint may not support this request shape — try another model.`
+          : detail.slice(0, 500),
       };
     case 'aborted':
       return { kind, title: 'Stopped', message: 'The run was stopped.' };

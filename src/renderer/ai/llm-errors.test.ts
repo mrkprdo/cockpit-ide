@@ -43,8 +43,23 @@ describe('classifyLLMError', () => {
     expect(describeLLMError(err).action?.url).toBe(API_KEY_CONSOLE_URL);
   });
 
-  it('classifies the free-tier 403 as forbidden, not auth', () => {
-    const err = parseHttpError(403, JSON.stringify({ error: { message: 'Free models are not available to this client' } }));
+  it('classifies a missing session header as a routing problem, not the model', () => {
+    const body = JSON.stringify({
+      type: 'error',
+      error: {
+        type: 'MissingSessionID',
+        message: 'Request is missing x-opencode-session and cannot be routed efficiently.',
+      },
+    });
+    const err = parseHttpError(400, body);
+    expect(classifyLLMError(err)).toBe('routing');
+    const d = describeLLMError(err);
+    expect(d.title).toBe('Request could not be routed');
+    expect(d.message).not.toMatch(/try another model/i);
+    expect(d.action?.url).toContain('console/go');
+  });
+
+  it('classifies the free-tier 403 as forbidden, not auth', () => {    const err = parseHttpError(403, JSON.stringify({ error: { message: 'Free models are not available to this client' } }));
     expect(classifyLLMError(err)).toBe('forbidden');
     expect(describeLLMError(err).message).toContain('only work inside the OpenCode app');
   });

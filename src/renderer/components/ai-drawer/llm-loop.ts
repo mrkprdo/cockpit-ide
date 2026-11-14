@@ -311,7 +311,7 @@ export class LlmLoop {
       apiMessages.push({ role: 'user', content: userMessage });
     }
 
-    const client = this.settings.createClient();
+    const client = this.settings.createClient(this.sessions.currentSessionId);
     const tools = this.host.toolRegistry.toOpenAISchemas();
 
     // PLAN mode: first get a plain text plan, then ask user to confirm before executing
@@ -678,7 +678,7 @@ export class LlmLoop {
   }
 
   private async callLLMBasic(apiMessages: LLMMessage[]): Promise<string> {
-    const client = this.settings.createClient();
+    const client = this.settings.createClient(this.sessions.currentSessionId);
     // Keep tool_call_id / tool_calls intact — collapsing every message to
     // {role, content} (as this used to) turns tool messages into payloads the
     // gateway rejects with "missing field tool_call_id".

@@ -9,7 +9,7 @@ import { escapeHtml } from './render';
 import { showToast } from '../toast';
 
 /** Kinds the user must act on — they also deserve a toast, not just a bubble. */
-const URGENT = new Set(['auth', 'forbidden', 'model', 'unsupported']);
+const URGENT = new Set(['auth', 'forbidden', 'model', 'routing', 'unsupported']);
 
 /**
  * Build the chat bubble content for an error, and toast it when the failure is

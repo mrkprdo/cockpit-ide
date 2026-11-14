@@ -12,6 +12,21 @@ import { completionUrl, resolveProtocol, type LLMProtocol } from './llm-protocol
 
 type FetchLike = typeof fetch;
 
+/**
+ * One id per app run, used when a caller does not supply a conversation id.
+ * Better than a per-request id: requests still route, and prompt caching has a
+ * stable bucket to land in.
+ */
+let appRunSessionId = '';
+
+function processSessionId(): string {
+  if (!appRunSessionId) {
+    const rand = (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`);
+    appRunSessionId = rand.replace(/-/g, '').slice(0, 32);
+  }
+  return appRunSessionId;
+}
+
 interface StreamChoice {
   delta: {
     content?: string | null;
@@ -74,6 +89,37 @@ export class LLMClient {
     return resolveProtocol(this.config.endpoint, this.config.model);
   }
 
+  /**
+   * Conversation id for `x-opencode-session`.
+   *
+   * OpenCode requires this header and answers 400 MissingSessionID without it
+   * ("cannot be routed efficiently"). It must be STABLE for a conversation — a
+   * fresh id per request still routes, but throws away prompt-cache hits. Falls
+   * back to a per-client id, then to one per app run.
+   */
+  get sessionId(): string {
+    const raw = this.config.sessionId || `ses_${processSessionId()}`;
+    const clean = raw.replace(/[^A-Za-z0-9_.:-]/g, '').slice(0, 128);
+    return clean.startsWith('ses_') ? clean : `ses_${clean}`;
+  }
+
+  /**
+   * Headers sent with every request.
+   *
+   * `x-cockpit-client` identifies this client (OpenCode asks clients to identify
+   * themselves rather than looking like a generic SDK); a browser `fetch` cannot
+   * set `User-Agent`, so this is the equivalent signal.
+   */
+  private headers(extra: Record<string, string> = {}): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${this.config.apiKey}`,
+      'x-opencode-session': this.sessionId,
+      'x-cockpit-client': 'cockpit-ide',
+      ...extra,
+    };
+  }
+
   /** The URL this client will actually call (shown in the settings panel). */
   get requestUrl(): string {
     return completionUrl(this.config.endpoint, this.protocol);
@@ -105,10 +151,7 @@ export class LLMClient {
     const res = await this.fetchImpl(this.requestUrl, {
       method: 'POST',
       signal: options.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.config.apiKey}`,
-      },
+      headers: this.headers(),
       body: JSON.stringify(this.buildBody(options)),
     });
 
@@ -131,11 +174,7 @@ export class LLMClient {
     const res = await this.fetchImpl(this.requestUrl, {
       method: 'POST',
       signal: options.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-        'Authorization': `Bearer ${this.config.apiKey}`,
-      },
+      headers: this.headers({ 'Accept': 'text/event-stream' }),
       body: JSON.stringify(this.buildBody({ ...options, stream: true })),
     });
 
@@ -256,10 +295,7 @@ export class LLMClient {
     const res = await this.fetchImpl(this.requestUrl, {
       method: 'POST',
       signal: options.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.config.apiKey}`,
-      },
+      headers: this.headers(),
       body: JSON.stringify(this.buildResponsesBody(options, false)),
     });
     if (!res.ok) {
@@ -272,11 +308,7 @@ export class LLMClient {
     const res = await this.fetchImpl(this.requestUrl, {
       method: 'POST',
       signal: options.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-        'Authorization': `Bearer ${this.config.apiKey}`,
-      },
+      headers: this.headers({ 'Accept': 'text/event-stream' }),
       body: JSON.stringify(this.buildResponsesBody(options, true)),
     });
     if (!res.ok) {

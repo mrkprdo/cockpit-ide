@@ -23,7 +23,7 @@ import type {
 } from './types';
 
 export interface LLMConfigProvider {
-  (): { endpoint: string; apiKey: string; model: string };
+  (): { endpoint: string; apiKey: string; model: string; sessionId?: string };
 }
 
 export interface SpawnParams {
@@ -187,7 +187,7 @@ export class AgentExecutor {
     this.persistHook = hook;
   }
 
-  private resolveConfig(): { endpoint: string; apiKey: string; model: string } {
+  private resolveConfig(): { endpoint: string; apiKey: string; model: string; sessionId?: string } {
     if (this.configOverride) return { ...this.configOverride };
     if (this.configProvider) return { ...this.configProvider() };
     return { endpoint: 'https://opencode.ai/zen/go/v1', apiKey: '', model: 'deepseek-v4-flash' };
@@ -197,7 +197,7 @@ export class AgentExecutor {
    * Resolve the model config for a definition+spawn pair. Order:
    * spawn override > definition.model > executor override > provider > default.
    */
-  private resolveConfigFor(defn: SubAgentDefinition, params: SpawnParams): { endpoint: string; apiKey: string; model: string } {
+  private resolveConfigFor(defn: SubAgentDefinition, params: SpawnParams): { endpoint: string; apiKey: string; model: string; sessionId?: string } {
     const base = this.resolveConfig();
     const model = params.model ?? defn.model ?? base.model;
     return { ...base, model };
@@ -301,7 +301,9 @@ export class AgentExecutor {
     };
 
     const cfg = this.resolveConfigFor(effectiveDefn, params);
-    const llm = new LLMClient(cfg);
+    // Each sub-agent is its own conversation: a stable per-agent session id keeps
+    // OpenCode routing/prompt-caching correct for the length of the run.
+    const llm = new LLMClient({ ...cfg, sessionId: cfg.sessionId || `ses_${agentId}` });
     const session = new SubAgentSession(agentId, effectiveDefn, brief, correlationId, {
       bus: this.bus,
       registry: this.registry,

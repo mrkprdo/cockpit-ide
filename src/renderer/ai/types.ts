@@ -124,6 +124,12 @@ export interface LLMConfig {
   endpoint: string;
   apiKey: string;
   model: string;
+  /**
+   * Stable conversation id, sent as `x-opencode-session`. OpenCode requires it to
+   * route requests and optimize prompt caching; one id per conversation, not per
+   * request.
+   */
+  sessionId?: string;
 }
 
 export interface LLMCompletionOptions {

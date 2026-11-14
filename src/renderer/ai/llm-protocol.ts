@@ -24,8 +24,9 @@ export function resolveProtocol(endpoint: string, model: string): LLMProtocol {
 
   if (/\/responses$/.test(ep)) return 'responses';
 
-  // OpenAI-compatible base: GPT models are Responses-only there.
-  if (/\/inference\/openai(\/|$)/.test(ep) && isResponsesModel(model)) return 'responses';
+  // OpenAI-compatible base: GPT models are Responses-only there. Covers both
+  // `/inference/openai/v1` (Console) and `/inference/go/openai/v1` (Go).
+  if (/\/inference\/(?:go\/)?openai(\/|$)/.test(ep) && isResponsesModel(model)) return 'responses';
 
   return 'chat';
 }

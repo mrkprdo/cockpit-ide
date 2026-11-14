@@ -11,6 +11,11 @@ describe('resolveProtocol', () => {
     expect(resolveProtocol('https://opencode.ai/inference/openai/v1', 'o4-mini')).toBe('responses');
   });
 
+  it('uses Responses for GPT models on the Go inference base too', () => {
+    expect(resolveProtocol('https://opencode.ai/inference/go/openai/v1', 'gpt-6-luna')).toBe('responses');
+    expect(resolveProtocol('https://opencode.ai/inference/go/openai/v1', 'glm-5.3')).toBe('chat');
+  });
+
   it('honours an endpoint that already names the operation', () => {
     expect(resolveProtocol('https://x/v1/chat/completions', 'gpt-4')).toBe('chat');
     expect(resolveProtocol('https://x/v1/responses', 'anything')).toBe('responses');
