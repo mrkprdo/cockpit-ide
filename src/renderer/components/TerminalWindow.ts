@@ -93,12 +93,12 @@ export class TerminalWindow {
       if (id === uuid) term.write(data);
     }) ?? null;
 
-    this.unlistenExit = api.terminal.onExit((id: string) => {
+    this.unlistenExit = api.terminal.onExit((id: string, exitCode?: number) => {
       if (id === uuid) {
         log.info('terminal exited', uuid);
-        // The card is NOT destroyed on exit any more — keep the scrollback and
+        // The card is NOT destroyed on exit any more - keep the scrollback and
         // offer a restart in place (contract with the canvas slice).
-        this.showExitState();
+        this.showExitState(exitCode);
         this.onExit?.();
       }
     }) ?? null;

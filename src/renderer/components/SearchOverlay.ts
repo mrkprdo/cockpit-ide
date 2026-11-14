@@ -8,8 +8,10 @@ const BINARY_EXTS = new Set([
   '.wasm', '.map',
 ]);
 
-/** Directories that are never worth walking (build output, caches, installers). */
-const SKIP_DIRS = new Set([
+/** Files above this size are skipped by text search (reading them costs more than the result is worth). */
+const MAX_FILE_BYTES = 1_500_000;
+
+/** Directories that are never worth walking (build output, caches, installers). */const SKIP_DIRS = new Set([
   '.git', 'node_modules', '.cockpit',
   'out', 'release', 'dist', 'coverage', '.impeccable', '.worktrees',
 ]);
@@ -209,6 +211,11 @@ export class SearchOverlay {
       const ext = fp.slice(fp.lastIndexOf('.')).toLowerCase();
       if (BINARY_EXTS.has(ext)) continue;
       try {
+        // Skip oversized files before reading them. Without a stat probe the
+        // only way to learn a file's size was to pull the whole thing over IPC.
+        const meta = await window.electronAPI?.fs?.stat?.(fp);
+        if (token !== this.runToken) return;
+        if (meta && (meta.isDirectory || meta.size > MAX_FILE_BYTES)) continue;
         const content = await window.electronAPI?.fs.readFile(fp);
         if (token !== this.runToken) return;
         if (!content) continue;

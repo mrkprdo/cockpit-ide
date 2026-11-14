@@ -27,6 +27,8 @@ describe('SearchOverlay', () => {
       if (fp.endsWith('.ts')) return 'const x = 1;\n// hello\nconsole.log("hi");';
       return '';
     });
+    // Small by default; individual tests override to exercise the size cap.
+    (mockElectronAPI.fs as any).stat = vi.fn(async () => ({ size: 100, isDirectory: false }));
   });
 
   it('creates overlay in DOM on construction', () => {
@@ -248,6 +250,26 @@ describe('SearchOverlay', () => {
     input.dispatchEvent(new Event('input'));
     await new Promise(r => setTimeout(r, 400));
     expect(document.querySelectorAll('.search-result').length).toBe(1);
+    s.destroy();
+  });
+
+  it('skips files above the size cap without reading them', async () => {
+    const s = new SearchOverlay(wsPath, onSelect);
+    s.open();
+    // Every .txt reports as huge; .ts stays small. Only the .ts may be read.
+    (mockElectronAPI.fs as any).stat = vi.fn(async (fp: string) =>
+      fp.endsWith('.txt') ? { size: 10_000_000, isDirectory: false } : { size: 200, isDirectory: false });
+    const readFile = mockElectronAPI.fs.readFile as any;
+    readFile.mockClear();
+
+    const input = document.querySelector('.palette-input') as HTMLInputElement;
+    input.value = 'hello';
+    input.dispatchEvent(new Event('input'));
+    await new Promise(r => setTimeout(r, 400));
+
+    // The oversized .txt files contribute no results and were never read.
+    expect(readFile.mock.calls.some(([fp]: [string]) => fp.endsWith('.txt'))).toBe(false);
+    expect(readFile.mock.calls.some(([fp]: [string]) => fp.endsWith('.ts'))).toBe(true);
     s.destroy();
   });
 

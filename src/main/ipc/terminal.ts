@@ -80,7 +80,9 @@ export function registerTerminalHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
       }
     });
 
-    pty.onExit(() => {
+    // node-pty emits `{ exitCode, signal }`. The code is forwarded so the card
+    // can say "process exited (code N)" instead of a bare "exited".
+    pty.onExit((e?: { exitCode?: number }) => {
       // terminal.pty-exit (refactor.md §B.4): a PTY still registered here when
       // onExit fires was NOT deliberately killed (terminal:kill deletes the map
       // entry first) — that's an unexpected death worth logging. Deliberate
@@ -94,7 +96,7 @@ export function registerTerminalHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
         } catch { /* best effort */ }
       }
       if (!sender.isDestroyed()) {
-        sender.send('terminal:exit', uuid);
+        sender.send('terminal:exit', uuid, typeof e?.exitCode === 'number' ? e.exitCode : undefined);
       }
       state.ptyProcesses.delete(uuid);
       state.terminalSenders.delete(uuid);

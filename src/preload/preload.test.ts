@@ -483,8 +483,8 @@ describe('preload.ts — terminal onData/onExit wiring', () => {
     const reg = onCalls.find(c => c[0] === 'terminal:exit');
     expect(reg).toBeTruthy();
 
-    const ipcHandler = reg![1] as (event: any, uuid: string) => void;
-    ipcHandler({}, 'term-123');
-    expect(callback).toHaveBeenCalledWith('term-123');
+    const ipcHandler = reg![1] as (event: any, uuid: string, exitCode?: number) => void;
+    ipcHandler({}, 'term-123', 1);
+    expect(callback).toHaveBeenCalledWith('term-123', 1);
   });
 });

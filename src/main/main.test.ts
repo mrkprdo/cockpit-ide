@@ -80,8 +80,9 @@ vi.mock('electron', () => ({
 // Promise API surface used by the fs:* handlers (they never block the main
 // event loop); the *Sync entries stay for the code paths that still use them.
 const fsPromisesMock = {
-  readdir: vi.fn(async () => []),
+  readdir: vi.fn(async () => [] as any),
   readFile: vi.fn(async () => ''),
+  stat: vi.fn(async () => ({ size: 0, isDirectory: () => false }) as any),
   writeFile: vi.fn(async () => undefined),
   mkdir: vi.fn(async () => undefined),
   rm: vi.fn(async () => undefined),
@@ -204,6 +205,35 @@ describe('main.ts IPC handlers', () => {
       const result = await handler({}, '/test/file.txt');
       expect(result).toBeNull();
       vi.mocked(fs.promises.readdir).mockResolvedValue([]);
+    });
+  });
+
+  describe('fs:stat behavior', () => {
+    it('returns size and isDirectory inside the sandbox', async () => {
+      const main = await import('../main/main');
+      main._testTrustPath('/test/file.txt');
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:stat')!;
+      vi.mocked(fs.promises.stat).mockResolvedValue({ size: 4096, isDirectory: () => false } as any);
+
+      const result = await handler({}, '/test/file.txt');
+      expect(result).toEqual({ size: 4096, isDirectory: false });
+    });
+
+    it('returns null outside the workspace sandbox', async () => {
+      const handler = handleMap.get('fs:stat')!;
+      const result = await handler({}, '/etc/shadow');
+      expect(result).toBeNull();
+    });
+
+    it('returns null when the file does not exist', async () => {
+      const main = await import('../main/main');
+      main._testTrustPath('/test/gone.txt');
+      const fs = await import('fs');
+      const handler = handleMap.get('fs:stat')!;
+      vi.mocked(fs.promises.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+
+      expect(await handler({}, '/test/gone.txt')).toBeNull();
     });
   });
 

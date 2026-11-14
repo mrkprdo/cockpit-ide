@@ -102,8 +102,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('terminal:data', handler);
       return () => ipcRenderer.removeListener('terminal:data', handler);
     },
-    onExit: (callback: (uuid: string) => void) => {
-      const handler = (_event: any, uuid: string) => callback(uuid);
+    onExit: (callback: (uuid: string, exitCode?: number) => void) => {
+      const handler = (_event: any, uuid: string, exitCode?: number) => callback(uuid, exitCode);
       ipcRenderer.on('terminal:exit', handler);
       return () => ipcRenderer.removeListener('terminal:exit', handler);
     },
@@ -154,6 +154,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fs: {
     readDir: tracedInvoke('fs:readDir'),
     readFile: tracedInvoke('fs:readFile'),
+    stat: tracedInvoke('fs:stat'),
     writeFile: tracedInvoke('fs:writeFile'),
     mkdir: tracedInvoke('fs:mkdir'),
     delete: tracedInvoke('fs:delete'),

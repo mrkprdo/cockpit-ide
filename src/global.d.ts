@@ -68,7 +68,7 @@ interface Window {
       resize: (uuid: string, cols: number, rows: number) => void;
       kill: (uuid: string) => void;
       onData: (callback: (uuid: string, data: string) => void) => () => void;
-      onExit: (callback: (uuid: string) => void) => () => void;
+      onExit: (callback: (uuid: string, exitCode?: number) => void) => () => void;
     };
     workspace: {
       select: () => Promise<string | null>;
@@ -120,6 +120,7 @@ interface Window {
     fs: {
       readDir: (dirPath: string) => Promise<DirEntry[] | null>;
       readFile: (filePath: string) => Promise<string | null>;
+      stat: (filePath: string) => Promise<{ size: number; isDirectory: boolean } | null>;
       writeFile: (filePath: string, content: string) => Promise<boolean>;
       mkdir: (dirPath: string) => Promise<boolean>;
       delete: (targetPath: string) => Promise<boolean>;

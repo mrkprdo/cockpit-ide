@@ -50,6 +50,22 @@ export function registerFsHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
     }
   }, null);
 
+  withHandlerLogging('fs:stat', async (event, filePath: string) => {
+    // Metadata-only probe (size/isDirectory) with the same sandbox as readFile.
+    // Search uses it to skip huge files BEFORE reading them: reading a 5 MB
+    // file to discover it is 5 MB defeats the purpose.
+    const canon = security.resolvePathInsideWorkspace(filePath, event)
+      ?? (security.isTrustedWorkspacePath(filePath) ? filePath : null);
+    if (!canon) return null;
+    try {
+      const st = await fs.promises.stat(canon);
+      return { size: st.size, isDirectory: st.isDirectory() };
+    } catch (err) {
+      if (isEnoent(err) || isNotDirectory(err)) return null;
+      throw err;
+    }
+  }, null);
+
   withHandlerLogging('fs:readFile', async (event, filePath: string) => {
     const canon = security.resolvePathInsideWorkspace(filePath, event);
     if (!canon) return null;
