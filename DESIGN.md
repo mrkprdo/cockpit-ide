@@ -26,7 +26,10 @@ normative.
 Dashes are **not** a global motif. `border-style: dashed` ships in exactly two
 places: the agent PoV strip (waiting/replay states in `styles-ai-drawer-05.css`)
 and the dev-console header/inputs (`DevConsoleWindow.ts`), plus the SpecsMap
-search bar. Card, panel and modal borders are solid `1px var(--border)`.
+search bar. Floating surfaces — window cards, modals, menus, palettes, the AI
+drawer — carry **no perimeter stroke**. Their edge is drawn by a solid face,
+a tonal header band and stacked contact/ambient shadows. Hairlines survive only
+on controls, internal dividers and content boxes, and they use `--border`.
 
 ## Tokens
 
@@ -39,12 +42,12 @@ a palette swap is a token swap — no component knows the palette.
 | Token | Dark (default) | Light (default) | Role |
 |---|---|---|---|
 | `--bg` | `#161C24` | `#f8f8f8` | app background, canvas void |
-| `--surface` | `#1C2538` | `#eeeeee` | cards, top bar, modals, menus |
+| `--surface` | `#1C2538` | `#eeeeee` | base for the derived card face; top bar |
 | `--panel` | `#243248` | `#e0e0e0` | raised controls, hover fills, inputs |
 | `--primary` | `#C8D6E5` | `#1a1a1a` | body and title text |
 | `--secondary` | `#78909C` | `#3a3a3a` | secondary labels |
 | `--tertiary` | `#7894A3` | `#6a6a6a` | muted text, icons, hints (4.79:1 on `--surface` in dark — WCAG AA) |
-| `--border` | `#2A3A4A` | `#bbbbbb` | every 1px hairline |
+| `--border` | `#2A3A4A` | `#bbbbbb` | controls, internal dividers, content boxes (not floating edges) |
 | `--accent` | `#4B9EB5` | `#2A7A8C` | primary accent: focus rings, active tab, links, selection |
 | `--accent2` | `#7B6FA0` | `#5A4F7A` | second accent: agent/structural highlights |
 | `--green` | `#4C9A6E` | `#3A7A56` | success, additions, live state |
@@ -114,21 +117,78 @@ the eye reads as "the Cockpit shape". Border radius is never used to fake depth.
 
 ### Elevation
 
-One shadow token, used sparsely:
+Depth is the only card boundary. Each floating shell is a stack of opaque tonal
+layers (face → header band) plus a layered shadow: an inset top sheen, a tight
+contact shadow, a key shadow and a wide ambient shadow.
 
-```
---shadow: rgba(0,0,0,0.30) 0 6px 20px, rgba(0,0,0,0.20) 0 3px 10px;
-```
+Derived surface tokens (`styles-base.css`, re-derived in light mode):
 
-- **Resting card** — no shadow. Cards are separated from the canvas by their
-  `--surface` fill and a 1px `--border`.
-- **Hovered card** — `var(--shadow)` plus `border-color: var(--tertiary)`.
-- **Dragging / panning** — `box-shadow: none`. Suppressing the blur during a
-  gesture is a deliberate paint optimization (`styles-window-card.css`,
-  `.canvas-world.is-navigating`), not a state change.
-- **Floating overlays** (context menu, resize tooltip, git popover) — `var(--shadow)`.
-- **Modals** — a deeper, hand-written stack (`0 16px 48px rgba(0,0,0,0.45),
-  0 4px 12px rgba(0,0,0,0.25)`) because they sit above the scrim, not above the canvas.
+| Token | Role |
+|---|---|
+| `--card-face` | opaque body face; equals `--surface` in dark (keeps secondary/tertiary at AA), leans white in light |
+| `--card-face-active` | focused face; equal in dark, one step brighter in light |
+| `--card-header-face` | title band; mixes toward `--bg` in dark (darker strip), toward `--primary` in light |
+| `--card-header-face-active` | focused title band, one shade lighter (closer to the face) |
+| `--card-sheen` | 1px inset top highlight |
+| `--shade-header` | inset sheen + short shadow the header casts onto the body (replaces `border-bottom`) |
+
+Shadow tokens:
+
+| Token | Applied to |
+|---|---|
+| `--shadow-card-rest` | every window card at rest |
+| `--shadow-card-hover` | hovered window card |
+| `--shadow-card-active` | focused (`is-active`) window card |
+| `--shadow-card-drag` | card being dragged — contact layers only |
+| `--shadow-menu` | context menus, dropdowns, popovers, corner panels, notch |
+| `--shadow-float` | modals, palette, tutorial, AI drawer, floating input |
+
+- **Resting card** — solid `--card-face`, header band, `--shadow-card-rest`.
+  There is no border and no accent outline.
+- **Hovered card** — `--shadow-card-hover`; the face and header do not change hue.
+- **Focused card** — `--card-header-face-active` and the deepest shadow (light
+  mode also lifts the face to `--card-face-active`). Accent is **not** used to
+  mark the active card.
+- **Dragging / panning** — a dragged card and every card during pan/zoom
+  collapse to `--shadow-card-drag` (contact layers only). Zooming re-rasterizes
+  the world at a new scale, so dropping the wide blurred layers keeps the
+  gesture cheap; full elevation returns on the next idle frame. Shadows are
+  never removed entirely, because nothing else draws the edge.
+- **Menus and small overlays** — `--shadow-menu`.
+- **Modals, palette, tutorial, drawer** — `--shadow-float`, above the scrim or canvas.
+
+### Controls
+
+Buttons and links use the same subtle card material, not a second visual
+language. The recipe lives in the `--control-*` tokens:
+
+| Token | Role |
+|---|---|
+| `--control-face` | tonal fill for secondary buttons and chips |
+| `--control-face-hover` | hover fill |
+| `--control-face-active` | pressed / selected fill |
+| `--control-border` | hairline boundary (still present for control affordance) |
+| `--control-border-hover` | hover boundary |
+| `--control-sheen` | 1px inset top highlight |
+| `--control-danger-tint` | red-tinted fill for destructive icon buttons |
+
+- **Primary** — `--primary` fill, `--bg` ink, no border (`Apply`, `Next`,
+  `Commit`, `Save settings`, send). This is the only heavy control treatment.
+- **Secondary** — `--control-face` + `--control-border` + `--control-sheen`,
+  4px radius, `--secondary` label; hover raises to `--control-face-hover` and
+  `--primary`. Used by Cancel/Close/Back/Push/Test/filter toggles/status actions.
+- **Icon buttons** — transparent at rest, `--control-face-hover` on hover,
+  `--tertiary` glyph, 4px radius. Destructive icons use `--control-danger-tint`
+  and the red ink instead of a solid red fill.
+- **Selected controls** (search modes, POV tabs, session rows, segmented
+  choices) use `--control-face-active`; accent is text/ring only, never a fill.
+- **Links** — accent text, no underline at rest in chrome, underline on hover
+  with a 2px offset. Content links (markdown prose) stay underlined at rest.
+- **Tabs** — 6px radius for POV chips; active editor tabs use the panel fill and
+  no accent top rule.
+
+Do not add a new button style for one component: reuse a recipe or add a token
+here only when the role is genuinely new.
 
 ### Spacing
 
@@ -163,7 +223,7 @@ Fixed layout constants that behave like tokens:
 │   └── .canvas-world           ← pan/zoom transform; single compositor layer
 │       ├── .canvas-grid-layer  ← background grid (pointer-events: none)
 │       └── .card × N           ← absolutely positioned in world coordinates
-│           ├── .card-header    ← 30px: title text + controls (grab cursor)
+│           ├── .card-header    ← 30px: shaded title band + controls (grab cursor)
 │           └── .card-body      ← fills the rest; hosts xterm / Monaco / lists
 └── statusbar (20px)
 ```
@@ -184,9 +244,10 @@ Fixed layout constants that behave like tokens:
   are ordered by the semantic `--z-*` scale: canvas 1 → AI drawer 10 → titlebar
   100 → modal 200 → confirm 300 → context menu 400 → palette 500 → tutorial
   600–620 → corner zone/panel 1000–1001 → dropdown 1100–1101 → layout overlay 9999.
-- **Glass is local, not global.** `backdrop-filter` appears on the AI drawer and
-  floating input only, and is dropped to a flat `--panel` fill while
-  `body.canvas-busy` (pan/zoom/drag) to avoid re-blurring every frame.
+- **Surfaces are opaque.** The AI drawer, floating input, sessions panel and
+  settings dialog share the same solid card face as canvas cards. There is no
+  `backdrop-filter` anywhere in the chrome, so pan/zoom/drag needs no
+  glass-bailout state and no surface flicker.
 
 ## Interaction & accessibility
 
@@ -197,7 +258,12 @@ Fixed layout constants that behave like tokens:
   on hover, `0.15s ease-out` for shadow/border and opacity, `0.25s` for
   card arrange glides (FLIP via `transform`), and `0.15–0.28s` for panel reveals
   (the corner zones use `cubic-bezier(0.16, 1, 0.3, 1)`).
-  `prefers-reduced-motion: reduce` disables the arrange glide.
+  `prefers-reduced-motion: reduce` disables the arrange glide and applies wheel
+  zoom immediately.
+- **Canvas gestures** — wheel zoom eases toward a target over ~6–8 frames with
+  the cursor's world point pinned; card drags track the pointer at full
+  resolution and snap to the 28px world grid on release; pan/zoom collapses
+  cards to the contact shadow with shadow interpolation disabled.
 - **Selection** — the app chrome is `user-select: none` (so `Ctrl+A` doesn't
   highlight the shell); content surfaces opt back in: markdown prose, terminal,
   Monaco, chat messages, diffs, inputs.
@@ -210,9 +276,11 @@ Fixed layout constants that behave like tokens:
    radius in component CSS.
 2. Reach for an existing pattern before a new value: `--text-xs` + 700 for
    chrome, `--text-sm` for card titles, `--radius-xs` for controls,
-   `--radius-md` for cards, `--shadow` only on overlays/hover.
+   `--radius-md` for cards. A floating shell uses `--card-face` +
+   `--shadow-menu`/`--shadow-float` and **no** `border`; a card uses
+   `--shadow-card-rest` and swaps to the hover/active token by state.
 3. New component → new `styles-<component>.css`, linked in `index.html` in
-   cascade order (see `AGENTS.md`).
+   cascade order (see `src/renderer/index.html`).
 4. If a component genuinely needs a new token, declare it in `styles-base.css`
    `:root` next to its siblings, and — if it is a color — add it to
    `ThemeColors` in `theme.ts` so every palette stays complete.

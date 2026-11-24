@@ -16,7 +16,7 @@
 
 Cockpit is a spatial IDE built on Electron. Drag your Explorer, Terminal, and Git anywhere on the canvas — stack them, zoom out to see everything at once, open as many instances as you need. Layouts persist and restore exactly as you left them.
 
-Edit with a Monaco editor, run commands in a full PTY terminal, browse files in a split-pane explorer, and read Markdown as a rendered tab in the editor — all on a bounded canvas that bends to your workflow, not the other way around.
+Edit with a Monaco editor, run commands in a full PTY terminal, browse files in a split-pane explorer, read Markdown as a rendered tab, and preview images, video and PDFs without leaving the workspace — all on a bounded canvas that bends to your workflow, not the other way around.
 
 **Cockpit Agent** is a built-in AI assistant with a full agentic tool loop. Ask it to open files, write code, run terminal commands, stage commits, or rearrange your canvas — all in natural language. It sees your workspace state and acts on it directly.
 
@@ -31,6 +31,7 @@ Generate your project's spec graph with SPECGEN (opt-in per workspace) and visua
 **Explorer** — Monaco editor + resizable file explorer in one card  
 **Terminal** — Full PTY terminal via node-pty + xterm.js, multiple instances  
 **Markdown** — Rendered Markdown as a tab in the shared editor, sharing the tab bar and file watcher  
+**Media previews** — Images, seekable video and PDFs open as tabs in the Explorer, streamed from the workspace; unsupported formats hand off to the default app  
 **Git** — Branch visualization, staging, diffs, and commit tooling  
 **SpecsMap** — Living architecture graph: SPECGEN feature specs rendered as an interactive map, continuously validated (edge/cycle/drift rules) and structurally reconciled against the source tree; agents query it for dense feature context  
 **Cockpit Agent** — Built-in AI with canvas, file, editor, terminal, and git control  
@@ -86,10 +87,10 @@ npm run pack        # build Windows NSIS installer
 **Editor:** Monaco Editor 0.52 (AMD-loaded)  
 **Terminal:** @xterm/xterm 6 + @xterm/addon-fit + node-pty  
 **Rendering:** marked 18 (markdown)  
-**File watching:** chokidar 5  
+**File watching:** native recursive OS watch (default) or chokidar 5 — selectable in View → File watcher
 **IDE server:** ws 8 (local WebSocket, JSON-RPC-ish envelope)  
 **Validation:** zod 4  
-**Testing:** vitest 4 + jsdom (73 test files, 1,752 passing + 4 skipped spec-corpus checks)
+**Testing:** vitest 4 + jsdom (80 test files, 1,891 passing + 4 skipped spec-corpus checks)
 
 ## Security posture
 
@@ -98,8 +99,11 @@ The renderer runs with `contextIsolation: true`, `sandbox: true`, `nodeIntegrati
 `src/preload/preload.ts`. All HTML/JS/CSS is loaded from disk (`loadFile`), in-app navigation and
 new-window requests are denied, and a CSP pins `default-src 'self'` (`'unsafe-eval'` is allowed only
 because Monaco's AMD loader needs it). Filesystem IPC is confined to the trusted workspace root
-(`isPathSafe` / `resolvePathInsideWorkspace`, re-resolved against the real path at mutation time),
-and spawned processes get a filtered environment. The only network traffic is the Space Mono webfont
+(`isPathSafe` / `resolvePathInsideWorkspace`, re-resolved against the real path at mutation time).
+The Explorer's image/video/PDF viewers read through a separate read-only `cockpit-media://` scheme,
+restricted to open-workspace roots and a fixed media-extension allowlist, so it cannot serve
+workspace HTML/JS or files outside the sandbox. Spawned processes get a filtered environment.
+The only network traffic is the Space Mono webfont
 (`fonts.googleapis.com` / `fonts.gstatic.com`, allowlisted in the CSP), the AI provider you configure,
 and the loopback WebSocket to the bundled IDE server — no remote application content is ever rendered.
 
