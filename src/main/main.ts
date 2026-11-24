@@ -19,8 +19,13 @@ import { registerShellHandlers } from './ipc/shell';
 import { registerTerminalHandlers } from './ipc/terminal';
 import { registerWindowHandlers } from './ipc/window';
 import { registerWorkspaceHandlers } from './ipc/workspace';
+import { registerMediaProtocol, registerMediaScheme } from './media-protocol';
 
 process.noDeprecation = true;
+
+// Privileged schemes must be registered before the app is ready; the Explorer's
+// media viewers load through cockpit-media:// (see media-protocol.ts).
+registerMediaScheme();
 
 // Dev affordances (DevTools, the .dev-reload watcher) are for unpackaged runs
 // only — a packaged binary must not honour `--dev`.
@@ -190,6 +195,9 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.setDevicePermissionHandler(() => false);
+
+  // Explorer media streaming (images/video/PDF) stays inside open workspaces.
+  registerMediaProtocol();
 
   // Initialize userData-backed stores (recent/last workspace, zoom)
   store.initWorkspaceStore();

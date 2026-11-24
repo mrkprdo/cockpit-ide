@@ -207,6 +207,8 @@ if (isDOM) {
     },
     shell: {
       openExternal: vi.fn().mockResolvedValue(true),
+      openPath: vi.fn().mockResolvedValue(true),
+      openInExplorer: vi.fn().mockResolvedValue(true),
     },
     clipboard: {
       readText: vi.fn().mockReturnValue(''),
@@ -225,6 +227,7 @@ if (isDOM) {
     fs: {
       readDir: vi.fn().mockResolvedValue([]),
       readFile: vi.fn().mockResolvedValue('test content'),
+      stat: vi.fn().mockResolvedValue({ size: 0, isDirectory: false }),
       writeFile: vi.fn().mockResolvedValue(true),
       mkdir: vi.fn().mockResolvedValue(true),
       delete: vi.fn().mockResolvedValue(true),
@@ -232,6 +235,8 @@ if (isDOM) {
       rename: vi.fn().mockResolvedValue(true),
       watch: vi.fn().mockResolvedValue(true),
       unwatch: vi.fn().mockResolvedValue(true),
+      getWatchBackend: vi.fn().mockResolvedValue('native'),
+      setWatchBackend: vi.fn().mockResolvedValue('native'),
       onChanged: vi.fn().mockReturnValue(vi.fn()),
     },
     ide: {

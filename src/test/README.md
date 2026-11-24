@@ -2,7 +2,7 @@
 
 Vitest + jsdom + lightweight mocks.
 
-**Suite size (2026-11-13): 73 test files / 1,756 tests — 1,752 pass, 4 skip.**
+**Suite size (2026-11-23): 80 test files / 1,895 tests — 1,891 pass, 4 skip.**
 The four skips are the opt-in SPECGEN corpus checks (`src/renderer/specs/format.test.ts`,
 `src/test/specs-reconcile.test.ts`): the corpus is generated per workspace and this repo does not
 carry one, so those suites are declared `describe.skipIf(!HAS_SPECS)` and report their absence
@@ -40,23 +40,24 @@ Every test file gets:
 
 ## File inventory
 
-68 files total. Unit tests sit next to the module they cover; `src/test/` holds the cross-cutting suites.
+80 files total. Unit tests sit next to the module they cover; `src/test/` holds the cross-cutting suites.
 
 | Area | Files | Tests | What's covered |
 |---|---|---|---|
-| `src/main/` | 2 | 137 | Electron main: window lifecycle, IPC handlers, workspace trust gate, ide-server |
-| `src/preload/` | 1 | 60 | every exposed `electronAPI` channel + unsubscribe wiring |
-| `src/renderer/components/` | 23 | 816 | window cards, canvas, editor, terminal, explorer, git, SpecsMap, modals, palette, tutorial, top bar |
-| `src/renderer/components/ai-drawer/` | 4 | 22 | agent feed, agent sessions, LLM loop, render helpers |
+| `src/main/` | 5 | 191 | Electron main: window lifecycle, IPC handlers, workspace trust gate, ide-server, media protocol |
+| `src/preload/` | 1 | 62 | every exposed `electronAPI` channel + unsubscribe wiring |
+| `src/renderer/components/` | 26 | 928 | window cards, canvas, editor, media viewer, terminal, explorer, git, SpecsMap, modals, palette, tutorial, top bar |
+| `src/renderer/components/ai-drawer/` | 7 | 70 | agent feed, agent sessions, LLM loop, render helpers |
 | `src/renderer/components/dev-console/` | 2 | 18 | diagnostics window, console capture |
 | `src/renderer/agents/` | 11 | 140 | executor, session, bus, permissions, hooks, pipeline, skills, definitions, agent tools, memory scopes |
-| `src/renderer/ai/` | 10 | 110 | LLM client, prompts, tool definitions/registry/executor, memory store, token counter, zod→OpenAI |
+| `src/renderer/ai/` | 12 | 143 | LLM client, prompts, tool definitions/registry/executor, memory store, token counter, zod→OpenAI |
 | `src/renderer/specs/` | 7 | 90 | format round-trip, graph, validate, reconcile, layout, snapshot, TS extraction (2 corpus cases skipped) |
-| `src/renderer/` (misc) | 4 | 61 | theme palettes, specgen hash, logger, health monitor |
+| `src/shared/` | 1 | 6 | media extension → viewer kind and protocol MIME policy |
+| `src/renderer/` (misc) | 4 | 83 | theme palettes, specgen hash, logger, health monitor |
 | `src/test/` | 4 | 164 | `workflows`, `edge-cases`, `e2e-advanced`, headless `specs-reconcile` (2 corpus cases skipped) |
 
-Largest suites: `AiDrawer` 150, `CanvasArea` 128, `main` 124, `edge-cases` 64, `GitWindow` 63,
-`SpecsMapWindow` 60, `preload` 60.
+Largest suites: `AiDrawer` 160, `main` 146, `CanvasArea` 143, `MonacoEditorWindow` 82, `GitWindow` 71,
+`theme` 68, `edge-cases` 64, `preload` 62.
 
 Counts were regenerated with:
 

@@ -34,7 +34,40 @@ export class Viewport {
   private navigating = false;
   private flushChrome = false;
 
-  constructor(private el: HTMLElement, private worldEl: HTMLDivElement, private host: ViewportHost) {}
+  // Cached viewport box: reading clientWidth/Height inside the rAF handler
+  // forces layout every animation frame. A ResizeObserver keeps this current.
+  private viewW = 0;
+  private viewH = 0;
+  private resizeObserver: ResizeObserver | null = null;
+
+  // Wheel zoom is eased toward a target over a few frames instead of jumping
+  // on every wheel tick. The anchor world point stays under the cursor.
+  private zoomRafId = 0;
+  private zoomTargetScale = 1;
+  private zoomAnchorX = 0;
+  private zoomAnchorY = 0;
+  private zoomWorldX = 0;
+  private zoomWorldY = 0;
+
+  constructor(private el: HTMLElement, private worldEl: HTMLDivElement, private host: ViewportHost) {
+    this.syncSize();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => {
+        const w = this.viewW;
+        const h = this.viewH;
+        this.syncSize();
+        if (w !== this.viewW || h !== this.viewH) this.scheduleTransform(true);
+      });
+      this.resizeObserver.observe(this.el);
+    }
+  }
+
+  private syncSize(): void {
+    const w = this.el.clientWidth;
+    const h = this.el.clientHeight;
+    if (w > 0) this.viewW = w;
+    if (h > 0) this.viewH = h;
+  }
 
   clampWorld(v: number, axis: 'x' | 'y'): number {
     const bound = axis === 'x' ? WORLD_BOUNDS_X : WORLD_BOUNDS_Y;
@@ -69,11 +102,76 @@ export class Viewport {
     applyViewTransform(this.worldEl, this.scale, this.panX, this.panY);
   }
 
+  /** Stop any in-flight wheel zoom. Direct view changes win over the easing. */
+  cancelZoom(): void {
+    if (this.zoomRafId) {
+      cancelAnimationFrame(this.zoomRafId);
+      this.zoomRafId = 0;
+    }
+    this.zoomTargetScale = this.scale;
+  }
+
+  /**
+   * Eased wheel zoom around a screen-space anchor. Repeated wheel ticks
+   * accumulate into the target instead of each jumping the transform directly.
+   */
+  zoomAt(mx: number, my: number, factor: number): void {
+    if (!this.viewW || !this.viewH) this.syncSize();
+    const cw = this.viewW || 1;
+    const ch = this.viewH || 1;
+    const min = Math.max(cw / (WORLD_BOUNDS_X * 2), ch / (WORLD_BOUNDS_Y * 2));
+    const base = this.zoomRafId ? this.zoomTargetScale : this.scale;
+    const clampedFactor = Math.max(0.1, Math.min(10, factor));
+    this.zoomTargetScale = Math.max(min, Math.min(5, base * clampedFactor));
+
+    // Keep the world point under the cursor fixed while the scale eases.
+    this.zoomAnchorX = mx;
+    this.zoomAnchorY = my;
+    this.zoomWorldX = (mx - this.panX) / this.scale;
+    this.zoomWorldY = (my - this.panY) / this.scale;
+
+    // Reduced motion gets the destination immediately, no easing loop.
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const target = this.zoomTargetScale;
+      this.cancelZoom();
+      this.scale = target;
+      this.panX = mx - this.zoomWorldX * this.scale;
+      this.panY = my - this.zoomWorldY * this.scale;
+      this.beginNavigating();
+      this.endNavigating();
+      return;
+    }
+
+    this.beginNavigating();
+    if (!this.zoomRafId) this.zoomRafId = requestAnimationFrame(this.stepZoom);
+  }
+
+  private stepZoom = (): void => {
+    this.zoomRafId = 0;
+    const diff = this.zoomTargetScale - this.scale;
+    if (Math.abs(diff) <= 0.0005) {
+      this.scale = this.zoomTargetScale;
+    } else {
+      // ~6-8 frames to settle; responsive but visibly eased.
+      this.scale += diff * 0.34;
+    }
+    this.panX = this.zoomAnchorX - this.zoomWorldX * this.scale;
+    this.panY = this.zoomAnchorY - this.zoomWorldY * this.scale;
+    this.scheduleTransform();
+
+    if (Math.abs(this.zoomTargetScale - this.scale) > 0.0005) {
+      this.beginNavigating();
+      this.zoomRafId = requestAnimationFrame(this.stepZoom);
+    } else {
+      this.zoomTargetScale = this.scale;
+      this.endNavigating();
+    }
+  };
+
   beginNavigating(): void {
     if (!this.navigating) {
       this.navigating = true;
       this.worldEl.classList.add('is-navigating');
-      document.body.classList.add('canvas-busy');
     }
     if (this.navIdleTimer) clearTimeout(this.navIdleTimer);
     this.navIdleTimer = window.setTimeout(() => this.endNavigating(), 120);
@@ -91,12 +189,18 @@ export class Viewport {
       return;
     }
     this.navigating = false;
+    // Snap shadows back to full elevation with interpolation off, so the frame
+    // after a zoom does not spend another 150ms animating four shadow layers.
+    this.worldEl.classList.add('is-settling');
     this.worldEl.classList.remove('is-navigating');
-    document.body.classList.remove('canvas-busy');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      this.worldEl.classList.remove('is-settling');
+    }));
     this.scheduleTransform(true);
   }
 
   animatePan(targetX: number, targetY: number, duration = 300): void {
+    this.cancelZoom();
     const id = ++this.panAnimId;
     const startX = this.panX;
     const startY = this.panY;
@@ -120,12 +224,14 @@ export class Viewport {
   }
 
   snapOrigin(): void {
+    this.cancelZoom();
     this.panX = Math.round(this.panX / this.patternSize) * this.patternSize;
     this.panY = Math.round(this.panY / this.patternSize) * this.patternSize;
     this.scheduleTransform();
   }
 
   centerView(): void {
+    this.cancelZoom();
     const avW = this.el.clientWidth - this.host.getOverlayLeft();
     this.panX = this.host.getOverlayLeft() + avW / 2;
     this.panY = this.el.clientHeight / 2;
@@ -133,16 +239,19 @@ export class Viewport {
   }
 
   zoomIn(): void {
+    this.cancelZoom();
     this.scale = Math.min(5, this.scale * 1.3);
     this.scheduleTransform();
   }
 
   zoomOut(): void {
+    this.cancelZoom();
     this.scale = Math.max(this.el.clientWidth / (WORLD_BOUNDS_X * 2), this.el.clientHeight / (WORLD_BOUNDS_Y * 2), this.scale / 1.3);
     this.scheduleTransform();
   }
 
   resetView(): void {
+    this.cancelZoom();
     this.scale = 1;
     this.panX = this.el.clientWidth / 2;
     this.panY = this.el.clientHeight / 2;
@@ -150,6 +259,7 @@ export class Viewport {
   }
 
   setView(state: { zoom: number; panX: number; panY: number }): void {
+    this.cancelZoom();
     this.scale = state.zoom; this.panX = state.panX; this.panY = state.panY;
     const cw = this.el.clientWidth;
     const ch = this.el.clientHeight;
@@ -163,12 +273,18 @@ export class Viewport {
     this.host.animatePan(panX, panY);
   }
 
-  refresh(): void { this.scheduleTransform(true); }
+  refresh(): void {
+    this.syncSize();
+    this.scheduleTransform(true);
+  }
 
   destroy(): void {
     if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = 0; }
+    this.cancelZoom();
     if (this.navIdleTimer) { clearTimeout(this.navIdleTimer); this.navIdleTimer = 0; }
-    if (this.navigating) { this.navigating = false; document.body.classList.remove('canvas-busy'); }
+    if (this.navigating) this.navigating = false;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
   }
 
   scheduleTransform(flushChrome = false): void {
@@ -176,8 +292,9 @@ export class Viewport {
     if (this.rafId) return;
     this.rafId = requestAnimationFrame(() => {
       this.rafId = 0;
-      const cw = this.el.clientWidth;
-      const ch = this.el.clientHeight;
+      if (!this.viewW || !this.viewH) this.syncSize();
+      const cw = this.viewW || 1;
+      const ch = this.viewH || 1;
       this.clampScale(cw, ch);
       this.clampView(cw, ch);
       this.applyWorldTransform();

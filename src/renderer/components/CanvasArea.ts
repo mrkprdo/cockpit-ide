@@ -74,6 +74,7 @@ export class CanvasArea {
   private unbinders: (() => void)[] = [];
   private boundMouseUp: (() => void) | null = null;
   private boundDocWheel: ((e: WheelEvent) => void) | null = null;
+  private canvasRect: DOMRect | null = null;
   private contextMenuOpen = false;
   private wsPath = '';
 
@@ -288,7 +289,11 @@ export class CanvasArea {
     applyGridPattern(this.gridEl, this.gridStyle, this.patternDataURL, this.patternSize);
   }
 
-  refresh(): void { this.scheduleTransform(true); }
+  refresh(): void {
+    // The canvas may have moved relative to the window (theme/topbar changes).
+    this.canvasRect = null;
+    this.viewport.refresh();
+  }
 
   centerView(): void { this.viewport.centerView(); }
 
@@ -515,20 +520,12 @@ export class CanvasArea {
     this.unbinders.push(bindGuarded(this.el, 'wheel', (e: WheelEvent) => {
       if (this.locked || e.ctrlKey) return;
       if ((e.target as Element | null)?.closest?.('.card')) return;
-      const rect = this.el.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const oldScale = this.scale;
-      const delta = -e.deltaY * 0.001;
-      const cw = this.el.clientWidth;
-      const ch = this.el.clientHeight;
-      this.scale = Math.max(cw / (WORLD_BOUNDS_X * 2), ch / (WORLD_BOUNDS_Y * 2), Math.min(5, this.scale * (1 + delta)));
-      const worldX = (mx - this.panX) / oldScale;
-      const worldY = (my - this.panY) / oldScale;
-      this.panX = mx - worldX * this.scale;
-      this.panY = my - worldY * this.scale;
-      this.beginNavigating();
-      this.scheduleTransform();
+      const rect = this.canvasRect ?? (this.canvasRect = this.el.getBoundingClientRect());
+      this.viewport.zoomAt(
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+        1 - e.deltaY * 0.001,
+      );
     }, 'canvas-area/CanvasArea.ts', { passive: false }));
 
     // Global Ctrl+Wheel zoom — capture phase so it fires before child stopPropagation
@@ -537,31 +534,29 @@ export class CanvasArea {
       if (this.locked) { e.preventDefault(); return; }
       e.preventDefault();
       e.stopPropagation();
-      const rect = this.el.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const oldScale = this.scale;
-      const delta = -e.deltaY * 0.001;
-      this.scale = Math.max(this.el.clientWidth / (WORLD_BOUNDS_X * 2), this.el.clientHeight / (WORLD_BOUNDS_Y * 2), Math.min(5, this.scale * (1 + delta)));
-      const worldX = (mx - this.panX) / oldScale;
-      const worldY = (my - this.panY) / oldScale;
-      this.panX = mx - worldX * this.scale;
-      this.panY = my - worldY * this.scale;
-      this.beginNavigating();
-      this.scheduleTransform();
+      const rect = this.canvasRect ?? (this.canvasRect = this.el.getBoundingClientRect());
+      this.viewport.zoomAt(
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+        1 - e.deltaY * 0.001,
+      );
     };
     this.unbinders.push(bindGuarded(document, 'wheel', this.boundDocWheel, 'canvas-area/CanvasArea.ts', { capture: true, passive: false }));
+    this.unbinders.push(bindGuarded(window, 'resize', () => { this.canvasRect = null; }, 'canvas-area/CanvasArea.ts'));
 
     this.unbinders.push(bindGuarded(this.el, 'mousedown', (e: MouseEvent) => {
       // Ctrl+drag pans even over cards; otherwise only on empty canvas for text selection
       if (e.button === 0 || e.button === 1) {
         if (e.ctrlKey || !(e.target as HTMLElement)?.closest('.card, .prr-zone, .pli-zone')) {
+          // Suppress middle-click autoscroll / text-selection drag.
+          e.preventDefault();
           this.isPanning = true;
           this.panStartX = e.clientX;
           this.panStartY = e.clientY;
           this.panStartPanX = this.panX;
           this.panStartPanY = this.panY;
           this.el.style.cursor = 'grabbing';
+          this.viewport.cancelZoom();
           this.beginNavigating();
         }
       }
@@ -571,7 +566,8 @@ export class CanvasArea {
       if (!this.isPanning) return;
       this.panX = this.panStartPanX + (e.clientX - this.panStartX);
       this.panY = this.panStartPanY + (e.clientY - this.panStartY);
-      this.beginNavigating();
+      // Navigation was started on mousedown; re-arming it per pointer event
+      // churns timers and buys nothing. One transform write per frame.
       this.scheduleTransform();
     };
     this.unbinders.push(bindGuarded(document, 'mousemove', this.boundMouseMove, 'canvas-area/CanvasArea.ts'));

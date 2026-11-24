@@ -149,4 +149,15 @@ describe('AgentSessionStore', () => {
     expect(mockElectronAPI.fs.delete).toHaveBeenCalledWith('/ws/.cockpit/sessions/agents/msd1-x.json');
     expect(mockElectronAPI.fs.delete).toHaveBeenCalledWith('/ws/.cockpit/sessions/agents/msd1-y.json');
   });
+
+  it('forgetAgents drops session links without deleting transcript files', () => {
+    const { store, main } = makeHarness();
+    main.agents = [link('agent:x', 'agents/msd1-x.json'), link('agent:y', 'agents/msd1-y.json')];
+
+    store.forgetAgents(['agent:x']);
+
+    expect(main.agents).toHaveLength(1);
+    expect(main.agents![0].agentId).toBe('agent:y');
+    expect(mockElectronAPI.fs.delete).not.toHaveBeenCalled();
+  });
 });

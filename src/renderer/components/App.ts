@@ -164,6 +164,21 @@ export class App {
         prefs.gridStyle = style;
         window.electronAPI?.prefs.save(prefs);
       },
+      onWatchBackendChange: async (backend) => {
+        // Main restarts the watch with the new backend and reports what actually
+        // runs (native falls back to chokidar where recursive watch is missing).
+        const applied = (await window.electronAPI?.fs.setWatchBackend(backend)) || backend;
+        this.topBar.setWatchBackend(applied);
+        const prefs = (await window.electronAPI?.prefs.load()) || {};
+        prefs.watchBackend = backend;   // the user's pick, retried next launch
+        window.electronAPI?.prefs.save(prefs);
+        showToast(applied === backend
+          ? (applied === 'native'
+              ? 'File watcher: native - one OS handle for the whole tree.'
+              : 'File watcher: chokidar - per-file handles, large workspaces are refused.')
+          : 'Native file watcher is not available here - using chokidar.',
+        applied === backend ? 'info' : 'warn');
+      },
       onThemeToggle: async () => {
         this.canvas.refresh();
         this.canvas.updateAllThemes();
@@ -501,6 +516,9 @@ export class App {
       this.canvas.setGridStyle(prefs.gridStyle);
       this.topBar.setGridStyle(prefs.gridStyle);
     }
+    // Show what is actually watching (main resolves the native→chokidar fallback).
+    const backend = await window.electronAPI?.fs.getWatchBackend?.();
+    if (backend) this.topBar.setWatchBackend(backend);
     if (prefs?.zoomLocked && !this.canvas.locked) {
       this.canvas.locked = true;
       this.topBar.setZoomLocked(true);

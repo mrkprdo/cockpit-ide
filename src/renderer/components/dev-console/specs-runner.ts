@@ -5,8 +5,9 @@
 import { parseSpecDoc, fmGet } from '../../specs/format';
 import { buildMainIndex, buildGraph } from '../../specs/graph';
 import { validate, summarizeReport } from '../../specs/validate';
+import { IGNORED_DIRS } from '../../../shared/ignore-dirs';
 
-const SKIP_DIRS = new Set(['.git', 'node_modules', '.cockpit', '.codegraph', 'coverage', 'dist', 'release', 'out']);
+const SKIP_DIRS = IGNORED_DIRS;
 
 interface Collection {
   title: string;

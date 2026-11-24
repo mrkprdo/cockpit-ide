@@ -2,12 +2,12 @@
 .ctx-menu {
   position: fixed;
   min-width: 160px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-s);
   padding: 4px;
   z-index: var(--z-context-menu);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-menu);
 }
 .ctx-item {
   padding: 4px 10px;

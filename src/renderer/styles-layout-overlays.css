@@ -4,22 +4,23 @@
   z-index: var(--z-layout-overlay);
   width: 48px;
   height: 36px;
-  background: color-mix(in oklab, var(--surface) 85%, transparent);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-s);
   display: none;
   align-items: center;
   justify-content: center;
   cursor: crosshair;
   opacity: 0.7;
-  transition: opacity var(--dur-1), transform var(--dur-1);
+  box-shadow: var(--shadow-menu);
+  transition: opacity var(--dur-1), transform var(--dur-1), box-shadow var(--dur-2) var(--ease-out);
   pointer-events: auto;
 }
 .layout-overlay:hover {
   opacity: 1;
   transform: scale(1.15);
-  border-color: var(--accent);
-  background: color-mix(in oklab, var(--surface) 70%, transparent);
+  background: var(--card-face-active);
+  box-shadow: var(--shadow-card-hover);
 }
 .layout-overlay svg {
   display: block;

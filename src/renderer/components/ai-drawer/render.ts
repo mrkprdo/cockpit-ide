@@ -558,9 +558,21 @@ export class RenderController {
       const target = e.target as HTMLElement;
       const copyBtn = target.closest<HTMLButtonElement>('.ai-chat-copy-btn');
       if (copyBtn) {
+        // Copy buttons also live inside collapsible cards; never toggle them.
+        e.preventDefault();
         const idx = parseInt(copyBtn.dataset.msgIndex ?? '-1', 10);
-        const msg = idx >= 0 ? this.messages[idx] : undefined;
-        if (msg) window.electronAPI?.clipboard.writeText(msg.content).catch(() => {});
+        const msg = idx >= 0 ? this.currentSource()[idx] : undefined;
+        if (msg) {
+          const text = msg.role === 'tool' ? (msg.toolResult ?? msg.content) : msg.content;
+          window.electronAPI?.clipboard.writeText(text).catch(() => {});
+          const label = copyBtn.title || 'Copy text';
+          copyBtn.classList.add('is-copied');
+          copyBtn.title = 'Copied';
+          window.setTimeout(() => {
+            copyBtn.classList.remove('is-copied');
+            if (copyBtn.isConnected) copyBtn.title = label;
+          }, 1200);
+        }
         return;
       }
       const toggleBtn = target.closest<HTMLButtonElement>('.ai-msg-toggle');
@@ -609,13 +621,13 @@ export class RenderController {
       const pending = m.toolResult === undefined;
       const resultHtml = pending
         ? `<div class="ai-tool-result ai-tool-result-pending">running…</div>`
-        : `<pre class="ai-tool-result">${escapeHtml(m.toolResult!)}</pre>`;
+        : `<div class="ai-tool-result-wrap">${this.copyButton(index, 'Copy result', 'ai-tool-copy')}<pre class="ai-tool-result">${escapeHtml(m.toolResult!)}</pre></div>`;
       return `<div class="ai-chat-msg ai-chat-msg-tool" data-msg-index="${index}"><details class="ai-tool-details"${pending ? ' open' : ''}><summary class="ai-tool-chip"><span class="ai-tool-icon">⚙</span><span class="ai-tool-name">${escapeHtml(name)}</span><span class="ai-tool-args">${escapeHtml(m.content)}</span><span class="ai-tool-toggle">▸</span></summary>${resultHtml}</details></div>`;
     }
 
     if (m.role === 'thinking') {
       const body = this.formatCached(m);
-      return `<div class="ai-chat-msg ai-chat-msg-thinking" data-msg-index="${index}"><details class="ai-thinking-details" open><summary class="ai-thinking-header"><span class="ai-thinking-icon">◈</span><span class="ai-thinking-label">Agent reasoning</span><span class="ai-thinking-toggle">▸</span></summary><div class="ai-thinking-body">${body}</div></details></div>`;
+      return `<div class="ai-chat-msg ai-chat-msg-thinking" data-msg-index="${index}"><details class="ai-thinking-details" open><summary class="ai-thinking-header"><span class="ai-thinking-icon">◈</span><span class="ai-thinking-label">Agent reasoning</span><span class="ai-thinking-toggle">▸</span></summary><div class="ai-thinking-body-wrap">${this.copyButton(index, 'Copy reasoning', 'ai-thinking-copy')}<div class="ai-thinking-body">${body}</div></div></details></div>`;
     }
 
     const time = formatMsgTime(m.timestamp);
@@ -630,7 +642,7 @@ export class RenderController {
           <span class="ai-room-join-time">${time}</span>
         </div>`;
       }
-      return `<div class="ai-chat-msg ai-chat-msg-system"><div class="ai-chat-msg-bubble">${this.renderTextBlock(m, body, index)}</div></div>`;
+      return `<div class="ai-chat-msg ai-chat-msg-system"><div class="ai-chat-msg-bubble">${this.renderTextBlock(m, body, index)}<div class="ai-chat-msg-meta">${this.copyButton(index)}</div></div></div>`;
     }
 
     // A sub-agent turn: role stays 'assistant' but carries a speaker identity.
@@ -652,6 +664,7 @@ export class RenderController {
           ${this.renderTextBlock(m, body, index)}
           <div class="ai-chat-msg-meta">
             <span class="ai-chat-msg-time">${time}</span>
+            ${this.copyButton(index)}
           </div>
         </div>`;
     }
@@ -664,9 +677,15 @@ export class RenderController {
           ${this.renderTextBlock(m, body, index)}
           <div class="ai-chat-msg-meta">
             <span class="ai-chat-msg-time">${time}</span>
-            ${m.role === 'assistant' ? `<button class="ai-chat-copy-btn" data-msg-index="${index}" title="Copy text">${COPY_ICON_SVG}</button>` : ''}
+            ${this.copyButton(index)}
           </div>
         </div>
       </div>`;
+  }
+
+  /** Copy affordance shared by every conversation card; content comes from the visible view. */
+  private copyButton(index: number, label = 'Copy text', extraClass = ''): string {
+    const cls = `ai-chat-copy-btn${extraClass ? ` ${extraClass}` : ''}`;
+    return `<button class="${cls}" type="button" data-msg-index="${index}" title="${label}" aria-label="${label}">${COPY_ICON_SVG}</button>`;
   }
 }

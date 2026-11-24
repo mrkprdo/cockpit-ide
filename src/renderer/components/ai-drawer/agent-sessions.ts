@@ -80,6 +80,26 @@ export class AgentSessionStore {
     return this.writeTranscript(t);
   }
 
+  /**
+   * Drop the session's references to purged agents so they do not hydrate back
+   * as replay tabs. The transcript files themselves stay on disk (D8).
+   */
+  forgetAgents(ids: readonly AgentId[]): void {
+    if (ids.length === 0) return;
+    const drop = new Set(ids);
+    for (const id of drop) {
+      const timer = this.writeTimers.get(id);
+      if (timer) clearTimeout(timer);
+      this.writeTimers.delete(id);
+      this.linked.delete(id);
+    }
+    const session = this.sessions.getActiveSession();
+    if (!session?.agents?.length) return;
+    const before = session.agents.length;
+    session.agents = session.agents.filter(link => !drop.has(link.agentId));
+    if (session.agents.length !== before) this.sessions.saveSessions();
+  }
+
   /** Delete every linked agent file for a session (T15 cascade). */
   deleteSessionFiles(sessionId: string): Promise<void> {
     const session = this.sessions.sessions.find(s => s.id === sessionId);

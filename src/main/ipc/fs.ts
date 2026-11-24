@@ -20,8 +20,9 @@
 import * as fs from 'fs';
 import type { IpcMain } from 'electron';
 import type { IpcCtx } from './context';
-import { withHandlerLogging } from './logging';
+import { notifyUser, withHandlerLogging } from './logging';
 import { isWatching } from './file';
+import { MAX_TEXT_FILE_BYTES } from '../../shared/file-limits';
 
 function isEnoent(err: unknown): boolean {
   return (err as NodeJS.ErrnoException)?.code === 'ENOENT';
@@ -69,7 +70,20 @@ export function registerFsHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
   withHandlerLogging('fs:readFile', async (event, filePath: string) => {
     const canon = security.resolvePathInsideWorkspace(filePath, event);
     if (!canon) return null;
-    try { return await fs.promises.readFile(canon, 'utf-8'); }
+    try {
+      // Size check before the read: readFile buffers the whole file, and a
+      // 300 MB decode happens on the main thread — the window stops answering
+      // Windows while it runs. A whole-drive workspace puts such files one
+      // click away (disk images, backups, logs).
+      const st = await fs.promises.stat(canon);
+      if (st.size > MAX_TEXT_FILE_BYTES) {
+        notifyUser('error',
+          `Not opened: this file is ${Math.round(st.size / (1024 * 1024))} MB. `
+          + `Cockpit IDE reads text files up to ${Math.round(MAX_TEXT_FILE_BYTES / (1024 * 1024))} MB.`, event);
+        return null;
+      }
+      return await fs.promises.readFile(canon, 'utf-8');
+    }
     catch (err) { if (isEnoent(err)) return null; throw err; }
   }, null);
 

@@ -16,11 +16,12 @@
   z-index: var(--z-modal-confirm);
 }
 .modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-md);
   min-width: 380px;
-  box-shadow: var(--elevation-3);
+  overflow: hidden;
+  box-shadow: var(--shadow-float);
   animation: modal-in var(--dur-2) var(--ease-out);
 }
 .modal-header {
@@ -28,7 +29,9 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--border);
+  background: var(--card-header-face);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  box-shadow: var(--shade-header);
   font-size: var(--text-sm);
   font-weight: 700;
   letter-spacing: var(--tracking-label);

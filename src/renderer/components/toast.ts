@@ -27,12 +27,12 @@ function injectStyles(): void {
   style.id = 'toast-styles';
   style.textContent = `
 .toast-host{position:fixed;right:12px;bottom:34px;z-index:var(--z-dropdown,1100);display:flex;flex-direction:column;gap:6px;align-items:flex-end;pointer-events:none;max-width:min(420px,60vw)}
-.toast{pointer-events:auto;display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:var(--radius-s,6px);border:1px solid var(--border-strong,var(--border));background:var(--surface);color:var(--primary);font-family:var(--font);font-size:var(--text-xs);line-height:1.45;box-shadow:var(--shadow)}
-.toast-warn{border-color:var(--warning,var(--amber))}
-.toast-error{border-color:var(--danger,var(--red))}
+.toast{pointer-events:auto;display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:var(--radius-s,6px);border:none;background:var(--card-face,var(--surface));color:var(--primary);font-family:var(--font);font-size:var(--text-xs);line-height:1.45;box-shadow:var(--shadow-float,var(--shadow))}
+.toast-warn{box-shadow:inset 3px 0 0 var(--warning,var(--amber)),var(--shadow-float,var(--shadow))}
+.toast-error{box-shadow:inset 3px 0 0 var(--danger,var(--red)),var(--shadow-float,var(--shadow))}
 .toast-text{flex:1;word-break:break-word}
-.toast-close{flex:none;background:none;border:0;color:var(--tertiary);cursor:pointer;font-size:var(--text-sm);line-height:1;padding:0 2px;min-width:24px;min-height:24px}
-.toast-close:hover{color:var(--primary)}
+.toast-close{flex:none;background:none;border:0;border-radius:var(--radius-xs,4px);color:var(--tertiary);cursor:pointer;font-size:var(--text-sm);line-height:1;padding:0 2px;min-width:24px;min-height:24px}
+.toast-close:hover{color:var(--primary);background:var(--control-face-hover,var(--panel))}
 @media (prefers-reduced-motion:no-preference){.toast{animation:toast-in .15s ease-out}@keyframes toast-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}`;
   document.head.appendChild(style);
 }

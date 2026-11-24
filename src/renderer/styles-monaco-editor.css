@@ -53,8 +53,9 @@
 .editor-tab.is-active {
   color: var(--primary);
   background: var(--panel);
-  border-top-color: var(--accent);
+  border-top-color: transparent;
   border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  box-shadow: var(--control-sheen);
 }
 .editor-tab-close {
   font-size: var(--text-2xs);
@@ -67,16 +68,102 @@
   min-width: 24px;
   min-height: 24px;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-2xs);
+  border-radius: var(--radius-xs);
   color: var(--tertiary);
   line-height: 1;
 }
 .editor-tab:hover .editor-tab-close,
 .editor-tab.is-active .editor-tab-close { opacity: 1; }
-.editor-tab-close:hover { color: var(--red); }
+.editor-tab-close:hover { color: var(--red); background: var(--control-danger-tint); }
 .editor-tab.is-dragging { opacity: 0.35; }
 .editor-tab.is-markdown .editor-tab-name { color: var(--accent2); }
+.editor-tab.is-image .editor-tab-name { color: var(--green); }
+.editor-tab.is-video .editor-tab-name { color: var(--accent2); }
+.editor-tab.is-pdf .editor-tab-name { color: var(--red); }
+.editor-tab.is-unsupported .editor-tab-name { color: var(--tertiary); }
 .md-preview-area { padding: 12px 16px 24px; }
+
+/* ===== Media preview (image / video / PDF tabs) ===== */
+.media-preview-area {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 30px;
+  bottom: 0;
+  display: none;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--bg) 86%, var(--panel));
+}
+.media-preview-body {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  box-sizing: border-box;
+}
+.media-preview-area.is-pdf .media-preview-body { padding: 0; display: block; }
+.media-preview-media { max-width: 100%; max-height: 100%; }
+.media-preview-img {
+  object-fit: contain;
+  border-radius: var(--radius-xs);
+  box-shadow: var(--elevation-2);
+}
+.media-preview-video {
+  background: #000;
+  border-radius: var(--radius-s);
+  box-shadow: var(--elevation-2);
+}
+.media-preview-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--surface);
+}
+.media-preview-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tertiary);
+  font-size: var(--text-xs);
+  pointer-events: none;
+}
+.media-preview-message {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+.media-preview-message-title {
+  color: var(--primary);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.media-preview-message-detail {
+  color: var(--tertiary);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+.media-preview-action {
+  font-family: var(--font);
+  font-size: var(--text-xs);
+  color: var(--primary);
+  background: var(--control-face);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-xs);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  transition: background var(--dur-1), border-color var(--dur-1);
+}
+.media-preview-action:hover {
+  background: var(--control-face-hover);
+  border-color: var(--control-border-hover);
+}
 .editor-tab.is-dragover {
   border-left: 2px solid var(--accent);
   border-top-color: transparent;

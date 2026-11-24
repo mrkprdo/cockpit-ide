@@ -126,9 +126,6 @@ export class MessageList {
     const btn = document.createElement('button');
     btn.className = 'ai-msg-earlier';
     btn.textContent = label;
-    // Inline design tokens instead of a new styles-*.css file: one-off control.
-    btn.style.cssText = 'display:block;width:100%;margin:4px 0 8px;padding:6px;background:transparent;'
-      + 'border:1px dashed var(--border);border-radius:8px;color:var(--secondary);font:inherit;cursor:pointer';
     container.insertBefore(btn, container.firstChild);
     this.earlierEl = btn;
   }

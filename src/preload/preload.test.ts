@@ -114,6 +114,8 @@ describe('preload.ts — exposed API shape', () => {
   it('exposes shell namespace', () => {
     expect(api.shell).toBeDefined();
     expect(typeof api.shell.openExternal).toBe('function');
+    expect(typeof api.shell.openPath).toBe('function');
+    expect(typeof api.shell.openInExplorer).toBe('function');
   });
 
   it('exposes prefs namespace', () => {
@@ -225,6 +227,18 @@ describe('preload.ts — IPC wiring (invoke-based)', () => {
     invokeCalls.length = 0;
     api.shell.openExternal('https://example.com');
     expect(invokeCalls.some(c => c[0] === 'shell:openExternal' && c[1] === 'https://example.com')).toBe(true);
+  });
+
+  it('shell.openPath invokes shell:openPath', () => {
+    invokeCalls.length = 0;
+    api.shell.openPath('/ws/scan.tiff');
+    expect(invokeCalls.some(c => c[0] === 'shell:openPath' && c[1] === '/ws/scan.tiff')).toBe(true);
+  });
+
+  it('shell.openInExplorer invokes shell:openInExplorer', () => {
+    invokeCalls.length = 0;
+    api.shell.openInExplorer('/ws/src');
+    expect(invokeCalls.some(c => c[0] === 'shell:openInExplorer' && c[1] === '/ws/src')).toBe(true);
   });
 
   it('prefs.load invokes prefs:load', () => {

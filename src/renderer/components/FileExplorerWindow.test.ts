@@ -47,6 +47,17 @@ describe('FileExplorerWindow', () => {
     expect(text).toContain('README.md');
   });
 
+  it('joins children of a drive-root workspace without doubling the separator', async () => {
+    setupReadDir({ 'D:/': [{ name: 'src', isDirectory: true }] });
+    new FileExplorerWindow(container, 'D:\\', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const item = container.querySelector('[data-path]') as HTMLElement;
+    // "D:\\" normalizes to "D:/" — a naive dir + '/' + name yields "D://src",
+    // which then never matches paths the watcher/editor use.
+    expect(item?.dataset.path).toBe('D:/src');
+  });
+
   it('filters out .gitkeep entries', async () => {
     new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
@@ -466,6 +477,22 @@ describe('FileExplorerWindow inline input positioning', () => {
     expect(pasteItem!.classList.contains('ctx-disabled')).toBe(true);
   });
 
+  it('empty-area context menu opens the workspace root in File Explorer', async () => {
+    new FileExplorerWindow(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    const treeEl = container.querySelector('div') as HTMLElement;
+    treeEl.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    const item = Array.from(document.querySelectorAll('.ctx-item'))
+      .find(m => m.textContent === 'Open in File Explorer') as HTMLElement | undefined;
+    expect(item).toBeTruthy();
+
+    (mockElectronAPI.shell.openInExplorer as any).mockClear();
+    item!.click();
+    await new Promise(r => setTimeout(r, 0));
+    expect(mockElectronAPI.shell.openInExplorer).toHaveBeenCalledWith('/test');
+  });
+
   it('empty-area context menu Paste is enabled after a file is copied', async () => {
     new FileExplorerWindow(container, '/test', vi.fn());
     await new Promise(r => setTimeout(r, 100));
@@ -785,5 +812,44 @@ describe('FileExplorerWindow rename', () => {
     await new Promise(r => setTimeout(r, 10));
 
     expect(fileRow!.classList.contains('is-file-selected')).toBe(true);
+  });
+});
+
+describe('FileExplorerWindow — Open in File Explorer', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.shell.openInExplorer as any).mockClear();
+  });
+
+  async function openMenuFor(path: string): Promise<void> {
+    const row = container.querySelector(`[data-path="${path}"]`) as HTMLElement;
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }));
+    const item = [...document.querySelectorAll('.ctx-item')]
+      .find(el => el.textContent === 'Open in File Explorer') as HTMLElement | undefined;
+    expect(item).toBeTruthy();
+    item!.click();
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  it('reveals a file from its context menu', async () => {
+    setupReadDir({ '/test': [{ name: 'README.md', isDirectory: false }] });
+    new FileExplorerWindow(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    await openMenuFor('/test/README.md');
+    expect(mockElectronAPI.shell.openInExplorer).toHaveBeenCalledWith('/test/README.md');
+  });
+
+  it('opens a folder from its context menu', async () => {
+    setupReadDir({ '/test': [{ name: 'src', isDirectory: true }], '/test/src': [] });
+    new FileExplorerWindow(container, '/test', vi.fn());
+    await new Promise(r => setTimeout(r, 100));
+
+    await openMenuFor('/test/src');
+    expect(mockElectronAPI.shell.openInExplorer).toHaveBeenCalledWith('/test/src');
   });
 });

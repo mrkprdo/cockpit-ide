@@ -28,9 +28,10 @@
   min-height: 30px;
   min-width: 44px;
   padding: 4px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-s);
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  background: var(--control-face);
+  box-shadow: var(--control-sheen);
   color: var(--secondary);
   font-family: var(--font);
   font-size: var(--text-xs);
@@ -39,16 +40,16 @@
   transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
 }
 .ai-pov-tab:hover {
-  border-color: var(--accent);
+  border-color: var(--control-border-hover);
+  background: var(--control-face-hover);
   color: var(--primary);
 }
 .ai-pov-tab.is-selected {
-  border-color: var(--accent);
+  border-color: var(--control-border-hover);
   color: var(--primary);
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  background: var(--control-face-active);
 }
 .ai-pov-tab.is-agent.is-selected {
-  border-color: var(--agent-color, var(--accent));
   color: color-mix(in oklab, var(--agent-color, var(--primary)) 45%, var(--primary));
 }
 
@@ -126,17 +127,17 @@
   min-width: 30px;
   min-height: 30px;
   margin-left: 2px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-s);
   background: transparent;
   color: var(--tertiary);
   font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
-  transition: border-color 150ms ease, color 150ms ease;
+  transition: background 150ms ease, color 150ms ease;
 }
 .ai-pov-purge:hover {
-  border-color: var(--red);
+  background: var(--control-danger-tint);
   color: var(--red);
 }
 
@@ -172,18 +173,19 @@
   min-width: 56px;
   min-height: 30px;
   padding: 3px 10px;
-  border: 1px solid var(--red);
-  border-radius: var(--radius-s);
-  background: transparent;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-xs);
+  background: var(--control-face);
   color: var(--red);
   font-family: var(--font);
   font-size: var(--text-xs);
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 .ai-pov-kill:hover {
-  background: var(--red);
-  color: var(--bg);
+  background: var(--control-danger-tint);
+  border-color: color-mix(in oklab, var(--red) 40%, var(--control-border));
+  color: var(--red);
 }
 
 /* Replayed (restored-from-disk) agents read as history, not as a live run */

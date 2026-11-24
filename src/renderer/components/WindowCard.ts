@@ -120,7 +120,9 @@ export class WindowCard {
       this.opts.onTerminate?.();
     });
 
-    this.el.addEventListener('mousedown', () => this.opts.onFocus?.(), true);
+    this.el.addEventListener('mousedown', (e) => {
+      if (!e.ctrlKey) this.opts.onFocus?.();
+    }, true);
 
     parent.appendChild(this.el);
   }
@@ -162,13 +164,18 @@ export class WindowCard {
       const t = this.getTransform();
       const worldRawX = this.startWorldX + (e.clientX - this.dragOffsetX) / t.scale;
       const worldRawY = this.startWorldY + (e.clientY - this.dragOffsetY) / t.scale;
-      const snappedWorldX = Math.round(worldRawX / SNAP) * SNAP;
-      const snappedWorldY = Math.round(worldRawY / SNAP) * SNAP;
-      this.dragEndWorldX = snappedWorldX;
-      this.dragEndWorldY = snappedWorldY;
+      // Move with the pointer at full resolution; commit to the 28px world grid
+      // only on release. Snapping every frame made the card visibly step.
+      // An axis with no pointer delta keeps its exact start value.
+      this.dragEndWorldX = worldRawX === this.startWorldX
+        ? this.startWorldX
+        : Math.round(worldRawX / SNAP) * SNAP;
+      this.dragEndWorldY = worldRawY === this.startWorldY
+        ? this.startWorldY
+        : Math.round(worldRawY / SNAP) * SNAP;
       // translate3d, not translate: a static 2D transform is not a guaranteed
       // compositing trigger in Blink, so the card would repaint per frame.
-      this.el.style.transform = `translate3d(${snappedWorldX - this.startWorldX}px, ${snappedWorldY - this.startWorldY}px, 0)`;
+      this.el.style.transform = `translate3d(${worldRawX - this.startWorldX}px, ${worldRawY - this.startWorldY}px, 0)`;
       this.opts.onDragMove?.(e.clientX, e.clientY);
     };
 
@@ -190,7 +197,6 @@ export class WindowCard {
         }
         this.pendingDragEvent = null;
         this.el.classList.remove('is-dragging');
-        document.body.classList.remove('canvas-busy');
         this.el.style.transition = '';
         this.el.style.transform = '';
         this.el.style.left = `${this.dragEndWorldX}px`;
@@ -204,6 +210,8 @@ export class WindowCard {
 
     this.header.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
+      // Ctrl+drag is the canvas-pan gesture; let it bubble to CanvasArea.
+      if (e.ctrlKey) return;
       const target = e.target as HTMLElement;
       if (target.closest('.card-controls')) return;
       e.stopPropagation();
@@ -215,7 +223,6 @@ export class WindowCard {
       this.dragEndWorldX = this.startWorldX;
       this.dragEndWorldY = this.startWorldY;
       this.el.classList.add('is-dragging');
-      document.body.classList.add('canvas-busy');
       this.el.style.transition = 'none';
       this.opts.onDragStart?.(e.clientX, e.clientY);
     });
@@ -344,8 +351,6 @@ export class WindowCard {
       cancelAnimationFrame(this.resizeRafId);
       this.resizeRafId = 0;
     }
-    // A card destroyed mid-drag would otherwise leave the flag latched on.
-    if (this.isDragging) document.body.classList.remove('canvas-busy');
     if (this.dragHandlers) {
       document.removeEventListener('mousemove', this.dragHandlers.mousemove);
       document.removeEventListener('mouseup', this.dragHandlers.mouseup);

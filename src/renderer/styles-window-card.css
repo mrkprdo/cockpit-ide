@@ -1,29 +1,31 @@
 /* ===== Card ===== */
+/* Solid slab: opaque face + shade band header + layered shadow. There is no
+   perimeter stroke; the contact shadow is what draws the edge. */
 .card {
   position: absolute;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   box-sizing: border-box;
   border-radius: var(--radius-md);
   overflow: hidden;
   cursor: default;
   display: flex;
   flex-direction: column;
-  /* Cheap resting elevation; the heavy hover shadow stays opt-in. */
-  box-shadow: var(--elevation-1);
-  transition: box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+  box-shadow: var(--shadow-card-rest);
+  transition:
+    box-shadow var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out);
   /* Layout/paint containment: content churn inside a card (xterm/Monaco/agents)
      stays inside that card's box. */
   contain: layout paint;
 }
 .card:hover {
-  box-shadow: var(--elevation-2);
-  border-color: var(--tertiary);
+  box-shadow: var(--shadow-card-hover);
 }
-/* Focused card: accent-tinted boundary + accent bar in the header. */
+/* Focused card: the nearest slab. Face lifts a touch, shadow deepens. */
 .card.is-active {
-  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
-  box-shadow: var(--elevation-2), 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent);
+  background: var(--card-face-active);
+  box-shadow: var(--shadow-card-active);
 }
 /* Own compositor layer only while the card is actually moving. */
 .card.is-dragging,
@@ -31,10 +33,11 @@
   will-change: transform;
 }
 /* A 32px blurred shadow re-rasterized every drag frame is the single most
-   expensive paint in the drag path — mirrors .canvas-world.is-navigating. */
+   expensive paint in the drag path — collapse to the tight contact layer for
+   the whole gesture, not only while the pointer is over the card. */
+.card.is-dragging,
 .card.is-dragging:hover {
-  box-shadow: none;
-  border-color: var(--border);
+  box-shadow: var(--shadow-card-drag);
 }
 
 /* Arrange/tile glides via transform (FLIP) — animating left/top/width/height
@@ -55,17 +58,13 @@
   gap: var(--space-2);
   user-select: none;
   cursor: grab;
-  border-bottom: 1px solid var(--border);
+  background: var(--card-header-face);
+  /* Shade band, not a rule: the header casts a short shadow onto the body. */
+  box-shadow: var(--shade-header);
+  transition: background var(--dur-2) var(--ease-out);
 }
-/* Active card: 2px accent bar down the header's leading edge. */
-.card.is-active .card-header::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--accent);
+.card.is-active .card-header {
+  background: var(--card-header-face-active);
 }
 
 .card-title-area {
@@ -111,10 +110,11 @@
 .card:hover .card-btn { opacity: 1; }
 .card:focus-within .card-btn,
 .card-btn:focus-visible { opacity: 1; }
-.card-btn:active { transform: scale(0.9); }
-.card-btn-minimize:hover { background: var(--amber); color: var(--onAccent); }
-.card-btn-fitview:hover   { background: var(--accent); color: var(--onAccent); }
-.card-btn-terminate:hover { background: var(--red); color: var(--onAccent); }
+.card-btn:hover { background: var(--control-face-hover); color: var(--primary); }
+.card-btn:active { transform: scale(0.9); background: var(--control-face-active); }
+.card-btn-minimize:hover { background: var(--control-face-hover); color: var(--amber); }
+.card-btn-fitview:hover   { background: var(--control-face-hover); color: var(--accent); }
+.card-btn-terminate:hover { background: var(--control-danger-tint); color: var(--red); }
 
 .card-body {
   flex: 1;
@@ -132,6 +132,23 @@
   color: var(--primary);
   white-space: pre-wrap;
   overflow-wrap: break-word;
+}
+
+/* Terminal exit banner action — same subtle control recipe as the chrome. */
+.terminal-restart-btn {
+  background: var(--control-face);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-xs);
+  box-shadow: var(--control-sheen);
+  color: var(--primary);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
+}
+.terminal-restart-btn:hover {
+  background: var(--control-face-hover);
+  border-color: var(--control-border-hover);
+  color: var(--primary);
 }
 
 .card-body .xterm {
@@ -201,10 +218,10 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--primary);
-  background: var(--panel);
+  background: var(--card-header-face);
   border: none;
   border-radius: var(--radius-xs);
   white-space: nowrap;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-menu);
 }
 

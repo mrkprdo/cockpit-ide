@@ -1,3 +1,5 @@
+import { IGNORED_DIRS } from '../../shared/ignore-dirs';
+
 export class CommandPalette {
   private overlay: HTMLDivElement;
   private paletteEl: HTMLDivElement;
@@ -126,7 +128,7 @@ export class CommandPalette {
       const entries = await window.electronAPI?.fs.readDir(dir);
       if (!entries) return;
       for (const e of entries) {
-        if (e.name === '.git' || e.name === 'node_modules' || e.name === '.cockpit') continue;
+        if (IGNORED_DIRS.has(e.name)) continue;
         const full = (dir.endsWith('/') ? dir : dir + '/') + e.name;
         if (e.isDirectory) await walk(full);
         else files.push(full);

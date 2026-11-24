@@ -9,6 +9,7 @@ import {
   RenderController,
   formatBody,
 } from './render';
+import { mockElectronAPI } from '../../../test/setup';
 
 /** A container whose scroll geometry can be pinned (jsdom reports 0s). */
 function makeScroller(scrollHeight: number, clientHeight: number): HTMLElement {
@@ -125,5 +126,74 @@ describe('RenderController.formatCached — formatBody memo', () => {
     const html = ctrl.formatCached(m);
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
+  });
+});
+
+describe('RenderController — conversation copy affordances', () => {
+  function makeController(): RenderController {
+    return new RenderController({} as any, { getSettings: () => ({} as any) } as any);
+  }
+  const render = (ctrl: RenderController, m: any) => (ctrl as any).renderMessage(m, 0);
+
+  it('gives every conversation card a copy button', () => {
+    const ctrl = makeController();
+    expect(render(ctrl, { role: 'user', content: 'mine', timestamp: 1 })).toContain('ai-chat-copy-btn');
+    expect(render(ctrl, { role: 'assistant', content: 'reply', timestamp: 1 })).toContain('ai-chat-copy-btn');
+    expect(render(ctrl, { role: 'system', content: 'notice', timestamp: 1 })).toContain('ai-chat-copy-btn');
+    expect(render(ctrl, {
+      role: 'assistant', content: 'agent says', timestamp: 1,
+      speaker: { id: 'agent:test', name: 'Tester', icon: 'TE', color: '#4B9EB5' },
+    })).toContain('ai-chat-copy-btn');
+  });
+
+  it('adds dedicated copy controls to tool results and reasoning, not pending tools', () => {
+    const ctrl = makeController();
+    const done = render(ctrl, { role: 'tool', content: 'path=x', toolName: 'read', toolResult: 'ok', timestamp: 1 });
+    expect(done).toContain('ai-tool-copy');
+    const pending = render(ctrl, { role: 'tool', content: 'path=x', toolName: 'read', timestamp: 1 });
+    expect(pending).not.toContain('ai-tool-copy');
+    expect(render(ctrl, { role: 'thinking', content: 'reasoning', timestamp: 1 })).toContain('ai-thinking-copy');
+  });
+
+  it('does not add a copy button to a join marker', () => {
+    const ctrl = makeController();
+    const join = render(ctrl, {
+      role: 'system', content: 'Tester joined', timestamp: 1,
+      speaker: { id: 'agent:test', name: 'Tester', icon: 'TE', color: '#4B9EB5' },
+    });
+    expect(join).toContain('ai-room-join');
+    expect(join).not.toContain('ai-chat-copy-btn');
+  });
+
+  it('copies from the visible PoV transcript, not the hidden chat list', () => {
+    const messagesEl = document.createElement('div');
+    const feed = {
+      transcripts: new Map([['agent:test', { steps: [{ role: 'assistant', content: 'pov text', timestamp: 2 }] }]]),
+    };
+    const ctrl = new RenderController({ messagesEl } as any, { getFeed: () => feed } as any);
+    ctrl.messages = [{ role: 'assistant', content: 'chat text', timestamp: 1 }];
+    (ctrl as any).activeView = 'agent:test';
+    ctrl.bindMessageActions();
+
+    messagesEl.innerHTML = '<button class="ai-chat-copy-btn" data-msg-index="0" title="Copy text"></button>';
+    const btn = messagesEl.querySelector<HTMLButtonElement>('.ai-chat-copy-btn')!;
+    (mockElectronAPI.clipboard.writeText as any).mockClear();
+    btn.click();
+
+    expect(mockElectronAPI.clipboard.writeText).toHaveBeenLastCalledWith('pov text');
+    expect(btn.classList.contains('is-copied')).toBe(true);
+  });
+
+  it('copies a tool result rather than its chip args', () => {
+    const messagesEl = document.createElement('div');
+    const ctrl = new RenderController({ messagesEl } as any, { getFeed: () => ({ transcripts: new Map() }) } as any);
+    ctrl.messages = [{ role: 'tool', content: 'path=x', toolName: 'read', toolResult: 'file body', timestamp: 1 }];
+    ctrl.bindMessageActions();
+
+    messagesEl.innerHTML = '<button class="ai-chat-copy-btn ai-tool-copy" data-msg-index="0" title="Copy result"></button>';
+    (mockElectronAPI.clipboard.writeText as any).mockClear();
+    messagesEl.querySelector('button')!.click();
+
+    expect(mockElectronAPI.clipboard.writeText).toHaveBeenLastCalledWith('file body');
   });
 });

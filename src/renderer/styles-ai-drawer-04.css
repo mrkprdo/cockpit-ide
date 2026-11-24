@@ -7,13 +7,10 @@
   width: var(--icon-md);
   min-height: 64px;
   padding: 12px 0;
-  background: color-mix(in srgb, var(--panel) 90%, transparent);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid var(--border);
-  border-left: none;
+  background: var(--card-face);
+  border: none;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  box-shadow: var(--elevation-1);
+  box-shadow: var(--shadow-menu);
   cursor: pointer;
   z-index: 100;
   display: flex;
@@ -23,21 +20,19 @@
   transition:
     opacity 140ms ease,
     background 120ms ease,
-    border-color 120ms ease,
     box-shadow 160ms ease,
     transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .ai-drawer-notch:hover,
 .ai-drawer-notch:focus-visible {
   opacity: 1;
-  background: color-mix(in srgb, var(--panel) 98%, transparent);
-  border-color: var(--tertiary);
-  box-shadow: var(--elevation-2);
+  background: var(--card-face-active);
+  box-shadow: var(--shadow-card-hover);
   outline: none;
 }
 .ai-drawer-notch:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 /* Open: collapse control lives in the header — hide the edge chip */
 .ai-drawer-notch.is-open {
@@ -49,7 +44,8 @@
 /* Loading pulse only while the panel is closed (drawer shell handles open state) */
 .ai-drawer-notch.is-loading:not(.is-open) {
   opacity: 1;
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--card-face-active);
+  box-shadow: var(--shadow-card-hover);
 }
 .ai-drawer-notch.is-loading:not(.is-open) .ai-drawer-notch-label {
   color: var(--accent);
@@ -77,9 +73,9 @@
   color: var(--primary);
 }
 
-/* Running agent: accent the docked glass shell border */
+/* Running agent: the pulsing title LED carries the state; the shell stays solid. */
 .ai-drawer.is-loading {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: var(--shadow-card-active);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -103,7 +99,6 @@
   .ai-chat-copy-btn,
   .ai-tool-chip { transition: none; }
   .ai-chat-loading-dot { animation: none; }
-  .ai-drawer-title::before { animation: none; }
   .ai-drawer-notch.is-loading .ai-drawer-notch-label { animation: none; }
   .ai-chat-msg.is-new { animation: none; }
   .ai-step-controls.is-visible,

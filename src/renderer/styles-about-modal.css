@@ -1,12 +1,12 @@
 /* ===== About Modal ===== */
 .about-modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-md);
   min-width: 360px;
   font-family: var(--font);
   overflow: hidden;
-  box-shadow: var(--elevation-3);
+  box-shadow: var(--shadow-float);
   animation: modal-in var(--dur-2) var(--ease-out);
 }
 .about-head {
@@ -109,7 +109,7 @@
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: var(--radius-2xs);
+  border-radius: var(--radius-xs);
   color: var(--tertiary);
   font-size: var(--text-base);
   line-height: 1;
@@ -121,6 +121,6 @@
 }
 .welcome-recent-item:hover .welcome-recent-item-remove { opacity: 1; }
 .welcome-recent-item-remove:hover {
-  background: var(--panel);
+  background: var(--control-danger-tint);
   color: var(--red);
 }

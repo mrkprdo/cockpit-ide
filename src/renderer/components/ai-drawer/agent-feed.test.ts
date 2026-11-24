@@ -130,12 +130,23 @@ describe('AgentFeed', () => {
     fire(feed, 'agent:a', spawnEvent('agent:a'));
     fire(feed, 'agent:b', spawnEvent('agent:b'));
     fire(feed, 'agent:b', { kind: 'final', text: 'done b', state: 'done' });
-    feed.purgeFinished();
+    const purged = feed.purgeFinished();
+    expect(purged).toEqual(['agent:b']);
     expect(feed.transcripts.has('agent:a')).toBe(true);
     expect(feed.transcripts.has('agent:b')).toBe(false);
 
     feed.reset();
     expect(feed.transcripts.size).toBe(0);
     expect(feed.activeView).toBe('chat');
+  });
+
+  it('purgeFinished also drops archived replay tabs', () => {
+    const feed = new AgentFeed();
+    fire(feed, 'agent:replay', spawnEvent('agent:replay'));
+    fire(feed, 'agent:replay', { kind: 'final', text: 'done', state: 'done' });
+    feed.transcripts.get('agent:replay')!.archived = true;
+
+    expect(feed.purgeFinished()).toEqual(['agent:replay']);
+    expect(feed.transcripts.has('agent:replay')).toBe(false);
   });
 });

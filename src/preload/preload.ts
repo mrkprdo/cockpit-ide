@@ -120,6 +120,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   shell: {
     openExternal: tracedInvoke('shell:openExternal'),
+    openPath: tracedInvoke('shell:openPath'),
+    openInExplorer: tracedInvoke('shell:openInExplorer'),
     exec: tracedInvoke('shell:exec'),
   },
   prefs: {
@@ -162,6 +164,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     rename: tracedInvoke('fs:rename'),
     watch: tracedInvoke('file:watch'),
     unwatch: tracedInvoke('file:unwatch'),
+    getWatchBackend: tracedInvoke('file:getWatchBackend'),
+    setWatchBackend: tracedInvoke('file:setWatchBackend'),
     onChanged: (callback: (filePath: string) => void) => {
       const handler = (_event: any, filePath: string) => callback(filePath);
       ipcRenderer.on('file:changed', handler);

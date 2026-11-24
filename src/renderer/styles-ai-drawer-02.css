@@ -92,26 +92,27 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   cursor: pointer;
-  border: 1px solid;
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-xs);
-  background: transparent;
+  background: var(--control-face);
+  box-shadow: var(--control-sheen);
   transition: background 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out;
 }
 .ai-step-continue-btn {
   color: var(--accent2);
-  border-color: color-mix(in srgb, var(--accent2) 45%, transparent);
 }
 .ai-step-continue-btn:hover {
-  background: color-mix(in srgb, var(--accent2) 12%, transparent);
-  border-color: color-mix(in srgb, var(--accent2) 70%, transparent);
+  background: var(--control-face-hover);
+  border-color: var(--control-border-hover);
+  color: var(--accent2);
 }
 .ai-step-stop-btn {
   color: var(--red);
-  border-color: color-mix(in srgb, var(--red) 35%, transparent);
 }
 .ai-step-stop-btn:hover {
-  background: color-mix(in srgb, var(--red) 10%, transparent);
-  border-color: color-mix(in srgb, var(--red) 60%, transparent);
+  background: var(--control-danger-tint);
+  border-color: color-mix(in oklab, var(--red) 42%, var(--control-border));
+  color: var(--red);
 }
 
 .ai-chat-abort-btn {
@@ -122,17 +123,17 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+  border: 1px solid transparent;
   border-radius: var(--radius-xs);
   color: var(--red);
   font-family: var(--font);
   font-size: var(--text-base);
   cursor: pointer;
-  transition: background 140ms ease-out, border-color 140ms ease-out;
+  transition: background 140ms ease-out, color 140ms ease-out;
 }
 .ai-chat-abort-btn:hover {
-  background: color-mix(in srgb, var(--red) 12%, transparent);
-  border-color: color-mix(in srgb, var(--red) 65%, transparent);
+  background: var(--control-danger-tint);
+  color: var(--red);
 }
 
 .ai-chat-steer-btn {
@@ -142,19 +143,18 @@
   display: none;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--accent2) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent2) 50%, transparent);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: var(--radius-xs);
   color: var(--accent2);
   font-size: var(--text-lg);
   cursor: pointer;
-  transition: background 140ms ease-out, border-color 140ms ease-out, box-shadow 140ms ease-out;
+  transition: background 140ms ease-out, color 140ms ease-out;
   padding: 0;
 }
 .ai-chat-steer-btn:hover {
-  background: color-mix(in srgb, var(--accent2) 18%, transparent);
-  border-color: var(--accent2);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent2) 20%, transparent);
+  background: color-mix(in oklab, var(--accent2) 12%, var(--control-face-hover));
+  color: var(--accent2);
 }
 .ai-chat-steer-btn:active { transform: scale(0.9); }
 
@@ -224,14 +224,15 @@
   flex-shrink: 0;
   background: none;
   border: none;
+  border-radius: var(--radius-xs);
   color: var(--tertiary);
   font-size: var(--text-sm);
   cursor: pointer;
   padding: 0;
   line-height: 1;
-  transition: color var(--dur-1) ease;
+  transition: color var(--dur-1) ease, background var(--dur-1) ease;
 }
-.ai-queue-remove:hover { color: var(--red); }
+.ai-queue-remove:hover { color: var(--red); background: var(--control-danger-tint); }
 
 /* ===== Steer message badge ===== */
 .ai-steer-badge {
@@ -400,9 +401,10 @@
   transition: color 140ms ease-out, background 140ms ease-out;
 }
 .ai-input-mode-btn:hover {
-  color: var(--secondary);
-  background: color-mix(in srgb, var(--border) 25%, transparent);
+  color: var(--primary);
+  background: var(--control-face-hover);
 }
+.ai-input-mode-btn:active { background: var(--control-face-active); }
 .ai-chat-input::placeholder { color: var(--tertiary); opacity: 0.55; }
 .ai-chat-input:disabled { opacity: 0.35; }
 .ai-chat-send-btn {
@@ -412,18 +414,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--accent);
+  background: var(--primary);
   border: 1px solid transparent;
   border-radius: var(--radius-xs);
-  color: var(--onAccent);
+  box-shadow: var(--control-sheen);
+  color: var(--bg);
   font-size: var(--text-md);
   cursor: pointer;
-  transition: opacity 140ms ease-out, transform var(--dur-1) ease-out, box-shadow 140ms ease-out;
+  transition: opacity 140ms ease-out, transform var(--dur-1) ease-out;
   padding: 0;
 }
 .ai-chat-send-btn:hover {
   opacity: 0.88;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .ai-chat-send-btn:active { transform: scale(0.9); transition-duration: 70ms; }
 .ai-chat-send-btn:disabled { opacity: 0.25; cursor: default; box-shadow: none; }
@@ -437,23 +439,21 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border: 1px solid transparent;
   border-radius: var(--radius-xs);
   color: color-mix(in srgb, var(--tertiary) 45%, transparent);
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: color 180ms ease-out, border-color 180ms ease-out, background 180ms ease-out;
+  transition: color 180ms ease-out, background 180ms ease-out;
   padding: 0;
 }
 .ai-chat-input-area:hover .ai-chat-detach-btn,
 .ai-input-box:focus-within .ai-chat-detach-btn {
   color: var(--tertiary);
-  border-color: var(--border);
 }
 .ai-chat-detach-btn:hover {
-  color: var(--secondary);
-  border-color: color-mix(in srgb, var(--tertiary) 70%, transparent);
-  background: color-mix(in srgb, var(--border) 25%, transparent);
+  color: var(--primary);
+  background: var(--control-face-hover);
 }
 .ai-chat-detach-btn:active { transform: scale(0.88); transition-duration: 70ms; }
 

@@ -170,8 +170,7 @@ export class TerminalWindow {
     const restart = document.createElement('button');
     restart.className = 'terminal-restart-btn';
     restart.textContent = 'Restart';
-    restart.style.cssText = 'margin-left:auto;padding:2px 10px;background:transparent;color:var(--accent);'
-      + 'border:1px dashed var(--border);border-radius:8px;font:inherit;cursor:pointer';
+    restart.style.cssText = 'margin-left:auto;padding:3px 10px;';
     restart.addEventListener('click', () => this.restart());
     banner.appendChild(restart);
 

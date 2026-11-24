@@ -62,6 +62,36 @@ describe('CanvasArea', () => {
     expect(state.zoom).toBe(1);
   });
 
+  it('wheel zoom eases toward the target instead of jumping in one frame', async () => {
+    const el = (canvas as any).el as HTMLElement;
+    const before = canvas.getSaveState().zoom;
+
+    el.dispatchEvent(new WheelEvent('wheel', { deltaY: -200, clientX: 900, clientY: 500, bubbles: true, cancelable: true }));
+    expect(canvas.getSaveState().zoom).toBe(before);
+
+    await new Promise((r) => requestAnimationFrame(r));
+    const mid = canvas.getSaveState().zoom;
+    expect(mid).toBeGreaterThan(before);
+    expect(mid).toBeLessThan(before * 1.2);
+
+    await new Promise((r) => setTimeout(r, 200));
+    expect(canvas.getSaveState().zoom).toBeCloseTo(before * 1.2, 2);
+  });
+
+  it('starting a canvas pan stops an in-flight wheel zoom', async () => {
+    const el = (canvas as any).el as HTMLElement;
+
+    el.dispatchEvent(new WheelEvent('wheel', { deltaY: -200, clientX: 900, clientY: 500, bubbles: true, cancelable: true }));
+    await new Promise((r) => requestAnimationFrame(r));
+    const mid = canvas.getSaveState().zoom;
+
+    el.dispatchEvent(new MouseEvent('mousedown', { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(canvas.getSaveState().zoom).toBe(mid);
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  });
+
   it('getSaveState returns correct structure', () => {
     const state = canvas.getSaveState();
     expect(state).toHaveProperty('windows');

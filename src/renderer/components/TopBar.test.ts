@@ -15,6 +15,7 @@ describe('TopBar', () => {
     document.body.innerHTML = '';
     callbacks = {
       onGridChange: vi.fn(),
+      onWatchBackendChange: vi.fn(),
       onThemeToggle: vi.fn(),
       onOpenWorkspace: vi.fn(),
       onNewTerminal: vi.fn(),
@@ -220,6 +221,26 @@ describe('TopBar', () => {
     const el = document.querySelector('[data-grid="none"]') as HTMLElement;
     el.click();
     expect(callbacks.onGridChange).toHaveBeenCalledWith('none');
+  });
+
+  it('view menu offers both file-watcher backends and marks the active one', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    const native = document.querySelector('[data-watch-backend="native"]') as HTMLElement;
+    const chokidar = document.querySelector('[data-watch-backend="chokidar"]') as HTMLElement;
+    expect(native.textContent).toContain('Native');
+    expect(chokidar.textContent).toContain('chokidar');
+    expect(native.textContent).toContain('✓');     // native is the default
+
+    bar.setWatchBackend('chokidar');
+    expect((document.querySelector('[data-watch-backend="chokidar"]') as HTMLElement).textContent).toContain('✓');
+    expect((document.querySelector('[data-watch-backend="native"]') as HTMLElement).textContent).not.toContain('✓');
+  });
+
+  it('clicking a file-watcher option calls onWatchBackendChange', () => {
+    const bar = new TopBar(makeTopBarEl(), callbacks);
+    (document.querySelector('[data-watch-backend="chokidar"]') as HTMLElement).click();
+    expect(callbacks.onWatchBackendChange).toHaveBeenCalledWith('chokidar');
+    expect(bar).toBeTruthy();
   });
 
   it('setGridStyle("grid") shows check mark on Grid item', () => {

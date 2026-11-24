@@ -154,7 +154,7 @@ export class AiDrawer {
         color: a.persona.color,
         state: a.state,
       })),
-      purgeFinished: () => this.purgeFinished(),
+      purgeFinished: () => { void this.purgeFinished(); },
     });
 
     // llm-loop's streamPlainText, wired after llm-loop exists (breaks the
@@ -471,17 +471,18 @@ export class AiDrawer {
     this.renderMessages();
   }
 
-  private purgeFinished(): void {
-    // Flush every finished verdict first — the purge deletes the transcripts.
-    for (const t of this.feed.all()) {
-      if (['done', 'error', 'killed'].includes(t.state) && !t.archived) {
-        void this.agentSessions.flush(t);
-      }
-    }
-    this.feed.purgeFinished();
-    if (this.renderCtrl.activeView !== 'chat') {
-      const t = this.feed.transcripts.get(this.renderCtrl.activeView);
-      if (!t) this.switchView('chat');
+  private async purgeFinished(): Promise<void> {
+    // Flush live finished verdicts before dropping them; replays are on disk.
+    const finished = this.feed.all().filter(t =>
+      ['done', 'error', 'killed'].includes(t.state) && !t.archived
+    );
+    await Promise.all(finished.map(t => this.agentSessions.flush(t)));
+    const purged = this.feed.purgeFinished();
+    getAgentExecutor().purgeFinished();
+    // Drop session links too, or a session reload rehydrates the replay tabs.
+    this.agentSessions.forgetAgents(purged);
+    if (this.renderCtrl.activeView !== 'chat' && !this.feed.transcripts.has(this.renderCtrl.activeView)) {
+      this.switchView('chat');
     }
   }
 
@@ -683,7 +684,7 @@ export class AiDrawer {
         return;
       }
       if ((e.target as HTMLElement).closest('.ai-pov-purge')) {
-        this.purgeFinished();
+        void this.purgeFinished();
       }
     }, src));
 

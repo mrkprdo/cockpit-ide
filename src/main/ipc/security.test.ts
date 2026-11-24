@@ -41,6 +41,32 @@ function reset(): void {
   invalidateWorkspaceRealpath();
 }
 
+describe('resolvePathInsideWorkspace — a workspace that IS a filesystem root', () => {
+  const ROOT = path.parse(process.cwd()).root;   // "D:\" on Windows, "/" elsewhere
+
+  beforeEach(() => {
+    fsState.realpathCalls.length = 0;
+    fsState.exists.clear();
+    fsState.realpaths.clear();
+    fsState.failRealpath.clear();
+    fsState.exists.add(ROOT);
+    state.defaultWorkspacePath = ROOT;
+    invalidateWorkspaceRealpath();
+  });
+
+  it('accepts a child of the root (regression: d:\\\\ matched no child)', () => {
+    const child = path.join(ROOT, 'project');
+    expect(resolvePathInsideWorkspace(child)).toBe(child);
+    const deep = path.join(ROOT, 'project', 'src', 'a.ts');
+    expect(resolvePathInsideWorkspace(deep)).toBe(deep);
+  });
+
+  it('still rejects a path on another volume', () => {
+    if (process.platform !== 'win32') return;   // "/" contains everything on POSIX
+    expect(resolvePathInsideWorkspace('C:\\Windows')).toBeNull();
+  });
+});
+
 describe('resolvePathInsideWorkspace — canonical workspace memo', () => {
   beforeEach(reset);
 

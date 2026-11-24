@@ -90,9 +90,10 @@
 .git-commit-btn,
 .git-push-btn {
   flex: 1;
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-xs);
-  background: transparent;
+  background: var(--control-face);
+  box-shadow: var(--control-sheen);
   color: var(--primary);
   font-family: var(--font);
   font-size: var(--text-xs);
@@ -103,25 +104,43 @@
 }
 .git-commit-btn:hover:not(:disabled),
 .git-push-btn:hover {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
+  background: var(--control-face-hover);
+  color: var(--primary);
+  border-color: var(--control-border-hover);
 }
-.git-commit-btn:active:not(:disabled) {
-  background: color-mix(in oklab, var(--accent) 78%, var(--bg));
+.git-commit-btn:active:not(:disabled),
+.git-push-btn:active {
+  background: var(--control-face-active);
 }
 .git-commit-btn:disabled {
   opacity: 0.35;
   cursor: default;
 }
+/* Commit is the primary action; push stays a tonal secondary. */
+.git-commit-btn {
+  background: var(--primary);
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--bg);
+}
+.git-commit-btn:hover:not(:disabled) {
+  background: var(--primary);
+  border-color: transparent;
+  color: var(--bg);
+  opacity: 0.88;
+}
+.git-commit-btn:active:not(:disabled) {
+  background: var(--primary);
+  color: var(--bg);
+  opacity: 0.72;
+}
 .git-push-btn {
   color: var(--green);
-  border-color: var(--green);
 }
 .git-push-btn:hover {
-  background: var(--green);
-  color: var(--bg);
-  border-color: var(--green);
+  background: var(--control-face-hover);
+  color: var(--green);
+  border-color: var(--control-border-hover);
 }
 .git-changes-item {
   display: flex;
@@ -415,22 +434,23 @@
   padding: 0;
   background: transparent;
   color: var(--tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-2xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
   cursor: pointer;
   transition: background var(--dur-1), color var(--dur-1);
 }
-.git-diff-btn:hover { background: var(--panel); color: var(--primary); }
+.git-diff-btn:hover { background: var(--control-face-hover); color: var(--primary); }
+.git-diff-btn:active { background: var(--control-face-active); }
 .git-diff-btn svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
 .git-diff-dropdown {
   position: absolute;
   top: 100%;
   right: 4px;
   min-width: 170px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-s);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-menu);
   z-index: 10;
   overflow: hidden;
 }

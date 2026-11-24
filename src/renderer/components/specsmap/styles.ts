@@ -49,6 +49,10 @@ export const SM_STYLES = `
     color: var(--tertiary); margin-bottom: 8px;
   }
   .sm-panel-row { font-size: var(--text-xs); color: var(--primary); line-height: 1.5; }
+  .sm-panel-row[data-open-file], .sm-panel-row[data-goto] {
+    color: var(--accent); cursor: pointer; text-underline-offset: 2px;
+  }
+  .sm-panel-row[data-open-file]:hover, .sm-panel-row[data-goto]:hover { text-decoration: underline; }
   .sm-panel-mono { font-size: var(--text-xs); color: var(--secondary); word-break: break-all; }
   .sm-dep-item {
     display: flex; gap: 6px; align-items: baseline;
@@ -73,7 +77,7 @@ export const SM_STYLES = `
     .sm-panel-el { transition: none; }
   }
   .sm-header-btn { border:none; outline:none; background:none; border-radius:var(--radius-s); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:5px 7px; color:var(--tertiary); line-height:0; transition:color 0.15s,background 0.15s; }
-  .sm-header-btn:hover { color:var(--accent); background:var(--surface); }
+  .sm-header-btn:hover { color:var(--primary); background:var(--control-face-hover); }
   .sm-header-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .sm-header-btn svg, .sm-search-bar svg { width: var(--icon-sm); height: var(--icon-sm); }
   .sm-t-2xs { font-size: var(--text-2xs); }
@@ -85,9 +89,10 @@ export const SM_STYLES = `
   .sm-t-xl { font-size: var(--text-xl); }
   .sm-empty-btn {
     pointer-events: auto;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    background: var(--control-face);
+    border: 1px solid var(--control-border);
+    border-radius: var(--radius-xs);
+    box-shadow: var(--control-sheen);
     padding: 10px 24px;
     font-family: "Space Mono", "Courier New", monospace;
     font-size: var(--text-sm);
@@ -95,12 +100,12 @@ export const SM_STYLES = `
     letter-spacing: 0.8px;
     color: var(--primary);
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
   }
   .sm-empty-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    box-shadow: 0 0 12px color-mix(in oklab, var(--accent) 20%, transparent);
+    background: var(--control-face-hover);
+    border-color: var(--control-border-hover);
+    color: var(--primary);
   }
   .sm-empty-btn:disabled {
     opacity: 0.45;
@@ -125,6 +130,50 @@ export const SM_STYLES = `
   .sm-node-ui .sm-port {
     display: none;
   }
+  .sm-panel-close {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-xs);
+    color: var(--tertiary);
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 4px;
+    font-family: inherit;
+    transition: background 0.12s, color 0.12s;
+  }
+  .sm-panel-close:hover { background: var(--control-face-hover); color: var(--primary); }
+  .sm-cycle-level {
+    background: var(--control-face);
+    border: 1px solid var(--control-border);
+    border-radius: var(--radius-xs);
+    color: var(--tertiary);
+    padding: 2px 10px;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--control-sheen);
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .sm-cycle-level:hover { background: var(--control-face-hover); border-color: var(--control-border-hover); color: var(--primary); }
+  .sm-cycle-level.is-selected {
+    background: var(--control-face-active);
+    border-color: var(--control-border-hover);
+    color: var(--primary);
+  }
+  .sm-reconcile-btn {
+    background: var(--control-face);
+    border: 1px solid var(--control-border);
+    border-radius: var(--radius-xs);
+    color: var(--secondary);
+    padding: 8px 10px;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    flex: 1;
+    box-shadow: var(--control-sheen);
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .sm-reconcile-btn:hover { background: var(--control-face-hover); border-color: var(--control-border-hover); color: var(--primary); }
   .sm-search-bar { box-sizing: border-box; }
   .sm-search-bar input::placeholder { color: var(--tertiary); opacity: 0.5; }
   .sm-search-bar input:focus { border-color: var(--accent); }

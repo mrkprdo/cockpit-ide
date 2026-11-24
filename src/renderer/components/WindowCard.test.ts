@@ -381,6 +381,24 @@ describe('WindowCard — drag interaction', () => {
     expect(card.el.style.transform).toBe('');
   });
 
+  it('tracks the pointer at full resolution during drag, then snaps on release', async () => {
+    const card = createCard();
+    const header = card.el.querySelector('.card-header')!;
+
+    header.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 150, clientY: 250 }));
+    // 20px right is not a multiple of the 28px world grid.
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 170, clientY: 250, bubbles: true }));
+    await new Promise((r) => requestAnimationFrame(r));
+
+    expect(card.el.style.transform).toBe('translate3d(20px, 0px, 0)');
+
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    // Raw x = 120 snaps to the nearest grid line (112); untouched y stays put.
+    expect(card.el.style.left).toBe('112px');
+    expect(card.el.style.top).toBe('200px');
+    expect(card.el.style.transform).toBe('');
+  });
+
   it('onDragStart called on mousedown and onDragMove during mouse move', async () => {
     const onDragStart = vi.fn();
     const onDragMove = vi.fn();

@@ -2,6 +2,7 @@
 // (refactor.md §A.4 tool-definitions split). Plain zod schemas and data only.
 
 import { z } from 'zod/v3';
+import { IGNORED_DIRS } from '../../../shared/ignore-dirs';
 
 export const KEY_SEQUENCES: Record<string, string> = {
   Tab: '\x09', Enter: '\r', Escape: '\x1b', Backspace: '\x7f',
@@ -26,7 +27,7 @@ export const TEXT_EXT = new Set([
   '.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.html', '.css', '.txt',
   '.yaml', '.yml', '.toml', '.py', '.go', '.rs', '.sh', '.env', '.gitignore',
 ]);
-export const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'out', 'build', '.next', 'coverage']);
+export const SKIP_DIRS = IGNORED_DIRS;
 
 export const PathArg = z.object({ path: z.string().describe('Absolute path') });
 export const TitleArg = z.object({ title: z.string().describe('Card title') });

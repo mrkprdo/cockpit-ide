@@ -26,13 +26,18 @@
   min-height: 24px;
   padding: var(--space-1) var(--space-2);
   cursor: pointer;
-  border-radius: var(--radius-2xs);
-  transition: background var(--dur-1);
+  border-radius: var(--radius-xs);
+  transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
   font-size: var(--text-xs);
   font-family: var(--font);
-  color: var(--tertiary);
-  border: 1px solid var(--border);
-  background: transparent;
+  color: var(--secondary);
+  border: 1px solid var(--control-border);
+  background: var(--control-face);
+  box-shadow: var(--control-sheen);
 }
-.status-btn:hover { background: var(--panel); color: var(--primary); }
-.status-btn:active { background: var(--border); }
+.status-btn:hover {
+  background: var(--control-face-hover);
+  border-color: var(--control-border-hover);
+  color: var(--primary);
+}
+.status-btn:active { background: var(--control-face-active); }

@@ -57,6 +57,60 @@
   --elevation-2: rgba(0,0,0,0.30) 0 6px 20px, rgba(0,0,0,0.20) 0 3px 10px;
   --elevation-3: rgba(0,0,0,0.45) 0 16px 48px, rgba(0,0,0,0.25) 0 4px 12px;
 
+  /* === Solid surfaces (cards + floating panels) ===
+     Depth is carried by opaque tonal layers and stacked shadows, not by
+     perimeters. The dark face stays on --surface: secondary/tertiary are tuned
+     to pass AA there, and a lighter face would pull both under 4.5:1. The title
+     band darkens toward --bg instead, raising light-text contrast and reading
+     as a machined strip; light mode shades it ink-ward. */
+  --card-face: var(--surface);
+  --card-face-active: var(--surface);
+  --card-header-face: color-mix(in oklab, var(--surface) 82%, var(--bg));
+  --card-header-face-active: color-mix(in oklab, var(--surface) 90%, var(--bg));
+  --card-sheen: rgba(255,255,255,0.05);
+  --shade-header: inset 0 1px 0 var(--card-sheen), 0 6px 10px -8px rgba(0,0,0,0.65);
+
+  /* === Controls (subtle buttons on the card material) ===
+     One tonal recipe for secondary buttons and icon buttons; primary actions
+     use the ink fill. No heavy accent borders or glows. */
+  --control-face: color-mix(in oklab, var(--panel) 68%, var(--card-face));
+  --control-face-hover: color-mix(in oklab, var(--panel) 88%, var(--primary));
+  --control-face-active: color-mix(in oklab, var(--panel) 80%, var(--primary));
+  --control-border: color-mix(in oklab, var(--border) 78%, transparent);
+  --control-border-hover: color-mix(in oklab, var(--border-strong) 70%, var(--border));
+  --control-sheen: inset 0 1px 0 var(--card-sheen);
+  --control-danger-tint: color-mix(in oklab, var(--red) 14%, var(--control-face));
+
+  --shadow-card-rest:
+    inset 0 1px 0 var(--card-sheen),
+    0 1px 2px rgba(0,0,0,0.35),
+    0 4px 10px -2px rgba(0,0,0,0.30),
+    0 16px 32px -12px rgba(0,0,0,0.42);
+  --shadow-card-hover:
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    0 2px 4px rgba(0,0,0,0.36),
+    0 10px 22px -4px rgba(0,0,0,0.34),
+    0 28px 48px -18px rgba(0,0,0,0.50);
+  --shadow-card-active:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 2px 5px rgba(0,0,0,0.38),
+    0 14px 28px -4px rgba(0,0,0,0.36),
+    0 40px 70px -24px rgba(0,0,0,0.55);
+  /* Gesture-safe shadow: one tight contact layer, cheap to move each frame. */
+  --shadow-card-drag:
+    0 1px 2px rgba(0,0,0,0.40),
+    0 4px 8px -2px rgba(0,0,0,0.30);
+  --shadow-menu:
+    inset 0 1px 0 var(--card-sheen),
+    0 1px 2px rgba(0,0,0,0.35),
+    0 8px 20px -6px rgba(0,0,0,0.38),
+    0 24px 44px -20px rgba(0,0,0,0.50);
+  --shadow-float:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 2px 4px rgba(0,0,0,0.32),
+    0 12px 28px -6px rgba(0,0,0,0.34),
+    0 40px 80px -24px rgba(0,0,0,0.55);
+
   /* === Type Scale (rem; base 16px) === */
   --text-2xs:  0.5625rem;  /*  9px — eyebrow labels, spec keys   */
   --text-xs:   0.6875rem;  /* 11px — UI chrome: menus, tabs, status */
@@ -117,6 +171,43 @@
 html[data-theme-mode="light"] {
   color-scheme: light;
   --border-strong: #7D7D7D;
+
+  /* Light cards sit above the canvas, so the face leans white and the shadow
+     does the lifting. Ink-ward header shading becomes a faint grey band. */
+  --card-face: color-mix(in oklab, var(--surface) 25%, white);
+  --card-face-active: color-mix(in oklab, var(--card-face) 55%, white);
+  --card-header-face: color-mix(in oklab, var(--card-face) 92%, var(--primary));
+  --card-header-face-active: color-mix(in oklab, var(--card-face) 86%, var(--primary));
+  --card-sheen: rgba(255,255,255,0.9);
+  --shade-header: inset 0 1px 0 var(--card-sheen), 0 6px 10px -8px rgba(20,24,32,0.30);
+  --shadow-card-rest:
+    inset 0 1px 0 var(--card-sheen),
+    0 1px 2px rgba(20,24,32,0.08),
+    0 4px 10px -2px rgba(20,24,32,0.10),
+    0 16px 32px -14px rgba(20,24,32,0.20);
+  --shadow-card-hover:
+    inset 0 1px 0 var(--card-sheen),
+    0 2px 4px rgba(20,24,32,0.10),
+    0 10px 22px -4px rgba(20,24,32,0.14),
+    0 28px 48px -18px rgba(20,24,32,0.24);
+  --shadow-card-active:
+    inset 0 1px 0 var(--card-sheen),
+    0 2px 5px rgba(20,24,32,0.11),
+    0 14px 28px -4px rgba(20,24,32,0.16),
+    0 40px 70px -24px rgba(20,24,32,0.28);
+  --shadow-card-drag:
+    0 1px 2px rgba(20,24,32,0.12),
+    0 4px 8px -2px rgba(20,24,32,0.12);
+  --shadow-menu:
+    inset 0 1px 0 var(--card-sheen),
+    0 1px 2px rgba(20,24,32,0.08),
+    0 8px 20px -6px rgba(20,24,32,0.14),
+    0 24px 44px -20px rgba(20,24,32,0.22);
+  --shadow-float:
+    inset 0 1px 0 var(--card-sheen),
+    0 2px 4px rgba(20,24,32,0.08),
+    0 12px 28px -6px rgba(20,24,32,0.12),
+    0 40px 80px -24px rgba(20,24,32,0.24);
 }
 
 *, *::before, *::after {
@@ -173,14 +264,12 @@ html, body {
 }
 
 /* ===== Text Selection ===== */
-/* Content areas opt back into selection while the rest of the chrome stays non-selectable. */
+/* Content areas opt back into selection while the rest of the chrome stays non-selectable.
+   The AI drawer is deliberately absent: its conversation cards are non-selectable and
+   carry explicit copy buttons (see ai-drawer/render.ts), so dragging over the panel
+   never leaves a stray text highlight. Real inputs/editors still opt in below. */
 .md-preview,
 .card-content-text,
-.ai-drawer-body,
-.ai-chat-msg-bubble,
-.ai-chat-code,
-.ai-tool-result,
-.ai-thinking-body,
 .git-diff,
 .git-diff-pre,
 .git-sbs-content,

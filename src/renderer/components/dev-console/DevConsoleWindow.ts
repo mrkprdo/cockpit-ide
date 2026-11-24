@@ -29,19 +29,24 @@ const STYLES = `
   border:1px dashed var(--border-strong); border-radius:var(--radius-xs); padding:2px var(--space-1); font-family:inherit; font-size:var(--text-xs); }
 .dev-console-filter-level { background:var(--bg); color:var(--tertiary);
   border:1px solid var(--border-strong); border-radius:var(--radius-xs); font-family:inherit; font-size:var(--text-xs); padding:1px var(--space-1); }
-.dev-console-filter-toggle { background:none; border:1px solid var(--border); border-radius:var(--radius-xs);
-  font-family:inherit; font-size:var(--text-xs); color:var(--tertiary); cursor:pointer; padding:2px var(--space-2); white-space:nowrap; }
+.dev-console-filter-toggle { background:var(--control-face); border:1px solid var(--control-border); border-radius:var(--radius-xs);
+  font-family:inherit; font-size:var(--text-xs); color:var(--secondary); cursor:pointer; padding:2px var(--space-2); white-space:nowrap;
+  box-shadow:var(--control-sheen); transition:background var(--dur-1), color var(--dur-1), border-color var(--dur-1); }
+.dev-console-filter-toggle:hover { background:var(--control-face-hover); border-color:var(--control-border-hover); color:var(--primary); }
 .dev-console-filter-panel { position:absolute; top:100%; right:var(--space-2); z-index:20; min-width:140px; margin-top:2px;
-  background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-s); padding:var(--space-1);
-  display:flex; flex-direction:column; gap:2px; box-shadow:var(--elevation-2); }
+  background:var(--card-face); border:none; border-radius:var(--radius-s); padding:var(--space-1);
+  display:flex; flex-direction:column; gap:2px; box-shadow:var(--shadow-menu); }
 .dev-console-filter-option { display:flex; align-items:center; gap:var(--space-1); padding:2px var(--space-1); cursor:pointer;
   font-size:var(--text-xs); color:var(--secondary); }
 .dev-console-filter-option:hover { background:var(--panel); }
 .dev-console-filter-option input { accent-color:var(--accent); }
-.dev-console-filter-clear { background:none; border:1px solid var(--border); border-radius:var(--radius-xs);
-  font-family:inherit; font-size:var(--text-xs); color:var(--tertiary); cursor:pointer; padding:1px var(--space-1); }
-.dev-console-specs-run { background:var(--accent); color:var(--onAccent); border:none; border-radius:var(--radius-xs);
+.dev-console-filter-clear { background:var(--control-face); border:1px solid var(--control-border); border-radius:var(--radius-xs);
+  font-family:inherit; font-size:var(--text-xs); color:var(--secondary); cursor:pointer; padding:1px var(--space-1);
+  box-shadow:var(--control-sheen); }
+.dev-console-filter-clear:hover { background:var(--control-face-hover); border-color:var(--control-border-hover); color:var(--primary); }
+.dev-console-specs-run { background:var(--primary); color:var(--bg); border:1px solid transparent; border-radius:var(--radius-xs);
   font-family:inherit; font-size:var(--text-xs); font-weight:700; padding:2px var(--space-2); cursor:pointer; white-space:nowrap; }
+.dev-console-specs-run:hover { opacity:0.86; }
 .dev-console-content { flex:1; overflow:auto; padding:var(--space-1) var(--space-2); }
 .dev-console-line { display:grid; grid-template-columns: 88px 52px 108px minmax(110px, 240px) 120px minmax(0,1fr);
   gap:var(--space-1); padding:1px 0; border-bottom:1px dotted var(--border); align-items:start; }

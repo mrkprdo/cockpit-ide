@@ -9,6 +9,37 @@ function makeContainer(): HTMLElement {
   return el;
 }
 
+/** Monaco never loads in jsdom — stub the global so ensureReady resolves. */
+function stubMonaco(): void {
+  const editorMock = {
+    getValue: vi.fn(() => ''),
+    setValue: vi.fn(),
+    getPosition: vi.fn(() => null),
+    getScrollTop: vi.fn(() => 0),
+    setPosition: vi.fn(),
+    setScrollTop: vi.fn(),
+    getSelection: vi.fn(() => null),
+    getModel: vi.fn(() => ({})),
+    addAction: vi.fn(),
+    onDidChangeModelContent: vi.fn(() => ({ dispose: vi.fn() })),
+    onDidChangeCursorSelection: vi.fn(() => ({ dispose: vi.fn() })),
+    focus: vi.fn(),
+    executeEdits: vi.fn(),
+    revealLineInCenter: vi.fn(),
+    revealPositionInCenter: vi.fn(),
+  };
+  (window as any).monaco = {
+    editor: {
+      create: vi.fn(() => editorMock),
+      setModelLanguage: vi.fn(),
+      defineTheme: vi.fn(),
+      setTheme: vi.fn(),
+    },
+    KeyMod: { CtrlCmd: 0 },
+    KeyCode: { KeyS: 0 },
+  };
+}
+
 describe('MonacoEditorWindow', () => {
   let container: HTMLElement;
 
@@ -505,6 +536,43 @@ describe('MonacoEditorWindow — getActiveOriginalPath', () => {
   });
 });
 
+describe('MonacoEditorWindow — oversized files', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.fs.readFile as any).mockClear();
+    stubMonaco();
+  });
+
+  afterEach(() => {
+    (mockElectronAPI.fs.stat as any).mockResolvedValue({ size: 0, isDirectory: false });
+  });
+
+  it('refuses to open a file past the text limit — no tab, no read', async () => {
+    (mockElectronAPI.fs.stat as any).mockResolvedValue({ size: 200 * 1024 * 1024, isDirectory: false });
+    const editor = new MonacoEditorWindow(container);
+
+    await editor.openFile('/mock/workspace/disk-image.iso');
+
+    expect(mockElectronAPI.fs.readFile).not.toHaveBeenCalled();
+    expect(editor.tabs).toHaveLength(0);
+    expect(document.body.textContent).toContain('too large to open as text');
+  });
+
+  it('opens a normal file once its size is known to be fine', async () => {
+    (mockElectronAPI.fs.stat as any).mockResolvedValue({ size: 4096, isDirectory: false });
+    const editor = new MonacoEditorWindow(container);
+
+    await editor.openFile('/mock/workspace/src/a.ts');
+
+    expect(mockElectronAPI.fs.readFile).toHaveBeenCalledWith('/mock/workspace/src/a.ts');
+    expect(editor.tabs).toHaveLength(1);
+  });
+});
+
 describe('MonacoEditorWindow — markdown preview tabs', () => {
   let container: HTMLElement;
 
@@ -515,33 +583,7 @@ describe('MonacoEditorWindow — markdown preview tabs', () => {
     (mockElectronAPI.fs.readFile as any).mockResolvedValue('# Title\n\nSome *text*.');
     // Monaco never loads in jsdom — stub the global so initMonaco resolves
     // synchronously (this.editor = a mock) instead of hanging on loadScript.
-    const editorMock = {
-      getValue: vi.fn(() => ''),
-      setValue: vi.fn(),
-      getPosition: vi.fn(() => null),
-      getScrollTop: vi.fn(() => 0),
-      setPosition: vi.fn(),
-      setScrollTop: vi.fn(),
-      getSelection: vi.fn(() => null),
-      getModel: vi.fn(() => ({})),
-      addAction: vi.fn(),
-      onDidChangeModelContent: vi.fn(() => ({ dispose: vi.fn() })),
-      onDidChangeCursorSelection: vi.fn(() => ({ dispose: vi.fn() })),
-      focus: vi.fn(),
-      executeEdits: vi.fn(),
-      revealLineInCenter: vi.fn(),
-      revealPositionInCenter: vi.fn(),
-    };
-    (window as any).monaco = {
-      editor: {
-        create: vi.fn(() => editorMock),
-        setModelLanguage: vi.fn(),
-        defineTheme: vi.fn(),
-        setTheme: vi.fn(),
-      },
-      KeyMod: { CtrlCmd: 0 },
-      KeyCode: { KeyS: 0 },
-    };
+    stubMonaco();
   });
 
   it('openMarkdown adds a markdown-kind tab to the same tab bar', async () => {
@@ -592,6 +634,131 @@ describe('MonacoEditorWindow — markdown preview tabs', () => {
     await editor2.restoreState(state!);
     expect(editor2.tabs.find(t => t.originalPath === '/test/readme.md')?.kind).toBe('markdown');
     expect((editor2 as any).activeTab).toBe('/test/readme.md');
+  });
+});
+
+describe('MonacoEditorWindow — media tabs', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = makeContainer();
+    (mockElectronAPI.fs.onChanged as any).mockReturnValue(vi.fn());
+    (mockElectronAPI.fs.readFile as any).mockClear();
+    (mockElectronAPI.fs.writeFile as any).mockClear();
+    (mockElectronAPI.fs.stat as any).mockResolvedValue({ size: 4096, isDirectory: false });
+    // jsdom logs "not implemented" for pause(); the Viewer calls it on hide.
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  });
+
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('opens an image without booting Monaco or reading it as text', async () => {
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/photo.png');
+
+    expect(editor.tabs).toHaveLength(1);
+    expect(editor.tabs[0].kind).toBe('image');
+    expect((editor as any).editor).toBeNull();
+    expect(mockElectronAPI.fs.readFile).not.toHaveBeenCalled();
+
+    const img = container.querySelector('img.media-preview-img') as HTMLImageElement;
+    expect(img).toBeTruthy();
+    expect(img.src).toContain(encodeURIComponent('/ws/photo.png'));
+    expect((editor as any).editorEl.style.display).toBe('none');
+  });
+
+  it('opens a video in a player and a PDF in the built-in viewer', async () => {
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/clip.mp4');
+    expect(editor.tabs[0].kind).toBe('video');
+    expect(container.querySelector('video.media-preview-video')).toBeTruthy();
+
+    await editor.openFile('/ws/doc.pdf');
+    expect(editor.tabs[1].kind).toBe('pdf');
+    expect(container.querySelector('iframe.media-preview-frame')).toBeTruthy();
+    expect(container.querySelector('video.media-preview-video')).toBeNull();
+  });
+
+  it('routes undecodable formats to the external-app message, not Monaco', async () => {
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/scan.tiff');
+
+    expect(editor.tabs[0].kind).toBe('unsupported');
+    expect((editor as any).editor).toBeNull();
+    expect(container.querySelector('.media-preview-message')?.textContent).toContain('cannot be previewed');
+  });
+
+  it('switching back to a source tab restores the Monaco surface', async () => {
+    stubMonaco();
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/photo.png');
+    await editor.openFile('/ws/a.ts');
+
+    expect((editor as any).editorEl.style.display).toBe('');
+    expect((container.querySelector('.media-preview-area') as HTMLElement).style.display).toBe('none');
+
+    editor.switchTab('/ws/photo.png');
+    expect((editor as any).editorEl.style.display).toBe('none');
+    expect((container.querySelector('.media-preview-area') as HTMLElement).style.display).toBe('block');
+  });
+
+  it('agent state reports the media path with no selection', async () => {
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/photo.png');
+    const state = editor.getAgentEditorState();
+    expect(state.activeFile).toBe('/ws/photo.png');
+    expect(state.selectedText).toBe('');
+    expect(state.openFiles).toEqual(['/ws/photo.png']);
+  });
+
+  it('getState/restoreState round-trip keeps the media viewer kind', async () => {
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/photo.png');
+    const state = editor.getState();
+    expect(state!.openFiles).toEqual(['/ws/photo.png']);
+    expect(state!.markdownFiles).toEqual([]);
+
+    const editor2 = new MonacoEditorWindow(makeContainer());
+    await editor2.restoreState(state!);
+    expect(editor2.tabs[0].kind).toBe('image');
+    expect((editor2 as any).activeTab).toBe('/ws/photo.png');
+  });
+
+  it('closing the active media tab unloads the viewer', async () => {
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/photo.png');
+    await (editor as any).closeTab('/ws/photo.png');
+
+    expect(editor.tabs).toHaveLength(0);
+    expect(container.querySelector('.media-preview-media')).toBeNull();
+    expect((container.querySelector('.media-preview-area') as HTMLElement).style.display).toBe('none');
+  });
+
+  it('closes a media tab whose file disappeared from disk', async () => {
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/photo.png');
+    (mockElectronAPI.fs.stat as any).mockResolvedValue(null);
+
+    await editor.reloadIfOpen('/ws/photo.png');
+    expect(editor.tabs).toHaveLength(0);
+  });
+
+  it('refreshes the active media tab when the file changes', async () => {
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/photo.png');
+    const refresh = vi.spyOn((editor as any).mediaViewer, 'refresh');
+
+    await editor.reloadIfOpen('/ws/photo.png');
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(editor.tabs).toHaveLength(1);
+  });
+
+  it('saveCurrentFile ignores media tabs', async () => {
+    const editor = new MonacoEditorWindow(container);
+    await editor.openFile('/ws/photo.png');
+    await expect(editor.saveCurrentFile()).resolves.toBe(false);
+    expect(mockElectronAPI.fs.writeFile).not.toHaveBeenCalled();
   });
 });
 

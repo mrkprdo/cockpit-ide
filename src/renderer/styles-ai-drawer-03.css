@@ -12,12 +12,10 @@
   z-index: var(--z-ai-float);
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--panel) 94%, transparent);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-md);
-  box-shadow: var(--elevation-3);
+  box-shadow: var(--shadow-float);
   overflow: hidden;
   animation: ai-float-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
   transition: left 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease;
@@ -41,17 +39,17 @@
   align-items: center;
   justify-content: center;
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-xs);
   color: var(--tertiary);
   font-size: var(--text-sm);
   font-family: var(--font);
   cursor: pointer;
-  transition: border-color 120ms ease-out, color 120ms ease-out;
+  transition: background 120ms ease-out, color 120ms ease-out;
   padding: 0;
 }
-.ai-float-dock-btn:hover { border-color: var(--tertiary); color: var(--secondary); }
-.ai-float-dock-btn:active { transform: scale(0.9); transition-duration: 70ms; }
+.ai-float-dock-btn:hover { background: var(--control-face-hover); color: var(--primary); }
+.ai-float-dock-btn:active { background: var(--control-face-active); transform: scale(0.9); transition-duration: 70ms; }
 
 .ai-float-input .ai-chat-input-area {
   border-top: none;
@@ -79,7 +77,7 @@
   font-size: var(--text-xs);
   font-family: var(--font);
   line-height: var(--lh-loose);
-  border-top: 1px solid var(--border);
+  background: color-mix(in oklab, var(--card-face) 90%, var(--bg));
   color: var(--secondary);
 }
 .ai-float-preview-body {
@@ -122,8 +120,7 @@
 .ai-float-preview.is-done {
   display: block;
   color: var(--primary);
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card-face));
   white-space: normal;
   word-break: break-word;
 }
@@ -141,10 +138,10 @@
   bottom: calc(100% + 8px);
   display: none;
   flex-direction: column;
-  background: var(--panel);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius);
-  box-shadow: var(--elevation-2);
+  box-shadow: var(--shadow-float);
   z-index: 20;
   max-height: 180px;
   overflow: hidden;
@@ -161,7 +158,7 @@
   letter-spacing: 0.12em;
   color: var(--tertiary);
   text-transform: uppercase;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: var(--card-header-face);
   flex-shrink: 0;
 }
 .ai-slash-list {
@@ -223,9 +220,8 @@
   pointer-events: auto;
 }
 .ai-settings-content {
-  background: color-mix(in srgb, var(--panel) 96%, transparent);
-  backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-md);
   padding: var(--space-5);
   width: calc(100% - var(--space-7));
@@ -233,7 +229,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  box-shadow: var(--elevation-3);
+  box-shadow: var(--shadow-float);
   animation: modal-in var(--dur-2) var(--ease-out);
 }
 .ai-settings-header {
@@ -254,13 +250,14 @@
   justify-content: center;
   background: none;
   border: none;
+  border-radius: var(--radius-xs);
   color: var(--tertiary);
   font-size: var(--text-xl);
   cursor: pointer;
   padding: 0;
-  transition: color var(--dur-1) ease;
+  transition: color var(--dur-1) ease, background var(--dur-1) ease;
 }
-.ai-settings-close:hover { color: var(--primary); }
+.ai-settings-close:hover { color: var(--primary); background: var(--control-face-hover); }
 .ai-settings-label {
   display: flex;
   flex-direction: column;
@@ -307,10 +304,10 @@
   background: var(--panel);
 }
 .ai-settings-save {
-  background: var(--accent);
-  color: var(--onAccent);
-  border: none;
-  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--bg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
   font-family: var(--font);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -331,10 +328,11 @@
 .ai-settings-actions .ai-settings-save { flex: 1; }
 .ai-settings-test {
   flex: 1;
-  background: var(--panel);
-  color: var(--primary);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
+  background: var(--control-face);
+  color: var(--secondary);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-xs);
+  box-shadow: var(--control-sheen);
   font-family: var(--font);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -342,7 +340,11 @@
   cursor: pointer;
   text-transform: uppercase;
 }
-.ai-settings-test:hover { border-color: var(--accent); color: var(--accent); }
+.ai-settings-test:hover {
+  background: var(--control-face-hover);
+  border-color: var(--control-border-hover);
+  color: var(--primary);
+}
 .ai-settings-result {
   font-size: var(--text-xs);
   line-height: var(--lh-ui);
@@ -378,22 +380,21 @@
   align-items: center;
   justify-content: center;
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-xs);
   color: var(--tertiary);
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: border-color 120ms ease-out, color 120ms ease-out;
+  transition: background 120ms ease-out, color 120ms ease-out;
   padding: 0;
 }
-.ai-sessions-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+.ai-sessions-btn:hover { background: var(--control-face-hover); color: var(--accent2); }
+.ai-sessions-btn:active { background: var(--control-face-active); }
 
 .ai-sessions-panel {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  background: var(--card-face);
   display: flex;
   flex-direction: column;
   z-index: 10;
@@ -412,9 +413,10 @@
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-bottom: none;
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--surface) 45%, transparent);
+  background: var(--card-header-face);
+  box-shadow: var(--shade-header);
 }
 .ai-sessions-title {
   flex: 1;
@@ -429,14 +431,14 @@
   font-family: var(--font);
   font-size: var(--text-xs);
   font-weight: 700;
-  /* letter-spacing: 0.06em; */
   color: var(--accent2);
-  background: color-mix(in srgb, var(--accent2) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent2) 45%, transparent);
+  background: var(--control-face);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-xs);
+  box-shadow: var(--control-sheen);
   padding: 3px 8px;
   cursor: pointer;
-  transition: background 120ms ease-out, border-color 120ms ease-out;
+  transition: background 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out;
 }
 .ai-new-session-btn {
   height: var(--icon-md);
@@ -446,8 +448,9 @@
   padding-bottom: 0;
 }
 .ai-new-session-btn:hover {
-  background: color-mix(in srgb, var(--accent2) 18%, transparent);
-  border-color: color-mix(in srgb, var(--accent2) 70%, transparent);
+  background: var(--control-face-hover);
+  border-color: var(--control-border-hover);
+  color: var(--accent2);
 }
 .ai-sessions-close {
   width: var(--icon-md);
@@ -457,14 +460,15 @@
   justify-content: center;
   background: none;
   border: none;
+  border-radius: var(--radius-xs);
   color: var(--tertiary);
   font-size: var(--text-xl);
   cursor: pointer;
   padding: 0;
-  transition: color var(--dur-1) ease;
+  transition: color var(--dur-1) ease, background var(--dur-1) ease;
   flex-shrink: 0;
 }
-.ai-sessions-close:hover { color: var(--primary); }
+.ai-sessions-close:hover { color: var(--primary); background: var(--control-face-hover); }
 
 .ai-sessions-list {
   flex: 1;
@@ -491,11 +495,10 @@
   cursor: pointer;
   transition: background 120ms ease-out;
 }
-.ai-session-item:hover { background: color-mix(in srgb, var(--accent2) 6%, transparent); }
+.ai-session-item:hover { background: var(--control-face-hover); }
 .ai-session-item.is-active {
-  background: color-mix(in srgb, var(--accent2) 10%, transparent);
-  outline: 1px solid color-mix(in srgb, var(--accent2) 35%, transparent);
-  outline-offset: -1px;
+  background: var(--control-face-active);
+  outline: none;
 }
 .ai-session-info {
   flex: 1;
@@ -528,13 +531,14 @@
   justify-content: center;
   background: none;
   border: none;
+  border-radius: var(--radius-xs);
   color: var(--tertiary);
   font-size: var(--text-md);
   cursor: pointer;
   padding: 0;
   opacity: 0;
-  transition: opacity var(--dur-1) ease, color var(--dur-1) ease;
+  transition: opacity var(--dur-1) ease, color var(--dur-1) ease, background var(--dur-1) ease;
 }
 .ai-session-item:hover .ai-session-delete { opacity: 1; }
-.ai-session-delete:hover { color: var(--red); }
+.ai-session-delete:hover { color: var(--red); background: var(--control-danger-tint); }
 

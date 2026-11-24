@@ -3,9 +3,11 @@
 
 import type { IpcMain } from 'electron';
 import { BrowserWindow, shell } from 'electron';
+import * as fs from 'fs';
 import type { IpcCtx } from './context';
 import { withHandlerLogging } from './logging';
 import { runShellCommand } from '../shell';
+import { isMediaPath } from '../../shared/media';
 
 export function registerShellHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
   withHandlerLogging('shell:openExternal', async (_event, url: string) => {
@@ -13,6 +15,34 @@ export function registerShellHandlers(ipcMain: IpcMain, ctx: IpcCtx): void {
       const parsed = new URL(url);
       if (!['https:', 'http:', 'mailto:'].includes(parsed.protocol)) return false;
       await shell.openExternal(url);
+      return true;
+    } catch { return false; }
+  }, false);
+
+  // Hand a file to the OS default app. Only media paths (the same set the
+  // Explorer routes to a viewer tab) qualify: this must never become a generic
+  // "execute this path" bridge for the renderer.
+  withHandlerLogging('shell:openPath', async (event, filePath: string) => {
+    if (typeof filePath !== 'string' || !isMediaPath(filePath)) return false;
+    if (!ctx.security.isPathSafe(filePath, event)) return false;
+    const error = await shell.openPath(filePath);
+    return error === '';
+  }, false);
+
+  // Reveal a workspace item in the OS file manager. Files open their containing
+  // folder with the item selected; folders open themselves. Both paths go
+  // through the same workspace sandbox as every other fs-facing bridge.
+  withHandlerLogging('shell:openInExplorer', async (event, targetPath: string) => {
+    if (typeof targetPath !== 'string') return false;
+    const canon = ctx.security.resolvePathInsideWorkspace(targetPath, event);
+    if (!canon) return false;
+    try {
+      const stat = await fs.promises.stat(canon);
+      if (stat.isDirectory()) {
+        const error = await shell.openPath(canon);
+        return error === '';
+      }
+      shell.showItemInFolder(canon);
       return true;
     } catch { return false; }
   }, false);

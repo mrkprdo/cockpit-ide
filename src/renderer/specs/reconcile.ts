@@ -7,6 +7,7 @@
 // existing specs. `report` mode computes everything and writes nothing.
 
 import type { SpecDoc } from './format';
+import { IGNORED_DIRS } from '../../shared/ignore-dirs';
 import {
   fmGet, fmSet, formatBacktickList, formatDeps, formatFeaturesTables,
   formatRefs, getSection, parseDeps, parseFeaturesTables, parseSpecDoc,
@@ -16,7 +17,7 @@ import { LAYER_ORDER, specIdFromFilename } from './graph';
 import { SOURCE_FILE_RE, TEST_FILE_RE, extractSourceFacts } from './extract-ts';
 import type { DepItem, MainFeatureRow, ReconcileChangelog, ReconcileMode, RefItem, SourceFacts, SpecsFs } from './types';
 
-const IGNORE_DIRS = new Set(['.git', 'node_modules', 'dist', 'out', 'coverage', '.cockpit', '.codegraph']);
+const IGNORE_DIRS = IGNORED_DIRS;
 export const STUB_DESCRIPTION = 'TODO: describe this feature';
 
 export interface ReconcileOptions {

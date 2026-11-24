@@ -104,12 +104,16 @@ function workspaceRealpath(wsPath: string): string | null {
 }
 
 /** Case-aware containment: is `p` (resolved) inside the (resolved) workspace `ws`? */
-function isWithin(ws: string, p: string): boolean {
+export function isWithin(ws: string, p: string): boolean {
   const sep = path.sep;
   const isWin = process.platform === 'win32';
   const a = isWin ? p.toLowerCase() : p;
   const b = isWin ? path.resolve(ws).toLowerCase() : path.resolve(ws);
-  return a === b || a.startsWith(b + sep);
+  // A workspace that IS a filesystem root ("D:\\", "/") already ends with the
+  // separator; appending another one ("d:\\\\") makes no child ever match — which
+  // silently emptied the tree and rejected every read/write under D:\\.
+  const prefix = b.endsWith(sep) ? b : b + sep;
+  return a === b || a.startsWith(prefix);
 }
 
 export function isPathSafe(targetPath: string, event?: IpcMainInvokeEvent | IpcMainEvent): boolean {

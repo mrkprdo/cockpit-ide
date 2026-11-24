@@ -1,9 +1,11 @@
 import { theme } from '../theme';
 
 type GridStyle = 'none' | 'dots' | 'grid';
+type WatchBackend = 'native' | 'chokidar';
 
 interface TopBarCallbacks {
   onGridChange?: (style: GridStyle) => void;
+  onWatchBackendChange?: (backend: WatchBackend) => void;
   onThemeToggle?: () => void;
   onOpenWorkspace?: () => void;
   onNewTerminal?: () => void;
@@ -35,6 +37,7 @@ interface TermItem { uuid: string; title: string; isOpen: boolean; }
 export class TopBar {
   private callbacks: TopBarCallbacks;
   private gridStyle: GridStyle = 'dots';
+  private watchBackend: WatchBackend = 'native';
   private zoomLocked = false;
   private termItems: TermItem[] = [];
 
@@ -68,6 +71,11 @@ export class TopBar {
 
   setGridStyle(style: GridStyle): void {
     this.gridStyle = style;
+    this.render();
+  }
+
+  setWatchBackend(backend: WatchBackend): void {
+    this.watchBackend = backend;
     this.render();
   }
 
@@ -188,6 +196,14 @@ export class TopBar {
               <div class="menu-dropdown-item" role="menuitem" tabindex="-1" data-grid="dots">${this.gridStyle === 'dots' ? '<span class="menu-check">✓</span> ' : ''}Dot</div>
               <div class="menu-dropdown-item" role="menuitem" tabindex="-1" data-grid="grid">${this.gridStyle === 'grid' ? '<span class="menu-check">✓</span> ' : ''}Grid</div>
               <div class="menu-dropdown-item" role="menuitem" tabindex="-1" data-grid="none">${this.gridStyle === 'none' ? '<span class="menu-check">✓</span> ' : ''}None</div>
+            </div>
+          </div>
+          <div class="menu-dropdown-separator" role="separator"></div>
+          <div class="menu-item-nested" role="menuitem" tabindex="-1" aria-haspopup="true">
+            <span>File watcher</span><span class="arrow">▸</span>
+            <div class="menu-dropdown-nested" role="menu">
+              <div class="menu-dropdown-item" role="menuitem" tabindex="-1" data-watch-backend="native">${this.watchBackend === 'native' ? '<span class="menu-check">✓</span> ' : ''}Native (OS)</div>
+              <div class="menu-dropdown-item" role="menuitem" tabindex="-1" data-watch-backend="chokidar">${this.watchBackend === 'chokidar' ? '<span class="menu-check">✓</span> ' : ''}chokidar</div>
             </div>
           </div>
           <div class="menu-dropdown-separator" role="separator"></div>
@@ -445,6 +461,17 @@ export class TopBar {
         const val = (e.currentTarget as HTMLElement).dataset.grid as GridStyle;
         this.gridStyle = val;
         this.callbacks.onGridChange?.(val);
+        closeAllMenus();
+        this.render();
+      });
+    });
+
+    this.el.querySelectorAll('[data-watch-backend]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const val = (e.currentTarget as HTMLElement).dataset.watchBackend as WatchBackend;
+        this.watchBackend = val;
+        this.callbacks.onWatchBackendChange?.(val);
         closeAllMenus();
         this.render();
       });

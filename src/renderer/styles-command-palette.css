@@ -14,10 +14,10 @@
 .palette {
   width: 520px;
   max-width: 90vw;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-md);
-  box-shadow: var(--elevation-3);
+  box-shadow: var(--shadow-float);
   overflow: hidden;
   animation: modal-in 0.12s cubic-bezier(0.16,1,0.3,1);
 }
@@ -27,11 +27,11 @@
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-sm);
   font-family: var(--font);
-  background: var(--bg);
+  background: var(--card-header-face);
   border: none;
   outline: none;
   color: var(--primary);
-  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shade-header);
 }
 .palette-input::placeholder { color: var(--tertiary); }
 

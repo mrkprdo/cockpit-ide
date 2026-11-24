@@ -1561,10 +1561,11 @@ describe('AiDrawer', () => {
 
       const copyBtns = q('.ai-chat-messages').querySelectorAll<HTMLButtonElement>('.ai-chat-copy-btn');
       expect(copyBtns.length).toBeGreaterThanOrEqual(2);
-      // Each button's data-msg-index should point to an assistant message
+      // User, assistant and reasoning cards all carry a copy button; each one's
+      // index must resolve to the message rendered in that node (never a shifted one).
       copyBtns.forEach(btn => {
         const idx = parseInt(btn.dataset.msgIndex!);
-        expect(drawer['messages'][idx].role).toBe('assistant');
+        expect(['user', 'assistant', 'thinking']).toContain(drawer['messages'][idx].role);
       });
     });
 
@@ -1575,7 +1576,7 @@ describe('AiDrawer', () => {
       (q('.ai-chat-input') as HTMLTextAreaElement).value = 'Ask';
       q('.ai-chat-send-btn').click();
       await flush();
-      const btn = q('.ai-chat-messages').querySelector<HTMLButtonElement>('.ai-chat-copy-btn')!;
+      const btn = q('.ai-chat-messages').querySelector<HTMLButtonElement>('.ai-chat-msg-assistant .ai-chat-copy-btn')!;
       expect(btn.title).toBe('Copy text');
       expect(btn.querySelector('svg')).toBeTruthy();
       btn.click();
@@ -2320,6 +2321,27 @@ describe('AiDrawer', () => {
       expect(header.textContent).toContain('9 steps');
       expect(header.textContent).toContain('ran 4m 12s');
       expect(q('.ai-pov-kill')).toBeNull();
+    });
+
+    it('purge removes archived replay tabs but keeps running agents', async () => {
+      drawer = await createDrawer();
+      await drawer.toggle();
+      await drawer['loadSessions']();
+      seedArchived(drawer);
+      fireSpawn('Runner', 'agent:run');
+      await flush();
+      await flush();
+
+      drawer['switchView']('agent:old' as any);
+      expect(q('.ai-pov-purge')).toBeTruthy();
+
+      (q('.ai-pov-purge') as HTMLButtonElement).click();
+      await flush();
+      await flush();
+
+      expect(drawer['renderCtrl'].activeView).toBe('chat');
+      expect(q('.ai-pov-tab[data-view="agent:old"]')).toBeNull();
+      expect(q('.ai-pov-tab[data-view="agent:run"]')).toBeTruthy();
     });
 
     it('a replayed verdict renders in the agent PoV with its date', async () => {

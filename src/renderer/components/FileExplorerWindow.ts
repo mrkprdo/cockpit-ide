@@ -2,6 +2,15 @@ import { ContextMenu } from './ContextMenu';
 import { ConfirmModal } from './ConfirmModal';
 import { reportFailure } from '../health/monitor';
 import { showToast } from './toast';
+import { mediaKindForPath } from '../../shared/media';
+
+/** Distinct row glyphs for media files; anything else keeps the dot. */
+const MEDIA_GLYPH: Record<string, string> = {
+  image: '▧',
+  video: '▷',
+  pdf: '▤',
+  unsupported: '▨',
+};
 
 export class FileExplorerWindow {
   private el: HTMLDivElement;
@@ -42,6 +51,8 @@ export class FileExplorerWindow {
           { label: 'New Folder', action: () => this.createFolder(this.rootPath) },
           { separator: true },
           { label: 'Paste', action: () => this.pasteHere(this.rootPath), disabled: !this.copiedPath },
+          { separator: true },
+          { label: 'Open in File Explorer', action: () => { void this.openInExplorer(this.rootPath); } },
         ], e.clientX, e.clientY);
       }
     });
@@ -57,6 +68,12 @@ export class FileExplorerWindow {
 
   private normalize(p: string): string { return p.replace(/\\/g, '/'); }
 
+  /** POSIX-style join that never doubles the separator of a root ("D:/"). */
+  private joinPath(dir: string, name: string): string {
+    const base = dir.replace(/\/+$/, '');
+    return name ? `${base}/${name}` : `${base}/`;
+  }
+
   /** Release the fs watcher + pending debounce (card-close teardown). */
   destroy(): void {
     this.unsubFiles?.();
@@ -66,6 +83,11 @@ export class FileExplorerWindow {
   }
 
   private getFileColor(name: string): string {
+    const media = mediaKindForPath(name);
+    if (media === 'image') return 'var(--green)';
+    if (media === 'video') return 'var(--accent2)';
+    if (media === 'pdf') return 'var(--accent)';
+    if (media === 'unsupported') return 'var(--tertiary)';
     const ext = name.split('.').pop()?.toLowerCase() ?? '';
     if (['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'].includes(ext)) return 'var(--accent)';
     if (['css', 'scss', 'sass', 'less'].includes(ext)) return 'var(--accent2)';
@@ -78,14 +100,14 @@ export class FileExplorerWindow {
     filePath = this.normalize(filePath);
     this.selectedPath = filePath;
 
-    const root = this.normalize(this.rootPath) + '/';
+    const root = this.joinPath(this.normalize(this.rootPath), '');
     if (!filePath.startsWith(root)) return;
 
     const relative = filePath.slice(root.length);
     const parts = relative.split('/');
 
     let needsReload = false;
-    let current = this.normalize(this.rootPath);
+    let current = this.joinPath(this.normalize(this.rootPath), '').replace(/\/+$/, '');
     for (let i = 0; i < parts.length - 1; i++) {
       current += '/' + parts[i];
       if (!this.expanded.has(current)) {
@@ -176,6 +198,13 @@ export class FileExplorerWindow {
 
   private createFolder(parentDir: string, afterEl?: HTMLElement, childContainer?: HTMLElement): void {
     this.showInlineInput(parentDir, true, afterEl, childContainer);
+  }
+
+  /** Reveal a workspace item in the OS file manager (files open their folder, selected). */
+  private async openInExplorer(targetPath: string): Promise<void> {
+    const name = targetPath.split(/[\\/]/).pop() || 'item';
+    const ok = await window.electronAPI?.shell.openInExplorer(targetPath);
+    if (!ok) showToast(`Could not open ${name} in File Explorer`, 'error');
   }
 
   private async deletePath(targetPath: string): Promise<void> {
@@ -295,7 +324,7 @@ export class FileExplorerWindow {
       item.addEventListener('mouseenter', () => item.style.background = 'var(--panel)');
       item.addEventListener('mouseleave', () => item.style.background = 'transparent');
 
-      const fullPath = dirPath + '/' + entry.name;
+      const fullPath = this.joinPath(dirPath, entry.name);
       item.dataset.path = fullPath;
       const isExpanded = this.expanded.has(fullPath);
       const iconSpan = document.createElement('span');
@@ -307,10 +336,11 @@ export class FileExplorerWindow {
         iconSpan.textContent = isExpanded ? '▾' : '▸';
         iconSpan.style.color = 'var(--amber)';
       } else {
+        const media = mediaKindForPath(entry.name);
         const fc = this.getFileColor(entry.name);
-        iconSpan.textContent = '·';
+        iconSpan.textContent = (media && MEDIA_GLYPH[media]) || '·';
         iconSpan.style.color = fc;
-        iconSpan.style.opacity = '0.6';
+        iconSpan.style.opacity = media ? '1' : '0.6';
         nameSpan.style.color = fc;
       }
       item.appendChild(iconSpan);
@@ -336,6 +366,8 @@ export class FileExplorerWindow {
             { separator: true },
             { label: 'Copy', action: () => { this.copiedPath = fullPath; } },
             { label: 'Paste', action: () => this.pasteHere(fullPath), disabled: !this.copiedPath },
+            { separator: true },
+            { label: 'Open in File Explorer', action: () => { void this.openInExplorer(fullPath); } },
             { separator: true },
             { label: 'Rename', action: () => this.renameItem(item, fullPath) },
             { separator: true },
@@ -381,6 +413,8 @@ export class FileExplorerWindow {
             items.push({ separator: true });
             items.push({ label: 'View as Markdown', action: () => this.onViewMarkdown?.(fullPath) });
           }
+          items.push({ separator: true });
+          items.push({ label: 'Open in File Explorer', action: () => { void this.openInExplorer(fullPath); } });
           items.push({ separator: true });
           items.push({ label: 'Rename', action: () => this.renameItem(item, fullPath) });
           items.push({ separator: true });

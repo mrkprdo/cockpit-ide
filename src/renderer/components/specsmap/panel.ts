@@ -79,14 +79,14 @@ export class PanelController {
     this.host.panelHeaderEl.innerHTML =
       `<div style="padding:14px 18px 12px;display:flex;align-items:center;gap:12px">` +
       `<span class="sm-t-base" style="font-weight:700;color:var(--primary);flex:1">Settings</span>` +
-      `<button id="sm-panel-close" class="sm-t-xl" style="background:none;border:none;cursor:pointer;color:var(--tertiary);line-height:1;padding:0 0 0 4px;font-family:inherit" aria-label="Close">×</button>` +
+      `<button id="sm-panel-close" class="sm-panel-close sm-t-xl" aria-label="Close">×</button>` +
       `</div>`;
 
     const toggleBg = isActive ? 'var(--red)' : 'var(--border)';
     const toggleLabel = isActive ? 'On' : 'Off';
 
     const levelChips = (lvl: number) =>
-      `<button class="sm-cycle-level sm-t-xs" data-level="${lvl}" style="background:none;border:1px solid ${lvl === cycles.cycleLevel ? 'var(--accent)' : 'var(--border)'};color:${lvl === cycles.cycleLevel ? 'var(--accent)' : 'var(--tertiary)'};border-radius:var(--radius-xs);padding:2px 10px;font-family:inherit;font-weight:700;cursor:pointer;transition:color 0.12s,border-color 0.12s" title="Level ${lvl}: ${lvl === 1 ? 'cycle nodes only' : lvl === 2 ? '+ immediate neighbors' : '+ 2-hop neighbors'}">${lvl}</button>`;
+      `<button class="sm-cycle-level sm-t-xs${lvl === cycles.cycleLevel ? ' is-selected' : ''}" data-level="${lvl}" title="Level ${lvl}: ${lvl === 1 ? 'cycle nodes only' : lvl === 2 ? '+ immediate neighbors' : '+ 2-hop neighbors'}">${lvl}</button>`;
 
     let cyclesSection = '';
     if (isActive) {
@@ -140,8 +140,8 @@ export class PanelController {
       `<div class="sm-panel-label">RECONCILE</div>` +
       `<div class="sm-t-xs" style="color:var(--tertiary);margin-bottom:8px;line-height:1.5">Syncs structural fields (exports, dependencies, referenced by, IPC) from source. Prose is never touched. Report writes nothing.</div>` +
       `<div style="display:flex;gap:6px">` +
-      `<button id="sm-reconcile-report-btn" class="sm-reconcile-btn sm-t-xs" style="background:transparent;border:1px solid var(--border);border-radius:var(--radius-s);padding:8px 10px;font-family:inherit;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">Report</button>` +
-      `<button id="sm-reconcile-apply-btn" class="sm-reconcile-btn sm-t-xs" style="background:transparent;border:1px solid var(--border);border-radius:var(--radius-s);padding:8px 10px;font-family:inherit;font-weight:700;color:var(--primary);cursor:pointer;flex:1;transition:border-color 0.12s,color 0.12s">⚡ Apply structural</button>` +
+      `<button id="sm-reconcile-report-btn" class="sm-reconcile-btn sm-t-xs">Report</button>` +
+      `<button id="sm-reconcile-apply-btn" class="sm-reconcile-btn sm-t-xs">⚡ Apply structural</button>` +
       `</div>` +
       `<div id="sm-reconcile-result" class="sm-t-xs" style="color:var(--tertiary);margin-top:8px;line-height:1.5;white-space:pre-wrap;word-break:break-word"></div>` +
       `</div>`;
@@ -267,7 +267,7 @@ export class PanelController {
       (isEntry ? `<span class="sm-t-base" style="line-height:1;opacity:0.6;flex-shrink:0" title="Entry file">⚙</span>` : '') +
       `<span class="sm-t-base" style="font-weight:700;color:var(--primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escF(node.name)}</span>` +
       `<span class="sm-t-xs" style="font-weight:700;letter-spacing:0.8px;color:${colorVar};flex-shrink:0">${layerLabel.toUpperCase()}</span>` +
-      `<button id="sm-panel-close" class="sm-t-xl" style="background:none;border:none;cursor:pointer;color:var(--tertiary);line-height:1;padding:0 0 0 4px;font-family:inherit" aria-label="Close">×</button>` +
+      `<button id="sm-panel-close" class="sm-panel-close sm-t-xl" aria-label="Close">×</button>` +
       `</div>`;
 
     // Scrollable body

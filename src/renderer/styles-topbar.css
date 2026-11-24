@@ -66,14 +66,15 @@
   top: 100%;
   left: 0;
   min-width: 180px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-xs);
   padding: 4px;
+  box-shadow: var(--shadow-menu);
   z-index: var(--z-dropdown);
 }
 .menu-item.open .menu-dropdown { display: block; }
-.menu-item.open { border-bottom: 2px solid var(--accent); }
+.menu-item.open { background: var(--panel); }
 
 .menu-check { color: var(--accent); }
 
@@ -102,10 +103,11 @@
   top: -4px;
   left: 100%;
   min-width: 180px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-xs);
   padding: 4px;
+  box-shadow: var(--shadow-menu);
   z-index: var(--z-dropdown-nested);
 }
 .menu-item-nested {
@@ -141,6 +143,7 @@
   justify-content: center;
   transition: background var(--dur-1), color var(--dur-1);
 }
-.tb-btn:hover { background: var(--panel); color: var(--accent); }
-.tb-close:hover { background: var(--red); color: var(--onAccent); }
+.tb-btn:hover { background: var(--control-face-hover); color: var(--primary); }
+.tb-btn:active { background: var(--control-face-active); }
+.tb-close:hover { background: var(--control-danger-tint); color: var(--red); }
 

@@ -82,6 +82,8 @@ interface Window {
     };
     shell: {
       openExternal: (url: string) => Promise<boolean>;
+      openPath: (filePath: string) => Promise<boolean>;
+      openInExplorer: (targetPath: string) => Promise<boolean>;
       exec: (opts: { command: string; cwd?: string; timeoutMs?: number; input?: string }) => Promise<{ exitCode: number | null; stdout: string; stderr: string }>;
     };
     prefs: {
@@ -128,6 +130,8 @@ interface Window {
       rename: (oldPath: string, newPath: string) => Promise<boolean>;
       watch: (dir: string) => Promise<boolean>;
       unwatch: () => Promise<boolean>;
+      getWatchBackend: () => Promise<'native' | 'chokidar'>;
+      setWatchBackend: (backend: 'native' | 'chokidar') => Promise<'native' | 'chokidar'>;
       onChanged: (callback: (filePath: string) => void) => () => void;
     };
     ide: {

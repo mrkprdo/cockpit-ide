@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import * as path from 'path';
 
 // ─── Handler maps hoisted first ───
 const { handleMap, onMap } = vi.hoisted(() => {
@@ -55,6 +56,8 @@ vi.mock('electron', () => ({
   },
   shell: {
     openExternal: vi.fn(),
+    openPath: vi.fn(),
+    showItemInFolder: vi.fn(),
   },
   clipboard: {
     readText: vi.fn(() => ''),
@@ -75,6 +78,10 @@ vi.mock('electron', () => ({
     },
   },
   Menu: { setApplicationMenu: vi.fn() },
+  protocol: {
+    registerSchemesAsPrivileged: vi.fn(),
+    handle: vi.fn(),
+  },
 }));
 
 // Promise API surface used by the fs:* handlers (they never block the main
@@ -105,6 +112,9 @@ vi.mock('fs', () => ({
   existsSync: vi.fn(() => false),
   mkdirSync: vi.fn(),
   statSync: vi.fn(() => ({ isDirectory: () => false, size: 0 })),
+  // The native watcher backend calls fs.watch(recursive) — without it every
+  // start in these tests would take the "fallback to chokidar" branch.
+  watch: vi.fn(() => ({ on: vi.fn(), close: vi.fn() })),
 }));
 
 vi.mock('path', async (importOriginal) => {
@@ -234,6 +244,9 @@ describe('main.ts IPC handlers', () => {
       vi.mocked(fs.promises.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       expect(await handler({}, '/test/gone.txt')).toBeNull();
+      // Restore the default: fs:readFile stats before reading, and a rejected
+      // stat mock would leak into it.
+      vi.mocked(fs.promises.stat).mockResolvedValue({ size: 0, isDirectory: () => false } as any);
     });
   });
 
@@ -263,6 +276,25 @@ describe('main.ts IPC handlers', () => {
       const result = await handler({}, '/missing.txt');
       expect(result).toBeNull();
       vi.mocked(fs.promises.readFile).mockResolvedValue('');
+    });
+
+    it('refuses to buffer a file past the text limit', async () => {
+      const main = await import('../main/main');
+      main._testTrustPath('/test/huge.bin');
+      const fs = await import('fs');
+      const { MAX_TEXT_FILE_BYTES } = await import('../shared/file-limits');
+      const handler = handleMap.get('fs:readFile')!;
+      const readFile = vi.mocked(fs.promises.readFile);
+      readFile.mockClear();
+      vi.mocked(fs.promises.stat).mockResolvedValue({
+        size: MAX_TEXT_FILE_BYTES + 1, isDirectory: () => false,
+      } as any);
+
+      expect(await handler({}, '/test/huge.bin')).toBeNull();
+      // Never read: the point is to keep the bytes out of the main process.
+      expect(readFile).not.toHaveBeenCalled();
+
+      vi.mocked(fs.promises.stat).mockResolvedValue({ size: 0, isDirectory: () => false } as any);
     });
   });
 
@@ -712,6 +744,115 @@ describe('main.ts IPC handlers', () => {
       const result = await handler({});
       expect(result).toBe(true);
     });
+
+    it('never watches build output, dependency trees or .gitignore dirs', async () => {
+      const fsMod = await import('fs');
+      const { makeIgnore } = await import('../main/ipc/file');
+      const root = path.join(process.cwd(), 'watch-root');
+      const readFile = vi.mocked(fsMod.readFileSync);
+      const previous = readFile.getMockImplementation();
+      readFile.mockImplementation(((p: any) =>
+        String(p).endsWith('.gitignore') ? 'genschema/\n*.log\n' : '') as any);
+
+      let ignored: (p: string) => boolean = () => false;
+      try {
+        ignored = makeIgnore(root);
+      } finally {
+        if (previous) readFile.mockImplementation(previous);
+        else readFile.mockReturnValue('' as any);
+      }
+
+      expect(ignored(path.join(root, 'target', 'debug', 'app.exe'))).toBe(true);
+      expect(ignored(path.join(root, 'node_modules', 'pkg', 'index.js'))).toBe(true);
+      expect(ignored(path.join(root, '.cockpit', 'sessions', 'a.json'))).toBe(true);
+      expect(ignored(path.join(root, '__pycache__', 'x.pyc'))).toBe(true);
+      expect(ignored(path.join(root, 'genschema', 'api.rs'))).toBe(true);
+      expect(ignored(root)).toBe(false);
+      expect(ignored(path.join(root, 'src', 'main.ts'))).toBe(false);
+      expect(ignored(path.join(root, 'v.log'))).toBe(false);
+    });
+
+    it('treats a filesystem root as a workspace no watcher can carry', async () => {
+      const { isFilesystemRoot } = await import('../main/ipc/file');
+      expect(isFilesystemRoot(path.parse(process.cwd()).root)).toBe(true);
+      expect(isFilesystemRoot(process.cwd())).toBe(false);
+    });
+
+    it('watches a drive root natively without walking it', async () => {
+      const fs = await import('fs');
+      const { startWatching, stopWatching, isWatching } = await import('../main/ipc/file');
+      await stopWatching();
+      const readdir = vi.mocked(fs.promises.readdir);
+      readdir.mockReset();
+      readdir.mockResolvedValue([]);
+
+      await startWatching(path.parse(process.cwd()).root);
+
+      // No crawl and no budget scan: one recursive OS watch covers the drive.
+      expect(readdir).not.toHaveBeenCalled();
+      expect(isWatching()).toBe(true);
+      await stopWatching();
+    });
+
+    it('refuses a drive root on the chokidar backend (one handle per entry)', async () => {
+      const { startWatching, stopWatching, isWatching, setWatchBackendName } = await import('../main/ipc/file');
+      await stopWatching();
+      setWatchBackendName('chokidar');
+      try {
+        await startWatching(path.parse(process.cwd()).root);
+        expect(isWatching()).toBe(false);
+      } finally {
+        setWatchBackendName('native');
+        await stopWatching();
+      }
+    });
+
+    it('stops counting as soon as the watch budget is exceeded', async () => {
+      const fs = await import('fs');
+      const { exceedsWatchBudget, WATCH_FILE_LIMIT } = await import('../main/ipc/file');
+      const dirents = (n: number) => Array.from({ length: n }, (_, i) => ({
+        name: `f${i}`, isDirectory: () => false, isSymbolicLink: () => false,
+      }));
+      const readdir = vi.mocked(fs.promises.readdir);
+      readdir.mockReset();
+
+      readdir.mockResolvedValueOnce(dirents(WATCH_FILE_LIMIT + 1) as any);
+      await expect(exceedsWatchBudget('/huge', () => false)).resolves.toBe(true);
+
+      readdir.mockResolvedValueOnce(dirents(3) as any);
+      await expect(exceedsWatchBudget('/small', () => false)).resolves.toBe(false);
+
+      readdir.mockResolvedValue([]);
+    });
+
+    it('does not re-crawl a tree it is already watching', async () => {
+      const fs = await import('fs');
+      const { startWatching, stopWatching } = await import('../main/ipc/file');
+      await stopWatching();
+      const readdir = vi.mocked(fs.promises.readdir);
+      readdir.mockReset();
+      readdir.mockResolvedValue([]);
+
+      await startWatching('/safe/workspace');
+      readdir.mockClear();
+      await startWatching('/safe/workspace');
+
+      // A second start on the same root must not walk the tree again.
+      expect(readdir).not.toHaveBeenCalled();
+      await stopWatching();
+    });
+
+    it('counts watcher growth the same way the startup scan does', async () => {
+      const { watchSetSize } = await import('../main/ipc/file');
+      // dir → children: child dirs appear both as a key and in their parent.
+      const map = {
+        '/ws': ['src', 'a.ts', 'b.ts'],
+        '/ws/src': ['main.ts', 'util'],
+        '/ws/src/util': ['x.ts'],
+      };
+      expect(watchSetSize(map)).toEqual({ files: 4, dirs: 3 });
+      expect(watchSetSize({})).toEqual({ files: 0, dirs: 0 });
+    });
   });
 
   describe('git argument-injection guards', () => {
@@ -952,6 +1093,105 @@ describe('main.ts IPC handlers', () => {
       const handler = handleMap.get('shell:openExternal')!;
       const result = await handler({}, 'bad://url');
       expect(result).toBe(false);
+    });
+  });
+
+  describe('shell:openPath behavior', () => {
+    it('opens a media file inside the workspace with the default app', async () => {
+      const { shell } = await import('electron');
+      const main = await import('../main/main');
+      main._testSetWorkspacePath('/safe/workspace');
+      vi.mocked(shell.openPath).mockResolvedValue('');
+      const handler = handleMap.get('shell:openPath')!;
+
+      await expect(handler({}, '/safe/workspace/photo.png')).resolves.toBe(true);
+      expect(shell.openPath).toHaveBeenCalledWith('/safe/workspace/photo.png');
+    });
+
+    it('refuses non-media paths even inside the workspace', async () => {
+      const { shell } = await import('electron');
+      const main = await import('../main/main');
+      main._testSetWorkspacePath('/safe/workspace');
+      vi.mocked(shell.openPath).mockClear();
+      const handler = handleMap.get('shell:openPath')!;
+
+      await expect(handler({}, '/safe/workspace/main.ts')).resolves.toBe(false);
+      expect(shell.openPath).not.toHaveBeenCalled();
+    });
+
+    it('returns false when the OS cannot open the file', async () => {
+      const { shell } = await import('electron');
+      const main = await import('../main/main');
+      main._testSetWorkspacePath('/safe/workspace');
+      vi.mocked(shell.openPath).mockResolvedValue('No application associated');
+      const handler = handleMap.get('shell:openPath')!;
+
+      await expect(handler({}, '/safe/workspace/clip.mp4')).resolves.toBe(false);
+    });
+
+    it('refuses media outside the workspace', async () => {
+      const { shell } = await import('electron');
+      const main = await import('../main/main');
+      main._testSetWorkspacePath('/safe/workspace');
+      vi.mocked(shell.openPath).mockClear();
+      const handler = handleMap.get('shell:openPath')!;
+
+      await expect(handler({}, '/elsewhere/photo.png')).resolves.toBe(false);
+      expect(shell.openPath).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('shell:openInExplorer behavior', () => {
+    it('opens a workspace folder in the OS file manager', async () => {
+      const { shell } = await import('electron');
+      const fs = await import('fs');
+      const main = await import('../main/main');
+      main._testSetWorkspacePath('/safe/workspace');
+      vi.mocked(fs.promises.stat).mockResolvedValue({ isDirectory: () => true } as any);
+      vi.mocked(shell.openPath).mockResolvedValue('');
+      const handler = handleMap.get('shell:openInExplorer')!;
+
+      await expect(handler({}, '/safe/workspace/src')).resolves.toBe(true);
+      expect(shell.openPath).toHaveBeenCalledWith('/safe/workspace/src');
+
+      vi.mocked(fs.promises.stat).mockResolvedValue({ size: 0, isDirectory: () => false } as any);
+    });
+
+    it('reveals a workspace file in its containing folder', async () => {
+      const { shell } = await import('electron');
+      const fs = await import('fs');
+      const main = await import('../main/main');
+      main._testSetWorkspacePath('/safe/workspace');
+      vi.mocked(fs.promises.stat).mockResolvedValue({ isDirectory: () => false } as any);
+      vi.mocked(shell.showItemInFolder).mockClear();
+      const handler = handleMap.get('shell:openInExplorer')!;
+
+      await expect(handler({}, '/safe/workspace/README.md')).resolves.toBe(true);
+      expect(shell.showItemInFolder).toHaveBeenCalledWith('/safe/workspace/README.md');
+      expect(shell.openPath).not.toHaveBeenCalledWith('/safe/workspace/README.md');
+    });
+
+    it('refuses paths outside the workspace', async () => {
+      const { shell } = await import('electron');
+      const main = await import('../main/main');
+      main._testSetWorkspacePath('/safe/workspace');
+      vi.mocked(shell.openPath).mockClear();
+      vi.mocked(shell.showItemInFolder).mockClear();
+      const handler = handleMap.get('shell:openInExplorer')!;
+
+      await expect(handler({}, '/elsewhere/file.ts')).resolves.toBe(false);
+      expect(shell.openPath).not.toHaveBeenCalled();
+      expect(shell.showItemInFolder).not.toHaveBeenCalled();
+    });
+
+    it('returns false when the path cannot be inspected', async () => {
+      const fs = await import('fs');
+      const main = await import('../main/main');
+      main._testSetWorkspacePath('/safe/workspace');
+      vi.mocked(fs.promises.stat).mockRejectedValueOnce(new Error('ENOENT'));
+      const handler = handleMap.get('shell:openInExplorer')!;
+
+      await expect(handler({}, '/safe/workspace/gone.ts')).resolves.toBe(false);
     });
   });
 
@@ -1196,6 +1436,38 @@ describe('main.ts IPC handlers', () => {
 
     it('file:unwatch handler is registered', () => {
       expect(handleMap.has('file:unwatch')).toBe(true);
+    });
+
+    it('exposes the watcher backend channels', () => {
+      expect(handleMap.has('file:getWatchBackend')).toBe(true);
+      expect(handleMap.has('file:setWatchBackend')).toBe(true);
+    });
+
+    it('defaults to the native watcher', async () => {
+      const { watchBackendName } = await import('../main/ipc/file');
+      expect(watchBackendName()).toBe('native');
+    });
+
+    it('switching to chokidar restarts the watch and reports it', async () => {
+      const main = await import('../main/main');
+      const fs = await import('fs');
+      main._testSetWorkspacePath('/safe/workspace');
+      vi.mocked(fs.promises.readdir).mockResolvedValue([]);
+
+      const set = handleMap.get('file:setWatchBackend')!;
+      const applied = await set({}, 'chokidar');
+
+      expect(applied).toBe('chokidar');
+      const { isWatching, watchBackendName } = await import('../main/ipc/file');
+      expect(watchBackendName()).toBe('chokidar');
+      expect(isWatching()).toBe(true);
+      expect(await handleMap.get('file:getWatchBackend')!({})).toBe('chokidar');
+
+      // Back to native for the rest of the suite.
+      await set({}, 'native');
+      await handleMap.get('file:unwatch')!({});
+      expect(isWatching()).toBe(false);
+      expect(watchBackendName()).toBe('native');
     });
   });
 

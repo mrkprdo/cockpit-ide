@@ -87,6 +87,7 @@ export class CardLifecycle {
       onHeaderDoubleClick: () => this.focusCardInView(cs),
       onTerminate: () => this.host.terminateCard(cs),
       onDragStart: (clientX, clientY) => {
+        this.viewport.cancelZoom();
         this.layouts.setDragPos(clientX, clientY);
         this.layouts.showLayoutOverlays();
       },
@@ -100,6 +101,7 @@ export class CardLifecycle {
         } else {
           cs.worldX = this.viewport.clampWorld(worldX, 'x');
           cs.worldY = this.viewport.clampWorld(worldY, 'y');
+          this.positionCard(cs);
         }
         this.layouts.hideLayoutOverlays();
         this.host.getOnStateChange()?.();
@@ -141,6 +143,7 @@ export class CardLifecycle {
       onHeaderDoubleClick: () => this.focusCardInView(cs),
       onTerminate: callbacks.onTerminate,
       onDragStart: (clientX, clientY) => {
+        this.viewport.cancelZoom();
         this.layouts.setDragPos(clientX, clientY);
         this.layouts.showLayoutOverlays();
       },
@@ -154,6 +157,7 @@ export class CardLifecycle {
         } else {
           cs.worldX = this.viewport.clampWorld(worldX, 'x');
           cs.worldY = this.viewport.clampWorld(worldY, 'y');
+          this.positionCard(cs);
         }
         this.layouts.hideLayoutOverlays();
         this.host.getOnStateChange()?.();

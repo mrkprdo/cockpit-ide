@@ -1,20 +1,21 @@
+import { IGNORED_DIRS } from '../../shared/ignore-dirs';
+
 const BINARY_EXTS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg',
+  '.png', '.jpg', '.jpeg', '.jpe', '.jfif', '.gif', '.ico', '.svg', '.webp', '.bmp', '.avif',
+  '.tif', '.tiff', '.heic', '.heif',
   '.woff', '.woff2', '.ttf', '.eot',
   '.exe', '.dll', '.so', '.dylib', '.o', '.obj', '.pyc', '.class', '.node',
   '.zip', '.tar', '.gz', '.bz2', '.7z', '.rar', '.pak', '.asar', '.dat', '.bin',
   '.pdf', '.doc', '.docx', '.xls', '.xlsx',
-  '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv',
+  '.mp3', '.mp4', '.m4v', '.webm', '.ogv', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.mpg', '.mpeg',
   '.wasm', '.map',
 ]);
 
 /** Files above this size are skipped by text search (reading them costs more than the result is worth). */
 const MAX_FILE_BYTES = 1_500_000;
 
-/** Directories that are never worth walking (build output, caches, installers). */const SKIP_DIRS = new Set([
-  '.git', 'node_modules', '.cockpit',
-  'out', 'release', 'dist', 'coverage', '.impeccable', '.worktrees',
-]);
+/** Directories that are never worth walking (build output, caches, installers). */
+export const SKIP_DIRS = IGNORED_DIRS;
 
 const MAX_RESULTS = 100;
 

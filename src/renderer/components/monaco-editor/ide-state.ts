@@ -2,16 +2,19 @@
 // window file stays under the 700-LOC cap (refactor.md §A.2 pattern: the
 // facade keeps `sendEditorState()` as a one-line forwarder).
 
+import type { MediaViewKind } from '../../../shared/media';
+
 export interface EditorTab {
   filePath: string;
   name: string;
   originalPath: string;
-  kind?: 'markdown';
+  /** Absent = Monaco source tab. Markdown and media tabs have no editor buffer. */
+  kind?: 'markdown' | MediaViewKind;
 }
 
 /**
  * Snapshot what the ide-server needs: active file, selected text and range.
- * Markdown preview tabs carry no editor buffer, only their path.
+ * Markdown preview / media tabs carry no editor buffer, only their path.
  */
 export function buildIdeEditorState(
   tabs: EditorTab[],
@@ -20,7 +23,7 @@ export function buildIdeEditorState(
 ): EditorSelectionState {
   const tab = activeTab ? tabs.find(t => t.filePath === activeTab) : null;
   const filePath = tab ? tab.originalPath : null;
-  if (!filePath || tab?.kind === 'markdown' || !editor) {
+  if (!filePath || tab?.kind || !editor) {
     return { filePath, text: null, selection: null };
   }
   const sel = editor.getSelection();

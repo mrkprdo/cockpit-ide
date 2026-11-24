@@ -17,15 +17,13 @@ import { computeLayout, NODE_H, NODE_UI_H, NODE_UI_W, NODE_W, type SpecNode } fr
 import { SPECGEN_VERSION } from '../../specgen-hash';
 import { parseMainSpecMd, parseSpecMd, type SpecCollection, type SpecData } from './parse';
 import { reportFailure } from '../../health/monitor';
+import { IGNORED_DIRS } from '../../../shared/ignore-dirs';
 
 /** Max concurrent fs IPC calls (reads/readDirs) per phase. */
 const IO_CONCURRENCY = 8;
 
 /** Directories never worth walking into (build output, deps, VCS, scratch). */
-const SKIP_DIRS = new Set([
-  '.git', 'node_modules', '.cockpit', '.codegraph', 'coverage', 'dist',
-  'out', 'release', '.worktrees',
-]);
+const SKIP_DIRS = IGNORED_DIRS;
 
 /** Bounded-concurrency map; results keep the input order. */
 async function mapLimit<T, R>(

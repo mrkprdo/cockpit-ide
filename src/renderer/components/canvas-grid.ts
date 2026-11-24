@@ -49,8 +49,9 @@ export function applyGridPattern(el: HTMLElement, style: GridStyle, dataURL: str
 
 /** Compositor-friendly pan/zoom transform (origin top-left). */
 export function applyViewTransform(el: HTMLElement, scale: number, panX: number, panY: number): void {
+  // Origin is constant; write it once instead of on every animation frame.
+  if (!el.style.transformOrigin) el.style.transformOrigin = '0 0';
   el.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${scale})`;
-  el.style.transformOrigin = '0 0';
 }
 
 /** @deprecated Prefer applyGridPattern + applyViewTransform on a world layer. */

@@ -1,12 +1,15 @@
-import { ContextMenu } from './ContextMenu';
 import { ConfirmModal } from './ConfirmModal';
 import { theme } from '../theme';
 import { initMonacoEditor } from './monaco-bootstrap';
 import { renderMarkdownToHtml } from './markdown-render';
 import { reportFailure } from '../health/monitor';
 import { showToast } from './toast';
+import { refuseOversized } from './monaco-editor/open-guard';
 import { buildIdeEditorState, IdeStatePusher, type EditorTab as Tab } from './monaco-editor/ide-state';
 import { languageForExtension } from './monaco-editor/languages';
+import { EditorTabBar } from './monaco-editor/tab-bar';
+import { MediaViewer } from './monaco-editor/media-viewer';
+import { mediaKindForPath } from '../../shared/media';
 
 export class MonacoEditorWindow {
   onStateChange: (() => void) | null = null;
@@ -15,6 +18,8 @@ export class MonacoEditorWindow {
   private el: HTMLDivElement;
   private editorEl: HTMLDivElement;
   private markdownPreviewEl: HTMLDivElement;
+  private mediaViewer: MediaViewer;
+  private tabBar: EditorTabBar;
   tabs: Tab[] = [];
   activeTab: string | null = null;
   private fileContents = new Map<string, string>();
@@ -80,8 +85,23 @@ export class MonacoEditorWindow {
     this.markdownPreviewEl.style.cssText = 'position:absolute;left:0;right:0;top:30px;bottom:0;overflow:auto;display:none;';
     this.el.appendChild(this.markdownPreviewEl);
 
+    this.mediaViewer = new MediaViewer(this.el);
+
+    this.tabBar = new EditorTabBar(this.tabContainer, {
+      activate: (filePath) => this.switchTab(filePath),
+      close: (filePath) => { void this.closeTab(filePath); },
+      closeOthers: (filePath) => { void this.closeOtherTabs(filePath); },
+      closeAll: () => { void this.closeAllTabs(); },
+      reorder: (fromIndex, toIndex) => {
+        const [moved] = this.tabs.splice(fromIndex, 1);
+        this.tabs.splice(toIndex, 0, moved);
+        this.renderTabs();
+        this.onStateChange?.();
+      },
+    });
+
     container.appendChild(this.el);
-    this.initTabDummies();
+    this.renderTabs();
   }
 
   /** Boot Monaco on demand; every path that needs a live editor goes through here. */
@@ -90,116 +110,8 @@ export class MonacoEditorWindow {
     return this.ready;
   }
 
-  private initTabDummies(): void {
-    const empty = document.createElement('span');
-    empty.className = 'editor-empty';
-    empty.textContent = 'No file selected';
-    this.tabContainer.appendChild(empty);
-  }
-
-  private clearTabDummies(): void {
-    this.tabContainer.querySelectorAll('span').forEach(s => {
-      if (s.textContent === 'No file selected') s.remove();
-    });
-  }
-
   private renderTabs(): void {
-    this.tabContainer.innerHTML = '';
-    this.clearTabDummies();
-
-    if (this.tabs.length === 0) {
-      this.initTabDummies();
-      return;
-    }
-
-    for (const tab of this.tabs) {
-      const isActive = tab.filePath === this.activeTab;
-      const isDirty = this.dirtyFiles.has(tab.filePath);
-      const tabEl = document.createElement('div');
-      tabEl.className = 'editor-tab' + (isActive ? ' is-active' : '') + (isDirty ? ' is-dirty' : '') + (tab.kind === 'markdown' ? ' is-markdown' : '');
-      tabEl.title = tab.filePath;
-      tabEl.draggable = true;
-
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'editor-tab-name';
-      nameSpan.textContent = (tab.kind === 'markdown' ? '◈ ' : '') + tab.name;
-      tabEl.appendChild(nameSpan);
-
-      const closeBtn = document.createElement('span');
-      closeBtn.className = 'editor-tab-close';
-      closeBtn.textContent = '✕';
-
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.closeTab(tab.filePath);
-      });
-
-      tabEl.addEventListener('click', () => this.switchTab(tab.filePath));
-
-      // Middle-click to close
-      tabEl.addEventListener('mousedown', (e) => {
-        if (e.button === 1) {
-          e.preventDefault();
-          this.closeTab(tab.filePath);
-        }
-      });
-
-      // Drag-and-drop reorder
-      tabEl.addEventListener('dragstart', (e) => {
-        e.dataTransfer?.setData('text/plain', tab.filePath);
-        tabEl.classList.add('is-dragging');
-      });
-      tabEl.addEventListener('dragover', (e) => { e.preventDefault(); });
-      tabEl.addEventListener('dragenter', (e) => {
-        e.preventDefault();
-        tabEl.classList.add('is-dragover');
-      });
-      tabEl.addEventListener('dragleave', () => {
-        tabEl.classList.remove('is-dragover');
-      });
-      tabEl.addEventListener('drop', (e) => {
-        e.preventDefault();
-        tabEl.classList.remove('is-dragover');
-        const draggedPath = e.dataTransfer?.getData('text/plain');
-        if (!draggedPath || draggedPath === tab.filePath) return;
-        const fromIdx = this.tabs.findIndex(t => t.filePath === draggedPath);
-        const toIdx = this.tabs.findIndex(t => t.filePath === tab.filePath);
-        if (fromIdx === -1 || toIdx === -1) return;
-        const [moved] = this.tabs.splice(fromIdx, 1);
-        this.tabs.splice(toIdx, 0, moved);
-        this.renderTabs();
-        this.onStateChange?.();
-      });
-
-      // Right-click context menu
-      tabEl.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        new ContextMenu([
-          { label: 'Close', action: () => this.closeTab(tab.filePath) },
-          { label: 'Close Others', action: () => this.closeOtherTabs(tab.filePath) },
-          { label: 'Close All', action: () => this.closeAllTabs() },
-          { separator: true },
-          { label: 'Copy File Path', action: () => { window.electronAPI?.clipboard.writeText(tab.originalPath); } },
-        ], e.clientX, e.clientY);
-      });
-
-      tabEl.appendChild(closeBtn);
-      this.tabContainer.appendChild(tabEl);
-    }
-
-    // Auto-scroll active tab into view (manual scrollLeft to avoid ancestor overflow:hidden scroll)
-    const activeEl = this.tabContainer.querySelector('.is-active') as HTMLElement;
-    if (activeEl) {
-      const container = this.tabContainer;
-      const tabLeft = activeEl.offsetLeft;
-      const tabRight = tabLeft + activeEl.offsetWidth;
-      if (tabLeft < container.scrollLeft) {
-        container.scrollLeft = tabLeft;
-      } else if (tabRight > container.scrollLeft + container.clientWidth) {
-        container.scrollLeft = tabRight - container.clientWidth;
-      }
-    }
+    this.tabBar.render(this.tabs, this.activeTab, this.dirtyFiles);
   }
 
   private getLanguage(ext: string): string {
@@ -212,6 +124,15 @@ export class MonacoEditorWindow {
     const lcPath = filePath.toLowerCase();
     const tab = this.tabs.find(t => t.filePath === lcPath);
     if (!tab) return;
+
+    // Media tabs have no text buffer: reload the stream (or close if deleted).
+    if (tab.kind && tab.kind !== 'markdown') {
+      const meta = await window.electronAPI?.fs.stat(tab.originalPath);
+      if (meta === null) { await this.closeTab(lcPath); return; }
+      this.mediaViewer.refresh(tab.originalPath);
+      return;
+    }
+
     const content = await window.electronAPI?.fs.readFile(tab.originalPath);
     if (content === null) {
       // Gone from disk — a dirty buffer is the only copy left, so keep it.
@@ -265,7 +186,6 @@ export class MonacoEditorWindow {
 
   async openFile(filePath: string): Promise<void> {
     if (this.destroyed) return;
-    await this.ensureReady();
     const normalized = filePath.replace(/\\/g, '/');
     const lcPath = normalized.toLowerCase();
     const name = normalized.split('/').pop() || normalized;
@@ -278,6 +198,18 @@ export class MonacoEditorWindow {
       return;
     }
 
+    // Media never touches Monaco or the text bridge: the viewer streams bytes
+    // over cockpit-media:// and ranges for video.
+    const mediaKind = mediaKindForPath(normalized);
+    if (mediaKind) {
+      this.tabs.push({ filePath: lcPath, name, originalPath: normalized, kind: mediaKind });
+      this.switchTab(lcPath);
+      this.onStateChange?.();
+      return;
+    }
+
+    await this.ensureReady();
+    if (await refuseOversized(normalized, name)) return;
     const content = await window.electronAPI?.fs.readFile(normalized) || '';
     this.fileContents.set(lcPath, content);
 
@@ -301,6 +233,7 @@ export class MonacoEditorWindow {
       return;
     }
 
+    if (await refuseOversized(normalized, name)) return;
     const content = await window.electronAPI?.fs.readFile(normalized) || '';
     this.fileContents.set(lcPath, content);
 
@@ -316,10 +249,10 @@ export class MonacoEditorWindow {
     const tab = this.tabs.find(t => t.filePath === lcPath);
     if (!tab) return;
 
-    // Persist the code editor's current state only when leaving a code tab —
-    // the Monaco buffer doesn't hold markdown previews.
+    // Persist the code editor's current state only when leaving a source tab —
+    // neither the Monaco buffer nor the cursor applies to preview tabs.
     const prev = this.activeTab ? this.tabs.find(t => t.filePath === this.activeTab) : null;
-    if (this.editor && this.activeTab && (!prev || prev.kind !== 'markdown')) {
+    if (this.editor && this.activeTab && !prev?.kind) {
       if (this.editor.getValue && this.editor.getPosition) {
         this.fileContents.set(this.activeTab, this.editor.getValue());
         const pos = this.editor.getPosition();
@@ -336,7 +269,7 @@ export class MonacoEditorWindow {
     this.activeTab = lcPath;
     this.activateTabView(tab);
 
-    if (tab.kind !== 'markdown' && this.editor) {
+    if (!tab.kind && this.editor) {
       const saved = this.savedCursors[lcPath];
       if (saved) {
         this.editor.setPosition({ lineNumber: saved.lineNumber, column: saved.column });
@@ -349,14 +282,28 @@ export class MonacoEditorWindow {
     this.onFileActivated?.(tab.originalPath || tab.filePath);
   }
 
-  /** Show Monaco for code tabs, the rendered preview for markdown tabs. */
+  /** Show Monaco for source tabs; markdown/media previews replace it otherwise. */
   private activateTabView(tab: Tab): void {
     if (tab.kind === 'markdown') {
+      this.mediaViewer.hide();
       this.editorEl.style.display = 'none';
       this.renderMarkdownPreview(this.fileContents.get(tab.filePath) || '');
       this.markdownPreviewEl.style.display = '';
       return;
     }
+    if (tab.kind) {
+      this.markdownPreviewEl.style.display = 'none';
+      this.editorEl.style.display = 'none';
+      if (this.editor) {
+        // Drop the previous file's buffer so agent reads can't see stale text.
+        this.suppressDirty = true;
+        this.editor.setValue('');
+        this.suppressDirty = false;
+      }
+      this.mediaViewer.show({ name: tab.name, originalPath: tab.originalPath, kind: tab.kind });
+      return;
+    }
+    this.mediaViewer.hide();
     this.markdownPreviewEl.style.display = 'none';
     this.editorEl.style.display = '';
     if (this.editor) {
@@ -412,6 +359,7 @@ export class MonacoEditorWindow {
         this.switchTab(this.tabs[newIdx].filePath);
       } else {
         this.activeTab = null;
+        this.mediaViewer.clear();
         this.markdownPreviewEl.style.display = 'none';
         this.editorEl.style.display = '';
         if (this.editor) { this.suppressDirty = true; this.editor.setValue(''); this.suppressDirty = false; }
@@ -457,6 +405,7 @@ export class MonacoEditorWindow {
     this.dirtyFiles.clear();
     this.savedCursors = {};
     this.activeTab = null;
+    this.mediaViewer.clear();
     this.markdownPreviewEl.style.display = 'none';
     this.editorEl.style.display = '';
     if (this.editor) { this.suppressDirty = true; this.editor.setValue(''); this.suppressDirty = false; }
@@ -586,7 +535,7 @@ export class MonacoEditorWindow {
   async saveCurrentFile(): Promise<boolean> {
     if (!this.activeTab || !this.editor) return false;
     const tab = this.tabs.find(t => t.filePath === this.activeTab);
-    if (!tab || tab.kind === 'markdown') return false;
+    if (!tab || tab.kind) return false;
     const content = this.editor.getValue();
     if (content === undefined) return false;
     const lcPath = this.activeTab;
@@ -633,6 +582,7 @@ export class MonacoEditorWindow {
     }
     this.statePusher.dispose();
     this.disposeEditor();
+    this.mediaViewer.destroy();
     this.tabs = [];
     this.fileContents.clear();
     this.dirtyFiles.clear();
@@ -646,7 +596,7 @@ export class MonacoEditorWindow {
 
     if (this.activeTab && this.editor) {
       const activeTab = this.tabs.find(t => t.filePath === this.activeTab);
-      if (!activeTab || activeTab.kind !== 'markdown') {
+      if (!activeTab || !activeTab.kind) {
         const pos = this.editor.getPosition();
         if (pos) {
           this.savedCursors[this.activeTab] = {

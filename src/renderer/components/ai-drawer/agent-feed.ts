@@ -142,14 +142,17 @@ export class AgentFeed {
     }
   }
 
-  /** Drop finished tabs (files stay on disk — D8). */
-  purgeFinished(): void {
+  /** Drop finished tabs, including replayed ones. Transcript files stay on disk. */
+  purgeFinished(): AgentId[] {
+    const purged: AgentId[] = [];
     for (const [id, t] of this.transcripts) {
-      if (['done', 'error', 'killed'].includes(t.state) && !t.archived) {
+      if (['done', 'error', 'killed'].includes(t.state)) {
         this.transcripts.delete(id);
+        purged.push(id);
       }
     }
-    this.onChange?.();
+    if (purged.length > 0) this.onChange?.();
+    return purged;
   }
 
   /** Workspace switch / new session. */

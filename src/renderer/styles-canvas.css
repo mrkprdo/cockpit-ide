@@ -14,6 +14,7 @@
   width: 0;
   height: 0;
   z-index: 1;
+  transform-origin: 0 0;
   will-change: auto;
   contain: layout style;
 }
@@ -21,22 +22,22 @@
   will-change: transform;
   pointer-events: none;
 }
+/* Pan/zoom re-rasterizes the world at a new scale. Collapse the four-layer
+   resting shadow to the two-layer contact shadow for the gesture so Blink has
+   far less blur to redraw; full elevation returns on the next idle frame. */
+.canvas-world.is-navigating .card,
 .canvas-world.is-navigating .card:hover {
-  box-shadow: none;
-  border-color: var(--border);
+  box-shadow: var(--shadow-card-drag);
+  /* The gesture must not spend 150ms interpolating four shadow layers. */
+  transition: none;
+}
+/* Restore full elevation on the release frame without animating it. */
+.canvas-world.is-settling .card {
+  transition: none;
 }
 
-/* `canvas-busy` is set on <body> while the canvas is panning/zooming or a window
-   is being dragged. These glass panels sit OUTSIDE .canvas-world, so their
-   backdrop genuinely changes every frame — the compositor re-samples and
-   re-blurs the whole panel per frame. Drop to a flat opaque fill for the
-   duration of the gesture; it restores ~120ms after the gesture ends. */
-body.canvas-busy .ai-drawer,
-body.canvas-busy .ai-float-input {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  background: var(--panel);
-}
+/* Floating shells are opaque now, so pan/zoom gestures need no backdrop-filter
+   bailout — their surfaces stay stable while the canvas underneath moves. */
 
 .canvas-grid-layer {
   position: absolute;
@@ -100,10 +101,11 @@ body.canvas-busy .ai-float-input {
   min-width: 190px;
   max-height: 240px;
   overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-s);
   padding: 4px;
+  box-shadow: var(--shadow-menu);
   z-index: var(--z-corner-panel);
 }
 .pli-item {
@@ -157,10 +159,11 @@ body.canvas-busy .ai-float-input {
   right: 2px;
   bottom: 20px;
   min-width: 160px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--card-face);
+  border: none;
   border-radius: var(--radius-s);
   padding: 4px;
+  box-shadow: var(--shadow-menu);
   z-index: var(--z-corner-panel);
 }
 .arr-item {
